@@ -95,6 +95,7 @@ __all__ = (
     "ValidationTokenHostType",
     "ViewerMtlsModeType",
     "ViewerProtocolPolicyType",
+    "VpcIpAddressTypeType",
     "WaiterName",
 )
 
@@ -190,7 +191,9 @@ MinimumProtocolVersionType = Literal[
     "TLSv1_2016",
 ]
 OriginAccessControlOriginTypesType = Literal["lambda", "mediapackagev2", "mediastore", "s3"]
-OriginAccessControlSigningBehaviorsType = Literal["always", "never", "no-override"]
+OriginAccessControlSigningBehaviorsType = Literal[
+    "always", "always-amz-auth", "never", "no-override"
+]
 OriginAccessControlSigningProtocolsType = Literal["sigv4", "sigv4a"]
 OriginGroupSelectionCriteriaType = Literal["default", "media-quality-based"]
 OriginProtocolPolicyType = Literal["http-only", "https-only", "match-viewer"]
@@ -223,6 +226,7 @@ TrustStoreStatusType = Literal["active", "failed", "pending"]
 ValidationTokenHostType = Literal["cloudfront", "self-hosted"]
 ViewerMtlsModeType = Literal["optional", "passthrough", "required"]
 ViewerProtocolPolicyType = Literal["allow-all", "https-only", "redirect-to-https"]
+VpcIpAddressTypeType = Literal["dualstack", "ipv4"]
 CloudFrontServiceName = Literal["cloudfront"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -377,13 +381,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -451,6 +454,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -585,6 +589,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -635,7 +640,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -50,6 +50,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     session.on(event, callback);
     listeners.push([event, callback]);
   };
+  let observedHttp = false;
+  listen("Network.requestWillBeSent", ({ request }) => {
+    if (/^https?:\/\//i.test(request.url)) observedHttp = true;
+  });
   const bodies = new Map();
   const streams = new Map();
   const fontBodies = new Map();
@@ -68,9 +72,26 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     // request. These bodies are decoded; the selected Content-Encoding still
     // must match as part of the complete response-header identity below.
     const vary = (new Map(responseHeaders).get("vary") || "").toLowerCase().split(",").map((name) => name.trim()).filter((name) => name && name !== "accept-encoding");
-    // Cached CDP events omit some request headers. An unobservable Vary key
-    // cannot establish that an earlier body belongs to this cache entry.
-    if (vary.some((name) => name === "*" || !requestHeaders.has(name))) return;
+    if (vary.includes("*")) return;
+    const observableVary = vary.every((name) => requestHeaders.has(name));
+    // MHTML serialization's EmulateLoadStartedForInspector creates a URL-only
+    // request for an existing FontResource. It retains that resource's original
+    // network timing, connection and response headers, but omits Origin etc.
+    // Identify the observed response itself; never infer missing request headers.
+    const { responseTime, connectionId, timing, fromServiceWorker } = event.response;
+    const transportIdentity = !fromServiceWorker &&
+      [responseTime, connectionId, timing?.requestTime].every((value) => Number.isFinite(value) && value > 0)
+      ? JSON.stringify(["font-response", stream.url, stream.method, event.response.status,
+        responseHeaders, responseTime, connectionId, timing]) : null;
+    if (!stream.cached && transportIdentity) fontBodies.set(transportIdentity, stream);
+    if (!observableVary) {
+      const previous = stream.cached && transportIdentity && fontBodies.get(transportIdentity);
+      const previousHeaders = previous && new Map(headerIdentity(previous.requestHeaders));
+      if (previous && vary.every((name) => !requestHeaders.has(name) || requestHeaders.get(name) === previousHeaders.get(name))) {
+        stream.previousFont = previous;
+      }
+      return;
+    }
     const identity = JSON.stringify([stream.url, stream.method, event.response.status,
       vary.map((name) => [name, requestHeaders.get(name)]), responseHeaders]);
     if (stream.cached) stream.previousFont = fontBodies.get(identity);
@@ -150,7 +171,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         }
         // Spool completed bodies before the remote output queue can delay them
         // and let newer responses evict their raw bytes from Chrome's cache.
-        const result = await session.send("Network.getResponseBody", { requestId: event.requestId });
+        // Durable bodies belong to the root session's collector. The owning
+        // renderer can detach immediately after receiving the complete body.
+        const result = await mainClient.send("Network.getResponseBody", { requestId: event.requestId });
         const body = Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
         if (body.length !== stream.receivedBytes) {
           throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}`);
@@ -245,6 +268,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       // Synthetic data/blob responses have no HTTP wire-body cache. Keep
       // Puppeteer's existing body handling for these browser-owned resources.
       if (!/^https?:\/\//i.test(response.url())) return undefined;
+      observedHttp = true;
       if (setupError) throw setupError;
       if (!suppliedSession && response.request().client !== mainClient) {
         const reader = children.get(response.request().client);
@@ -257,11 +281,11 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       if (!stream && resourceTypes && resourceType !== "document" &&
           (!resourceTypes.length || resourceTypes.includes(resourceType))) {
         // Puppeteer's requestfinished can precede this CDP session's queued
-        // request events. Read on this session before deciding it was untracked.
+        // request events. Read the durable body before deciding it was untracked.
         let result;
         let error;
         try {
-          result = await session.send("Network.getResponseBody", { requestId: id });
+          result = await mainClient.send("Network.getResponseBody", { requestId: id });
         } catch (caught) {
           error = caught;
         }
@@ -306,7 +330,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       onClosed();
       await Promise.allSettled([...streams.values()].map((stream) => stream.saved));
       if (directory && !sharedDirectory) await fs.promises.rm(await directory, { recursive: true, force: true });
-      if (setupError) throw setupError;
+      // An unused worker can exit during Network setup. Its destruction is
+      // not a failed response; any owned HTTP work still reports the error.
+      if (setupError && (setupError.name !== "TargetCloseError" || !session.detached || observedHttp)) throw setupError;
       const failed = closed.find((result) => result.status === "rejected");
       if (failed) throw failed.reason;
     },

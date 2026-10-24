@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: firebird-driver
-Version: 2.0.3
+Version: 2.1.0
 Summary: Firebird driver for Python
 Project-URL: Home, https://github.com/FirebirdSQL/python3-driver
 Project-URL: Documentation, https://firebird-driver.rtfd.io
@@ -41,6 +41,8 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development
 Requires-Python: >=3.11
@@ -70,6 +72,7 @@ enhancements for convenient use of Firebird RDBMS.
 **Table of Contents**
 
 - [Installation](#installation)
+- [Agent skill](#agent-skill)
 - [License](#license)
 - [Documentation](#documentation)
 
@@ -83,6 +86,26 @@ pip install firebird-driver
 See [firebird-lib](https://pypi.org/project/firebird-lib/) package for optional extensions
 to this driver.
 
+## Agent skill
+
+This repository includes a [skill for coding with firebird-driver](skills/firebird-driver-python/SKILL.md).
+For releases that include the skill archive, download `firebird-driver-<version>-skill.zip`
+from [GitHub Releases](https://github.com/FirebirdSQL/python3-driver/releases). Choose the
+release matching the driver version you use. The ZIP contains the complete
+`firebird-driver-python/` directory, including `SKILL.md` and `references/`. Extract it into
+`~/.codex/skills/` for Codex, `~/.claude/skills/` for Claude Code, or `~/.gemini/skills/` for
+Gemini CLI.
+
+To install from the repository instead, run these commands in a directory where you want to
+keep a checkout (Unix-like shell):
+
+```sh
+git clone --depth 1 --filter=blob:none --sparse https://github.com/FirebirdSQL/python3-driver.git firebird-driver-skill-source
+git -C firebird-driver-skill-source sparse-checkout set skills/firebird-driver-python
+```
+
+Then copy the skill into the directory for each agent you use.
+
 ## License
 
 `firebird-driver` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
@@ -93,23 +116,5 @@ The documentation for this package is available at [https://firebird-driver.read
 
 ## Running tests
 
-This project uses [hatch](https://hatch.pypa.io/latest/) , so you can use:
-```console
-hatch test
-```
-to run all tests for default Python version (3.11). To run tests for all Python versions
-defined in matrix, use `-a` switch.
-
-This project is using [pytest](https://docs.pytest.org/en/stable/) for testing, and our
-tests add several options via `tests/conftest.py`.
-
-By default, tests are configured to use local Firebird installation via network access.
-To use local installation in `embedded` mode, comment out the section:
-```
-[tool.hatch.envs.hatch-test]
-extra-args = ["--host=localhost"]
-```
-in `pyproject.toml`.
-
-You can also use firebird driver configuration file to specify server(s) that should be
-used for testing, and then pass `--driver-config` and `--server` options to `pytest`.
+See [development/README.md](development/README.md) for the Firebird test setup, Hatch
+commands, and development workflow.

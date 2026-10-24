@@ -13,12 +13,6 @@ use crate::bitvec::BitVec2048;
 use crate::ecfp::{EcfpConfig, ecfp};
 use crate::rdkit_morgan_ecfp4::{RdkitMorganError, rdkit_morgan_ecfp4_bitvec};
 
-/// Numerical slack used only when deciding whether a computed rational
-/// Tanimoto score is equal to a caller-provided floating-point threshold.
-/// Scores and ordering remain unmodified. This covers one-ulp differences
-/// between language runtimes for values such as 17/42.
-const TANIMOTO_THRESHOLD_EPSILON: f64 = 1e-15;
-
 // ---------------------------------------------------------------------------
 // Fingerprint type selector
 // ---------------------------------------------------------------------------
@@ -181,9 +175,9 @@ impl PreparedFingerprintIndex {
 
     /// Search with an inclusive Tanimoto threshold.
     ///
-    /// Unlike [`Self::search_fp`], a threshold of `0.0` includes zero-score
-    /// candidates. Results are ordered by descending score and then database
-    /// index, matching the top-k search contract.
+    /// A threshold of `0.0` includes zero-score candidates. Results are
+    /// ordered by descending score and then database index, matching the
+    /// top-k search contract.
     pub fn search_fp_threshold(
         &self,
         query_fp: &BitVec2048,
@@ -233,7 +227,9 @@ impl PreparedFingerprintIndex {
 ///
 /// Returns `Vec<(db_index, tanimoto)>` where `db_index` is the 0-based
 /// position in `db`.  If `db` has fewer than `k` molecules, all are returned.
-/// Molecules with Tanimoto = 0.0 are excluded unless every molecule scores 0.
+/// Zero-score molecules remain eligible so the result contains
+/// `min(k, db.len())` entries, even when the query shares no fingerprint bits
+/// with some or all database molecules.
 pub fn nearest_neighbors(
     query: &Molecule,
     db: &[Molecule],
@@ -284,7 +280,6 @@ pub fn nearest_neighbors_from_fp(
                 query_fp.tanimoto_with_counts_f64(fp, query_popcount, fp.popcount()),
             )
         })
-        .filter(|(_, t)| *t > 0.0)
         .collect();
 
     rank_top_k(&mut scores, k);
@@ -312,7 +307,6 @@ fn nearest_neighbors_from_prepared_fp(
                 query_fp.tanimoto_with_counts_f64(fp, query_popcount, popcount),
             )
         })
-        .filter(|(_, t)| *t > 0.0)
         .collect();
     rank_top_k(&mut scores, k);
     scores
@@ -340,9 +334,7 @@ fn nearest_neighbors_from_prepared_fp_threshold(
                 query_fp.tanimoto_with_counts_f64(fp, query_popcount, popcount),
             )
         })
-        .filter(|(_, score)| {
-            *score >= threshold || (*score - threshold).abs() <= TANIMOTO_THRESHOLD_EPSILON
-        })
+        .filter(|(_, score)| *score >= threshold)
         .collect();
     rank_top_k(&mut scores, k);
     scores
@@ -529,6 +521,25 @@ mod tests {
     }
 
     #[test]
+    fn threshold_search_excludes_a_score_one_ulp_below_the_cutoff() {
+        // RDKit 2026.09.1: a two-bit query and one-bit candidate have
+        // Tanimoto 0.5, which must fail a threshold of nextafter(0.5, 1.0).
+        let mut query = BitVec2048::new();
+        query.set(1);
+        query.set(2);
+        let mut candidate = BitVec2048::new();
+        candidate.set(1);
+        let index = PreparedFingerprintIndex {
+            fp_type: FpType::Ecfp4,
+            fingerprints: vec![candidate],
+            popcounts: vec![1],
+        };
+        let cutoff = f64::from_bits(0.5_f64.to_bits() + 1);
+        assert_eq!(index.search_fp_threshold(&query, 0.5, 1), vec![(0, 0.5)]);
+        assert!(index.search_fp_threshold(&query, cutoff, 1).is_empty());
+    }
+
+    #[test]
     fn threshold_search_rejects_invalid_thresholds() {
         let query = benzene();
         let index = PreparedFingerprintIndex::new(&[benzene()], FpType::Ecfp4);
@@ -539,5 +550,41 @@ mod tests {
                 .is_empty()
         );
         assert!(index.search_threshold(&query, f64::NAN, 10).is_empty());
+    }
+
+    #[test]
+    fn top_k_includes_zero_scores_with_stable_database_order() {
+        let mut query = BitVec2048::new();
+        query.set(1);
+        let mut matching = BitVec2048::new();
+        matching.set(1);
+        let mut disjoint = BitVec2048::new();
+        disjoint.set(2);
+        let db = [disjoint.clone(), matching, disjoint, BitVec2048::new()];
+        let index = PreparedFingerprintIndex {
+            fp_type: FpType::Ecfp4,
+            fingerprints: db.to_vec(),
+            popcounts: db.iter().map(BitVec2048::popcount).collect(),
+        };
+        let expected = vec![(1, 1.0), (0, 0.0), (2, 0.0), (3, 0.0)];
+        assert_eq!(nearest_neighbors_from_fp(&query, &db, 4), expected);
+        assert_eq!(index.search_fp(&query, 4), expected);
+        assert_eq!(index.search_fp_threshold(&query, 0.0, 4), expected);
+        assert_eq!(index.search_fp(&query, 2), expected[..2]);
+    }
+
+    #[test]
+    fn rdkit_morgan_top_k_retains_disjoint_molecules() {
+        // RDKit 2026.09.1 Morgan radius=2, size=2048 gives C/C=1 and
+        // C/N=C/O=C/CC=0; top-k must still return the requested four rows.
+        let query = parse("C").unwrap();
+        let db = ["N", "C", "O", "CC"].map(|s| parse(s).unwrap());
+        let index = PreparedFingerprintIndex::try_new(&db, FpType::RdkitEcfp4).unwrap();
+        let expected = vec![(1, 1.0), (0, 0.0), (2, 0.0), (3, 0.0)];
+        assert_eq!(index.try_search(&query, 4).unwrap(), expected);
+        assert_eq!(
+            try_nearest_neighbors(&query, &db, 4, FpType::RdkitEcfp4).unwrap(),
+            expected
+        );
     }
 }

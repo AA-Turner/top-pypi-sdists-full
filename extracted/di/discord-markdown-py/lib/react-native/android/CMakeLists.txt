@@ -11,17 +11,20 @@ set_target_properties(discordmarkdown_cxxmodule PROPERTIES POSITION_INDEPENDENT_
 
 target_include_directories(discordmarkdown_cxxmodule PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../cpp)
 
-# The Rust parser, cross-compiled by the cargoBuildRust Gradle task when building inside the
-# discord/markdown repo, or shipped prebuilt in the npm package.
-add_library(discord_markdown_c STATIC IMPORTED)
-set_target_properties(discord_markdown_c PROPERTIES
-	IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/${ANDROID_ABI}/libdiscord_markdown_c.a)
+# The Rust parser (ffi/jni), cross-compiled by the cargoBuildRust Gradle task when building
+# inside the discord/markdown repo, or shipped prebuilt in the npm package. One shared library
+# carries both the C ABI this module calls and the JNI entry points, so the Kotlin wrapper
+# (DiscordMarkdown.kt) loads the same copy instead of the APK carrying two; the Android Gradle
+# plugin packages IMPORTED shared libraries into the APK on its own.
+add_library(discord_markdown_jni SHARED IMPORTED)
+set_target_properties(discord_markdown_jni PROPERTIES
+	IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/${ANDROID_ABI}/libdiscord_markdown_jni.so)
 
 # Plain (non-keyword) signature: React Native's ReactNative-application.cmake links
 # `common_flags` into every autolinked target with the plain signature, and CMake forbids
 # mixing the two forms on one target.
 target_link_libraries(discordmarkdown_cxxmodule
-	discord_markdown_c
+	discord_markdown_jni
 	jsi
 	reactnative
 	react_codegen_RNDiscordMarkdownSpec)

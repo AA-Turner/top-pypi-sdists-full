@@ -1,7 +1,7 @@
 import { Markup } from "@bokehjs/models/widgets/markup";
 import { PanelMarkupView } from "./layout";
+import { define_external_resources, load_resources } from "./resources";
 export class KaTeXView extends PanelMarkupView {
-    static __name__ = "KaTeXView";
     connect_signals() {
         super.connect_signals();
         const { text } = this.model.properties;
@@ -24,13 +24,17 @@ export class KaTeXView extends PanelMarkupView {
     }
 }
 export class KaTeX extends Markup {
-    static __name__ = "KaTeX";
     constructor(attrs) {
         super(attrs);
     }
     static __module__ = "panel.models.katex";
     static {
         this.prototype.default_view = KaTeXView;
+        define_external_resources(this);
+    }
+    initialize() {
+        super.initialize();
+        load_resources(this);
     }
 }
 //# sourceMappingURL=katex.js.map

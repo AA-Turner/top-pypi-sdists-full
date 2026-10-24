@@ -128,8 +128,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -225,8 +227,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -322,8 +326,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -488,8 +494,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -561,8 +569,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -634,8 +644,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -763,8 +775,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -832,8 +846,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -901,8 +917,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1059,8 +1077,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1160,8 +1180,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1261,8 +1283,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1375,7 +1399,7 @@ class OrganizationAuditApi:
     @validate_call
     def update_audit_settings_organizations(
         self,
-        audit_settings_update_request: AuditSettingsUpdateRequest,
+        audit_settings_update_request: Annotated[AuditSettingsUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1393,7 +1417,7 @@ class OrganizationAuditApi:
 
         Update audit configuration for the organization.  Use this to enable or disable read auditing. Requires ADMIN permission.
 
-        :param audit_settings_update_request: (required)
+        :param audit_settings_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type audit_settings_update_request: AuditSettingsUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1431,8 +1455,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1448,7 +1474,7 @@ class OrganizationAuditApi:
     @validate_call
     def update_audit_settings_organizations_with_http_info(
         self,
-        audit_settings_update_request: AuditSettingsUpdateRequest,
+        audit_settings_update_request: Annotated[AuditSettingsUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1466,7 +1492,7 @@ class OrganizationAuditApi:
 
         Update audit configuration for the organization.  Use this to enable or disable read auditing. Requires ADMIN permission.
 
-        :param audit_settings_update_request: (required)
+        :param audit_settings_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type audit_settings_update_request: AuditSettingsUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1504,8 +1530,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1521,7 +1549,7 @@ class OrganizationAuditApi:
     @validate_call
     def update_audit_settings_organizations_without_preload_content(
         self,
-        audit_settings_update_request: AuditSettingsUpdateRequest,
+        audit_settings_update_request: Annotated[AuditSettingsUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1539,7 +1567,7 @@ class OrganizationAuditApi:
 
         Update audit configuration for the organization.  Use this to enable or disable read auditing. Requires ADMIN permission.
 
-        :param audit_settings_update_request: (required)
+        :param audit_settings_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type audit_settings_update_request: AuditSettingsUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1577,8 +1605,10 @@ class OrganizationAuditApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

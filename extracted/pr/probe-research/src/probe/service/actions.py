@@ -53,6 +53,7 @@ from pathlib import Path
 from . import children, loginenv, paths, procid
 from .protocol import (
     ACTIONS,
+    ORIGIN_DESKTOP,
     REPORT_TRIGGERS,
     Action,
     ActionState,
@@ -338,7 +339,7 @@ class ActionManager:
         if trigger is not None and (action != Action.UPDATE or trigger not in REPORT_TRIGGERS):
             raise invalid_params(f"trigger is for the update action only, one of {sorted(REPORT_TRIGGERS)}")
         origin = params.get("origin")
-        if origin is not None and origin != "desktop":
+        if origin is not None and origin != ORIGIN_DESKTOP:
             raise invalid_params("origin must be desktop when supplied")
         crid = params.get("client_request_id")
         if not isinstance(crid, str) or not crid or len(crid) > 128:
@@ -393,7 +394,7 @@ class ActionManager:
         env = dict(env_extra)
         # Never infer a human from client=app: startup/scheduled update checks
         # use that client too. Only an explicit action carries this provenance.
-        env[DESKTOP_HUMAN_ENV] = "1" if origin == "desktop" else "0"
+        env[DESKTOP_HUMAN_ENV] = "1" if origin == ORIGIN_DESKTOP else "0"
         if action == Action.UPDATE:
             # By default a person's Update (the app's button).
             env[TRIGGER_ENV] = trigger or ReportTrigger.MANUAL
@@ -402,6 +403,20 @@ class ActionManager:
         task.add_done_callback(self._tasks.discard)
         self.changed()
         return {"action_id": action_id}
+
+    def existing(self, params: dict) -> dict | None:
+        """`action.run`'s answer for a `client_request_id` already accepted in
+        the last DEDUPE_S (`{action_id, existing: true}`), else None. Starts
+        nothing, so the service answers it before any check of the caller: a
+        retry of a request accepted once must never read as refused (its
+        sender would then run it itself as well)."""
+        crid = params.get("client_request_id")
+        if not isinstance(crid, str) or not crid:
+            return None
+        known = self.by_request.get(crid)
+        if known is not None and _now() - known[1] < DEDUPE_S and known[0] in self.records:
+            return {"action_id": known[0], "existing": True}
+        return None
 
     def _record(self, params: dict) -> Record:
         action_id = params.get("action_id")
@@ -437,7 +452,17 @@ class ActionManager:
             )
         process = record.process
         sent = False
-        if process is not None and getattr(process, "returncode", None) is None:
+        if os.name == "nt":
+            # Windows: CTRL_BREAK to the child's own process group (it shares
+            # the service's hidden console), which arrives as SIGBREAK: the
+            # child stops only inside its approval wait, as SIGINT does on
+            # POSIX, never in a write. Nothing is sent when it cannot be
+            # delivered (no console): the approval then runs out by itself.
+            if process is not None and getattr(process, "returncode", None) is None:
+                with contextlib.suppress(OSError, ValueError):
+                    process.send_signal(signal.CTRL_BREAK_EVENT)
+                    sent = True
+        elif process is not None and getattr(process, "returncode", None) is None:
             with contextlib.suppress(ProcessLookupError):
                 process.send_signal(signal.SIGINT)
                 sent = True
@@ -542,3 +567,4 @@ class ActionManager:
             fd = self._fds.pop(action_id)
             with contextlib.suppress(OSError):
                 os.close(fd)
+

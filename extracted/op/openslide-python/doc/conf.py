@@ -29,7 +29,6 @@ needs_sphinx = '1.6'
 extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.intersphinx',
-    'jekyll_fix',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -52,7 +51,7 @@ copyright = '2010-2024 Carnegie Mellon University and others'
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-import _version  # noqa: E402  module-level-import-not-at-top-of-file
+import _version
 
 # The short X.Y version.
 version = _version.__version__

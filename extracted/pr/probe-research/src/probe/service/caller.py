@@ -23,8 +23,10 @@ process completely (the review's accepted residue).
 
 `known_endpoint` is D10: the stored token goes only where it was meant to.
 
-Stdlib only (the start path; plan S1). Linux and macOS; elsewhere every
-lookup answers "unknown" and the request's own `context` is all there is.
+Stdlib only (the start path; plan S1). Linux and macOS; on Windows the
+ancestry (by parent pid, with no start times there to pin each one) and the
+sandbox check; elsewhere every lookup answers "unknown" and the request's own
+`context` is all there is.
 """
 
 from __future__ import annotations
@@ -69,7 +71,8 @@ def peer_pid(sock: socket.socket) -> int | None:
 def confinement(pid: int) -> tuple | None:
     """What confines a process: (seccomp, its filter count, no_new_privs, mnt ns, user ns) on
     Linux, (sandboxed,) on macOS; None when it cannot be read. The hook
-    host's copy is `hooks/zygote.py::_confinement`."""
+    host's copy is `hooks/zygote.py::_confinement` (and `_sandboxed` there
+    follows `sandboxed` here, Landlock included)."""
     try:
         if sys.platform.startswith("linux"):
             fields = {}
@@ -81,6 +84,8 @@ def confinement(pid: int) -> tuple | None:
             # runs everything under seccomp and no-new-privs adds filters of its own.
             return (fields.get("Seccomp"), fields.get("Seccomp_filters"), fields.get("NoNewPrivs"),
                     os.readlink(f"/proc/{pid}/ns/mnt"), os.readlink(f"/proc/{pid}/ns/user"))
+        if os.name == "nt":
+            return _windows_confinement(pid)
         if sys.platform == "darwin":
             import ctypes
 
@@ -93,14 +98,80 @@ def confinement(pid: int) -> tuple | None:
     return None
 
 
+def _windows_confinement(pid: int) -> tuple | None:
+    """(AppContainer, restricted token, integrity RID) of a Windows process:
+    what a sandboxed child of an agent differs in (Low integrity, an
+    AppContainer, a restricted token)."""
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    adv = ctypes.WinDLL("advapi32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    adv.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD,
+                                        ctypes.POINTER(wintypes.DWORD)]
+    adv.IsTokenRestricted.argtypes = [wintypes.HANDLE]
+    adv.GetSidSubAuthorityCount.argtypes = [wintypes.LPVOID]
+    adv.GetSidSubAuthorityCount.restype = ctypes.POINTER(ctypes.c_ubyte)
+    adv.GetSidSubAuthority.argtypes = [wintypes.LPVOID, wintypes.DWORD]
+    adv.GetSidSubAuthority.restype = ctypes.POINTER(wintypes.DWORD)
+    process = k32.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not process:
+        return None
+    token = wintypes.HANDLE()
+    try:
+        if not adv.OpenProcessToken(process, 0x0008, ctypes.byref(token)):  # TOKEN_QUERY
+            return None
+        container = wintypes.DWORD(0)
+        size = wintypes.DWORD(0)
+        if not adv.GetTokenInformation(token, 29, ctypes.byref(container), ctypes.sizeof(container),
+                                       ctypes.byref(size)):  # TokenIsAppContainer
+            return None
+        adv.GetTokenInformation(token, 25, None, 0, ctypes.byref(size))  # TokenIntegrityLevel
+        buf = ctypes.create_string_buffer(max(size.value, 64))
+        if not adv.GetTokenInformation(token, 25, buf, len(buf), ctypes.byref(size)):
+            return None
+        sid = ctypes.cast(buf, ctypes.POINTER(wintypes.LPVOID))[0]  # TOKEN_MANDATORY_LABEL.Label.Sid
+        count = adv.GetSidSubAuthorityCount(sid)[0]
+        rid = adv.GetSidSubAuthority(sid, count - 1)[0] if count else None
+        return (bool(container.value), bool(adv.IsTokenRestricted(token)), rid)
+    finally:
+        if token:
+            k32.CloseHandle(token)
+        k32.CloseHandle(process)
+
+
 def sandboxed(pid: int | None) -> bool:
     """Is the caller more confined than this service (an agent's sandboxed tool
     command)? What it asks for would then run outside its sandbox, with the
-    environment and PATH it chose. Unknown counts as yes."""
+    environment and PATH it chose. Unknown counts as yes, and so does what
+    cannot be ruled out (`landlock_possible`)."""
     if pid is None:
         return True
     own, theirs = confinement(os.getpid()), confinement(pid)
-    return own is None or theirs is None or theirs != own
+    return own is None or theirs is None or theirs != own or landlock_possible(theirs)
+
+
+def landlock_possible(found: tuple) -> bool:
+    """Linux: could the process `found` describes (`confinement`) be in a
+    Landlock domain? Landlock shows in none of those fields, and a process
+    with no_new_privs set may add one whenever it likes
+    (`landlock_restrict_self` needs no_new_privs, or CAP_SYS_ADMIN). So a
+    caller with no_new_privs (here: this service has it too, or the two
+    tuples would differ) cannot be told from a sandboxed one, and counts as
+    one. Elsewhere, no.
+
+    OUTSIDE THE SUPPORTED MODEL: a caller with CAP_SYS_ADMIN (an agent run as
+    root) may add a Landlock domain WITHOUT no_new_privs, and this cannot see
+    it. Refusing every such caller would switch the service off for anyone
+    who runs as root, so it is not done: running the coding agent, or a tool
+    sandbox inside it, as root with CAP_SYS_ADMIN is not a setup the service
+    keeps a sandbox for. (A root that unshares its user namespace first is
+    in another one, and refused by the tuple above.)"""
+    return sys.platform.startswith("linux") and len(found) >= 3 and found[2] == "1"
 
 
 def ancestry(pid: int) -> list[tuple[int, str]]:

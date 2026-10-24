@@ -1,6 +1,7 @@
 Metadata-Version: 2.4
 Name: codecarbon
-Version: 3.3.1
+Version: 3.3.2
+Summary: Track and reduce the CO2 emissions of your computing
 Author: Mila, DataForGood, BCG GAMMA, Comet.ml, Haverford College
 License-Expression: MIT
 Project-URL: Homepage, https://codecarbon.io/
@@ -9,12 +10,25 @@ Project-URL: Dashboard, http://dashboard.codecarbon.io/
 Project-URL: Documentation, https://docs.codecarbon.io/
 Project-URL: Issues, https://github.com/mlco2/codecarbon/issues
 Project-URL: Changelog, https://github.com/mlco2/codecarbon/releases
+Keywords: carbon,co2,emissions,carbon-footprint,sustainability,green-ai,green-computing,energy,energy-consumption,power-consumption,rapl,gpu,machine-learning,mlops,monitoring
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Benchmark
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE

@@ -51,9 +51,9 @@ jobs:
           version: 10
           run_install: true
 
-      - uses: jetli/wasm-pack-action@v0.4.0
+      - uses: taiki-e/install-action@v2
         with:
-          version: 'v0.13.1'
+          tool: wasm-pack@0.13.1
 
       - name: Build web
         id: build

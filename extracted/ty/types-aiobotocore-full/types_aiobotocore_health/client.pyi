@@ -37,6 +37,7 @@ from .paginator import (
     DescribeEventsForOrganizationPaginator,
     DescribeEventsPaginator,
     DescribeEventTypesPaginator,
+    DescribeServiceLifecyclePaginator,
 )
 from .type_defs import (
     DescribeAffectedAccountsForOrganizationRequestTypeDef,
@@ -62,6 +63,8 @@ from .type_defs import (
     DescribeEventTypesRequestTypeDef,
     DescribeEventTypesResponseTypeDef,
     DescribeHealthServiceStatusForOrganizationResponseTypeDef,
+    DescribeServiceLifecycleRequestTypeDef,
+    DescribeServiceLifecycleResponseTypeDef,
     EmptyResponseMetadataTypeDef,
 )
 
@@ -242,6 +245,17 @@ class HealthClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_health/client/#describe_health_service_status_for_organization)
         """
 
+    async def describe_service_lifecycle(
+        self, **kwargs: Unpack[DescribeServiceLifecycleRequestTypeDef]
+    ) -> DescribeServiceLifecycleResponseTypeDef:
+        """
+        Returns lifecycle information for Amazon Web Services services, including
+        end-of-life dates, version recommendations, and lifecycle events.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_service_lifecycle.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_health/client/#describe_service_lifecycle)
+        """
+
     async def disable_health_service_access_for_organization(self) -> EmptyResponseMetadataTypeDef:
         """
         Disables Health from working with Organizations.
@@ -328,6 +342,17 @@ class HealthClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_events"]
     ) -> DescribeEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_health/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_service_lifecycle"]
+    ) -> DescribeServiceLifecyclePaginator:
         """
         Create a paginator for an operation.
 

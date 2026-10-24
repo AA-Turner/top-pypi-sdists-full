@@ -1,43 +1,24 @@
 Metadata-Version: 2.4
 Name: mp-pyrho
-Version: 0.5.1
+Version: 0.5.2
 Summary: Tools for re-griding periodic volumetric quantum chemistry data for machine-learning purposes.
 Author-email: Jimmy-Xuan Shen <jmmshn@gmail.com>
 License: modified BSD
 Project-URL: homepage, https://materialsproject.github.io/pyrho/
 Project-URL: repository, https://materialsproject.github.io/pyrho
 Keywords: machine-learning,dft,vasp,volumetric,pymatgen
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Information Technology
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Other/Nonlisted Topic
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS.md
-Requires-Dist: pymatgen>=2023.9.21
-Provides-Extra: dev
-Requires-Dist: pre-commit==4.3.0; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: numpydoc==1.9.0; extra == "docs"
-Requires-Dist: sphinx==8.2.3; extra == "docs"
-Requires-Dist: furo==2025.9.25; extra == "docs"
-Requires-Dist: m2r2==0.3.4; extra == "docs"
-Requires-Dist: ipython==9.6.0; extra == "docs"
-Requires-Dist: nbsphinx==0.9.6; extra == "docs"
-Requires-Dist: nbsphinx-link==1.3.1; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints==3.5.1; extra == "docs"
-Requires-Dist: sphinx-autoapi==3.6.1; extra == "docs"
-Requires-Dist: lxml_html_clean==0.4.3; extra == "docs"
-Provides-Extra: tests
-Requires-Dist: pytest>=7.1.2; extra == "tests"
-Requires-Dist: pytest-cov>=3.0.0; extra == "tests"
-Requires-Dist: hypothesis>=6.98.10; extra == "tests"
+Requires-Dist: pymatgen-core>=2026.4.7
 Dynamic: license-file
 
 # mp-pyrho

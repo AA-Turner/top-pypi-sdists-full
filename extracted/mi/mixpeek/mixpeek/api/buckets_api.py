@@ -48,7 +48,7 @@ class BucketsApi:
     @validate_call
     def create_bucket(
         self,
-        bucket_create_request: BucketCreateRequest,
+        bucket_create_request: Annotated[BucketCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,7 +66,7 @@ class BucketsApi:
 
         This endpoint allows you to create a new bucket with a defined schema.     A bucket is a collection of objects that conform to the schema.     The schema defines the structure and validation rules for objects in the bucket.
 
-        :param bucket_create_request: (required)
+        :param bucket_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_create_request: BucketCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -104,8 +104,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -121,7 +123,7 @@ class BucketsApi:
     @validate_call
     def create_bucket_with_http_info(
         self,
-        bucket_create_request: BucketCreateRequest,
+        bucket_create_request: Annotated[BucketCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,7 +141,7 @@ class BucketsApi:
 
         This endpoint allows you to create a new bucket with a defined schema.     A bucket is a collection of objects that conform to the schema.     The schema defines the structure and validation rules for objects in the bucket.
 
-        :param bucket_create_request: (required)
+        :param bucket_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_create_request: BucketCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -177,8 +179,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -194,7 +198,7 @@ class BucketsApi:
     @validate_call
     def create_bucket_without_preload_content(
         self,
-        bucket_create_request: BucketCreateRequest,
+        bucket_create_request: Annotated[BucketCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -212,7 +216,7 @@ class BucketsApi:
 
         This endpoint allows you to create a new bucket with a defined schema.     A bucket is a collection of objects that conform to the schema.     The schema defines the structure and validation rules for objects in the bucket.
 
-        :param bucket_create_request: (required)
+        :param bucket_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_create_request: BucketCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -250,8 +254,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -401,8 +407,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -478,8 +486,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -555,8 +565,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -694,8 +706,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -767,8 +781,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -840,8 +856,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -926,7 +944,7 @@ class BucketsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_buckets_request: Optional[ListBucketsRequest] = None,
+        list_buckets_request: Annotated[Optional[ListBucketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -960,7 +978,7 @@ class BucketsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_buckets_request:
+        :param list_buckets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_buckets_request: ListBucketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1006,8 +1024,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1031,7 +1051,7 @@ class BucketsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_buckets_request: Optional[ListBucketsRequest] = None,
+        list_buckets_request: Annotated[Optional[ListBucketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1065,7 +1085,7 @@ class BucketsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_buckets_request:
+        :param list_buckets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_buckets_request: ListBucketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1111,8 +1131,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1136,7 +1158,7 @@ class BucketsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_buckets_request: Optional[ListBucketsRequest] = None,
+        list_buckets_request: Annotated[Optional[ListBucketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1170,7 +1192,7 @@ class BucketsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_buckets_request:
+        :param list_buckets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_buckets_request: ListBucketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1216,8 +1238,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1435,8 +1459,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1540,8 +1566,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1645,8 +1673,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1766,7 +1796,7 @@ class BucketsApi:
     def patch_bucket(
         self,
         bucket_identifier: StrictStr,
-        bucket_patch_request: BucketPatchRequest,
+        bucket_patch_request: Annotated[BucketPatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -1787,7 +1817,7 @@ class BucketsApi:
 
         :param bucket_identifier: (required)
         :type bucket_identifier: str
-        :param bucket_patch_request: (required)
+        :param bucket_patch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_patch_request: BucketPatchRequest
         :param force_schema_break:
         :type force_schema_break: bool
@@ -1829,8 +1859,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1847,7 +1879,7 @@ class BucketsApi:
     def patch_bucket_with_http_info(
         self,
         bucket_identifier: StrictStr,
-        bucket_patch_request: BucketPatchRequest,
+        bucket_patch_request: Annotated[BucketPatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -1868,7 +1900,7 @@ class BucketsApi:
 
         :param bucket_identifier: (required)
         :type bucket_identifier: str
-        :param bucket_patch_request: (required)
+        :param bucket_patch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_patch_request: BucketPatchRequest
         :param force_schema_break:
         :type force_schema_break: bool
@@ -1910,8 +1942,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1928,7 +1962,7 @@ class BucketsApi:
     def patch_bucket_without_preload_content(
         self,
         bucket_identifier: StrictStr,
-        bucket_patch_request: BucketPatchRequest,
+        bucket_patch_request: Annotated[BucketPatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -1949,7 +1983,7 @@ class BucketsApi:
 
         :param bucket_identifier: (required)
         :type bucket_identifier: str
-        :param bucket_patch_request: (required)
+        :param bucket_patch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_patch_request: BucketPatchRequest
         :param force_schema_break:
         :type force_schema_break: bool
@@ -1991,8 +2025,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2091,7 +2127,7 @@ class BucketsApi:
     def update_bucket(
         self,
         bucket_identifier: StrictStr,
-        bucket_update_request: BucketUpdateRequest,
+        bucket_update_request: Annotated[BucketUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -2112,7 +2148,7 @@ class BucketsApi:
 
         :param bucket_identifier: (required)
         :type bucket_identifier: str
-        :param bucket_update_request: (required)
+        :param bucket_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_update_request: BucketUpdateRequest
         :param force_schema_break:
         :type force_schema_break: bool
@@ -2154,8 +2190,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2172,7 +2210,7 @@ class BucketsApi:
     def update_bucket_with_http_info(
         self,
         bucket_identifier: StrictStr,
-        bucket_update_request: BucketUpdateRequest,
+        bucket_update_request: Annotated[BucketUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -2193,7 +2231,7 @@ class BucketsApi:
 
         :param bucket_identifier: (required)
         :type bucket_identifier: str
-        :param bucket_update_request: (required)
+        :param bucket_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_update_request: BucketUpdateRequest
         :param force_schema_break:
         :type force_schema_break: bool
@@ -2235,8 +2273,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2253,7 +2293,7 @@ class BucketsApi:
     def update_bucket_without_preload_content(
         self,
         bucket_identifier: StrictStr,
-        bucket_update_request: BucketUpdateRequest,
+        bucket_update_request: Annotated[BucketUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         force_schema_break: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -2274,7 +2314,7 @@ class BucketsApi:
 
         :param bucket_identifier: (required)
         :type bucket_identifier: str
-        :param bucket_update_request: (required)
+        :param bucket_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bucket_update_request: BucketUpdateRequest
         :param force_schema_break:
         :type force_schema_break: bool
@@ -2316,8 +2356,10 @@ class BucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -105,7 +105,7 @@ OWNERS: dict[str, str] = {
     "notes delete": DAEMON, "notes edit": DAEMON, "notes list": READ, "notes push": DAEMON, "notes rename": DAEMON,
     "notes show": READ, "notes status": READ,
     "notes sync": DAEMON, "notes team": READ, "notes write": RESEARCHER,
-    "outbox discard": SDK, "outbox drain": SDK, "outbox pause": SDK, "outbox resume": SDK, "outbox retry": SDK,
+    "outbox adopt": SDK, "outbox discard": SDK, "outbox drain": SDK, "outbox pause": SDK, "outbox resume": SDK, "outbox retry": SDK,
     "outbox status": READ, "outbox watch": READ,
     "paper add": DAEMON, "paper citations": READ, "paper edges": READ, "paper find": READ, "paper graph": READ,
     "paper list": READ, "paper remove": DAEMON, "paper tag": DAEMON, "paper update": DAEMON,
@@ -136,6 +136,9 @@ OWNERS: dict[str, str] = {
     # `probe status`: this device's install as data (the desktop app's read);
     # `--refresh` asks the agents' CLIs and the server, and writes nothing.
     "status": READ,
+    # The desktop app's JSON interface: it previews and starts the researcher's
+    # history imports on their own computer (like `backfill`), and cancels them.
+    "desktop request": RESEARCHER,
     # The machine-wide Probe service: its status is a read; starting or
     # stopping it is the machine's plumbing, never the daemon's.
     "service status": READ, "service start": SETUP, "service stop": SETUP, "service check-now": SETUP,

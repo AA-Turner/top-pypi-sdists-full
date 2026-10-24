@@ -201,6 +201,11 @@ class Capabilities:
     #: None when no credential exists or the endpoint could not be reached.
     capture_credential_valid: bool | None = None
     capture_killswitched: bool = False
+    #: What the tap's last SessionStart found instead of a Python 3.11+ to run
+    #: on ("python3 3.9.6"), from the `.python-missing` file it leaves beside
+    #: `.disabled`; None when it found one (or never ran). With it set nothing
+    #: records, whatever `capture_on` says (hooks/tap-python.sh).
+    capture_python_missing: str | None = None
     capture_device_id: str | None = None
 
     #: Newest killer-side stop-daemon journal entry, doctor-ready. A tap daemon

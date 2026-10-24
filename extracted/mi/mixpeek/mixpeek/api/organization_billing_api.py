@@ -71,7 +71,7 @@ class OrganizationBillingApi:
     @validate_call
     def apply_promo_organizations_billing(
         self,
-        apply_promo_request: ApplyPromoRequest,
+        apply_promo_request: Annotated[ApplyPromoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -89,7 +89,7 @@ class OrganizationBillingApi:
 
         Apply a promo code to the organization's active subscription.  Every failure carries a reason (invalid / expired / exhausted / product mismatch / no subscription) — never a silent no-op.
 
-        :param apply_promo_request: (required)
+        :param apply_promo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type apply_promo_request: ApplyPromoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -127,8 +127,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -144,7 +146,7 @@ class OrganizationBillingApi:
     @validate_call
     def apply_promo_organizations_billing_with_http_info(
         self,
-        apply_promo_request: ApplyPromoRequest,
+        apply_promo_request: Annotated[ApplyPromoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -162,7 +164,7 @@ class OrganizationBillingApi:
 
         Apply a promo code to the organization's active subscription.  Every failure carries a reason (invalid / expired / exhausted / product mismatch / no subscription) — never a silent no-op.
 
-        :param apply_promo_request: (required)
+        :param apply_promo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type apply_promo_request: ApplyPromoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -200,8 +202,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -217,7 +221,7 @@ class OrganizationBillingApi:
     @validate_call
     def apply_promo_organizations_billing_without_preload_content(
         self,
-        apply_promo_request: ApplyPromoRequest,
+        apply_promo_request: Annotated[ApplyPromoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -235,7 +239,7 @@ class OrganizationBillingApi:
 
         Apply a promo code to the organization's active subscription.  Every failure carries a reason (invalid / expired / exhausted / product mismatch / no subscription) — never a silent no-op.
 
-        :param apply_promo_request: (required)
+        :param apply_promo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type apply_promo_request: ApplyPromoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -273,8 +277,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -363,7 +369,7 @@ class OrganizationBillingApi:
     @validate_call
     def cancel_subscription_organizations_billing(
         self,
-        cancel_subscription_request: Optional[CancelSubscriptionRequest] = None,
+        cancel_subscription_request: Annotated[Optional[CancelSubscriptionRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -381,7 +387,7 @@ class OrganizationBillingApi:
 
         Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true``: cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
 
-        :param cancel_subscription_request:
+        :param cancel_subscription_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type cancel_subscription_request: CancelSubscriptionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -419,8 +425,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -436,7 +444,7 @@ class OrganizationBillingApi:
     @validate_call
     def cancel_subscription_organizations_billing_with_http_info(
         self,
-        cancel_subscription_request: Optional[CancelSubscriptionRequest] = None,
+        cancel_subscription_request: Annotated[Optional[CancelSubscriptionRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -454,7 +462,7 @@ class OrganizationBillingApi:
 
         Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true``: cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
 
-        :param cancel_subscription_request:
+        :param cancel_subscription_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type cancel_subscription_request: CancelSubscriptionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -492,8 +500,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -509,7 +519,7 @@ class OrganizationBillingApi:
     @validate_call
     def cancel_subscription_organizations_billing_without_preload_content(
         self,
-        cancel_subscription_request: Optional[CancelSubscriptionRequest] = None,
+        cancel_subscription_request: Annotated[Optional[CancelSubscriptionRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -527,7 +537,7 @@ class OrganizationBillingApi:
 
         Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true``: cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
 
-        :param cancel_subscription_request:
+        :param cancel_subscription_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type cancel_subscription_request: CancelSubscriptionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -565,8 +575,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -655,7 +667,7 @@ class OrganizationBillingApi:
     @validate_call
     def confirm_payment_method_organizations_billing(
         self,
-        confirm_payment_method_request: ConfirmPaymentMethodRequest,
+        confirm_payment_method_request: Annotated[ConfirmPaymentMethodRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -673,7 +685,7 @@ class OrganizationBillingApi:
 
         Confirm payment method after frontend collects it.  After Stripe Elements confirms the SetupIntent, call this endpoint to attach the payment method to the customer and enable auto-billing.  **Requirements:** - Admin permission - Must have called setup-payment-method first  **Example:** ```python # After Stripe Elements confirms setup response = await client.post(     \"/v1/organizations/billing/confirm-payment-method\",     json={\"payment_method_id\": \"pm_1ABC2DEF3GHI\"} ) ```
 
-        :param confirm_payment_method_request: (required)
+        :param confirm_payment_method_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirm_payment_method_request: ConfirmPaymentMethodRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -711,8 +723,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -728,7 +742,7 @@ class OrganizationBillingApi:
     @validate_call
     def confirm_payment_method_organizations_billing_with_http_info(
         self,
-        confirm_payment_method_request: ConfirmPaymentMethodRequest,
+        confirm_payment_method_request: Annotated[ConfirmPaymentMethodRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -746,7 +760,7 @@ class OrganizationBillingApi:
 
         Confirm payment method after frontend collects it.  After Stripe Elements confirms the SetupIntent, call this endpoint to attach the payment method to the customer and enable auto-billing.  **Requirements:** - Admin permission - Must have called setup-payment-method first  **Example:** ```python # After Stripe Elements confirms setup response = await client.post(     \"/v1/organizations/billing/confirm-payment-method\",     json={\"payment_method_id\": \"pm_1ABC2DEF3GHI\"} ) ```
 
-        :param confirm_payment_method_request: (required)
+        :param confirm_payment_method_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirm_payment_method_request: ConfirmPaymentMethodRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -784,8 +798,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -801,7 +817,7 @@ class OrganizationBillingApi:
     @validate_call
     def confirm_payment_method_organizations_billing_without_preload_content(
         self,
-        confirm_payment_method_request: ConfirmPaymentMethodRequest,
+        confirm_payment_method_request: Annotated[ConfirmPaymentMethodRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -819,7 +835,7 @@ class OrganizationBillingApi:
 
         Confirm payment method after frontend collects it.  After Stripe Elements confirms the SetupIntent, call this endpoint to attach the payment method to the customer and enable auto-billing.  **Requirements:** - Admin permission - Must have called setup-payment-method first  **Example:** ```python # After Stripe Elements confirms setup response = await client.post(     \"/v1/organizations/billing/confirm-payment-method\",     json={\"payment_method_id\": \"pm_1ABC2DEF3GHI\"} ) ```
 
-        :param confirm_payment_method_request: (required)
+        :param confirm_payment_method_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirm_payment_method_request: ConfirmPaymentMethodRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -857,8 +873,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -947,7 +965,7 @@ class OrganizationBillingApi:
     @validate_call
     def create_checkout_organizations_billing(
         self,
-        create_checkout_request: CreateCheckoutRequest,
+        create_checkout_request: Annotated[CreateCheckoutRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -965,7 +983,7 @@ class OrganizationBillingApi:
 
         Create a Stripe Checkout Session for a one-time credit purchase.  Allows organization admins to purchase credit packages via Stripe Checkout. After successful payment, credits are automatically added to the organization.  **Available Packages:** - `starter`: 10,000 credits — $10 - `growth`: 50,000 credits — $40 - `scale`: 200,000 credits — $120  **Requirements:** - Admin permission  **Example:** ```python response = await client.post(     \"/v1/organizations/billing/checkout\",     json={\"package\": \"growth\"} ) # Redirect user to response[\"checkout_url\"] ```
 
-        :param create_checkout_request: (required)
+        :param create_checkout_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_checkout_request: CreateCheckoutRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1003,8 +1021,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1020,7 +1040,7 @@ class OrganizationBillingApi:
     @validate_call
     def create_checkout_organizations_billing_with_http_info(
         self,
-        create_checkout_request: CreateCheckoutRequest,
+        create_checkout_request: Annotated[CreateCheckoutRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1038,7 +1058,7 @@ class OrganizationBillingApi:
 
         Create a Stripe Checkout Session for a one-time credit purchase.  Allows organization admins to purchase credit packages via Stripe Checkout. After successful payment, credits are automatically added to the organization.  **Available Packages:** - `starter`: 10,000 credits — $10 - `growth`: 50,000 credits — $40 - `scale`: 200,000 credits — $120  **Requirements:** - Admin permission  **Example:** ```python response = await client.post(     \"/v1/organizations/billing/checkout\",     json={\"package\": \"growth\"} ) # Redirect user to response[\"checkout_url\"] ```
 
-        :param create_checkout_request: (required)
+        :param create_checkout_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_checkout_request: CreateCheckoutRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1076,8 +1096,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1093,7 +1115,7 @@ class OrganizationBillingApi:
     @validate_call
     def create_checkout_organizations_billing_without_preload_content(
         self,
-        create_checkout_request: CreateCheckoutRequest,
+        create_checkout_request: Annotated[CreateCheckoutRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1111,7 +1133,7 @@ class OrganizationBillingApi:
 
         Create a Stripe Checkout Session for a one-time credit purchase.  Allows organization admins to purchase credit packages via Stripe Checkout. After successful payment, credits are automatically added to the organization.  **Available Packages:** - `starter`: 10,000 credits — $10 - `growth`: 50,000 credits — $40 - `scale`: 200,000 credits — $120  **Requirements:** - Admin permission  **Example:** ```python response = await client.post(     \"/v1/organizations/billing/checkout\",     json={\"package\": \"growth\"} ) # Redirect user to response[\"checkout_url\"] ```
 
-        :param create_checkout_request: (required)
+        :param create_checkout_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_checkout_request: CreateCheckoutRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1149,8 +1171,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1291,8 +1315,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1360,8 +1386,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1429,8 +1457,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1555,8 +1585,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1624,8 +1656,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1693,8 +1727,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1767,7 +1803,7 @@ class OrganizationBillingApi:
     @validate_call
     def estimate_cost_organizations_billing(
         self,
-        estimate_request: EstimateRequest,
+        estimate_request: Annotated[EstimateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1785,7 +1821,7 @@ class OrganizationBillingApi:
 
         Quote the v2 cost of planned ingestion before submitting it.  Forgiving by design: unknown MIME types quote at the cheapest band; wrong unit fields and inapplicable features return teaching errors.
 
-        :param estimate_request: (required)
+        :param estimate_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type estimate_request: EstimateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1823,8 +1859,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1840,7 +1878,7 @@ class OrganizationBillingApi:
     @validate_call
     def estimate_cost_organizations_billing_with_http_info(
         self,
-        estimate_request: EstimateRequest,
+        estimate_request: Annotated[EstimateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1858,7 +1896,7 @@ class OrganizationBillingApi:
 
         Quote the v2 cost of planned ingestion before submitting it.  Forgiving by design: unknown MIME types quote at the cheapest band; wrong unit fields and inapplicable features return teaching errors.
 
-        :param estimate_request: (required)
+        :param estimate_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type estimate_request: EstimateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1896,8 +1934,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1913,7 +1953,7 @@ class OrganizationBillingApi:
     @validate_call
     def estimate_cost_organizations_billing_without_preload_content(
         self,
-        estimate_request: EstimateRequest,
+        estimate_request: Annotated[EstimateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1931,7 +1971,7 @@ class OrganizationBillingApi:
 
         Quote the v2 cost of planned ingestion before submitting it.  Forgiving by design: unknown MIME types quote at the cheapest band; wrong unit fields and inapplicable features return teaching errors.
 
-        :param estimate_request: (required)
+        :param estimate_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type estimate_request: EstimateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1969,8 +2009,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2059,7 +2101,7 @@ class OrganizationBillingApi:
     @validate_call
     def generate_invoice_now_organizations_billing(
         self,
-        body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Optional[BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost] = None,
+        body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Annotated[Optional[BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2077,7 +2119,7 @@ class OrganizationBillingApi:
 
         Manually trigger invoice generation for this organization.  Useful for testing the billing flow or generating retroactive invoices. Requires ADMIN permission.  Line items follow the v2 (modality+features, D8) composition: flat monthly fee + per-modality feature usage in natural units and dollars + the plan's included-usage pool as a deduction; only usage beyond the pool is due. The total always reconciles to the month's ledger charges (see `pricing_v2`).  **Example:** ```python # Dry run response = await client.post(     \"/v1/organizations/billing/generate-invoice\",     json={\"dry_run\": true} )  # Actually generate response = await client.post(     \"/v1/organizations/billing/generate-invoice\",     json={\"billing_month\": \"2026-01\"} ) ```
 
-        :param body_generate_invoice_now_v1_organizations_billing_generate_invoice_post:
+        :param body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2115,8 +2157,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2132,7 +2176,7 @@ class OrganizationBillingApi:
     @validate_call
     def generate_invoice_now_organizations_billing_with_http_info(
         self,
-        body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Optional[BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost] = None,
+        body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Annotated[Optional[BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2150,7 +2194,7 @@ class OrganizationBillingApi:
 
         Manually trigger invoice generation for this organization.  Useful for testing the billing flow or generating retroactive invoices. Requires ADMIN permission.  Line items follow the v2 (modality+features, D8) composition: flat monthly fee + per-modality feature usage in natural units and dollars + the plan's included-usage pool as a deduction; only usage beyond the pool is due. The total always reconciles to the month's ledger charges (see `pricing_v2`).  **Example:** ```python # Dry run response = await client.post(     \"/v1/organizations/billing/generate-invoice\",     json={\"dry_run\": true} )  # Actually generate response = await client.post(     \"/v1/organizations/billing/generate-invoice\",     json={\"billing_month\": \"2026-01\"} ) ```
 
-        :param body_generate_invoice_now_v1_organizations_billing_generate_invoice_post:
+        :param body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2188,8 +2232,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2205,7 +2251,7 @@ class OrganizationBillingApi:
     @validate_call
     def generate_invoice_now_organizations_billing_without_preload_content(
         self,
-        body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Optional[BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost] = None,
+        body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Annotated[Optional[BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2223,7 +2269,7 @@ class OrganizationBillingApi:
 
         Manually trigger invoice generation for this organization.  Useful for testing the billing flow or generating retroactive invoices. Requires ADMIN permission.  Line items follow the v2 (modality+features, D8) composition: flat monthly fee + per-modality feature usage in natural units and dollars + the plan's included-usage pool as a deduction; only usage beyond the pool is due. The total always reconciles to the month's ledger charges (see `pricing_v2`).  **Example:** ```python # Dry run response = await client.post(     \"/v1/organizations/billing/generate-invoice\",     json={\"dry_run\": true} )  # Actually generate response = await client.post(     \"/v1/organizations/billing/generate-invoice\",     json={\"billing_month\": \"2026-01\"} ) ```
 
-        :param body_generate_invoice_now_v1_organizations_billing_generate_invoice_post:
+        :param body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type body_generate_invoice_now_v1_organizations_billing_generate_invoice_post: BodyGenerateInvoiceNowV1OrganizationsBillingGenerateInvoicePost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2261,8 +2307,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2403,8 +2451,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2472,8 +2522,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2541,8 +2593,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2667,8 +2721,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2736,8 +2792,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2805,8 +2863,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2931,8 +2991,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3000,8 +3062,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3069,8 +3133,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3195,8 +3261,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3264,8 +3332,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3333,8 +3403,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3459,8 +3531,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3528,8 +3602,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3597,8 +3673,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3727,8 +3805,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3800,8 +3880,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3873,8 +3955,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3968,7 +4052,7 @@ class OrganizationBillingApi:
     ) -> VectorBackendUsageResponse:
         """Get Vector Backend Usage
 
-        Get vector backend usage breakdown.  Returns usage dimensions (vectors stored, storage, queries, writes) and cost breakdown for the tenant's active vector backend. Works for all backends: qdrant, mvs, and dual_write.  **Requirements:** - Read permission
+        Get vector backend usage breakdown.  Returns usage dimensions (vectors stored, storage, queries, writes) and cost breakdown for the tenant's vector backend (MVS).  **Requirements:** - Read permission
 
         :param billing_month: Billing month in YYYY-MM format (defaults to current month)
         :type billing_month: str
@@ -4008,8 +4092,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4041,7 +4127,7 @@ class OrganizationBillingApi:
     ) -> ApiResponse[VectorBackendUsageResponse]:
         """Get Vector Backend Usage
 
-        Get vector backend usage breakdown.  Returns usage dimensions (vectors stored, storage, queries, writes) and cost breakdown for the tenant's active vector backend. Works for all backends: qdrant, mvs, and dual_write.  **Requirements:** - Read permission
+        Get vector backend usage breakdown.  Returns usage dimensions (vectors stored, storage, queries, writes) and cost breakdown for the tenant's vector backend (MVS).  **Requirements:** - Read permission
 
         :param billing_month: Billing month in YYYY-MM format (defaults to current month)
         :type billing_month: str
@@ -4081,8 +4167,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4114,7 +4202,7 @@ class OrganizationBillingApi:
     ) -> RESTResponseType:
         """Get Vector Backend Usage
 
-        Get vector backend usage breakdown.  Returns usage dimensions (vectors stored, storage, queries, writes) and cost breakdown for the tenant's active vector backend. Works for all backends: qdrant, mvs, and dual_write.  **Requirements:** - Read permission
+        Get vector backend usage breakdown.  Returns usage dimensions (vectors stored, storage, queries, writes) and cost breakdown for the tenant's vector backend (MVS).  **Requirements:** - Read permission
 
         :param billing_month: Billing month in YYYY-MM format (defaults to current month)
         :type billing_month: str
@@ -4154,8 +4242,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4289,8 +4379,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4362,8 +4454,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4435,8 +4529,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4578,8 +4674,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4659,8 +4757,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4740,8 +4840,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4829,7 +4931,7 @@ class OrganizationBillingApi:
     @validate_call
     def open_billing_portal_organizations(
         self,
-        billing_portal_request: Optional[BillingPortalRequest] = None,
+        billing_portal_request: Annotated[Optional[BillingPortalRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4847,7 +4949,7 @@ class OrganizationBillingApi:
 
         Open the Stripe customer billing portal.  This is the correct destination for a \"Manage subscription\" action: the portal lets an existing customer update their card, view/download invoices, and change or cancel their plan. It is NOT the same as POST /subscribe — re-running /subscribe for an existing subscriber starts a brand-new checkout instead of managing the current one.  Requires an existing Stripe customer. Orgs that have never started billing have nothing to manage, so they get an actionable 400 pointing at /subscribe.
 
-        :param billing_portal_request:
+        :param billing_portal_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type billing_portal_request: BillingPortalRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4885,8 +4987,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4902,7 +5006,7 @@ class OrganizationBillingApi:
     @validate_call
     def open_billing_portal_organizations_with_http_info(
         self,
-        billing_portal_request: Optional[BillingPortalRequest] = None,
+        billing_portal_request: Annotated[Optional[BillingPortalRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4920,7 +5024,7 @@ class OrganizationBillingApi:
 
         Open the Stripe customer billing portal.  This is the correct destination for a \"Manage subscription\" action: the portal lets an existing customer update their card, view/download invoices, and change or cancel their plan. It is NOT the same as POST /subscribe — re-running /subscribe for an existing subscriber starts a brand-new checkout instead of managing the current one.  Requires an existing Stripe customer. Orgs that have never started billing have nothing to manage, so they get an actionable 400 pointing at /subscribe.
 
-        :param billing_portal_request:
+        :param billing_portal_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type billing_portal_request: BillingPortalRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4958,8 +5062,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4975,7 +5081,7 @@ class OrganizationBillingApi:
     @validate_call
     def open_billing_portal_organizations_without_preload_content(
         self,
-        billing_portal_request: Optional[BillingPortalRequest] = None,
+        billing_portal_request: Annotated[Optional[BillingPortalRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4993,7 +5099,7 @@ class OrganizationBillingApi:
 
         Open the Stripe customer billing portal.  This is the correct destination for a \"Manage subscription\" action: the portal lets an existing customer update their card, view/download invoices, and change or cancel their plan. It is NOT the same as POST /subscribe — re-running /subscribe for an existing subscriber starts a brand-new checkout instead of managing the current one.  Requires an existing Stripe customer. Orgs that have never started billing have nothing to manage, so they get an actionable 400 pointing at /subscribe.
 
-        :param billing_portal_request:
+        :param billing_portal_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type billing_portal_request: BillingPortalRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5031,8 +5137,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5121,7 +5229,7 @@ class OrganizationBillingApi:
     @validate_call
     def redeem_promo_organizations_billing(
         self,
-        redeem_promo_request: RedeemPromoRequest,
+        redeem_promo_request: Annotated[RedeemPromoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5139,7 +5247,7 @@ class OrganizationBillingApi:
 
         Redeem a promo code on a FRESH org — no Checkout, no card.  A promo code lets you continue without entering a card. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
 
-        :param redeem_promo_request: (required)
+        :param redeem_promo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type redeem_promo_request: RedeemPromoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5177,8 +5285,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5194,7 +5304,7 @@ class OrganizationBillingApi:
     @validate_call
     def redeem_promo_organizations_billing_with_http_info(
         self,
-        redeem_promo_request: RedeemPromoRequest,
+        redeem_promo_request: Annotated[RedeemPromoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5212,7 +5322,7 @@ class OrganizationBillingApi:
 
         Redeem a promo code on a FRESH org — no Checkout, no card.  A promo code lets you continue without entering a card. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
 
-        :param redeem_promo_request: (required)
+        :param redeem_promo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type redeem_promo_request: RedeemPromoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5250,8 +5360,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5267,7 +5379,7 @@ class OrganizationBillingApi:
     @validate_call
     def redeem_promo_organizations_billing_without_preload_content(
         self,
-        redeem_promo_request: RedeemPromoRequest,
+        redeem_promo_request: Annotated[RedeemPromoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5285,7 +5397,7 @@ class OrganizationBillingApi:
 
         Redeem a promo code on a FRESH org — no Checkout, no card.  A promo code lets you continue without entering a card. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
 
-        :param redeem_promo_request: (required)
+        :param redeem_promo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type redeem_promo_request: RedeemPromoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5323,8 +5435,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5465,8 +5579,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5534,8 +5650,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5603,8 +5721,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5677,7 +5797,7 @@ class OrganizationBillingApi:
     @validate_call
     def subscribe_to_plan_organizations_billing(
         self,
-        subscribe_request: SubscribeRequest,
+        subscribe_request: Annotated[SubscribeRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5695,7 +5815,7 @@ class OrganizationBillingApi:
 
         Subscribe to a paid plan via Stripe Checkout.  Creates a Stripe Checkout Session in subscription mode. After payment, the organization's account_type is updated via webhook.  If the organization already has an active subscription, the plan is changed inline (upgrade/downgrade with proration) instead of creating a new checkout session.  **Available Plans** (tier minimum is a billing floor; usage above it bills automatically): - `managed_build`: Managed Mixpeek Build — $25/mo min, 100K objects/mo - `managed_scale`: Managed Mixpeek Scale — $250/mo min, 1M objects/mo - `mvs_build`: MVS Standalone Build — $25/mo min, 1M vectors - `mvs_scale`: MVS Standalone Scale — $250/mo min, 25M vectors  **Discounts:** each non-empty `onboarding_answers` field takes $5 off the first invoice (max $10). An explicit `promo_code` is validated and pre-applied; when both are sent the promo takes checkout's single discount slot and the onboarding credit lands on the customer balance. Without either, Stripe's own promo-code field is enabled at checkout.
 
-        :param subscribe_request: (required)
+        :param subscribe_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type subscribe_request: SubscribeRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5733,8 +5853,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5750,7 +5872,7 @@ class OrganizationBillingApi:
     @validate_call
     def subscribe_to_plan_organizations_billing_with_http_info(
         self,
-        subscribe_request: SubscribeRequest,
+        subscribe_request: Annotated[SubscribeRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5768,7 +5890,7 @@ class OrganizationBillingApi:
 
         Subscribe to a paid plan via Stripe Checkout.  Creates a Stripe Checkout Session in subscription mode. After payment, the organization's account_type is updated via webhook.  If the organization already has an active subscription, the plan is changed inline (upgrade/downgrade with proration) instead of creating a new checkout session.  **Available Plans** (tier minimum is a billing floor; usage above it bills automatically): - `managed_build`: Managed Mixpeek Build — $25/mo min, 100K objects/mo - `managed_scale`: Managed Mixpeek Scale — $250/mo min, 1M objects/mo - `mvs_build`: MVS Standalone Build — $25/mo min, 1M vectors - `mvs_scale`: MVS Standalone Scale — $250/mo min, 25M vectors  **Discounts:** each non-empty `onboarding_answers` field takes $5 off the first invoice (max $10). An explicit `promo_code` is validated and pre-applied; when both are sent the promo takes checkout's single discount slot and the onboarding credit lands on the customer balance. Without either, Stripe's own promo-code field is enabled at checkout.
 
-        :param subscribe_request: (required)
+        :param subscribe_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type subscribe_request: SubscribeRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5806,8 +5928,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5823,7 +5947,7 @@ class OrganizationBillingApi:
     @validate_call
     def subscribe_to_plan_organizations_billing_without_preload_content(
         self,
-        subscribe_request: SubscribeRequest,
+        subscribe_request: Annotated[SubscribeRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5841,7 +5965,7 @@ class OrganizationBillingApi:
 
         Subscribe to a paid plan via Stripe Checkout.  Creates a Stripe Checkout Session in subscription mode. After payment, the organization's account_type is updated via webhook.  If the organization already has an active subscription, the plan is changed inline (upgrade/downgrade with proration) instead of creating a new checkout session.  **Available Plans** (tier minimum is a billing floor; usage above it bills automatically): - `managed_build`: Managed Mixpeek Build — $25/mo min, 100K objects/mo - `managed_scale`: Managed Mixpeek Scale — $250/mo min, 1M objects/mo - `mvs_build`: MVS Standalone Build — $25/mo min, 1M vectors - `mvs_scale`: MVS Standalone Scale — $250/mo min, 25M vectors  **Discounts:** each non-empty `onboarding_answers` field takes $5 off the first invoice (max $10). An explicit `promo_code` is validated and pre-applied; when both are sent the promo takes checkout's single discount slot and the onboarding credit lands on the customer balance. Without either, Stripe's own promo-code field is enabled at checkout.
 
-        :param subscribe_request: (required)
+        :param subscribe_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type subscribe_request: SubscribeRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5879,8 +6003,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5969,7 +6095,7 @@ class OrganizationBillingApi:
     @validate_call
     def update_spending_caps_organizations_billing(
         self,
-        update_spending_caps_request: UpdateSpendingCapsRequest,
+        update_spending_caps_request: Annotated[UpdateSpendingCapsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5987,7 +6113,7 @@ class OrganizationBillingApi:
 
         Update spending cap configuration.  Configure spending limits and alert thresholds to control costs.  **Features:** - **Soft Limit (Budget)**: Triggers alerts but doesn't block API access - **Hard Cap**: Blocks API access when reached. Setting a positive   `hard_spending_cap` arms enforcement automatically; pass   `hard_cap_enabled: false` in the same request to set the cap without   enforcing it. Clearing the cap (null/0) disarms enforcement. - **Alert Thresholds**: Customize when to receive spending notifications  **Requirements:** - Admin permission - Only applies to organizations with auto-billing enabled  **Example:** ```python # Set $100 budget with alerts at 75% and 100% response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"monthly_spending_budget\": 10000,  # $100 in cents         \"spending_alert_thresholds\": [75, 100],         \"spending_alerts_enabled\": True,     } )  # Enable hard cap at $500 response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"hard_spending_cap\": 50000,  # $500 in cents         \"hard_cap_enabled\": True,     } )  # Disable all spending limits response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"monthly_spending_budget\": None,         \"hard_spending_cap\": None,         \"hard_cap_enabled\": False,     } ) ```
 
-        :param update_spending_caps_request: (required)
+        :param update_spending_caps_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_spending_caps_request: UpdateSpendingCapsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6025,8 +6151,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6042,7 +6170,7 @@ class OrganizationBillingApi:
     @validate_call
     def update_spending_caps_organizations_billing_with_http_info(
         self,
-        update_spending_caps_request: UpdateSpendingCapsRequest,
+        update_spending_caps_request: Annotated[UpdateSpendingCapsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6060,7 +6188,7 @@ class OrganizationBillingApi:
 
         Update spending cap configuration.  Configure spending limits and alert thresholds to control costs.  **Features:** - **Soft Limit (Budget)**: Triggers alerts but doesn't block API access - **Hard Cap**: Blocks API access when reached. Setting a positive   `hard_spending_cap` arms enforcement automatically; pass   `hard_cap_enabled: false` in the same request to set the cap without   enforcing it. Clearing the cap (null/0) disarms enforcement. - **Alert Thresholds**: Customize when to receive spending notifications  **Requirements:** - Admin permission - Only applies to organizations with auto-billing enabled  **Example:** ```python # Set $100 budget with alerts at 75% and 100% response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"monthly_spending_budget\": 10000,  # $100 in cents         \"spending_alert_thresholds\": [75, 100],         \"spending_alerts_enabled\": True,     } )  # Enable hard cap at $500 response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"hard_spending_cap\": 50000,  # $500 in cents         \"hard_cap_enabled\": True,     } )  # Disable all spending limits response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"monthly_spending_budget\": None,         \"hard_spending_cap\": None,         \"hard_cap_enabled\": False,     } ) ```
 
-        :param update_spending_caps_request: (required)
+        :param update_spending_caps_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_spending_caps_request: UpdateSpendingCapsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6098,8 +6226,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6115,7 +6245,7 @@ class OrganizationBillingApi:
     @validate_call
     def update_spending_caps_organizations_billing_without_preload_content(
         self,
-        update_spending_caps_request: UpdateSpendingCapsRequest,
+        update_spending_caps_request: Annotated[UpdateSpendingCapsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6133,7 +6263,7 @@ class OrganizationBillingApi:
 
         Update spending cap configuration.  Configure spending limits and alert thresholds to control costs.  **Features:** - **Soft Limit (Budget)**: Triggers alerts but doesn't block API access - **Hard Cap**: Blocks API access when reached. Setting a positive   `hard_spending_cap` arms enforcement automatically; pass   `hard_cap_enabled: false` in the same request to set the cap without   enforcing it. Clearing the cap (null/0) disarms enforcement. - **Alert Thresholds**: Customize when to receive spending notifications  **Requirements:** - Admin permission - Only applies to organizations with auto-billing enabled  **Example:** ```python # Set $100 budget with alerts at 75% and 100% response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"monthly_spending_budget\": 10000,  # $100 in cents         \"spending_alert_thresholds\": [75, 100],         \"spending_alerts_enabled\": True,     } )  # Enable hard cap at $500 response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"hard_spending_cap\": 50000,  # $500 in cents         \"hard_cap_enabled\": True,     } )  # Disable all spending limits response = await client.post(     \"/v1/organizations/billing/spending-caps\",     json={         \"monthly_spending_budget\": None,         \"hard_spending_cap\": None,         \"hard_cap_enabled\": False,     } ) ```
 
-        :param update_spending_caps_request: (required)
+        :param update_spending_caps_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_spending_caps_request: UpdateSpendingCapsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6171,8 +6301,10 @@ class OrganizationBillingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -7,11 +7,8 @@ pub enum SpanError {
     InvalidSpanIdLength { expected: usize, got: usize },
     InvalidHexStringLength { length: usize },
     HexParseError { byte_str: String, error: String },
-    JsonParseError { context: String, error: String },
     AttributeConversionError { value: String },
     InvalidBytesLength { expected: usize, got: usize },
-    InvalidContentBlock { context: String, error: String },
-    InternalError { message: String },
 }
 
 impl fmt::Display for SpanError {
@@ -40,9 +37,6 @@ impl fmt::Display for SpanError {
             SpanError::HexParseError { byte_str, error } => {
                 write!(f, "Failed to parse hex byte '{}': {}", byte_str, error)
             }
-            SpanError::JsonParseError { context, error } => {
-                write!(f, "Failed to parse {}: {}", context, error)
-            }
             SpanError::AttributeConversionError { value } => {
                 write!(f, "Failed to convert JSON value to AnyValue: {}", value)
             }
@@ -52,12 +46,6 @@ impl fmt::Display for SpanError {
                     "Invalid bytes length: expected {}, got {}",
                     expected, got
                 )
-            }
-            SpanError::InvalidContentBlock { context, error } => {
-                write!(f, "Invalid content block: {}: {}", context, error)
-            }
-            SpanError::InternalError { message } => {
-                write!(f, "Internal error: {}", message)
             }
         }
     }

@@ -46,6 +46,7 @@ __all__ = (
     "DeploymentModeType",
     "DeploymentStatusType",
     "DeploymentTypeType",
+    "DesignationTypeType",
     "DomainStatusType",
     "DomainUnitDesignationType",
     "DomainVersionType",
@@ -83,6 +84,7 @@ __all__ = (
     "ListDataSourceRunActivitiesPaginatorName",
     "ListDataSourceRunsPaginatorName",
     "ListDataSourcesPaginatorName",
+    "ListDesignationsPaginatorName",
     "ListDomainUnitsForParentPaginatorName",
     "ListDomainsPaginatorName",
     "ListEntityOwnersPaginatorName",
@@ -201,11 +203,13 @@ ConnectionTypeType = Literal[
     "ATHENA",
     "BIGQUERY",
     "DATABRICKS",
+    "DATABRICKSICEBERGRESTCATALOG",
     "DOCUMENTDB",
     "DYNAMODB",
     "GIT",
     "HYPERPOD",
     "IAM",
+    "ICEBERGRESTCATALOG",
     "MLFLOW",
     "MYSQL",
     "OPENSEARCH",
@@ -215,6 +219,7 @@ ConnectionTypeType = Literal[
     "S3",
     "SAPHANA",
     "SNOWFLAKE",
+    "SNOWFLAKEICEBERGRESTCATALOG",
     "SPARK",
     "SQLSERVER",
     "TERADATA",
@@ -261,6 +266,7 @@ DataZoneEntityTypeType = Literal["DOMAIN_UNIT"]
 DeploymentModeType = Literal["ON_CREATE", "ON_DEMAND"]
 DeploymentStatusType = Literal["FAILED", "IN_PROGRESS", "PENDING_DEPLOYMENT", "SUCCESSFUL"]
 DeploymentTypeType = Literal["CREATE", "DELETE", "UPDATE"]
+DesignationTypeType = Literal["MANAGED", "USER_CREATED"]
 DomainStatusType = Literal[
     "AVAILABLE", "CREATING", "CREATION_FAILED", "DELETED", "DELETING", "DELETION_FAILED"
 ]
@@ -294,8 +300,10 @@ GlossaryTermStatusType = Literal["DISABLED", "ENABLED"]
 GlossaryUsageRestrictionType = Literal["ASSET_GOVERNED_TERMS"]
 GlueConnectionTypeType = Literal[
     "BIGQUERY",
+    "DATABRICKSICEBERGRESTCATALOG",
     "DOCUMENTDB",
     "DYNAMODB",
+    "ICEBERGRESTCATALOG",
     "MYSQL",
     "OPENSEARCH",
     "ORACLE",
@@ -303,6 +311,7 @@ GlueConnectionTypeType = Literal[
     "REDSHIFT",
     "SAPHANA",
     "SNOWFLAKE",
+    "SNOWFLAKEICEBERGRESTCATALOG",
     "SQLSERVER",
     "TERADATA",
     "VERTICA",
@@ -337,6 +346,7 @@ ListDataProductRevisionsPaginatorName = Literal["list_data_product_revisions"]
 ListDataSourceRunActivitiesPaginatorName = Literal["list_data_source_run_activities"]
 ListDataSourceRunsPaginatorName = Literal["list_data_source_runs"]
 ListDataSourcesPaginatorName = Literal["list_data_sources"]
+ListDesignationsPaginatorName = Literal["list_designations"]
 ListDomainUnitsForParentPaginatorName = Literal["list_domain_units_for_parent"]
 ListDomainsPaginatorName = Literal["list_domains"]
 ListEntityOwnersPaginatorName = Literal["list_entity_owners"]
@@ -409,7 +419,9 @@ OverallDeploymentStatusType = Literal[
     "FAILED_DEPLOYMENT", "FAILED_VALIDATION", "IN_PROGRESS", "PENDING_DEPLOYMENT", "SUCCESSFUL"
 ]
 PackageManagerType = Literal["UV"]
-ProjectDesignationType = Literal["CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD"]
+ProjectDesignationType = Literal[
+    "CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD", "USER_CREATED_DESIGNATION"
+]
 ProjectStatusType = Literal[
     "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
 ]
@@ -552,6 +564,7 @@ UserDesignationType = Literal[
     "PROJECT_CATALOG_VIEWER",
     "PROJECT_CONTRIBUTOR",
     "PROJECT_OWNER",
+    "USER_CREATED_DESIGNATION",
 ]
 UserProfileStatusType = Literal["ACTIVATED", "ASSIGNED", "DEACTIVATED", "NOT_ASSIGNED"]
 UserProfileTypeType = Literal["IAM", "SSO"]
@@ -711,13 +724,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -785,6 +797,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -919,6 +932,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -969,7 +983,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -1006,6 +1019,7 @@ PaginatorName = Literal[
     "list_data_source_run_activities",
     "list_data_source_runs",
     "list_data_sources",
+    "list_designations",
     "list_domain_units_for_parent",
     "list_domains",
     "list_entity_owners",

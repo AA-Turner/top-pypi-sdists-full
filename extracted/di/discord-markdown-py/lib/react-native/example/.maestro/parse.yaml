@@ -25,6 +25,13 @@ appId: ${APP_ID}
     id: "unparsed"
 - assertTrue: "${maestro.copiedText === '# Hello **world** <@873227248453443624>'}"
 
+# MainActivity.kt / AppDelegate.swift parsed and unparsed content through the Kotlin or Swift
+# wrapper at launch, outside JS; the app reports whether it round-tripped, emoji included, with
+# the snowflake as a plain number rather than JS's $bigint wrapper.
+- copyTextFrom:
+    id: "native"
+- assertTrue: "${maestro.copiedText === 'native: ok'}"
+
 # Type new content and check the AST updates. Clear through the button rather than erasing:
 # tapping a filled input leaves the caret wherever the tap landed, and eraseText only deletes
 # backwards from there, so the tail of the old content would survive.

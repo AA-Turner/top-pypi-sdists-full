@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "xbbg"
 description = "Independent client for Bloomberg-connected data workflows"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.16"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 # Deliberately a project identity, not a person: this metadata is published to
@@ -27,11 +27,11 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Rust",
   "Typing :: Typed",
 ]
@@ -50,20 +50,22 @@ dependencies = [
 # Runtime stays minimal; extras opt into optional conversion/test surfaces.
 #
 # Every floor below is measured, not guessed: the `floors` CI job resolves this
-# table with `--resolution lowest-direct` on Python 3.10 and runs the suite
+# table with `--resolution lowest-direct` on Python 3.11 and runs the suite
 # against it. Three of these were previously false claims:
 #   * pandas 2.0.x declares no `numpy<2` bound, so a fresh resolve pairs it with
 #     numpy 2.x and pandas then fails to import ("numpy.dtype size changed").
 #     2.2.2 is the first release that supports numpy 2.
 #   * duckdb below 1.5.0 loses the connection backing a returned relation
 #     ("Connection has already been closed"); 1.0.0 additionally cannot register
-#     an Arrow PyCapsule object at all.
+#     an Arrow PyCapsule object at all. 1.5.0 maps its block allocator eagerly,
+#     tens of GB of virtual memory, and os.fork() after DuckDB starts then fails
+#     with ENOMEM on the 16 GB CI runners; 1.5.1 maps it lazily (duckdb#21276).
 #   * narwhals below 2.10.0 ignores our plugin entry point (see above).
 pyarrow = ["pyarrow>=22.0.0"]
 pandas = ["pandas>=2.2.2,<4"]
 # Polars' timezone extra supplies tzdata on Windows, including at the floor.
 polars = ["polars[timezone]>=0.20.4"]
-duckdb = ["duckdb>=1.5.0"]
+duckdb = ["duckdb>=1.5.1"]
 test = [
   "pytest>=8.4",
   # Bounded deliberately: unpinned, a lowest-direct resolve selects pytest-cov
@@ -73,7 +75,9 @@ test = [
   "pyarrow>=22.0.0",
   "pandas>=2.2.2,<4",
   "polars[timezone]>=0.20.4",
-  "duckdb>=1.5.0",
+  # duckdb publishes no CPython 3.15 wheels yet, and its sdist is a full C++
+  # build. The duckdb tests skip when it is absent.
+  "duckdb>=1.5.1; python_version < '3.15'",
 ]
 
 [project.urls]
@@ -111,7 +115,7 @@ where = ["py-xbbg/src"]
 include = ["xbbg*"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 exclude = [
   "dist",
@@ -174,6 +178,7 @@ ignore = [
   "PT012",   # pytest-raises-with-multiple-statements
   "PT017",   # pytest-assert-in-except
   "PT018",   # pytest-composite-assertion
+  "UP042",   # (str, Enum) keeps Enum.__str__; StrEnum would change str()/format() output
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -201,7 +206,7 @@ convention = "google"
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.11"
 root = ["py-xbbg/src"]
 
 [tool.ty.rules]
@@ -243,3 +248,57 @@ dev = [
     "ruff>=0.16.3",
 ]
 
+
+[tool.vulture]
+paths = ["py-xbbg/src/xbbg", "py-xbbg/tests", "py-xbbg/vulture_whitelist.py"]
+exclude = ["*/_services_gen.py", "*.pyi"]
+min_confidence = 60
+ignore_decorators = ["@pytest.fixture", "@pytest_asyncio.fixture"]
+
+[tool.importlinter]
+root_package = "xbbg"
+
+[[tool.importlinter.contracts]]
+name = "Package modules form an acyclic dependency graph"
+type = "acyclic_siblings"
+ancestors = ["xbbg"]
+
+[[tool.importlinter.contracts]]
+name = "Native-adjacent adapters never depend on high-level APIs"
+type = "forbidden"
+source_modules = [
+  "xbbg._core_guard",
+  "xbbg._sdk",
+  "xbbg._exports",
+  "xbbg._services_gen",
+  "xbbg._arrow",
+  "xbbg._dates",
+  "xbbg._engine",
+  "xbbg._sync",
+  "xbbg.services",
+  "xbbg.exceptions",
+  "xbbg.backend",
+]
+forbidden_modules = [
+  "xbbg.blp",
+  "xbbg.ext",
+  "xbbg.markets",
+  "xbbg.schema",
+  "xbbg.field_cache",
+  "xbbg.testing",
+  "xbbg._endpoints",
+  "xbbg._streaming",
+  "xbbg._technical",
+]
+
+[[tool.importlinter.contracts]]
+name = "Extension implementation modules stay behind their package seam"
+type = "protected"
+protected_modules = ["xbbg.ext.*"]
+allowed_importers = ["xbbg.ext"]
+
+[[tool.importlinter.contracts]]
+name = "Market implementation modules stay behind their package seam"
+type = "protected"
+protected_modules = ["xbbg.markets.*"]
+allowed_importers = ["xbbg.markets"]

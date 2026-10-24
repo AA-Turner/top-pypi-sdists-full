@@ -71,6 +71,33 @@ def _is_sensitive_template(template_str):
     """Redact resolved logs for secrets/totp templates."""
     return "{{secrets." in template_str or "{{totp." in template_str
 
+# Values resolved from {{secrets.*}}, so they stay redacted wherever they are later logged,
+# even after set_var() copies one under an ordinary name (v3 parity). TOTP codes are not kept:
+# a {{totp.*}} field already logs as authored, and a 6-digit code would blank matching numbers.
+_SECRET_VALUES: set = set()
+
+
+def _mark_secret(value):
+    """Record a credential value; 1-3 char values would redact ordinary log text into noise."""
+    if isinstance(value, str) and len(value) >= 4:
+        _SECRET_VALUES.update(_wire_forms(value))
+    return value
+
+
+def _wire_forms(value):
+    """The value as a server can echo it back: as is, URL-encoded, JSON-escaped."""
+    import httpx
+    from urllib.parse import quote, quote_plus
+
+    forms = {value, quote(value, safe=""), quote_plus(value)}
+    try:
+        forms.add(httpx.URL(f"http://h/?{value}").query.decode())  # typed into the URL
+    except Exception:  # noqa: BLE001 — a value httpx can't put in a URL is never sent in one
+        pass
+    for _ in range(2):  # an echoed JSON body escapes the sent one again
+        forms |= {json.dumps(f, ensure_ascii=a)[1:-1] for f in forms for a in (True, False)}
+    return forms
+
 
 def set_var(name, value):
     """Write a variable into the store. Subsequent var() calls return it.
@@ -90,7 +117,11 @@ def set_var(name, value):
     absent. Guarded on LT creds; the in-memory store is always written first so
     resolution is unaffected when the backend write is skipped.
     """
-    _log.info("    [set_var] name=%r value=%s", name, _preview(value))
+    if isinstance(value, dict) and "request_sent" in value:
+        # execute_api's wire capture is for auteur's API console only, never a variable
+        value = {k: v for k, v in value.items() if k != "request_sent"}
+    from testmu._v4._helpers._api_log import _scrub  # not at the top: the _helpers package imports this module
+    _log.info("    [set_var] name=%r value=%s", name, _scrub(str(value)))
     if name.startswith(_GLOBAL_PREFIX):
         bare = name[len(_GLOBAL_PREFIX):]
         _variable_store[bare] = value
@@ -235,7 +266,7 @@ def _resolve_single(name):
     # {{secrets.cat.key}} → os.getenv(key)
     if parts[0] == "secrets" and len(parts) >= 2:
         key = parts[-1]
-        return os.getenv(key, "")
+        return _mark_secret(os.getenv(key, ""))
 
     # {{global.x}} → ATMS (when lt_auth) or env fallback
     if parts[0] == "global" and len(parts) >= 2:

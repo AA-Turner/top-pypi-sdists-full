@@ -54,6 +54,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_CHECKOUT")
+    @builtins.classmethod
     def ACTIONS_CHECKOUT(cls) -> builtins.str:
         '''(experimental) actions/checkout at v7.0.1.
 
@@ -63,6 +64,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_CREATE_GITHUB_APP_TOKEN")
+    @builtins.classmethod
     def ACTIONS_CREATE_GITHUB_APP_TOKEN(cls) -> builtins.str:
         '''(experimental) actions/create-github-app-token at v3.2.0 (immutable).
 
@@ -72,6 +74,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_DEPENDENCY_REVIEW_ACTION")
+    @builtins.classmethod
     def ACTIONS_DEPENDENCY_REVIEW_ACTION(cls) -> builtins.str:
         '''(experimental) actions/dependency-review-action at v5.0.0.
 
@@ -81,6 +84,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_DOWNLOAD_ARTIFACT")
+    @builtins.classmethod
     def ACTIONS_DOWNLOAD_ARTIFACT(cls) -> builtins.str:
         '''(experimental) actions/download-artifact at v8.0.1.
 
@@ -90,6 +94,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_GITHUB_SCRIPT")
+    @builtins.classmethod
     def ACTIONS_GITHUB_SCRIPT(cls) -> builtins.str:
         '''(experimental) actions/github-script at v9.0.0.
 
@@ -99,6 +104,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_SETUP_DOTNET")
+    @builtins.classmethod
     def ACTIONS_SETUP_DOTNET(cls) -> builtins.str:
         '''(experimental) actions/setup-dotnet at v6.0.0 (immutable).
 
@@ -108,6 +114,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_SETUP_GO")
+    @builtins.classmethod
     def ACTIONS_SETUP_GO(cls) -> builtins.str:
         '''(experimental) actions/setup-go at v7.0.0 (immutable).
 
@@ -117,6 +124,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_SETUP_JAVA")
+    @builtins.classmethod
     def ACTIONS_SETUP_JAVA(cls) -> builtins.str:
         '''(experimental) actions/setup-java at v6.0.0 (immutable).
 
@@ -126,6 +134,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_SETUP_NODE")
+    @builtins.classmethod
     def ACTIONS_SETUP_NODE(cls) -> builtins.str:
         '''(experimental) actions/setup-node at v7.0.0 (immutable).
 
@@ -135,6 +144,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_SETUP_PYTHON")
+    @builtins.classmethod
     def ACTIONS_SETUP_PYTHON(cls) -> builtins.str:
         '''(experimental) actions/setup-python at v7.0.0 (immutable).
 
@@ -144,6 +154,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_STALE")
+    @builtins.classmethod
     def ACTIONS_STALE(cls) -> builtins.str:
         '''(experimental) actions/stale at v11.0.0 (immutable).
 
@@ -153,6 +164,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACTIONS_UPLOAD_ARTIFACT")
+    @builtins.classmethod
     def ACTIONS_UPLOAD_ARTIFACT(cls) -> builtins.str:
         '''(experimental) actions/upload-artifact at v7.0.1.
 
@@ -162,6 +174,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMANNN_ACTION_SEMANTIC_PULL_REQUEST")
+    @builtins.classmethod
     def AMANNN_ACTION_SEMANTIC_PULL_REQUEST(cls) -> builtins.str:
         '''(experimental) amannn/action-semantic-pull-request at v6.1.1.
 
@@ -171,6 +184,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS")
+    @builtins.classmethod
     def AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS(cls) -> builtins.str:
         '''(experimental) aws-actions/configure-aws-credentials at v6.2.3 (immutable).
 
@@ -180,6 +194,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODECOV_CODECOV_ACTION")
+    @builtins.classmethod
     def CODECOV_CODECOV_ACTION(cls) -> builtins.str:
         '''(experimental) codecov/codecov-action at v7.0.0 (immutable).
 
@@ -189,6 +204,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OVEN_SH_SETUP_BUN")
+    @builtins.classmethod
     def OVEN_SH_SETUP_BUN(cls) -> builtins.str:
         '''(experimental) oven-sh/setup-bun at v2.2.0.
 
@@ -198,6 +214,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PETER_EVANS_CREATE_PULL_REQUEST")
+    @builtins.classmethod
     def PETER_EVANS_CREATE_PULL_REQUEST(cls) -> builtins.str:
         '''(experimental) peter-evans/create-pull-request at v8.1.1 (immutable).
 
@@ -207,6 +224,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PNPM_ACTION_SETUP")
+    @builtins.classmethod
     def PNPM_ACTION_SETUP(cls) -> builtins.str:
         '''(experimental) pnpm/action-setup at v6.0.10 (immutable).
 
@@ -216,6 +234,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQREN_BACKPORT_GITHUB_ACTION")
+    @builtins.classmethod
     def SQREN_BACKPORT_GITHUB_ACTION(cls) -> builtins.str:
         '''(experimental) sqren/backport-github-action at v12.0.4.
 
@@ -6384,7 +6403,7 @@ class GithubWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6273080200c7722c9774364ee8460bccd3337cd48edc420530ca75f7c2974d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "runName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "runName", value)
 
 
 @jsii.data_type(

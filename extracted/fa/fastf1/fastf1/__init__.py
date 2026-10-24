@@ -3,8 +3,8 @@ try:
 except ImportError:
     _version = None
 
-__version__ = getattr(_version, 'version', '0.0+UNKNOWN')
-__version_tuple__ = getattr(_version, 'version_tuple', (0, 0, '+UNKNOWN'))
+__version__ = getattr(_version, "version", "0.0+UNKNOWN")
+__version_tuple__ = getattr(_version, "version_tuple", (0, 0, "+UNKNOWN"))
 if __version_tuple__:
     # create a short version containing only the public version
     __version_short__ = ".".join(str(digit) for digit in __version_tuple__
@@ -22,6 +22,7 @@ from fastf1.events import (  # noqa: F401
     get_testing_event,
     get_testing_session
 )
+from fastf1.internals.f1account import set_auth_method  # noqa: F401
 from fastf1.logger import set_log_level  # noqa: F401
 from fastf1.req import Cache  # noqa: F401
 

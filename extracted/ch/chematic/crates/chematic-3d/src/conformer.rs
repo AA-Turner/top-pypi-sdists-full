@@ -157,8 +157,8 @@ impl ConformerEnsemble {
     /// relabelled onto `a`'s that is consistent with the molecule's own graph
     /// symmetry (automorphisms), not just the identity relabelling.
     ///
-    /// See [`rmsd_symmetric`] for the algorithm and its known limitation
-    /// (no `-COO⁻`/`-NO₂`-style terminal-group symmetrization).
+    /// See [`rmsd_symmetric`] for the algorithm, including conjugated
+    /// terminal-group symmetrization.
     ///
     /// Returns `None` if either index is out of range.
     pub fn conformer_rmsd_symmetric(&self, a: usize, b: usize) -> Option<f64> {
@@ -213,6 +213,46 @@ impl ConformerEnsemble {
                 }
             }
             leaders.push(i); // new cluster representative
+        }
+        leaders
+    }
+
+    /// Cluster conformers by symmetry-aware, Kabsch-aligned RMSD.
+    ///
+    /// Uses the same greedy leader-linkage and strict threshold as
+    /// [`cluster_conformers_by_rms`](Self::cluster_conformers_by_rms), but
+    /// compares each conformer with [`rmsd_symmetric`]. Equivalent atom
+    /// permutations (including conjugated terminal O/N groups) therefore do
+    /// not create spurious clusters. The molecule's automorphisms are computed
+    /// once for the whole ensemble instead of once per pairwise comparison.
+    /// This can be expensive for molecules with many automorphisms.
+    pub fn cluster_conformers_by_rms_symmetric(&self, rms_threshold: f64) -> Vec<usize> {
+        let n = self.conformers.len();
+        if n == 0 {
+            return Vec::new();
+        }
+        if rms_threshold <= 0.0 {
+            return (0..n).collect();
+        }
+        let atom_count = self.mol.atom_count();
+        if atom_count == 0 {
+            return vec![0];
+        }
+        let mappings = symmetry_mappings(&self.mol);
+        let mut leaders = Vec::new();
+        'outer: for i in 0..n {
+            for &leader in &leaders {
+                let rmsd = rmsd_with_mappings(
+                    &self.conformers[i],
+                    &self.conformers[leader],
+                    &mappings,
+                    atom_count,
+                );
+                if rmsd < rms_threshold {
+                    continue 'outer;
+                }
+            }
+            leaders.push(i);
         }
         leaders
     }
@@ -331,20 +371,21 @@ impl ConformerEnsemble {
 /// interchangeable, so a conformer pair that differs only by which specific F
 /// atom sits in which position should score ~0, not a large fixed-index RMSD.
 ///
-/// **Known limitation, not yet ported**: RDKit's `GetBestRMS` additionally
-/// runs `symmetrizeConjugatedTerminalGroups` before matching, which neutralizes
-/// resonance-equivalent terminal groups (carboxylate `-COO⁻`, nitro `-NO2`, …)
-/// so their two oxygens are treated as interchangeable even though a
-/// Kekulized/formal-charge representation gives them different bond orders.
-/// This function does NOT do that preprocessing, so on such molecules it will
-/// report a higher (worse) RMSD than RDKit's `GetBestRMS` for a case that is
-/// chemically equivalent but not topologically automorphic as drawn. See
-/// issue tracker for the follow-up.
+/// As in RDKit's default `symmetrizeConjugatedTerminalGroups` mode, singly
+/// and doubly bonded terminal O/N pairs attached to the same center may
+/// exchange even when their formal charges and bond orders differ. Only
+/// single/double terminal bonds are relaxed; all other bonds retain their
+/// original query constraints.
 pub fn rmsd_symmetric(mol: &Molecule, coords_a: &Coords3D, coords_b: &Coords3D) -> f64 {
     let n = mol.atom_count();
     if n == 0 {
         return 0.0;
     }
+    rmsd_with_mappings(coords_a, coords_b, &symmetry_mappings(mol), n)
+}
+
+fn symmetry_mappings(mol: &Molecule) -> Vec<Vec<AtomIdx>> {
+    let n = mol.atom_count();
     let query = molecule_self_query(mol);
     let config = MatchConfig {
         uniquify: false,
@@ -356,15 +397,30 @@ pub fn rmsd_symmetric(mol: &Molecule, coords_a: &Coords3D, coords_b: &Coords3D) 
         "a molecule must always self-match at least via the identity mapping"
     );
 
+    matches
+        .iter()
+        .map(|m| (0..n).map(|qi| m[&qi]).collect())
+        .collect()
+}
+
+fn rmsd_with_mappings(
+    coords_a: &Coords3D,
+    coords_b: &Coords3D,
+    mappings: &[Vec<AtomIdx>],
+    n: usize,
+) -> f64 {
+    if n == 0 {
+        return 0.0;
+    }
     let mut best = f64::MAX;
-    for m in &matches {
+    for mapping in mappings {
         let mut relabelled = Coords3D::new_zeroed(n);
         for qi in 0..n {
-            // `m` maps this molecule's own atom indices (as the query) onto
+            // `mapping` maps this molecule's own atom indices (as the query) onto
             // itself (as the target) under one automorphism; relabelling
             // `coords_b` by that map produces one automorphism-consistent
             // atom correspondence between `coords_a` and `coords_b`.
-            let target = m[&qi];
+            let target = mapping[qi];
             relabelled.set(AtomIdx(qi as u32), coords_b.get(target));
         }
         let rmsd = kabsch_rmsd(coords_a, &relabelled, n);
@@ -376,19 +432,27 @@ pub fn rmsd_symmetric(mol: &Molecule, coords_a: &Coords3D, coords_b: &Coords3D) 
 }
 
 /// Build a `QueryMolecule` that matches only `mol` itself: one query atom per
-/// heavy atom (atomic number + formal charge), one query bond per bond
+/// atom (atomic number + isotope + formal charge), one query bond per bond
 /// (exact bond-order primitive where the order is unambiguous, `Any` for the
 /// query/metadata bond kinds that carry no independent topological meaning
 /// for automorphism purposes — `Zero`/`Dative`/`Query*`/`Up`/`Down` are all
 /// mapped to `Any` since none of them changes which atoms are interchangeable).
 fn molecule_self_query(mol: &Molecule) -> QueryMolecule {
+    let (neutral_terminal, either_terminal_bond) = symmetrized_terminal_groups(mol);
     let mut q = QueryMolecule::new();
     for i in 0..mol.atom_count() {
         let atom = mol.atom(AtomIdx(i as u32));
         let by_element =
             AtomQuery::Primitive(AtomPrimitive::AtomicNum(atom.element.atomic_number()));
-        let by_charge = AtomQuery::Primitive(AtomPrimitive::Charge(atom.charge));
-        q.add_atom(AtomQuery::And(Box::new(by_element), Box::new(by_charge)));
+        let by_isotope = AtomQuery::Primitive(AtomPrimitive::Isotope(atom.isotope.unwrap_or(0)));
+        let by_identity = AtomQuery::And(Box::new(by_element), Box::new(by_isotope));
+        let query = if neutral_terminal[i] {
+            by_identity
+        } else {
+            let by_charge = AtomQuery::Primitive(AtomPrimitive::Charge(atom.charge));
+            AtomQuery::And(Box::new(by_identity), Box::new(by_charge))
+        };
+        q.add_atom(query);
     }
     for i in 0..mol.bond_count() {
         let bond = mol.bond(chematic_core::BondIdx(i as u32));
@@ -399,13 +463,50 @@ fn molecule_self_query(mol: &Molecule) -> QueryMolecule {
             BondOrder::Aromatic => BondPrimitive::Aromatic,
             _ => BondPrimitive::Any,
         };
-        q.add_bond(
-            bond.atom1.0 as usize,
-            bond.atom2.0 as usize,
-            BondQuery::Primitive(prim),
-        );
+        let query = if either_terminal_bond[i] {
+            BondQuery::Or(
+                Box::new(BondQuery::Primitive(BondPrimitive::Single)),
+                Box::new(BondQuery::Primitive(BondPrimitive::Double)),
+            )
+        } else {
+            BondQuery::Primitive(prim)
+        };
+        q.add_bond(bond.atom1.0 as usize, bond.atom2.0 as usize, query);
     }
     q
+}
+
+/// Match RDKit's terminal O/N pair preprocessing without mutating the input
+/// molecule. A marked atom has its query charge ignored; a marked bond matches
+/// either single or double. Both sides of each qualifying pair are marked.
+fn symmetrized_terminal_groups(mol: &Molecule) -> (Vec<bool>, Vec<bool>) {
+    let is_terminal = |atom: AtomIdx| {
+        matches!(mol.atom(atom).element.atomic_number(), 7 | 8) && mol.degree(atom) == 1
+    };
+    let mut neutral = vec![false; mol.atom_count()];
+    let mut either = vec![false; mol.bond_count()];
+    for i in 0..mol.atom_count() {
+        let x = AtomIdx(i as u32);
+        if !is_terminal(x) {
+            continue;
+        }
+        let Some((y, xb)) = mol.neighbors(x).next() else {
+            continue;
+        };
+        let opposite = match mol.bond(xb).order {
+            BondOrder::Single => BondOrder::Double,
+            BondOrder::Double => BondOrder::Single,
+            _ => continue,
+        };
+        if mol
+            .neighbors(y)
+            .any(|(z, zb)| z != x && is_terminal(z) && mol.bond(zb).order == opposite)
+        {
+            neutral[i] = true;
+            either[xb.0 as usize] = true;
+        }
+    }
+    (neutral, either)
 }
 
 // ---------------------------------------------------------------------------
@@ -689,6 +790,67 @@ mod tests {
     }
 
     #[test]
+    fn symmetric_rmsd_exchanges_conjugated_terminal_oxygens() {
+        // RDKit GetBestRMS(..., symmetrizeConjugatedTerminalGroups=True)
+        // returns zero for these exact coordinates; disabling that option
+        // gives 0.2562223321058943 Å for each structure (RDKit 2025.09.3).
+        for smiles in ["CC(=O)[O-]", "C[N+](=O)[O-]"] {
+            let mol = parse(smiles).unwrap();
+            assert_eq!(mol.atom_count(), 4);
+            let mut original = Coords3D::new_zeroed(4);
+            for (i, point) in [
+                [-1.5, 0.0, 0.6],
+                [0.0, 0.0, 0.0],
+                [1.2, 0.9, 0.0],
+                [1.3, -0.8, 0.1],
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                original.set(AtomIdx(i as u32), Point3::new(point[0], point[1], point[2]));
+            }
+            let mut swapped = original.clone();
+            swapped.set(AtomIdx(2), original.get(AtomIdx(3)));
+            swapped.set(AtomIdx(3), original.get(AtomIdx(2)));
+
+            assert!(kabsch_rmsd(&original, &swapped, 4) > 0.25);
+            assert!(rmsd_symmetric(&mol, &original, &swapped) < 1e-6);
+            let mut ensemble = ConformerEnsemble::with_conformer(mol, original).unwrap();
+            assert!(ensemble.is_duplicate_symmetric(&swapped, 0.1));
+            ensemble.add_conformer(swapped).unwrap();
+            assert!(ensemble.conformer_rmsd_symmetric(0, 1).unwrap() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn symmetric_rmsd_respects_isotope_labels() {
+        let mol = parse("[13CH3]C(C)C").unwrap();
+        let mut coords = Coords3D::new_zeroed(4);
+        for (i, point) in [
+            [1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0],
+            [-1.4, -0.8, 1.2],
+            [-1.2, 1.1, -0.9],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            coords.set(AtomIdx(i as u32), Point3::new(point[0], point[1], point[2]));
+        }
+        let mut changed = coords.clone();
+        let (labeled, unlabeled) = (AtomIdx(0), AtomIdx(2));
+        changed.set(labeled, coords.get(unlabeled));
+        changed.set(unlabeled, coords.get(labeled));
+        assert!(rmsd_symmetric(&mol, &coords, &changed) > 0.1);
+
+        // The two ordinary methyl arms remain interchangeable.
+        let mut ordinary_swap = coords.clone();
+        ordinary_swap.set(AtomIdx(2), coords.get(AtomIdx(3)));
+        ordinary_swap.set(AtomIdx(3), coords.get(AtomIdx(2)));
+        assert!(rmsd_symmetric(&mol, &coords, &ordinary_swap) < 1e-6);
+    }
+
+    #[test]
     fn symmetric_rmsd_ensemble_method_matches_free_function() {
         let mol = parse("CCC").unwrap();
         let c1 = generate_coords(&mol);
@@ -905,6 +1067,76 @@ mod tests {
         ens.add_conformer(cb).unwrap();
         let kept = ens.cluster_conformers_by_rms(0.5);
         assert_eq!(kept, vec![0, 1], "two distinct conformers → both kept");
+    }
+
+    #[test]
+    fn symmetric_cluster_collapses_permuted_fluorines_and_keeps_distinct_geometry() {
+        let mol = parse("FC(F)(F)C").unwrap();
+        let n = mol.atom_count();
+        let base = generate_coords(&mol);
+        let fluorines: Vec<AtomIdx> = (0..n)
+            .map(|i| AtomIdx(i as u32))
+            .filter(|&idx| mol.atom(idx).element == chematic_core::Element::F)
+            .collect();
+        let mut swapped = base.clone();
+        swapped.set(fluorines[0], base.get(fluorines[1]));
+        swapped.set(fluorines[1], base.get(fluorines[0]));
+        let mut distinct = base.clone();
+        let moved = base.get(fluorines[0]);
+        distinct.set(fluorines[0], Point3::new(moved.x + 4.0, moved.y, moved.z));
+
+        let mut ens = ConformerEnsemble::with_conformer(mol, base).unwrap();
+        ens.add_conformer(swapped).unwrap();
+        ens.add_conformer(distinct).unwrap();
+        assert_eq!(ens.cluster_conformers_by_rms(0.05), vec![0, 1, 2]);
+        assert_eq!(ens.cluster_conformers_by_rms_symmetric(0.05), vec![0, 2]);
+    }
+
+    #[test]
+    fn symmetric_cluster_collapses_conjugated_terminal_oxygens() {
+        for smiles in ["CC(=O)[O-]", "C[N+](=O)[O-]"] {
+            let mol = parse(smiles).unwrap();
+            let mut base = Coords3D::new_zeroed(4);
+            for (i, [x, y, z]) in [
+                [-1.5, 0.0, 0.6],
+                [0.0, 0.0, 0.0],
+                [1.2, 0.9, 0.0],
+                [1.3, -0.8, 0.1],
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                base.set(AtomIdx(i as u32), Point3::new(x, y, z));
+            }
+            let mut swapped = base.clone();
+            swapped.set(AtomIdx(2), base.get(AtomIdx(3)));
+            swapped.set(AtomIdx(3), base.get(AtomIdx(2)));
+            let mut ens = ConformerEnsemble::with_conformer(mol, base).unwrap();
+            ens.add_conformer(swapped).unwrap();
+            assert_eq!(ens.cluster_conformers_by_rms(0.1), vec![0, 1]);
+            assert_eq!(ens.cluster_conformers_by_rms_symmetric(0.1), vec![0]);
+        }
+    }
+
+    #[test]
+    fn symmetric_cluster_empty_and_nonpositive_threshold() {
+        let mol = parse("CC").unwrap();
+        let mut ens = ConformerEnsemble::new(mol);
+        assert!(ens.cluster_conformers_by_rms_symmetric(0.1).is_empty());
+        let coords = generate_coords(ens.mol());
+        ens.add_conformer(coords.clone()).unwrap();
+        ens.add_conformer(coords).unwrap();
+        assert_eq!(ens.cluster_conformers_by_rms_symmetric(0.0), vec![0, 1]);
+        assert_eq!(ens.cluster_conformers_by_rms_symmetric(-1.0), vec![0, 1]);
+        assert_eq!(ens.cluster_conformers_by_rms_symmetric(0.1), vec![0]);
+    }
+
+    #[test]
+    fn symmetric_cluster_zero_atom_conformers_share_one_cluster() {
+        let mut ens = ConformerEnsemble::new(chematic_core::MoleculeBuilder::new().build());
+        ens.add_conformer(Coords3D::new_zeroed(0)).unwrap();
+        ens.add_conformer(Coords3D::new_zeroed(0)).unwrap();
+        assert_eq!(ens.cluster_conformers_by_rms_symmetric(0.1), vec![0]);
     }
 
     // --- is_duplicate_symmetric ----------------------------------------------

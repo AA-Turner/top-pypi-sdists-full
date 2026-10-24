@@ -194,6 +194,7 @@ class Table(AIOBoto3ServiceResource):
     archival_summary: Awaitable[ArchivalSummaryTypeDef]
     table_class_summary: Awaitable[TableClassSummaryTypeDef]
     deletion_protection_enabled: Awaitable[bool]
+    disassociation_protection_enabled: Awaitable[bool]
     on_demand_throughput: Awaitable[OnDemandThroughputTypeDef]
     warm_throughput: Awaitable[TableWarmThroughputDescriptionTypeDef]
     multi_region_consistency: Awaitable[MultiRegionConsistencyType]
@@ -267,8 +268,8 @@ class Table(AIOBoto3ServiceResource):
 
     async def update(self, **kwargs: Unpack[UpdateTableInputTableUpdateTypeDef]) -> _Table:
         """
-        Modifies the provisioned throughput settings, global secondary indexes, or
-        DynamoDB Streams settings for a given table.
+        Modifies the provisioned throughput settings, global secondary indexes,
+        DynamoDB Streams settings, or global table replica settings for a given table.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/update.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dynamodb/service_resource/#tableupdate-method)

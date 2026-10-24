@@ -1,6 +1,5 @@
 import { ClickableIcon, ClickableIconView } from "./icon";
 export class ToggleIconView extends ClickableIconView {
-    static __name__ = "ToggleIconView";
     *controls() { }
     click() {
         if (this.model.disabled) {
@@ -11,7 +10,6 @@ export class ToggleIconView extends ClickableIconView {
     }
 }
 export class ToggleIcon extends ClickableIcon {
-    static __name__ = "ToggleIcon";
     static __module__ = "panel.models.icon";
     constructor(attrs) {
         super(attrs);

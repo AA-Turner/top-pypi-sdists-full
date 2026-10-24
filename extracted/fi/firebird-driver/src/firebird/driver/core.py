@@ -85,6 +85,7 @@ from .types import (
     CB_OUTPUT_LINE,
     DESCRIPTION,
     FILESPEC,
+    TIMEOUT,
     BlobInfoCode,
     BlobType,
     BPBItem,
@@ -180,13 +181,12 @@ FB50: float = 5.0
 FB40: float = 4.0
 INFINITE_TIMEOUT: int = -1
 
-#: Max BLOB segment size
 MAX_BLOB_SEGMENT_SIZE = 65535
+"Max BLOB segment size"
 
-#: Current filesystem encoding
 FS_ENCODING = sys.getfilesystemencoding()
+"Current filesystem encoding"
 
-#: Python dictionary that maps Firebird character set names (key) to Python character sets (value).
 CHARSET_MAP = {None: a.getpreferredencoding(), 'NONE': a.getpreferredencoding(),
                'OCTETS': None, 'UNICODE_FSS': 'utf_8', 'UTF8': 'utf_8', 'UTF-8': 'utf_8',
                'ASCII': 'ascii', 'SJIS_0208': 'shift_jis', 'EUCJ_0208': 'euc_jp',
@@ -207,15 +207,13 @@ CHARSET_MAP = {None: a.getpreferredencoding(), 'NONE': a.getpreferredencoding(),
                'GBK': 'gbk', 'KOI8R': 'koi8_r', 'KOI8U': 'koi8_u',
                'WIN1258': 'cp1258',
                }
-
-#: Sentinel that denotes timeout expiration
-TIMEOUT: Sentinel = Sentinel('TIMEOUT')
+"Python dictionary that maps Firebird character set names (key) to Python character sets (value)."
 
 # Internal
-#: Firebird `.iMaster` interface
 _master: iMaster = None
-#: Firebird `.iUtil` interface
+"Firebird `.iMaster` interface"
 _util: iUtil = None
+"Firebird `.iUtil` interface"
 _thns = threading.local()
 
 _ten_to = [10 ** x for x in range(30)]
@@ -231,6 +229,7 @@ isc_info_end = 1
 isc_info_truncated = 2
 isc_info_error = 3
 isc_info_data_not_ready = 4
+isc_info_svc_timeout = 64
 
 def __api_loaded(api: a.FirebirdAPI) -> None:
     setattr(sys.modules[__name__], '_master', api.fb_get_master_interface()) # noqa: B010
@@ -522,73 +521,73 @@ class DPB:
         # AuthClient, WireCryptPlugin, Providers, ConnectionTimeout, WireCrypt,
         # WireCompression, DummyPacketInterval, RemoteServiceName, RemoteServicePort,
         # RemoteAuxPort, TcpNoNagle, IpcName, RemotePipeName, ClientBatchBuffer [FB4+]
-        #: Configuration override
         self.config: str | None = config
-        #: List of authentication plugins override
+        "Configuration override"
         self.auth_plugin_list: str | None = auth_plugin_list
+        "List of authentication plugins override"
         # Connect
-        #: Use trusted authentication
         self.trusted_auth: bool = trusted_auth
-        #: User name
+        "Use trusted authentication"
         self.user: str | None = user
-        #: User password
+        "User name"
         self.password: str | None = password
-        #: User role
+        "User password"
         self.role: str | None = role
-        #: SQL Dialect for database connection
+        "User role"
         self.sql_dialect: int = sql_dialect
-        #: Character set for database connection
+        "SQL Dialect for database connection"
         self.charset: str = charset
-        #: Connection timeout
+        "Character set for database connection"
         self.timeout: int | None = timeout
-        #: Dummy packet interval for this database connection
+        "Connection timeout"
         self.dummy_packet_interval: int | None = dummy_packet_interval
-        #: Page cache size override for database connection
+        "Dummy packet interval for this database connection"
         self.cache_size: int | None = cache_size
-        #: Disable garbage collection for database connection
+        "Page cache size override for database connection"
         self.no_gc: bool = no_gc
-        #: Disable database triggers for database connection
+        "Disable garbage collection for database connection"
         self.no_db_triggers: bool = no_db_triggers
-        #: Do not use linger for database connection
+        "Disable database triggers for database connection"
         self.no_linger: bool = no_linger
-        #: Database filename passed in UTF8
+        "Do not use linger for database connection"
         self.utf8filename: bool = utf8filename
-        #: Scope for RDB$DB_KEY values
+        "Database filename passed in UTF8"
         self.dbkey_scope: DBKeyScope | None = dbkey_scope
-        #: Session time zone [Firebird 4]
+        "Scope for RDB$DB_KEY values"
         self.session_time_zone: str | None = session_time_zone
-        #: Set replica mode [Firebird 4]
+        "Session time zone [Firebird 4]"
         self.set_db_replica: ReplicaMode | None = set_db_replica
-        #: Set BIND [Firebird 4]
+        "Set replica mode [Firebird 4]"
         self.set_bind: str | None = set_bind
-        #: Set DECFLOAT ROUND [Firebird 4]
+        "Set BIND [Firebird 4]"
         self.decfloat_round: DecfloatRound | None = decfloat_round
-        #: Set DECFLOAT TRAPS [Firebird 4]
+        "Set DECFLOAT ROUND [Firebird 4]"
         self.decfloat_traps: list[DecfloatTraps] | None = \
             None if decfloat_traps is None else list(decfloat_traps)
+        "Set DECFLOAT TRAPS [Firebird 4]"
         # For db create
-        #: Database page size [db create only]
         self.page_size: int | None = page_size
-        #: Overwrite existing database [db create only]
+        "Database page size [db create only]"
         self.overwrite: bool = overwrite
-        #: Number of pages in database cache [db create only]
+        "Overwrite existing database [db create only]"
         self.db_buffers: int | None= None
-        #: Database cache size [db create only]
+        "Number of pages in database cache [db create only]"
         self.db_cache_size: int | None = db_cache_size
-        #: Database write mode (True = sync/False = async) [db create only]
+        "Database cache size [db create only]"
         self.forced_writes: bool | None = forced_writes
-        #: Database data page space usage (True = reserve space, False = Use all space) [db create only]
+        "Database write mode (True = sync/False = async) [db create only]"
         self.reserve_space: bool | None = reserve_space
-        #: Database access mode (True = read-only/False = read-write) [db create only]
+        "Database data page space usage (True = reserve space, False = Use all space) [db create only]"
         self.read_only: bool = read_only
-        #: Sweep interval for the database [db create only]
+        "Database access mode (True = read-only/False = read-write) [db create only]"
         self.sweep_interval: int | None = sweep_interval
-        #: SQL dialect for the database [db create only]
+        "Sweep interval for the database [db create only]"
         self.db_sql_dialect: int | None = db_sql_dialect
-        #: Character set for the database [db create only]
+        "SQL dialect for the database [db create only]"
         self.db_charset: str | None = db_charset
-        #: Number of parallel workers
+        "Character set for the database [db create only]"
         self.parallel_workers: int | None = parallel_workers
+        "Number of parallel workers"
     def clear(self) -> None:
         """Clear all information.
         """
@@ -969,7 +968,7 @@ class EventCollector:
         `EventCollector` implements context manager protocol to call method `.begin()`
         and `.close()` automatically.
 
-    Example::
+    Example:
 
        with connection.event_collector(['event_a', 'event_b']) as collector:
            events = collector.wait()
@@ -1042,7 +1041,7 @@ class EventCollector:
             `None` if the wait timed out, otherwise a dictionary that maps
             `event_name -> event_occurrence_count`.
 
-        Example::
+        Example:
 
            >>> collector = connection.event_collector(['event_a', 'event_b'])
            >>> collector.begin()
@@ -1773,8 +1772,8 @@ class Connection:
         self._encoding: str = CHARSET_MAP.get(charset, 'ascii')
         self._att.encoding = self._encoding
         self._dpb: bytes | None = dpb
-        #: Default TPB for newly created transaction managers
         self.default_tpb: bytes = tpb(Isolation.SNAPSHOT)
+        "Default TPB for newly created transaction managers"
         self._transactions: list[TransactionManager] = []
         self._statements: list[Statement] = []
         #
@@ -1931,7 +1930,7 @@ class Connection:
 
         Hooks:
             Event `.ConnectionHook.DROPPED`: Executed after database is sucessfuly dropped.
-            Hook must have signature::
+            Hook must have signature:
 
                 hook_func(connection: Connection) -> None
 
@@ -1975,16 +1974,14 @@ class Connection:
 
         Hooks:
             Event `.ConnectionHook.DETACH_REQUEST`: Executed before connection
-            is closed. Hook must have signature::
+            is closed. Hook must have signature:
 
                 hook_func(connection: Connection) -> bool
 
-            .. note::
-
-               If any hook function returns True, connection is NOT closed.
+            Note: If any hook function returns True, connection is NOT closed.
 
             Event `.ConnectionHook.CLOSED`: Executed after connection is closed.
-            Hook must have signature::
+            Hook must have signature:
 
                 hook_func(connection: Connection) -> None
 
@@ -2147,7 +2144,7 @@ def tpb(isolation: Isolation, lock_timeout: int=INFINITE_TIMEOUT,
     Arguments:
         isolation: Isolation level.
         lock_timeout: Lock timeout (-1 = Infinity)
-        access: Access mode.
+        access_mode: Access mode.
     """
     return TPB(isolation=isolation, lock_timeout=lock_timeout, access_mode=access_mode).get_buffer()
 
@@ -2297,7 +2294,7 @@ def connect(database: str | Path, *, user: str | None=None, password: str | None
     Hooks:
         Event `.ConnectionHook.ATTACH_REQUEST`: Executed after all parameters
         are preprocessed and before `Connection` is created. Hook
-        must have signature::
+        must have signature:
 
             hook_func(dsn: str, dpb: bytes) -> Optional[Connection]
 
@@ -2306,7 +2303,7 @@ def connect(database: str | Path, *, user: str | None=None, password: str | None
         of this function and other hooks are not called.
 
         Event `.ConnectionHook.ATTACHED`: Executed before `Connection` instance is
-        returned. Hook must have signature::
+        returned. Hook must have signature:
 
             hook_func(connection: Connection) -> None
 
@@ -2389,7 +2386,7 @@ def create_database(database: str | Path, *, user: str | None=None, password: st
 
     Hooks:
         Event `.ConnectionHook.ATTACHED`: Executed before `Connection` instance is
-        returned. Hook must have signature::
+        returned. Hook must have signature:
 
             hook_func(connection: Connection) -> None
 
@@ -2593,10 +2590,10 @@ class TransactionManager:
     def __init__(self, connection: Connection, default_tpb: bytes,
                  default_action: DefaultAction=DefaultAction.COMMIT):
         self._connection: Callable[[], Connection] = weakref.ref(connection, self.__dead_con)
-        #: Default Transaction Parameter Block used to start transaction
         self.default_tpb: bytes = default_tpb
-        #: Default action (commit/rollback) to be performed when transaction is closed.
+        "Default Transaction Parameter Block used to start transaction"
         self.default_action: DefaultAction = default_action
+        "Default action (commit/rollback) to be performed when transaction is closed."
         self.__handle: a.FB_API_HANDLE = None
         self.__info: TransactionInfoProvider | TransactionInfoProvider3 = None
         self._cursors: list = []  # Weak references to cursors
@@ -3263,7 +3260,7 @@ class BlobReader(io.IOBase):
         """Set the file's current position, like stdio's `fseek()`.
 
         See:
-            :meth:`io.IOBase.seek()` for details.
+            `io.IOBase.seek()` for details.
 
         Arguments:
             offset: Offset from specified position.
@@ -3279,7 +3276,7 @@ class BlobReader(io.IOBase):
         """Return current position in BLOB.
 
         See:
-            :meth:`io.IOBase.tell()` for details.
+            `io.IOBase.tell()` for details.
         """
         return self.__pos
     def is_text(self) -> bool:
@@ -3329,11 +3326,8 @@ class Cursor:
     Note:
         Implements context manager protocol to call `.close()` automatically.
     """
-    #: This read/write attribute specifies the number of rows to fetch at a time with
-    #: .fetchmany(). It defaults to 1 meaning to fetch a single row at a time.
-    #:
-    #: Required by Python DB API 2.0
     arraysize: int = 1
+    "This read/write attribute specifies the number of rows to fetch at a time with\n.fetchmany(). It defaults to 1 meaning to fetch a single row at a time.\n\nRequired by Python DB API 2.0"
     def __init__(self, connection: Connection, transaction: TransactionManager):
         self._connection: Connection = connection
         self._dialect: int = connection.sql_dialect
@@ -3348,11 +3342,10 @@ class Cursor:
         self.__output_cache: tuple = None
         self.__internal: bool = False
         self.__blob_readers: set = weakref.WeakSet()
-        #: Names of columns that should be returned as `BlobReader`.
         self.stream_blobs: list[str] = []
-        #: BLOBs greater than threshold are returned as `BlobReader` instead in materialized form.
-        #: Defaults to the value from `driver_config`.
+        "Names of columns that should be returned as `BlobReader`."
         self.stream_blob_threshold = driver_config.stream_blob_threshold.value
+        "BLOBs greater than threshold are returned as `BlobReader` instead of materialized values.\nSet to -1 to disable automatic streaming. Defaults to the value from `driver_config`."
     def __enter__(self) -> Self:
         return self
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -3833,7 +3826,7 @@ class Cursor:
                     segment_size = blob.get_info2(BlobInfoCode.MAX_SEGMENT)
                     # Check if stream BLOB is requested instead materialized one
                     if ((self.stream_blobs and (desc.alias if desc.alias != desc.field else desc.field) in self.stream_blobs)
-                        or (blob_length > self.stream_blob_threshold)):
+                        or (self.stream_blob_threshold != -1 and blob_length > self.stream_blob_threshold)):
                         # Stream BLOB
                         value = BlobReader(blob, blobid, desc.subtype, blob_length,
                                            segment_size, self._encoding, self)
@@ -3988,8 +3981,7 @@ class Cursor:
             parameters: Sequence of parameters. Must contain one entry for each argument
                         that the procedure expects.
 
-        .. note::
-
+        Note:
            If stored procedure does have output parameters, you must retrieve their values
            saparatelly by `.Cursor.fetchone()` call. This method is not very convenient,
            but conforms to Python DB API 2.0. If you don't require conformance to Python
@@ -4558,7 +4550,7 @@ class ServerDbServices3(ServerServiceProvider):
                flags: SrvBackupFlag=SrvBackupFlag.NONE, role: str | None=None,
                callback: CB_OUTPUT_LINE | None=None, stats: str | None=None,
                verbose: bool=False, verbint: int | None=None, skip_data: str | None=None,
-               include_data: str | None=None, keyhoder: str | None=None, keyname: str | None=None,
+               include_data: str | None=None, keyholder: str | None=None, keyname: str | None=None,
                crypt: str | None=None, parallel_workers: int | None=None) -> None:
         """Request logical (GBAK) database backup. **(ASYNC service)**
 
@@ -4574,7 +4566,7 @@ class ServerDbServices3(ServerServiceProvider):
             verbint: Verbose information with explicit interval (number of records)
             skip_data: String with table names whose data should be excluded from backup.
             include_data: String with table names whose data should be included into backup [Firebird 4].
-            keyholder: Keyholder name [Firebird 4]
+            keyholder: Keyholder name [Firebird 4].
             keyname: Key name [Firebird 4]
             crypt: Encryption specification [Firebird 4]
             parallel_workers: Number of parallel workers [Firebird 5]
@@ -4595,8 +4587,8 @@ class ServerDbServices3(ServerServiceProvider):
                 spb.insert_string(SrvBackupOption.SKIP_DATA, skip_data)
             if include_data is not None:
                 spb.insert_string(SrvBackupOption.INCLUDE_DATA, include_data)
-            if keyhoder is not None:
-                spb.insert_string(SrvBackupOption.KEYHOLDER, keyhoder)
+            if keyholder is not None:
+                spb.insert_string(SrvBackupOption.KEYHOLDER, keyholder)
             if keyname is not None:
                 spb.insert_string(SrvBackupOption.KEYNAME, keyname)
             if crypt is not None:
@@ -4622,7 +4614,7 @@ class ServerDbServices3(ServerServiceProvider):
                 verbose: bool=False, verbint: int | None=None, skip_data: str | None=None,
                 page_size: int | None=None, buffers: int | None=None,
                 access_mode: DbAccessMode=DbAccessMode.READ_WRITE, include_data: str | None=None,
-                keyhoder: str | None=None, keyname: str | None=None, crypt: str | None=None,
+                keyholder: str | None=None, keyname: str | None=None, crypt: str | None=None,
                 replica_mode: ReplicaMode | None=None, parallel_workers: int | None=None) -> None:
         """Request database restore from logical (GBAK) backup. **(ASYNC service)**
 
@@ -4641,7 +4633,7 @@ class ServerDbServices3(ServerServiceProvider):
             buffers: Cache size for restored database.
             access_mode: Restored database access mode (R/W or R/O).
             include_data: String with table names whose data should be included into backup [Firebird 4].
-            keyholder: Keyholder name [Firebird 4]
+            keyholder: Keyholder name [Firebird 4].
             keyname: Key name [Firebird 4]
             crypt: Encryption specification [Firebird 4]
             replica_mode: Replica mode for restored database [Firebird 4]
@@ -4671,8 +4663,8 @@ class ServerDbServices3(ServerServiceProvider):
                 spb.insert_string(SrvRestoreOption.SKIP_DATA, skip_data, encoding=self._srv().encoding)
             if include_data is not None:
                 spb.insert_string(SrvRestoreOption.INCLUDE_DATA, include_data, encoding=self._srv().encoding)
-            if keyhoder is not None:
-                spb.insert_string(SrvRestoreOption.KEYHOLDER, keyhoder)
+            if keyholder is not None:
+                spb.insert_string(SrvRestoreOption.KEYHOLDER, keyholder)
             if keyname is not None:
                 spb.insert_string(SrvRestoreOption.KEYNAME, keyname)
             if crypt is not None:
@@ -4694,7 +4686,7 @@ class ServerDbServices3(ServerServiceProvider):
                 callback(line)
     def local_backup(self, *, database: FILESPEC, backup_stream: BinaryIO,
                      flags: SrvBackupFlag=SrvBackupFlag.NONE, role: str | None=None,
-                     skip_data: str | None=None, include_data: str | None=None, keyhoder: str | None=None,
+                     skip_data: str | None=None, include_data: str | None=None, keyholder: str | None=None,
                      keyname: str | None=None, crypt: str | None=None) -> None:
         """Request logical (GBAK) database backup into local byte stream. **(SYNC service)**
 
@@ -4705,7 +4697,7 @@ class ServerDbServices3(ServerServiceProvider):
             role: SQL ROLE name passed to gbak.
             skip_data: String with table names whose data should be excluded from backup.
             include_data: String with table names whose data should be included into backup [Firebird 4].
-            keyholder: Keyholder name [Firebird 4]
+            keyholder: Keyholder name [Firebird 4].
             keyname: Key name [Firebird 4]
             crypt: Encryption specification [Firebird 4]
         """
@@ -4723,8 +4715,8 @@ class ServerDbServices3(ServerServiceProvider):
             if include_data is not None:
                 spb.insert_string(SrvBackupOption.INCLUDE_DATA, include_data,
                                   encoding=self._srv().encoding)
-            if keyhoder is not None:
-                spb.insert_string(SrvBackupOption.KEYHOLDER, keyhoder)
+            if keyholder is not None:
+                spb.insert_string(SrvBackupOption.KEYHOLDER, keyholder)
             if keyname is not None:
                 spb.insert_string(SrvBackupOption.KEYNAME, keyname)
             if crypt is not None:
@@ -4738,7 +4730,7 @@ class ServerDbServices3(ServerServiceProvider):
                       flags: SrvRestoreFlag=SrvRestoreFlag.CREATE, role: str | None=None,
                       skip_data: str | None=None, page_size: int | None=None, buffers: int | None=None,
                       access_mode: DbAccessMode=DbAccessMode.READ_WRITE,
-                      include_data: str | None=None, keyhoder: str | None=None, keyname: str | None=None,
+                      include_data: str | None=None, keyholder: str | None=None, keyname: str | None=None,
                       crypt: str | None=None, replica_mode: ReplicaMode | None=None) -> None:
         """Request database restore from logical (GBAK) backup stored in local byte stream.
         **(SYNC service)**
@@ -4754,7 +4746,7 @@ class ServerDbServices3(ServerServiceProvider):
             buffers: Cache size for restored database.
             access_mode: Restored database access mode (R/W or R/O).
             include_data: String with table names whose data should be included into backup [Firebird 4].
-            keyholder: Keyholder name [Firebird 4]
+            keyholder: Keyholder name [Firebird 4].
             keyname: Key name [Firebird 4]
             crypt: Encryption specification [Firebird 4]
             replica_mode: Replica mode for restored database [Firebird 4]
@@ -4780,8 +4772,8 @@ class ServerDbServices3(ServerServiceProvider):
             if include_data is not None:
                 spb.insert_string(SrvRestoreOption.INCLUDE_DATA, include_data,
                                   encoding=self._srv().encoding)
-            if keyhoder is not None:
-                spb.insert_string(SrvRestoreOption.KEYHOLDER, keyhoder)
+            if keyholder is not None:
+                spb.insert_string(SrvRestoreOption.KEYHOLDER, keyholder)
             if keyname is not None:
                 spb.insert_string(SrvRestoreOption.KEYNAME, keyname)
             if crypt is not None:
@@ -5101,13 +5093,12 @@ class ServerDbServices3(ServerServiceProvider):
 
         Arguments:
             database: Database specification or alias.
-            flags: Repair flags.
             include_table: Regex pattern for table names to include in validation run.
             exclude_table: Regex pattern for table names to exclude in validation run.
             include_index: Regex pattern for index names to include in validation run.
             exclude_index: Regex pattern for index names to exclude in validation run.
             lock_timeout: Lock timeout (seconds), used to acquire locks for table to validate,
-              default is 10 secs. 0 is no-wait, -1 is infinite wait.
+                default is 10 secs. 0 is no-wait, -1 is infinite wait.
             role: SQL ROLE name passed to gfix.
             callback: Function to call back with each output line.
         """
@@ -5284,8 +5275,6 @@ class ServerDbServices(ServerDbServices4):
 
         Arguments:
             database: Database specification or alias.
-            flags: Repair flags.
-            role: SQL ROLE name passed to gfix.
         """
         self._srv()._reset_output()
         with a.get_api().util.get_xpb_builder(XpbKind.SPB_START) as spb:
@@ -5377,7 +5366,7 @@ class ServerUserServices(ServerServiceProvider):
             password: User password.
             user_id: User ID.
             group_id: Group ID.
-            firest_name: User's first name.
+            first_name: User's first name.
             middle_name: User's middle name.
             last_name: User's last name.
             admin: Admin flag.
@@ -5422,7 +5411,7 @@ class ServerUserServices(ServerServiceProvider):
             password: User password.
             user_id: User ID.
             group_id: Group ID.
-            firest_name: User's first name.
+            first_name: User's first name.
             middle_name: User's middle name.
             last_name: User's last name.
             admin: Admin flag.
@@ -5496,12 +5485,13 @@ class ServerTraceServices(ServerServiceProvider):
             # response should contain the error message
             raise DatabaseError(response)
         return response
-    def start(self, *, config: str, name: str | None=None) -> int:
+    def start(self, *, config: str, name: str | None=None, plugins: str | list[str] | None=None) -> int:
         """Start new trace session. **(ASYNC service)**
 
         Arguments:
             config: Trace session configuration.
             name: Trace session name.
+            plugins: Plugins to use for the session (only for FIREBIRD 6+)
 
         Returns:
             Trace session ID.
@@ -5511,6 +5501,11 @@ class ServerTraceServices(ServerServiceProvider):
             spb.insert_tag(ServerAction.TRACE_START)
             if name is not None:
                 spb.insert_string(SrvTraceOption.NAME, name)
+            if plugins is not None:
+                if isinstance(plugins, list):
+                    plugins = ",".join(plugins)
+                spb.insert_string(SrvTraceOption.PLUGINS, plugins)
+
             spb.insert_string(SrvTraceOption.CONFIG, config, encoding=self._srv().encoding)
             self._srv()._svc.start(spb.get_buffer())
         response = self._srv()._fetch_line()
@@ -5581,6 +5576,8 @@ class ServerTraceServices(ServerServiceProvider):
                     '%Y-%m-%d %H:%M:%S')
             elif line.lstrip().startswith('flags:'):
                 current['flags'] = line.split(':')[1].strip().split(',')
+            elif line.lstrip().startswith('plugins:'):
+                current['plugins'] = line.split(':')[1].strip().split(',')
             else:  # pragma: no cover
                 raise InterfaceError(f"Unexpected line in trace session list: {line}")
         store()
@@ -5595,20 +5592,22 @@ class Server:
     def __init__(self, svc: iService, spb: bytes, host: str, encoding: str,
                  encoding_errors: str):
         self._svc: iService = svc
-        #: Service Parameter Buffer (SPB) used to connect the service manager
         self.spb: bytes = spb
-        #: Server host
+        "Service Parameter Buffer (SPB) used to connect the service manager"
         self.host: str = host
-        #: Service output mode (line or eof)
+        "Server host"
         self.mode: SrvInfoCode = SrvInfoCode.TO_EOF
-        #: Response buffer used to communicate with service
+        "Service output mode (line or eof)"
+        self.query_timeout: int = INFINITE_TIMEOUT
+        "Timeout in seconds for server output queries; -1 waits indefinitely"
         self.response: CBuffer = CBuffer(USHRT_MAX)
+        "Response buffer used to communicate with service"
         self._eof: bool = False
         self.__line_buffer: list[str] = []
-        #: Encoding used for text data exchange with server
         self.encoding: str = encoding
-        #: Handler used for encoding errors. See: `codecs#error-handlers`
+        "Encoding used for text data exchange with server"
         self.encoding_errors: str = encoding_errors
+        "Handler used for encoding errors. See: `codecs#error-handlers`"
         #
         self.__ev: float = None
         self.__info: ServerInfoProvider = None
@@ -5662,26 +5661,42 @@ class Server:
         if self.response.get_tag() != isc_info_end:  # pragma: no cover
             raise InterfaceError("Malformed result buffer (missing isc_info_end item)")
         return result
-    def _query_output(self, timeout: int) -> str:
+    def _query_output(self, timeout: int) -> str | Sentinel:
         self.response.clear()
         self._svc.query(self._make_request(timeout), bytes([self.mode]), self.response.raw)
-        if (tag := self.response.get_tag()) != self.mode:  # pragma: no cover
+        if (tag := self.response.get_tag()) == isc_info_svc_timeout:
+            return TIMEOUT
+        if tag != self.mode:  # pragma: no cover
             raise InterfaceError(f"Service responded with error code: {tag}")
         return self.response.read_sized_string(encoding=self.encoding, errors=self.encoding_errors)
-    def _read_output(self, *, init: str='', timeout: int=INFINITE_TIMEOUT) -> None:
-        data = self._query_output(timeout)
+    def _read_output(self, *, init: str='') -> bool:
+        """Fetch output into the line buffer; return True if the query timed out."""
+        data = self._query_output(self.query_timeout)
+        if data is TIMEOUT:
+            self.__line_buffer = init.splitlines(keepends=True)
+            return True
+        tag = self.response.get_tag()
+        timed_out = tag == isc_info_svc_timeout
         if self.mode is SrvInfoCode.TO_EOF:
-            self._eof = self.response.get_tag() == isc_info_end
+            self._eof = tag == isc_info_end
         else: # LINE mode
-            self._eof = not data
-            while (tag := self.response.get_tag()) == isc_info_truncated:
-                data += self._query_output(timeout)
-            if tag != isc_info_end:  # pragma: no cover
+            while tag == isc_info_truncated:
+                part = self._query_output(self.query_timeout)
+                if part is TIMEOUT:
+                    timed_out = True
+                    break
+                data += part
+                tag = self.response.get_tag()
+                timed_out = tag == isc_info_svc_timeout
+            if not timed_out and tag != isc_info_end:  # pragma: no cover
                 raise InterfaceError("Malformed result buffer (missing isc_info_end item)")
+            if not timed_out:
+                self._eof = not data
         init += data
-        if data and self.mode is SrvInfoCode.LINE:
+        if data and self.mode is SrvInfoCode.LINE and not timed_out:
             init += '\n'
         self.__line_buffer = init.splitlines(keepends=True)
+        return timed_out
     def _read_all_binary_output(self, *, timeout: int=INFINITE_TIMEOUT) -> bytes:
         send = self._make_request(timeout)
         result = []
@@ -5735,35 +5750,30 @@ class Server:
         if data and data.endswith('\r '):
             data = data[:-1]  # Remove space, keep '\r'
         return data if data else None
-    def readline(self) -> str | None:
+    def readline(self) -> str | Sentinel | None:
         """Get next line of textual output from last service query.
 
         Returns:
-          Line of service output or `None` for EOF.
+          Line of service output, `.TIMEOUT` if the query timed out, or `None` for EOF.
 
         Important:
-          This method blocks until any output is available from server. Bacuse this method
-          is used by iteration over `.Server` and `.readlines` method, they will block as
-          well.
+          With the default `.query_timeout` this method blocks until output is available.
         """
-        if self._eof and not self.__line_buffer:
-            return None
-        if not self.__line_buffer:
-            self._read_output()
-        elif len(self.__line_buffer) == 1:
-            line = self.__line_buffer.pop(0)
+        while True:
+            # Only the last buffered piece can be an incomplete line; earlier ones ended on
+            # another `splitlines()` boundary (e.g. a bare '\r' inside SQL text).
+            if self.__line_buffer and (len(self.__line_buffer) > 1
+                                       or self.__line_buffer[0].endswith('\n') or self._eof):
+                return self.__line_buffer.pop(0)
             if self._eof:
-                return line
-            self._read_output(init=line)
-            while not self.__line_buffer[0].endswith('\n'):
-                self._read_output(init=self.__line_buffer.pop(0))
-        if self.__line_buffer:
-            return self.__line_buffer.pop(0)
-        return None
+                return None
+            pending = self.__line_buffer.pop(0) if self.__line_buffer else ''
+            if self._read_output(init=pending):
+                return TIMEOUT
     def readlines(self) -> list[str]:
-        """Get list of remaining output lines from last service query.
+        """Get remaining output lines, omitting any timeout signals.
         """
-        return list(self)
+        return [line for line in self if line is not TIMEOUT]
     def wait(self) -> None:
         """Wait until running service completes, i.e. stops sending data.
         """
@@ -5846,13 +5856,13 @@ def connect_server(server: str, *, user: str | None=None, password: str | None=N
                      security database)
         role: SQL role used for connection.
         encoding: Encoding for string values passed in parameter buffer. Default is
-           `.ServerConfig.encoding`.
+            `.ServerConfig.encoding`.
         encoding_errors: Error handler used for encoding errors. Default is
-           `.ServerConfig.encoding_errors`.
+            `.ServerConfig.encoding_errors`.
 
     Hooks:
         Event `.ServerHook.ATTACHED`: Executed before `Service` instance is
-        returned. Hook must have signature::
+        returned. Hook must have signature:
 
             hook_func(server: Server) -> None
 

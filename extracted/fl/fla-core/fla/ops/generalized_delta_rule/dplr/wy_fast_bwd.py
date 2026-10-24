@@ -52,11 +52,11 @@ def prepare_wy_repr_bwd_kernel(
     BV: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -87,7 +87,7 @@ def prepare_wy_repr_bwd_kernel(
         p_du = du + (bos*H + i_h) * V + o_t[:, None] * (H*V) + o_v[None, :]
         b_v = tl.load(p_v, mask=m_v, other=0.0)
         b_du = tl.load(p_du, mask=m_v, other=0.0)
-        b_dA_tmp += tl.dot(b_du.to(b_v.dtype), tl.trans(b_v))
+        b_dA_tmp = tl.dot(b_du.to(b_v.dtype), tl.trans(b_v), b_dA_tmp)
         b_dv0 = tl.load(p_dv0, mask=m_v, other=0.0)
         b_dv = b_dv0 + tl.dot(b_A_tmp_t, b_du)
         tl.store(p_dv, b_dv.to(p_dv.dtype.element_ty), mask=m_v)
@@ -107,7 +107,7 @@ def prepare_wy_repr_bwd_kernel(
         p_dw = dw + (bos * H + i_h) * K + o_t[:, None] * (H*K) + o_k[None, :]
         b_ag = tl.load(p_ag, mask=m_k, other=0.0)
         b_dw = tl.load(p_dw, mask=m_k, other=0.0)
-        b_dA_ab_inv += tl.dot(b_dw, tl.trans(b_ag))
+        b_dA_ab_inv = tl.dot(b_dw, tl.trans(b_ag), b_dA_ab_inv)
         b_dag = tl.dot(b_A_ab_inv_t.to(b_dw.dtype), b_dw)
         tl.store(p_dag, b_dag.to(p_dag.dtype.element_ty), mask=m_k)
 

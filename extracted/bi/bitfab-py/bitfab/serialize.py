@@ -439,19 +439,17 @@ def deserialize_value(serialized: SerializedValue) -> Any:
     json_data = serialized.get("json")
     meta = serialized.get("meta")
 
-    if meta is None:
-        # No metadata, return as-is
+    if not isinstance(meta, dict):
         return json_data
 
-    if isinstance(meta, dict) and meta.get("encoding") == "jsonpickle":
-        # Decode using jsonpickle
-        import json
+    if meta.get("encoding") == "jsonpickle":
+        return _decode_jsonpickle(json_data)
 
-        encoded = json.dumps(json_data)
-        return jsonpickle.decode(encoded)
-
-    # Unknown metadata format, return raw JSON
     return json_data
+
+
+def _decode_jsonpickle(json_data: Any) -> Any:
+    return jsonpickle.decode(json.dumps(json_data))
 
 
 def _has_type_markers(obj: Any) -> bool:

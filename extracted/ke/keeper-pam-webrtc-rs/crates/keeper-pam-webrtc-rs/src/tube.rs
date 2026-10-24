@@ -15,6 +15,7 @@ use arc_swap::ArcSwap;
 use guacr_handlers::video::VideoOutput;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Mutex as StdMutex;
@@ -544,9 +545,10 @@ impl Tube {
             // byte. Without this, channels created after the tap
             // install miss it entirely (Rust-port smoke test bug
             // 2026-05-04).
-            let data_channel = WebRTCDataChannel::new_with_outbound_tap_slot(
+            let data_channel = WebRTCDataChannel::new_with_send_limit(
                 rtc_data_channel,
                 tube.outbound_tap.clone(),
+                peer_connection_for_channel.data_channel_send_limit.clone(),
             );
             debug!("[DATA_CHANNEL_CALLBACK] Early message buffer active (tube_id: {}, conversation_id: {}, channel_label: {})", tube.id(), tube.original_conversation_id.as_deref().unwrap_or("-"), rtc_data_channel_label);
 
@@ -976,7 +978,7 @@ impl Tube {
     ) {
         // One write is all it takes: every data channel is constructed
         // with a clone of this tube's `Arc<TapSlot>` (see
-        // `WebRTCDataChannel::new_with_outbound_tap_slot`, used by both
+        // `WebRTCDataChannel::new_with_send_limit`, used by both
         // the `on_data_channel` callback and `create_data_channel`), so
         // all current AND future channels observe this slot. Regression
         // test: `tests::tap_tests::tap_installed_on_tube_slot_is_visible_through_cloned_slot_views`.
@@ -1077,9 +1079,10 @@ impl Tube {
             let rtc_data_channel = create_data_channel(&pc.peer_connection, label).await?;
             // Same tube-wide-tap propagation as the on_data_channel
             // path above (smoke-test fix 2026-05-04).
-            let data_channel = WebRTCDataChannel::new_with_outbound_tap_slot(
+            let data_channel = WebRTCDataChannel::new_with_send_limit(
                 rtc_data_channel,
                 self.outbound_tap.clone(),
+                pc.data_channel_send_limit.clone(),
             );
 
             // Set up a message handler with zero-copy using the buffer pool
@@ -1419,10 +1422,10 @@ impl Tube {
                 self.id, conv_id_str, name
             );
         }
-
         let timeouts = timeout_seconds.map(|timeout| TunnelTimeouts {
             read: Duration::from_secs_f64(timeout),
             guacd_handshake: Duration::from_secs_f64(timeout / 1.5),
+            handler_finalization: crate::config::handler_finalization_timeout(),
         });
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
@@ -2834,7 +2837,10 @@ impl Tube {
     /// A bare exact-match lookup therefore misses whenever a session runs over
     /// the control channel. Returns `None` rather than falling back to an
     /// arbitrary channel, so a miss can never misroute session data.
-    async fn resolve_handler_channel(&self, conversation_id: &str) -> Option<WebRTCDataChannel> {
+    pub(crate) async fn resolve_handler_channel(
+        &self,
+        conversation_id: &str,
+    ) -> Option<WebRTCDataChannel> {
         let channels = self.data_channels.read().await;
         let control_conversation = self
             .original_conversation_id
@@ -2850,12 +2856,95 @@ impl Tube {
         channels.get(label).cloned()
     }
 
+    pub(crate) fn check_handler_send_admission(
+        &self,
+        conversation_id: &str,
+        conn_no: u32,
+    ) -> std::result::Result<(), String> {
+        if self.closing.load(Ordering::Acquire) {
+            return Err("Tube is closing".into());
+        }
+        // Python callbacks must never wait for a lock held by their runtime.
+        let Ok(channels) = self.data_channels.try_read() else {
+            return Ok(());
+        };
+        let original = self.original_conversation_id.as_deref().unwrap_or(&self.id);
+        let label = resolve_handler_channel_label(
+            |key| channels.contains_key(key),
+            conversation_id,
+            original,
+        )
+        .ok_or_else(|| "Handler channel not found".to_string())?;
+        let channel = &channels[label];
+        if channel.failed_connections.contains(&conn_no) {
+            return Err("Handler connection is closed".into());
+        }
+        if channel.is_closing.load(Ordering::Acquire)
+            || matches!(
+                channel.data_channel.ready_state(),
+                webrtc::data_channel::data_channel_state::RTCDataChannelState::Closing
+                    | webrtc::data_channel::data_channel_state::RTCDataChannelState::Closed
+            )
+        {
+            return Err("Handler channel is closed".into());
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "python-support")]
+    pub(crate) async fn retire_handler_connection(
+        &self,
+        conversation_id: &str,
+        conn_no: u32,
+        reason: CloseConnectionReason,
+    ) -> std::result::Result<(), String> {
+        let channel = self
+            .resolve_handler_channel(conversation_id)
+            .await
+            .ok_or_else(|| "Handler channel not found".to_string())?;
+        if !channel.failed_connections.insert(conn_no) {
+            return Ok(());
+        }
+        let mut payload = [0; CLOSE_CONNECTION_PAYLOAD_MIN_LEN];
+        payload[..4].copy_from_slice(&conn_no.to_be_bytes());
+        payload[4] = reason as u8;
+        let pool = BufferPool::default();
+        let frame = Frame::new_control_with_pool(ControlMessage::CloseConnection, &payload, &pool);
+        let input = channel.local_input.lock().as_ref().cloned();
+        if input.is_some_and(|tx| tx.send(frame.encode_with_pool(&pool)).is_ok()) {
+            return Ok(());
+        }
+        // The receive task may already have exited. Surface the local failure
+        // through its existing typed callback, still sharing the dedup marker.
+        if channel.notified_connections.insert(conn_no) {
+            let tx = self
+                .python_handler_tx
+                .read()
+                .await
+                .clone()
+                .ok_or_else(|| "Handler callback receiver is closed".to_string())?;
+            tx.send(
+                crate::channel::core::PythonHandlerMessage::ConnectionClosed { conn_no, reason },
+            )
+            .await
+            .map_err(|_| "Handler callback receiver is closed".to_string())?;
+        }
+        Ok(())
+    }
+
     pub async fn send_data_from_handler(
         &self,
         channel_name: &str,
         conn_no: u32,
         data: bytes::Bytes,
     ) -> Result<()> {
+        if data.len() > crate::tube_protocol::MAX_FRAME_LEN {
+            return Err(anyhow::anyhow!(
+                "Handler payload exceeds maximum frame length"
+            ));
+        }
+        self.check_handler_send_admission(channel_name, conn_no)
+            .map_err(anyhow::Error::msg)?;
         let channel = self
             .resolve_handler_channel(channel_name)
             .await

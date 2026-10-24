@@ -28,7 +28,7 @@ pub use display_constants::{
 pub mod ratatui_renderer;
 pub use ratatui_renderer::RatatuiRenderer;
 pub mod ratatui_text;
-pub use ratatui_text::buffer_to_ansi;
+pub use ratatui_text::{buffer_to_ansi, AnsiRenderer};
 mod clipboard;
 mod config;
 mod copy_detector;
@@ -51,7 +51,9 @@ mod terminal_mouse;
 pub use clipboard::{RdpClipboard, CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE, CLIPBOARD_MIN_SIZE};
 pub use config::{ColorScheme, TerminalConfig};
 pub use copy_detector::{CellOp, CopyDetector};
-pub use database_renderer::{Action, Alignment, ColumnDef, GridEvent, GridMode, QueryResult};
+pub use database_renderer::{
+    Action, Alignment, ColumnDef, GridEvent, GridMode, QueryCell, QueryColumn, QueryResult,
+};
 pub use dirty_tracker::{DirtyRect, DirtyTracker};
 pub use emulator::{Rect, ScrollbackLine, TerminalEmulator};
 pub use framebuffer::{FrameBuffer, FrameRect};

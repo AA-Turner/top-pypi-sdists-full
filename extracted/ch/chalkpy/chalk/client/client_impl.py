@@ -231,6 +231,7 @@ from chalk.scalinggroup.spec import (
     AutoScalingSpec,
     ComputeClass,
     DeleteScalingGroupResponse,
+    ExecutionBackend,
     GrpcReadinessProbe,
     GrpcStartupProbe,
     ListScalingGroupsResponse,
@@ -6857,6 +6858,7 @@ https://docs.chalk.ai/cli/apply
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
         compute_class: Optional[ComputeClass] = None,
+        execution_target: Optional[ExecutionBackend] = None,
     ) -> ModelDeployment:
         return self._get_grpc_client(environment=environment).create_model_deployment(
             name=name,
@@ -6876,6 +6878,7 @@ https://docs.chalk.ai/cli/apply
             retries=retries,
             queue_policy=queue_policy,
             compute_class=compute_class,
+            execution_target=execution_target,
         )
 
     def get_model_deployment(
@@ -7007,6 +7010,7 @@ https://docs.chalk.ai/cli/apply
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
         compute_class: Optional[ComputeClass] = None,
+        execution_target: Optional[ExecutionBackend] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`. Deploys without waiting for readiness."""
         warnings.warn(DEPLOY_MODEL_VERSION_DEPRECATION, DeprecationWarning, stacklevel=2)
@@ -7034,6 +7038,7 @@ https://docs.chalk.ai/cli/apply
             retries=retries,
             queue_policy=queue_policy,
             compute_class=compute_class,
+            execution_target=execution_target,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

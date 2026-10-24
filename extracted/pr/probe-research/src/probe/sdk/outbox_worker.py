@@ -24,6 +24,12 @@ Hard stops, so this can never become the tap's zombie-uploader pitfall:
 A worker that dies (crash, reboot) is re-kicked by the next probe command of
 any kind; `probe run end` remains the synchronous, run-scoped barrier.
 
+When a Probe service runs on the machine, the fork goes to it (plan Q5,
+`service_handoff`): the service starts this same module on the kicking
+process's interpreter as its own child, and the lease, the exit guard and
+every hard stop below are unchanged. Credential queues, processes holding a
+credential in their environment, Windows and no service all fork as before.
+
 Lives in the SDK (parity F1, docs/2026-08-04-outbox-miles-parity.md) so both
 CLI commands and ``Client(async_writes=True)`` writers kick the same worker;
 ``probe.cli.outbox_worker`` stays behind as a runnable shim because workers
@@ -348,6 +354,11 @@ def _env_fingerprints() -> set:
     return {fp for fp in (credential_fingerprint(token, None), credential_fingerprint(None, ingest)) if fp}
 
 
+def env_fingerprints() -> set:
+    """The fingerprints of this process's environment credentials."""
+    return _env_fingerprints()
+
+
 def _holds_the_queues_credential(journal) -> bool:
     """Whether ``journal`` is a credential queue (#2035) this process holds
     the credential of: then what another drainer recorded as held there is
@@ -369,6 +380,34 @@ def _own_credential_queue(journal):
         if queue.is_dir():
             return queue
     return None
+
+
+#: How often one process kicks the adopted credential queues (`maybe_spawn`).
+_ADOPTED_KICK_SECONDS = 30.0
+_ADOPTED_KICKED_AT = float("-inf")
+
+
+def _adopted_credential_queues(journal) -> list:
+    """The credential queues under a root whose credential was adopted
+    (`probe outbox adopt`, the rescue): their writes go out with the stored
+    login, which any worker can build, so any kick may start theirs. On the
+    kick path: one stat of the adoptions record (parsed only when it
+    changed), then -- only when there are adoptions -- one listing of the
+    credential queues, however many adoptions the machine ever made."""
+    from .journal import CREDENTIAL_NAMESPACE, _adoptions_path, _read_records
+
+    if journal.receipt_enabled or journal.dir.parent.name == CREDENTIAL_NAMESPACE:
+        return []
+    adopted = _read_records(_adoptions_path())
+    if not adopted:
+        return []
+    try:
+        present = os.listdir(journal.dir / CREDENTIAL_NAMESPACE)
+    except OSError:
+        return []
+    return [
+        journal.dir / CREDENTIAL_NAMESPACE / name for name in sorted(present) if name in adopted
+    ]
 
 
 #: How long a recorded "everything left is held" suppresses new workers.
@@ -443,11 +482,13 @@ def maybe_spawn(directory: str | None = None) -> bool:
     O(1) by requirement, not aspiration: this runs after every enqueue and on
     every CLI invocation (including `probe log` in training loops), so it
     reads ONLY status.json plus one lock probe -- never the op files
-    themselves (perf review: the old pending() call parsed the whole queue).
+    themselves (perf review: the old pending() call parsed the whole queue)
+    -- plus, for adopted credential queues, one stat and (with adoptions) one
+    listing (`_adopted_credential_queues`).
     Returns True when a worker was spawned. (When status.json reads zero it
     also lists ``ops/`` up to the first op: `_has_queued_op`.)
     """
-    from .journal import Journal
+    from .journal import CREDENTIAL_NAMESPACE, Journal
 
     journal = Journal(directory)
     child_spawned = False
@@ -457,12 +498,27 @@ def maybe_spawn(directory: str | None = None) -> bool:
             # An older root worker may hold its own lease. It cannot enumerate
             # this namespace, and its lease must not suppress the capable worker.
             child_spawned = maybe_spawn(str(child.dir))
-        # Of the credential queues (#2035), only THIS process's own: a worker
+        # Of the credential queues (#2035), THIS process's own -- a worker
         # spawned here carries this environment, which holds that credential
-        # and no other. The rest are kicked by their own writers.
+        # and no other -- and the adopted ones, whose writes go out with the
+        # stored login any worker can build. The rest are kicked by their own
+        # writers.
         own = _own_credential_queue(journal)
         if own is not None:
             child_spawned = maybe_spawn(str(own)) or child_spawned
+        global _ADOPTED_KICKED_AT
+        if (
+            journal.dir.parent.name != CREDENTIAL_NAMESPACE
+            and time.monotonic() - _ADOPTED_KICKED_AT >= _ADOPTED_KICK_SECONDS
+        ):
+            # At most every 30 s per process, counted on the ROOT's kicks
+            # only (a credential queue's kick has no adopted queues under
+            # it, and must not spend the interval): while a worker lives the
+            # caller's own throttle never arms, and this ran on every write.
+            _ADOPTED_KICKED_AT = time.monotonic()
+            for adopted in _adopted_credential_queues(journal):
+                if adopted != own:
+                    child_spawned = maybe_spawn(str(adopted)) or child_spawned
     status = Journal.read_status(directory, include_receipts=False) or {}
     # `waiting` comes from LISTING the waiting room, not from status.json: an
     # older worker rewrites status.json from `ops/` alone and would read zero.
@@ -505,21 +561,51 @@ def maybe_spawn(directory: str | None = None) -> bool:
         # finds the drain lease taken and only promotes (see `run`).
         if not (waiting and _lease_is_free(journal, str(journal.promote_lease))):
             return child_spawned
-    log_path = journal.dir / _LOG_NAME
-    # 0o600 explicitly: the log carries drain errors and tracebacks, and the
-    # journal's everything-0o600 invariant must not depend on the umask.
-    # O_NOFOLLOW: a `drainer.log` that is a symlink (planted in a shared
-    # directory) must not send the worker's output somewhere else (review of
-    # #2054). Then no worker: the next kick, or `probe outbox drain`, delivers.
+    else:
+        # A Probe service runs here and starts this worker as its own child
+        # (plan Q5): the same module, on this interpreter, in this folder, with
+        # this environment but no credential. The lease stays the one-worker
+        # guard. STARTED is a spawn (the caller's kick throttle arms on it);
+        # RUNNING is a drainer at the lease, as the held branch above. With no
+        # service, an older one or a refusal, fork as before.
+        handed = _hand_to_service(journal)
+        if handed is not None:
+            from probe.service.protocol import BackgroundState
+
+            if handed == BackgroundState.STARTED:
+                return True
+            if handed == BackgroundState.RUNNING:
+                return child_spawned
+    # PROBE_* env credentials inherit (T4 decision), except a copy of the
+    # stored login (`_worker_env`). PROBE_OUTBOX_WORKER marks the worker: its
+    # clients print no delivery notices (plan 1.7) and give no Kubernetes
+    # notice (1.5) into drainer.log. Then no worker: the next kick, or `probe
+    # outbox drain`, delivers.
+    child = _spawn_detached(journal, [str(journal.dir)], _worker_env())
+    if child is False:
+        return child_spawned
+    return _spawn_took(child, journal) or child_spawned
+
+
+def _spawn_detached(journal, args: list, env: dict):
+    """`python -m probe.sdk.outbox_worker <args>`, detached, its output to
+    ``journal``'s drainer.log; what Popen returned, or False when it could
+    not start.
+    0o600 explicitly: the log carries drain errors and tracebacks, and the
+    journal's everything-0o600 invariant must not depend on the umask.
+    O_NOFOLLOW: a `drainer.log` that is a symlink (planted in a shared
+    directory) must not send the output somewhere else (review of #2054)."""
     try:
         log_fd = os.open(
-            log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600
+            journal.dir / _LOG_NAME,
+            os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
         )
     except OSError:
-        return child_spawned
+        return False
     try:
-        child = subprocess.Popen(  # noqa: S603 -- our own interpreter, our own module
-            [sys.executable, "-m", "probe.sdk.outbox_worker", str(journal.dir)],
+        return subprocess.Popen(  # noqa: S603 -- our own interpreter, our own module
+            [sys.executable, "-m", "probe.sdk.outbox_worker", *args],
             stdin=subprocess.DEVNULL,
             stdout=log_fd,
             stderr=log_fd,
@@ -527,14 +613,417 @@ def maybe_spawn(directory: str | None = None) -> bool:
             # POSIX, a detached new process group on Windows.
             **oscompat.DETACHED,
             close_fds=True,
-            # PROBE_* env credentials inherit (T4 decision). PROBE_OUTBOX_WORKER
-            # marks the worker: its clients print no delivery notices (plan 1.7)
-            # and give no Kubernetes notice (1.5) into drainer.log.
-            env={**os.environ, "PROBE_OUTBOX_WORKER": "1"},
+            env=env,
         )
+    except OSError:
+        return False
     finally:
         os.close(log_fd)
-    return _spawn_took(child, journal) or child_spawned
+
+
+#: Fingerprints of env tokens a client in THIS process found to be copies of
+#: the stored login when it started (`note_copied_login`). After a re-login
+#: the copy no longer equals the login, but it is still a copy, and a worker
+#: this process starts must not inherit it.
+_COPIED_LOGINS: set = set()
+
+
+def note_copied_login(fingerprint: str | None) -> None:
+    """A client in this process runs with an env token that IS the stored
+    login (`Client._is_the_stored_login`): its workers never inherit it."""
+    if fingerprint:
+        _COPIED_LOGINS.add(fingerprint)
+
+
+def is_copied_login(fingerprint: str | None) -> bool:
+    """Whether a client of this process found ``fingerprint`` to be a copy of
+    the stored login (`note_copied_login`)."""
+    return bool(fingerprint) and fingerprint in _COPIED_LOGINS
+
+
+def _worker_env() -> dict:
+    """The environment a spawned worker runs with: this one, marked as a
+    worker, minus a `PROBE_TOKEN` / `PROBE_INGEST_TOKEN` that only copies the
+    stored login of this context for the same server -- now, or when a client
+    of this process started (`note_copied_login`). The worker reads that login
+    itself, which is the same token today, and follows a re-login tomorrow;
+    inherited, the copy was matched first on every pass
+    (`journal._settings_for_op`) and a dead one held the job's writes for good
+    (a customer's Mac, 2026-10-23). Any other env credential inherits: it is
+    the only way the worker can hold it."""
+    from .journal import credential_fingerprint
+    from .transport import _IDEMPOTENCY_ENV
+
+    env = {**os.environ, "PROBE_OUTBOX_WORKER": "1"}
+    # A daemon command's PROBE_IDEMPOTENCY_KEY numbers ITS writes; a worker
+    # numbering its replays from the same base reuses those keys for other
+    # writes, which the server refuses (422) and the drain dead-letters.
+    env.pop(_IDEMPOTENCY_ENV, None)
+    if not (env.get("PROBE_TOKEN") or env.get("PROBE_INGEST_TOKEN")):
+        return env
+    for var, fingerprint in (
+        ("PROBE_TOKEN", credential_fingerprint(env.get("PROBE_TOKEN"), None)),
+        ("PROBE_INGEST_TOKEN", credential_fingerprint(None, env.get("PROBE_INGEST_TOKEN"))),
+    ):
+        if fingerprint and fingerprint in _COPIED_LOGINS:
+            del env[var]
+    token = env.get("PROBE_TOKEN")
+    if token:
+        from .journal import was_login
+
+        try:
+            from . import config as config_module
+
+            name = config_module.current_context_name() or None
+            stored = config_module.load_context(name)
+            base = (
+                env.get("PROBE_BASE_URL")
+                or stored.get("base_url")
+                or config_module.DEFAULT_BASE_URL
+            )
+            identity = stored.get("identity") or {}
+            account = (identity.get("customer_id"), identity.get("user_id"))
+        except Exception:  # noqa: BLE001
+            base, account = None, (None, None)
+        if (
+            base
+            and all(account)
+            and was_login(credential_fingerprint(token, None), base.rstrip("/"), account=account)
+        ):
+            del env["PROBE_TOKEN"]  # an earlier login of this account's, copied
+    try:
+        from . import config as config_module
+
+        name = config_module.current_context_name() or None
+        stored = config_module.load_context(name)
+        stored_base = stored.get("base_url") or config_module.DEFAULT_BASE_URL
+        base = env.get("PROBE_BASE_URL") or stored_base
+    except Exception:  # noqa: BLE001 -- an unreadable config: inherit, as before
+        return env
+    if base.rstrip("/") != stored_base.rstrip("/"):
+        return env
+    for var, field in (("PROBE_TOKEN", "token"), ("PROBE_INGEST_TOKEN", "ingest_token")):
+        if env.get(var) and env[var] == stored.get(field):
+            del env[var]
+    return env
+
+
+# -- rescuing writes stranded under a dead credential ------------------------
+#
+# A job that ran with its own PROBE_TOKEN queues writes only that token may
+# send (#2035). Revoke the token and they wait forever: 9,061 on a customer's
+# Mac (2026-10-23). `journal.rescue_stranded` hands them to the stored login
+# when it is the same team and user; the CLI's every-command check runs it by
+# itself (`maybe_rescue`), so nobody has to. Never from `maybe_spawn`, which
+# a training loop calls on every write.
+
+#: Killswitch: `PROBE_OUTBOX_RESCUE=off` never rescues by itself (`probe
+#: outbox adopt` still does, on request).
+RESCUE_ENV = "PROBE_OUTBOX_RESCUE"
+#: How often the CLI may look for stranded writes, per outbox root.
+RESCUE_EVERY_SECONDS = 600.0
+#: After a rescue that found nothing to send, the next look waits this long.
+RESCUE_IDLE_SECONDS = 6 * 3600.0
+#: Writes queued in a credential's own queue for this long are worth a look.
+_RESCUE_WAITING_SECONDS = 600.0
+
+
+def rescue_enabled() -> bool:
+    """Whether stranded writes may be rescued by themselves (`RESCUE_ENV`)."""
+    return (os.environ.get(RESCUE_ENV) or "").strip().lower() not in ("0", "off", "false", "no")
+
+
+def _rescue_stamp(journal):
+    return journal.dir / ".rescue-at"
+
+
+def _multipart_waiting_since(queue_dir, now: float) -> bool:
+    """A multipart upload queued in ``queue_dir`` this long ago or more
+    (status.json counts `ops/` alone)."""
+    try:
+        with os.scandir(queue_dir / "multipart" / "ops") as entries:
+            return any(
+                e.name.endswith(".json") and now - e.stat().st_mtime >= _RESCUE_WAITING_SECONDS
+                for e in entries
+            )
+    except OSError:
+        return False
+
+
+def _waiting_since(status: dict, now: float) -> bool:
+    from datetime import datetime
+
+    if not int(status.get("pending") or 0):
+        return False
+    try:
+        oldest = datetime.fromisoformat(str(status.get("oldest_pending") or "")).timestamp()
+    except ValueError:
+        return False
+    return now - oldest >= _RESCUE_WAITING_SECONDS
+
+
+def _rescue_roots(journal) -> list:
+    """The outbox roots one rescue looks at: ``journal`` and every other outbox
+    of this user on this machine (`Journal.discover`: `rank-*`, the $TMPDIR
+    fallback), so a distributed job's queues are rescued too."""
+    from .journal import Journal
+
+    roots = [journal]
+    try:
+        roots += [Journal(d) for d in Journal.discover() if d != journal.dir]
+    except Exception:  # noqa: BLE001 -- the main outbox alone, then
+        pass
+    return roots
+
+
+def _writes_held_back(journal, status: dict) -> bool:
+    """Whether some queue under the outbox roots holds writes back: a root's
+    last pass held or saw refused ones, or a credential queue this process
+    does not hold has had writes waiting a while (nothing else may look in
+    it, and a sign-in clears what a pass recorded)."""
+    from .journal import Journal, _credential_queue_dirs
+
+    if int(status.get("held") or 0) or status.get("refused_fingerprints"):
+        return True
+    now = time.time()
+    mine = _env_fingerprints()
+    for root in _rescue_roots(journal):
+        if root is not journal:
+            other = Journal.read_status(str(root.dir), include_receipts=False) or {}
+            if int(other.get("held") or 0) or other.get("refused_fingerprints"):
+                return True
+        for path in _credential_queue_dirs(root.dir):
+            if path.name in mine:
+                continue
+            child = (
+                Journal.read_status(str(path), include_receipts=False, credential_queues=False)
+                or {}
+            )
+            if (
+                int(child.get("held") or 0)
+                or child.get("refused_fingerprints")
+                or _waiting_since(child, now)
+                or _multipart_waiting_since(path, now)
+            ):
+                return True
+    return False
+
+
+def _rescue_due(stamp) -> bool:
+    try:
+        return time.time() - stamp.stat().st_mtime >= RESCUE_EVERY_SECONDS
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+
+
+def maybe_rescue(journal, status: dict) -> bool:
+    """The CLI's every-command check (`cli.main._outbox_notice`): at most once
+    per `RESCUE_EVERY_SECONDS` per outbox root (or `RESCUE_IDLE_SECONDS`
+    after a rescue that had nothing to send), and only when writes are held
+    back, start `rescue` in a process of its own. One stat when not due; the
+    interval is claimed under a lock, so concurrent commands start one.
+    Never raises; True when one started."""
+    if not rescue_enabled() or os.environ.get("PROBE_OUTBOX_WORKER"):
+        return False
+    stamp = _rescue_stamp(journal)
+    if not _rescue_due(stamp):
+        return False
+    try:
+        from .journal import _try_lock, now_iso
+
+        with _try_lock(journal.dir / ".rescue-claim.lock") as claimed:
+            if not claimed or not _rescue_due(stamp):
+                return False
+            durable.write_text_atomic(stamp, now_iso() + "\n", mode=0o600)
+        if not _writes_held_back(journal, status):
+            return False
+    except Exception:  # noqa: BLE001 -- the every-command path never raises
+        return False
+    return spawn_rescuer(journal)
+
+
+def _rescuer_env() -> dict:
+    """The rescuer's environment: a worker's, with no environment credential
+    at all -- it sends adopted writes with the stored login and nothing else;
+    the kicking process's PROBE_TOKEN is not its to use -- and none of the
+    kicking command's identity: a daemon command's PROBE_IDEMPOTENCY_KEY
+    numbers its own writes, and the rescuer's would reuse those keys for
+    other writes (the server refuses a key reused, 422)."""
+    from .transport import _IDEMPOTENCY_ENV
+
+    env = _worker_env()
+    for var in ("PROBE_TOKEN", "PROBE_INGEST_TOKEN", _IDEMPOTENCY_ENV):
+        env.pop(var, None)
+    return env
+
+
+def spawn_rescuer(journal) -> bool:
+    """Start `rescue` for the outbox root ``journal`` in a detached process.
+    Never raises; True when one was started."""
+    try:
+        child = _spawn_detached(journal, ["--rescue", str(journal.dir)], _rescuer_env())
+    except Exception:  # noqa: BLE001
+        return False
+    if child is False:
+        return False
+    try:
+        return child.poll() in (None, 0)
+    except Exception:  # noqa: BLE001 -- a liveness probe never fails the spawn
+        return True
+
+
+def worker_holder(queue) -> "tuple[object, str] | None":
+    """(pid, release) of the live worker holding ``queue``'s lease, from its
+    caps file, or None when the lease is free."""
+    import json
+
+    if _lease_is_free(queue):
+        return None
+    try:
+        caps = json.loads(_caps_path(queue).read_text())
+    except (OSError, ValueError):
+        caps = {}
+    return caps.get("pid"), str(caps.get("version") or "")
+
+
+#: How long the rescuer waits for a drain lock another drainer holds.
+_RESCUE_LOCK_TIMEOUT_SECONDS = 60.0
+
+
+def drain_adopted(queues: set, *, lock_timeout: float):
+    """One foreground pass over just the queues that hold adopted writes:
+    a credential queue whole, the root without the other credential queues
+    (never a live job's queue: its lock, its uploads, its status). Needs no
+    worker lease, so an older worker holding a queue does not stop it.
+    Returns (delivered, dead_lettered, remaining, lock_busy)."""
+    from .journal import CREDENTIAL_NAMESPACE, Journal, drain
+
+    delivered = dead = remaining = 0
+    busy = False
+    for directory in sorted(queues):
+        queue = Journal(directory)
+        if queue.dir.parent.name == CREDENTIAL_NAMESPACE:
+            part = drain(queue, lock_timeout=lock_timeout)
+        else:
+            part = drain(queue, lock_timeout=lock_timeout, credential_queues=False)
+        delivered += part.delivered
+        dead += part.dead_lettered
+        remaining += part.remaining
+        busy = busy or part.lock_busy
+    return delivered, dead, remaining, busy
+
+
+def rescue(directory: str) -> int:
+    """Adopt what is stranded under a dead credential of the logged-in account
+    (`journal.rescue_stranded`) in this outbox and every other one of this
+    user's (`_rescue_roots`), deliver the adopted writes in one foreground
+    pass (`drain_adopted`), then let workers take over. One rescuer at a
+    time per user (`journal.rescue_lock_path`); one that finds nothing to
+    send, and nothing it put off, puts the next look off by
+    `RESCUE_IDLE_SECONDS`. Prints to drainer.log; reports `outbox.rescued`."""
+    from .journal import (
+        Journal,
+        _stored_login_fingerprint,
+        _try_lock,
+        now_iso,
+        rescue_lock_path,
+        rescue_stranded,
+    )
+
+    root = Journal(directory)
+    if root.paused:
+        return 0
+    lock = rescue_lock_path()
+    lock.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with _try_lock(lock) as mine:
+        if not mine:
+            return 0  # another rescuer is at it
+        login = _stored_login_fingerprint(None)
+        here: set = {login} if login else set()
+        rescued: dict = {}
+        queues: set = set()
+        endpoints: set = set()
+        deferred = 0
+        for one in _rescue_roots(root):
+            try:
+                if one.paused:
+                    continue
+                report = rescue_stranded(one, here=here)
+            except Exception as exc:  # noqa: BLE001 -- one root never stops the rest
+                print(f"rescue skipped {one.dir}: {type(exc).__name__}", flush=True)
+                deferred += 1
+                continue
+            deferred += report.deferred
+            rescued.update(report.rescued)
+            queues |= report.queues
+            if report.base_url:
+                endpoints.add(report.base_url)
+            for fp, writes in report.rescued.items():
+                print(
+                    f"rescued credential {fp}: {writes} write(s) go out with the stored login, "
+                    f"the same team and user ({now_iso()})",
+                    flush=True,
+                )
+            for fp, why in report.refused.items():
+                print(f"credential {fp} is dead and cannot be rescued here: {why}", flush=True)
+        delivered = dead = remaining = 0
+        busy = False
+        if queues:
+            delivered, dead, remaining, busy = drain_adopted(
+                queues, lock_timeout=_RESCUE_LOCK_TIMEOUT_SECONDS
+            )
+            print(
+                f"rescue pass: delivered {delivered}; {dead} dead-lettered; {remaining} remaining"
+                + ("; another drain held a lock" if busy else ""),
+                flush=True,
+            )
+        if rescued:
+            from .._shared import telemetry
+
+            telemetry.emit_outbox_rescued(
+                base_url=endpoints.pop() if len(endpoints) == 1 else None,
+                credentials=len(rescued),
+                writes=sum(rescued.values()),
+                delivered=delivered,
+                dead_lettered=dead,
+                remaining=remaining,
+            )
+        if not rescued and not delivered and not busy and not deferred:
+            # Nothing to send and nothing put off: what is held is not this
+            # login's (another account's, no account recorded). Look again
+            # much later.
+            later = time.time() + RESCUE_IDLE_SECONDS
+            try:
+                os.utime(_rescue_stamp(root), (later, later))
+            except OSError:
+                pass
+    for queue in queues:
+        try:
+            maybe_spawn(str(queue))  # adopted writes queued from now on
+        except Exception:  # noqa: BLE001
+            pass
+    return 0
+
+
+def _hand_to_service(journal) -> str | None:
+    """The running Probe service's answer when it took this queue's drain
+    (`service_handoff.drain`: "started" or "running"), else None. A
+    credential queue (#2035), or a folder inside one, never goes: its worker
+    needs the environment credential that named it, which never crosses the
+    socket; nor does a worker's own kick. Never raises; bounded
+    (`client.HANDOFF_BUDGET_S`)."""
+    from .journal import CREDENTIAL_NAMESPACE
+
+    if CREDENTIAL_NAMESPACE in journal.dir.parts or os.environ.get("PROBE_OUTBOX_WORKER"):
+        return None
+    try:
+        from . import service_handoff
+
+        return service_handoff.drain(str(journal.dir))
+    except Exception:  # noqa: BLE001 -- a hand-off may never break an enqueue
+        return None
 
 
 #: How often `spawn_past_a_kill` looks at the lease while a killed worker goes.
@@ -912,10 +1401,6 @@ def _run_leased(journal) -> int:
             delays = durable.backoff_delays(None)
 
 
-if __name__ == "__main__":
-    sys.exit(run(sys.argv[1] if len(sys.argv) > 1 else None))
-
-
 def _spawn_took(child, journal) -> bool:
     """Whether the child is actually alive, not merely forked.
 
@@ -948,3 +1433,9 @@ def _spawn_took(child, journal) -> bool:
         return False
     except Exception:  # noqa: BLE001 -- a liveness probe may never break enqueue
         return True
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[1] == "--rescue":
+        sys.exit(rescue(sys.argv[2]))
+    sys.exit(run(sys.argv[1] if len(sys.argv) > 1 else None))

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from sqlbuild._native import OldNameViewDropReason, OldNameViewHistory
-from sqlbuild.adapter.contract.models import RelationInfo, RelationLookup
+from sqlbuild.adapter.contract.models import RelationInfo, RelationLookup, RelationUsage
 from sqlbuild.executor.janitor.types import JanitorAction
 from sqlbuild.executor.janitor_events.models import JanitorEventRecord
+from sqlbuild.executor.review.models import LeftoverReviewSchema
 
 
 @dataclass(frozen=True, eq=False)
@@ -63,6 +64,12 @@ class JanitorArchiveCandidate:
     archive_key: JanitorRelationKey
     archived_at: datetime
     expires_at: datetime
+    usage: RelationUsage | None = None
+
+    def with_usage(self, *, usage: RelationUsage) -> JanitorArchiveCandidate:
+        """Return this candidate with its reads in the usage window."""
+
+        return replace(self, usage=usage)
 
 
 @dataclass(frozen=True)
@@ -190,6 +197,17 @@ class JanitorBlockedSchema:
 
 
 @dataclass(frozen=True)
+class JanitorUsageCheck:
+    """Whether recent reads of the archive candidates were checked, and how in-use ones fare."""
+
+    checked: bool
+    window: str
+    keep_in_use: bool = False
+    reason: str | None = None
+    notices: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class JanitorPlan:
     """Complete janitor preview and execution plan."""
 
@@ -207,6 +225,7 @@ class JanitorPlan:
     direct_state_prune_candidates: tuple[JanitorDirectStatePruneCandidate, ...] = field(
         default_factory=tuple
     )
+    review_schema_candidates: tuple[LeftoverReviewSchema, ...] = field(default_factory=tuple)
     skipped_relations: tuple[JanitorSkippedRelation, ...] = field(default_factory=tuple)
     skipped_schemas: tuple[JanitorSkippedSchema, ...] = field(default_factory=tuple)
     blocked_schemas: tuple[JanitorBlockedSchema, ...] = field(default_factory=tuple)
@@ -214,6 +233,26 @@ class JanitorPlan:
     scanned_schema_count: int = 0
     age_metadata_supported: bool = False
     planned_at: datetime | None = None
+    usage_check: JanitorUsageCheck | None = None
+    kept_in_use: tuple[JanitorArchiveCandidate, ...] = field(default_factory=tuple)
+
+    def with_usage(
+        self,
+        *,
+        archive_candidates: tuple[JanitorArchiveCandidate, ...],
+        archive_deletion_candidates: tuple[JanitorArchivedRelation, ...],
+        kept_in_use: tuple[JanitorArchiveCandidate, ...],
+        usage_check: JanitorUsageCheck,
+    ) -> JanitorPlan:
+        """Return this plan after its usage check, with in-use candidates kept when asked."""
+
+        return replace(
+            self,
+            archive_candidates=archive_candidates,
+            archive_deletion_candidates=archive_deletion_candidates,
+            kept_in_use=kept_in_use,
+            usage_check=usage_check,
+        )
 
 
 @dataclass(frozen=True)
@@ -228,6 +267,7 @@ class JanitorExecutionResult:
     )
     pruned_direct_state: tuple[JanitorDirectStatePruneCandidate, ...] = field(default_factory=tuple)
     dropped_old_name_views: tuple[JanitorOldNameView, ...] = field(default_factory=tuple)
+    dropped_review_schemas: tuple[LeftoverReviewSchema, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

@@ -898,6 +898,9 @@ class DrainReport:
     #: Run closes held because writes of the same run, queued earlier under
     #: another credential, sit in another queue (#2041 round 3).
     close_held: int = 0
+    #: Ops of runs the caller is backing off (``skip_runs``): not looked at,
+    #: so the holds among them were not recounted this pass.
+    skipped: int = 0
     #: ``{run_ref, op_id, error, status}`` for each op this pass dead-lettered,
     #: kept in ``dead_letters.json`` (`Journal.recent_dead_letters`) so a
     #: training process can say so while it runs (plan 1.7).
@@ -946,14 +949,55 @@ def auth_blocked_since(status: dict | None, fingerprints=None) -> str | None:
         return None
     blocked = status.get("auth_blocked_since") or None
     refused = status.get("refused_fingerprints")
-    if not blocked and isinstance(refused, dict):
+    if not blocked and isinstance(refused, dict) and refused:
+        # An adopted credential's writes go out with the login now: its old
+        # token's refusal blocks nothing (`probe outbox adopt`, the rescue).
+        adopted = _read_records(_adoptions_path())
         stamps = sorted(
             str(at)
             for fp, at in refused.items()
-            if at and (fingerprints is None or fp in fingerprints)
+            if at and (fingerprints is None or fp in fingerprints) and fp not in adopted
         )
         blocked = stamps[0] if stamps else None
     return blocked
+
+
+def _status_count(value: Any) -> int:
+    """A status.json count, 0 for one that is not a number."""
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _blocked_marker(status: dict) -> dict:
+    """One queue's own status.json as `blocked_oldest_pending` (its oldest
+    write) and `blocked_reason`, when what it holds waits on a credential:
+    `auth_blocked` (an older client's queue-wide block), `credential_refused`
+    (writes held with a credential the API refused) or `held` (writes held
+    for a credential nothing here has). A close held for its run's writes in
+    another queue is not (`close_held`). Judged per queue, so `read_status`'s
+    fold never pairs one queue's old backlog with another's fresh hold."""
+    pending, oldest = _status_count(status.get("pending")), status.get("oldest_pending")
+    held = _status_count(status.get("held")) - _status_count(status.get("close_held"))
+    refused = status.get("refused_fingerprints")
+    if pending <= 0 or not oldest:
+        reason = None
+    elif status.get("auth_blocked_since"):
+        reason = "auth_blocked"
+    elif held > 0:
+        reason = "credential_refused" if isinstance(refused, dict) and refused else "held"
+    else:
+        reason = None
+    return {"blocked_oldest_pending": oldest if reason else None, "blocked_reason": reason}
+
+
+def _older_block(status: dict, child: dict) -> dict:
+    """Of two folded queues' blocks (`_blocked_marker`), the one blocked longest."""
+    mine, theirs = status.get("blocked_oldest_pending"), child.get("blocked_oldest_pending")
+    if theirs and (not mine or str(theirs) < str(mine)):
+        return {"blocked_oldest_pending": theirs, "blocked_reason": child.get("blocked_reason")}
+    return {"blocked_oldest_pending": mine or None, "blocked_reason": status.get("blocked_reason") if mine else None}
 
 
 def _credential_queue_dirs(root: Path) -> list[Path]:
@@ -3491,6 +3535,7 @@ class Journal:
             if not _take_drain_lock(handle, wait_for_lock=True, timeout=30.0):
                 return 0
             held: list[Path] = []
+            adopted_here: dict = {}
             queued = self._read_dir(self.ops_dir)
             # One token is one account, as in `drain`.
             accounts: dict[str, tuple[str, str]] = {}
@@ -3506,12 +3551,15 @@ class Journal:
                 if credential and credential in (stamp.get("fingerprint"), stamp.get("ingest_fingerprint")):
                     held.append(path)  # named by the user
                     continue
-                if stamp.get("source") != CredentialSource.CONFIG:
-                    continue  # another job's: that job sends it
                 fingerprint, ingest = op_credential(op)
+                if fingerprint not in adopted_here:
+                    adopted_here[fingerprint] = adopted_account(fingerprint) is not None
+                adopted = not ingest and adopted_here[fingerprint]
+                if stamp.get("source") != CredentialSource.CONFIG and not adopted:
+                    continue  # another job's: that job sends it
                 if ingest:
                     continue
-                if fingerprint in refused:
+                if fingerprint in refused and not adopted:
                     try:
                         stored = load_context((op.get("context") or {}).get("name"))
                     except Exception:  # noqa: BLE001
@@ -3543,7 +3591,7 @@ class Journal:
                     self._scan_forget(path.name)
                 fsync_directory(target)
                 fsync_directory(self.ops_dir)
-                self._write_status_locked(held=0, held_at=None)
+                self._write_status_locked(held=0, close_held=0, held_at=None)
         finally:
             try:
                 oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
@@ -3558,7 +3606,7 @@ class Journal:
         cleared it, so delivery stayed stopped forever after one 401)."""
         for child in self.namespaces()[1:]:
             child.clear_auth_block()
-        self.write_status(auth_blocked_since=None, refused_fingerprints={}, held=0, held_at=None)
+        self.write_status(auth_blocked_since=None, refused_fingerprints={}, held=0, close_held=0, held_at=None)
         try:  # a worker sleeping on held runs looks again now (outbox_worker._wake_stamp)
             write_text_atomic(self.dir / ".wake", now_iso() + "\n", mode=0o600)
         except OSError:
@@ -3699,6 +3747,9 @@ class Journal:
             # that adds nothing deliverable need not fork a worker (#2041
             # round 3). Carried like the fields around it.
             "held": int(previous.get("held") or 0),
+            # Of those, closes waiting on their run's writes in another queue
+            # (at most CLOSE_HOLD_MAX_SECONDS): held, but not stuck.
+            "close_held": int(previous.get("close_held") or 0),
             "held_at": previous.get("held_at"),
             "last_error": previous.get("last_error"),
             # Monotonic tally of uploads that DEGRADED to unstaged for want of
@@ -3793,12 +3844,15 @@ class Journal:
             status = json.loads(path.read_text())
         except (OSError, json.JSONDecodeError, ValueError):
             status = None
+        if isinstance(status, dict):
+            status.update(_blocked_marker(status))
         if include_receipts and root.name != DELIVERY_NAMESPACE:
             child = Journal.read_status(root / DELIVERY_NAMESPACE, include_receipts=False)
             if child:
                 status = dict(status or {})
-                for field in ("pending", "pending_bytes", "failed"):
+                for field in ("pending", "pending_bytes", "failed", "held"):
                     status[field] = int(status.get(field) or 0) + int(child.get(field) or 0)
+                status.update(_older_block(status, child))
                 status["delivery_pending"] = int(child.get("pending") or 0)
                 status["delivery_failed"] = int(child.get("failed") or 0)
                 status["delivery_pending_bytes"] = int(child.get("pending_bytes") or 0)
@@ -3825,10 +3879,13 @@ class Journal:
                 if not child:
                     continue
                 status = dict(status or {})
-                for field in ("pending", "pending_bytes", "failed", "waiting"):
+                # `held`: writes a drain set aside for a credential nothing here
+                # can send; a held queue under an empty root is still a backlog.
+                for field in ("pending", "pending_bytes", "failed", "waiting", "held"):
                     status[field] = int(status.get(field) or 0) + int(child.get(field) or 0)
                 oldest = [v for v in (status.get("oldest_pending"), child.get("oldest_pending")) if v]
                 status["oldest_pending"] = min(oldest) if oldest else None
+                status.update(_older_block(status, child))
                 status["auth_blocked_since"] = status.get("auth_blocked_since") or child.get(
                     "auth_blocked_since"
                 )
@@ -4123,8 +4180,9 @@ def _identity_of(settings, transport=None) -> tuple[str, str] | None:
     return answer
 
 
-#: How many token -> account records `record_account` keeps (newest win).
-_ACCOUNTS_KEPT = 256
+#: How many token -> account records `record_account` keeps (newest win). As
+#: many as the adoptions they vouch for (`_ADOPTIONS_KEPT`).
+_ACCOUNTS_KEPT = 4096
 
 
 def _accounts_path() -> Path:
@@ -4137,36 +4195,108 @@ def _accounts_path() -> Path:
     return root / "probe" / "credential-accounts.json"
 
 
-def record_account(fingerprint: str | None, account: tuple[str, str] | None) -> None:
-    """Remember that the credential named ``fingerprint`` is ``account``.
+def _update_records(
+    path: Path, change: Callable[[dict], bool], *, kept: int, wait: bool = True
+) -> bool:
+    """Read-modify-write one of the small machine-wide records beside
+    `credential-accounts.json`, under its lock, atomically, 0600. ``change``
+    edits the dict in place and answers whether anything changed; past
+    ``kept`` entries the oldest (by their ``at``) go. ``wait=False`` skips the
+    write when another process holds the lock (evidence, not a delivery step:
+    every rank of a distributed job must not queue up behind one lock).
+    Returns False only when it skipped for that. Raises what the file system
+    raised."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock = path.with_suffix(".lock")
+    if wait:
+        guard = file_lock(lock)
+    else:
+        guard = _try_lock(lock)
+    with guard as held:
+        if held is False:
+            return False
+        try:
+            records = json.loads(path.read_text())
+        except (OSError, ValueError):
+            records = {}
+        if not isinstance(records, dict):
+            records = {}
+        if not change(records):
+            return True
+        if len(records) > kept:
+            newest = sorted(records.items(), key=lambda kv: str((kv[1] or {}).get("at")))
+            records = dict(newest[-kept:])
+        write_text_atomic(path, json.dumps(records, indent=2) + "\n", mode=0o600)
+    _RECORDS_CACHE.pop(str(path), None)
+    return True
+
+
+#: `_read_records` answers per path: (mtime_ns, size, records). A kick reads
+#: the adoptions record on every write of a training loop; one stat is cheap,
+#: a parse per write is not.
+_RECORDS_CACHE: dict[str, tuple[int, int, dict]] = {}
+
+
+def _read_records(path: Path) -> dict:
+    try:
+        stat = path.stat()
+    except OSError:
+        return {}
+    cached = _RECORDS_CACHE.get(str(path))
+    if cached is not None and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+        return cached[2]
+    try:
+        records = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    records = records if isinstance(records, dict) else {}
+    _RECORDS_CACHE[str(path)] = (stat.st_mtime_ns, stat.st_size, records)
+    return records
+
+
+def record_account(
+    fingerprint: str | None,
+    account: tuple[str, str] | None,
+    *,
+    scopes: "list[str] | None" = None,
+    login_of: str | None = None,
+) -> None:
+    """Remember that the credential named ``fingerprint`` is ``account``, and
+    the ``scopes`` `/v1/me` named for it when known.
 
     Written by the wizard's sign-in, a job's heartbeat lookup and a
     drain that just delivered with a stored login (#2041 round 3): a write
     queued under a login whose account nobody recorded at the time can then
-    still follow a same-account re-login instead of waiting forever. Never
-    raises: this is evidence, not a step in delivery."""
+    still follow a same-account re-login instead of waiting forever. The
+    scopes keep a narrower token's writes from ever going out with a login
+    that may do more (`adoption_account`). ``login_of`` (a server URL) says
+    the token was this machine's stored login for that server, so a job that
+    copied it into `PROBE_TOKEN` is still taken for the login once a re-login
+    replaced it, in any process (`was_login`). Never raises: this is
+    evidence, not a step in delivery."""
     if not fingerprint or not account or not all(account):
         return
-    path = _accounts_path()
+    entry: dict = {"customer_id": str(account[0]), "user_id": str(account[1]), "at": now_iso()}
+
+    def change(records: dict) -> bool:
+        before = records.get(fingerprint) or {}
+        if scopes is not None:
+            entry["scopes"] = sorted(str(s) for s in scopes)
+        elif isinstance(before, dict) and isinstance(before.get("scopes"), list):
+            entry["scopes"] = before["scopes"]  # a lookup without them keeps them
+        if login_of:
+            entry["login_of"] = str(login_of).rstrip("/")
+        elif isinstance(before, dict) and before.get("login_of"):
+            entry["login_of"] = before["login_of"]
+        if {k: v for k, v in before.items() if k != "at"} == {
+            k: v for k, v in entry.items() if k != "at"
+        }:
+            return False
+        records[fingerprint] = entry
+        return True
+
     try:
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with file_lock(path.with_suffix(".lock")):
-            try:
-                records = json.loads(path.read_text())
-            except (OSError, ValueError):
-                records = {}
-            if not isinstance(records, dict):
-                records = {}
-            entry = {"customer_id": str(account[0]), "user_id": str(account[1]), "at": now_iso()}
-            if {k: v for k, v in (records.get(fingerprint) or {}).items() if k != "at"} == {
-                k: v for k, v in entry.items() if k != "at"
-            }:
-                return
-            records[fingerprint] = entry
-            if len(records) > _ACCOUNTS_KEPT:
-                newest = sorted(records.items(), key=lambda kv: str((kv[1] or {}).get("at")))
-                records = dict(newest[-_ACCOUNTS_KEPT:])
-            write_text_atomic(path, json.dumps(records, indent=2) + "\n", mode=0o600)
+        _update_records(_accounts_path(), change, kept=_ACCOUNTS_KEPT)
     except Exception:  # noqa: BLE001 -- see docstring
         return
 
@@ -4175,13 +4305,515 @@ def recorded_account(fingerprint: str | None) -> tuple[str, str] | None:
     """The account `record_account` remembered for ``fingerprint``, or None."""
     if not fingerprint:
         return None
-    try:
-        entry = (json.loads(_accounts_path().read_text()) or {}).get(fingerprint) or {}
-    except (OSError, ValueError, AttributeError):
-        return None
+    entry = _read_records(_accounts_path()).get(fingerprint) or {}
     if isinstance(entry, dict) and entry.get("customer_id") and entry.get("user_id"):
         return str(entry["customer_id"]), str(entry["user_id"])
     return None
+
+
+def was_login(fingerprint: str | None, base_url: str | None, account=None) -> bool:
+    """Whether ``fingerprint`` was recorded as this machine's stored login for
+    ``base_url`` (`record_account`'s ``login_of``) -- and, with ``account``,
+    as that account's: another context's login on the same server, or a
+    previous login of another person, is not the login stored now."""
+    entry = _read_records(_accounts_path()).get(fingerprint or "") or {}
+    login_of = entry.get("login_of") if isinstance(entry, dict) else None
+    if not login_of or str(login_of) != str(base_url or "").rstrip("/"):
+        return False
+    return account is None or recorded_account(fingerprint) == tuple(account)
+
+
+def recorded_scopes(fingerprint: str | None) -> "frozenset[str] | None":
+    """The scopes `record_account` remembered for ``fingerprint``, or None
+    when none were (a record of an older release, or the wizard's)."""
+    entry = _read_records(_accounts_path()).get(fingerprint or "") or {}
+    scopes = entry.get("scopes") if isinstance(entry, dict) else None
+    return frozenset(str(s) for s in scopes) if isinstance(scopes, list) else None
+
+
+#: How many adopted credentials `adopt_credential` keeps (newest win). Each is
+#: a dead credential that had writes stranded: thousands is no machine's.
+_ADOPTIONS_KEPT = 4096
+
+
+def rescue_lock_path() -> Path:
+    """One rescue at a time per user on this machine, whatever outbox it
+    starts from (`outbox_worker.rescue`, `probe doctor`): the outboxes one
+    rescue covers overlap."""
+    return _accounts_path().with_name("credential-rescue.lock")
+
+
+def _adoptions_path() -> Path:
+    """Credentials whose queued writes the user handed to their stored login
+    (`probe outbox adopt`): `<state>/probe/credential-adoptions.json`, beside
+    the accounts record and for the same reason (machine-wide, ids only).
+    Never cleared by a sign-in or `outbox retry` -- a rescue a later login
+    undid would strand the writes again."""
+    return _accounts_path().with_name("credential-adoptions.json")
+
+
+class AdoptedBy(StrEnum):
+    """Who adopted a credential's writes (`adopt_credential`)."""
+
+    #: `probe outbox adopt`.
+    USER = "user"
+    #: `rescue_stranded`, run by itself from the CLI's every-command check.
+    RESCUE = "rescue"
+
+
+def adopt_credential(
+    fingerprint: str, account: tuple[str, str], *, by: AdoptedBy = AdoptedBy.USER
+) -> None:
+    """Record that ``fingerprint``'s queued writes go out with the stored login
+    of their context from now on, for as long as that login is ``account``
+    (`_settings_for_op`). The caller has checked that it is (`adoption_account`).
+    Raises what the file system raised: unlike `record_account`, this IS the
+    step that was asked for."""
+    entry = {
+        "customer_id": str(account[0]),
+        "user_id": str(account[1]),
+        "by": str(by),
+        "at": now_iso(),
+    }
+
+    def change(records: dict) -> bool:
+        records[fingerprint] = entry
+        return True
+
+    _update_records(_adoptions_path(), change, kept=_ADOPTIONS_KEPT)
+
+
+def adopted_account(fingerprint: str | None) -> tuple[str, str] | None:
+    """The account ``fingerprint``'s writes were adopted for, or None."""
+    if not fingerprint:
+        return None
+    entry = _read_records(_adoptions_path()).get(fingerprint) or {}
+    if isinstance(entry, dict) and entry.get("customer_id") and entry.get("user_id"):
+        return str(entry["customer_id"]), str(entry["user_id"])
+    return None
+
+
+#: Credentials `record_holder` keeps, and live holders per credential.
+_HOLDERS_KEPT = 256
+_HOLDERS_PER_CREDENTIAL = 8
+#: A holder recorded on ANOTHER host (a home folder shared over NFS) cannot
+#: be looked up from here: it counts as possibly alive for this long after
+#: its record was last renewed (`_HOLDER_RENEW_SECONDS`).
+_OTHER_HOST_HOLDER_SECONDS = 24 * 3600.0
+_HOLDER_RENEW_SECONDS = 3600.0
+
+
+def _older_than(at, seconds: float) -> bool:
+    from datetime import datetime, timezone
+
+    try:
+        when = datetime.fromisoformat(str(at or ""))
+    except ValueError:
+        return True
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - when).total_seconds() > seconds
+
+
+def _holders_path() -> Path:
+    """Which processes queued writes with an env or in-code credential:
+    `<state>/probe/credential-holders.json`, so `probe outbox status` can say
+    who holds a credential whose writes wait (restart it, or adopt them), and
+    the rescue never takes a credential a live process still holds.
+    A pid, its start time, the host, the SDK version and two basenames:
+    never argv."""
+    return _accounts_path().with_name("credential-holders.json")
+
+
+class HolderState(StrEnum):
+    """Whether a recorded holder process still runs (`holder_state`)."""
+
+    #: The pid runs and started when the record says: the same process.
+    ALIVE = "alive"
+    #: No such pid, or one that started at another time (a reused pid).
+    GONE = "gone"
+    #: Cannot tell: no start time recorded or readable, or another host's.
+    UNKNOWN = "unknown"
+
+
+def _process_started(pid: int) -> float | None:
+    """When ``pid`` started (seconds since the epoch), or None. A pid alone is
+    reused; pid + start is one process."""
+    try:
+        import psutil
+
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _this_host() -> str:
+    import socket
+
+    try:
+        return socket.gethostname()
+    except OSError:
+        return ""
+
+
+def holder_state(holder: dict) -> HolderState:
+    """Total over any input: the record is a file anything can damage."""
+    try:
+        pid = int(holder.get("pid") or 0)
+    except (TypeError, ValueError, AttributeError):
+        return HolderState.UNKNOWN
+    if pid <= 0:
+        return HolderState.UNKNOWN
+    host = holder.get("host")
+    if host and host != _this_host():
+        return HolderState.UNKNOWN  # its pids are another machine's
+    try:
+        import psutil
+    except ImportError:
+        return HolderState.UNKNOWN
+    try:
+        process = psutil.Process(pid)
+        if process.status() == psutil.STATUS_ZOMBIE:
+            return HolderState.GONE
+        started = process.create_time()
+    except psutil.NoSuchProcess:  # ZombieProcess included
+        return HolderState.GONE
+    except Exception:  # noqa: BLE001 -- access denied and the like
+        return HolderState.UNKNOWN
+    recorded = holder.get("started")
+    if not isinstance(recorded, (int, float)):
+        return HolderState.UNKNOWN
+    return HolderState.ALIVE if abs(started - recorded) <= 1.0 else HolderState.GONE
+
+
+def _holder_may_live(holder: dict) -> bool:
+    """Whether ``holder`` may still be running: alive here, or recorded on
+    another host within `_OTHER_HOST_HOLDER_SECONDS`."""
+    from datetime import datetime, timezone
+
+    state = holder_state(holder)
+    if state == HolderState.ALIVE:
+        return True
+    if state == HolderState.GONE:
+        return False
+    if not holder.get("host") or holder.get("host") == _this_host():
+        return True  # here, but unreadable: it may be running
+    try:
+        at = datetime.fromisoformat(str(holder.get("at") or ""))
+    except ValueError:
+        return False
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - at).total_seconds() < _OTHER_HOST_HOLDER_SECONDS
+
+
+def record_holder(fingerprint: str | None) -> None:
+    """Remember that THIS process holds the credential ``fingerprint`` and
+    queues writes with it. Holders found gone are dropped as one is added.
+    Skipped when another process is writing the record. Never raises:
+    evidence for `probe outbox status` and the rescue, not a delivery step."""
+    if not fingerprint:
+        return
+    import sys
+
+    try:
+        import probe
+
+        version = str(getattr(probe, "__version__", "") or "")
+    except Exception:  # noqa: BLE001
+        version = ""
+    pid = os.getpid()
+    entry = {
+        "pid": pid,
+        "started": _process_started(pid),
+        "host": _this_host(),
+        "sdk": version,
+        "program": os.path.basename(sys.executable or ""),
+        "script": os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else "",
+        "at": now_iso(),
+    }
+
+    def change(records: dict) -> bool:
+        current = records.get(fingerprint)
+        holders = current.get("holders") if isinstance(current, dict) else None
+        same = [
+            h
+            for h in (holders if isinstance(holders, list) else [])
+            if isinstance(h, dict) and h.get("pid") == pid and h.get("started") == entry["started"]
+        ]
+        if same and not _older_than(same[0].get("at"), _HOLDER_RENEW_SECONDS):
+            return False  # this process again (a sweep's next `probe.init()`)
+        kept = [
+            h
+            for h in (holders if isinstance(holders, list) else [])
+            if isinstance(h, dict) and h.get("pid") != pid and holder_state(h) != HolderState.GONE
+        ]
+        kept.append(entry)
+        records[fingerprint] = {"at": entry["at"], "holders": kept[-_HOLDERS_PER_CREDENTIAL:]}
+        return True
+
+    for _attempt in range(3):  # ranks starting together: a short wait, never a queue
+        try:
+            if _update_records(_holders_path(), change, kept=_HOLDERS_KEPT, wait=False):
+                return
+        except Exception:  # noqa: BLE001 -- see docstring
+            return
+        time.sleep(0.02)
+
+
+def credential_holders(fingerprint: str | None) -> list[dict]:
+    """The processes recorded holding ``fingerprint``, newest last, each with
+    its ``state`` (`HolderState`). Empty when none was recorded, which
+    includes every process of a release before this record existed."""
+    if not fingerprint:
+        return []
+    current = _read_records(_holders_path()).get(fingerprint)
+    holders = current.get("holders") if isinstance(current, dict) else None
+    return [
+        {**h, "state": holder_state(h).value}
+        for h in (holders if isinstance(holders, list) else [])
+        if isinstance(h, dict)
+    ]
+
+
+class Refusal(StrEnum):
+    """What a queued write's last refusal says about its credential
+    (`op_refusal`)."""
+
+    #: Probe refused the credential itself: a 401, or a 403 saying the key was
+    #: revoked or expired or its team is gone (`key_refusal.credential_refused`).
+    CREDENTIAL = "credential"
+    #: A 403 for a missing scope or role: the credential works, but may not do
+    #: this. Its writes must never go out with a credential that may.
+    SCOPE = "scope"
+
+
+def op_shows_dead_credential(op: dict) -> bool:
+    """Whether ``op``'s last refusal (`last_error`) was of the credential
+    itself -- the token is dead -- whatever else the op records (a write
+    refused for scope before its token was revoked is still evidence of the
+    revocation; it is just never sent by another credential)."""
+    from .key_refusal import credential_refused
+
+    text = str(op.get("last_error") or "") if isinstance(op, dict) else ""
+    kind, _, message = text.partition(": ")
+    return kind == "AuthError" or (kind == "ScopeError" and credential_refused(403, message))
+
+
+def op_refusal(op: dict) -> "Refusal | None":
+    """The kind of refusal recorded on ``op`` by the drain that last tried it
+    with its own credential (`last_error`, ``"<Error>: <message>"``), or None.
+    On the op file itself, so a sign-in (`clear_auth_block`) does not erase it."""
+    from .key_refusal import credential_refused
+
+    if isinstance(op, dict) and op.get("refused_for_scope"):
+        return Refusal.SCOPE
+    text = str(op.get("last_error") or "") if isinstance(op, dict) else ""
+    kind, _, message = text.partition(": ")
+    if kind == "AuthError":
+        return Refusal.CREDENTIAL
+    if kind == "ScopeError":
+        if credential_refused(403, message):
+            return Refusal.CREDENTIAL
+        # Refused while going out with an adopting login: not this write's
+        # own credential's verdict.
+        return None if op.get("refused_via_adoption") else Refusal.SCOPE
+    return None
+
+
+class NotAdoptable(StrEnum):
+    """Why a credential's writes cannot go out with the stored login."""
+
+    #: No write of it, and no record on this machine, says whose it was.
+    UNKNOWN_ACCOUNT = "unknown_account"
+    #: A context its writes name stores no login.
+    NO_LOGIN = "no_login"
+    #: Its writes are for another server than the login stored for them.
+    OTHER_SERVER = "other_server"
+    #: `/v1/me` with that login did not answer.
+    UNCONFIRMED = "unconfirmed"
+    #: That login is another team or user.
+    OTHER_ACCOUNT = "other_account"
+    #: The credential may not do what its writes ask (a refusal for scope, or
+    #: recorded scopes without `write`): the login could, and must not do it in
+    #: its place. (A DELETE never goes this way at all: `adopted_route_refuses`.)
+    SCOPE = "scope"
+
+
+def adoption_account(
+    fingerprint: str, ops: list[dict]
+) -> tuple[tuple[str, str] | None, NotAdoptable | None, str | None]:
+    """Whether ``fingerprint``'s queued ``ops`` may go out with the stored login
+    of every context they name: (account, None, None) when each of those
+    logins is for the server the ops are pinned to and is, per `GET /v1/me`,
+    the same team and user the credential was (a write's stamp, else
+    `recorded_account`), and nothing says the credential lacked the scopes its
+    writes need; else (None, why, the context). The one check behind
+    `probe outbox adopt` and `rescue_stranded`."""
+    from .config import DEFAULT_BASE_URL, Settings, load_context
+
+    account = None
+    contexts: dict = {}
+    for op in ops:
+        context = op.get("context") or {}
+        contexts.setdefault(context.get("name"), set()).add(
+            str(context.get("base_url") or "").rstrip("/")
+        )
+        account = account or stamp_identity(context.get("principal"))
+        if op_refusal(op) == Refusal.SCOPE:
+            return None, NotAdoptable.SCOPE, context.get("name")
+    scopes = recorded_scopes(fingerprint)
+    if scopes is not None and "write" not in scopes:
+        return None, NotAdoptable.SCOPE, None
+    account = account or recorded_account(fingerprint)
+    if account is None:
+        return None, NotAdoptable.UNKNOWN_ACCOUNT, None
+    for name in sorted(contexts, key=lambda c: c or ""):
+        try:
+            stored = load_context(name)
+        except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
+            stored = {}
+        if not stored.get("token"):
+            return None, NotAdoptable.NO_LOGIN, name
+        base = (stored.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
+        if contexts[name] - {"", base}:
+            return None, NotAdoptable.OTHER_SERVER, name
+        try:
+            now_as = _identity_of(Settings(base_url=base, token=stored["token"]))
+        except Exception:  # noqa: BLE001 -- cannot confirm: never guess
+            return None, NotAdoptable.UNCONFIRMED, name
+        if now_as != account:
+            return None, NotAdoptable.OTHER_ACCOUNT, name
+    return account, None, None
+
+
+@dataclass
+class RescueReport:
+    """What `rescue_stranded` did: credentials adopted now (fingerprint ->
+    writes), and writes of credentials adopted earlier still queued."""
+
+    rescued: dict = field(default_factory=dict)
+    adopted_waiting: int = 0
+    #: Fingerprint -> `NotAdoptable`: dead, but not this login's to send.
+    refused: dict = field(default_factory=dict)
+    #: The queue folders holding rescued or adopted writes: the ones to drain.
+    queues: set = field(default_factory=set)
+    #: Dead credentials left for later: a holder may still run, or the
+    #: login's account could not be confirmed. A rescue with these is not idle.
+    deferred: int = 0
+    #: The one endpoint every rescued write names, or None (two, or none).
+    base_url: str | None = None
+
+
+def rescue_stranded(root: "Journal", *, here: "set[str] | frozenset[str]") -> RescueReport:
+    """Hand to the stored login the writes of every env or in-code credential
+    that is dead and was the logged-in account's own (`adopt_credential`,
+    `AdoptedBy.RESCUE`), so they go out without anyone running a command.
+
+    Dead: Probe refused the credential itself on one of its writes
+    (`op_shows_dead_credential` -- on the op file, which no sign-in clears; a
+    refusal for scope never counts) and no process recorded holding it may
+    still run (`credential_holders`): a job alive with it is restarted, not
+    overridden. Its own: `adoption_account` over EVERY write it queued (one
+    refused for scope keeps them all), the same team and user per
+    `GET /v1/me`, the same server, scopes that allow its writes. ``here``
+    (credentials this process holds, the stored login) are never adopted.
+    `/ingest` writes, DELETEs and writes refused for scope are never sent
+    this way and are not counted. Never sends anything itself; never raises
+    for one credential."""
+    report = RescueReport()
+    by_fp: dict[str, list[dict]] = {}
+    where: dict[str, set] = {}
+    for queue in root.namespaces():
+        for _path, op in queued_ops(queue):
+            stamp = (op.get("context") or {}).get("principal")
+            if not isinstance(stamp, dict) or not stamp.get("fingerprint"):
+                continue
+            if stamp.get("source") not in (CredentialSource.ENV, CredentialSource.CODE):
+                continue
+            if op_credential(op)[1]:
+                continue  # an /ingest write: only its own ingest token sends it
+            fp = str(stamp["fingerprint"])
+            by_fp.setdefault(fp, []).append(op)
+            where.setdefault(fp, set()).add(queue.dir)
+    endpoints: set = set()
+    for fp, ops in sorted(by_fp.items()):
+        if fp in here:
+            continue
+        # What the adopted route would send: never a DELETE or a write refused
+        # for scope (`adopted_route_refuses`). The adoption check still sees
+        # every write: one refused for scope keeps the whole credential's.
+        sendable = [op for op in ops if adopted_route_refuses(op) is None]
+        if adopted_account(fp) is not None:
+            report.adopted_waiting += len(sendable)
+            if sendable:
+                report.queues |= where[fp]
+            continue
+        if not sendable:
+            continue
+        if not any(op_shows_dead_credential(op) for op in ops):
+            continue
+        if any(_holder_may_live(h) for h in credential_holders(fp)):
+            report.deferred += 1
+            continue  # restart it with a valid token; its writes are its own
+        try:
+            account, why, _context = adoption_account(fp, ops)
+            if account is None:
+                if why in (NotAdoptable.UNCONFIRMED, NotAdoptable.NO_LOGIN):
+                    report.deferred += 1
+                report.refused[fp] = why
+                continue
+            adopt_credential(fp, account, by=AdoptedBy.RESCUE)
+        except Exception as exc:  # noqa: BLE001 -- one credential never stops the rest
+            log.warning("outbox: could not rescue credential %s: %s", fp, type(exc).__name__)
+            continue
+        report.rescued[fp] = len(sendable)
+        report.queues |= where[fp]
+        endpoints.update(str((op.get("context") or {}).get("base_url") or "") for op in ops)
+    if len(endpoints) == 1 and "" not in endpoints:
+        report.base_url = endpoints.pop()
+    return report
+
+
+def held_credentials(ops, *, here: "set[str] | frozenset[str]") -> list[dict]:
+    """Which env or in-code credentials the queued ``ops`` wait for, that
+    nothing in ``here`` (this shell's credentials, the stored login) holds:
+    one entry per credential, most writes first, with its writes' count and
+    source, the account behind it when known (a stamp, else
+    `recorded_account`), the kind of its last refusal (`op_refusal`) and
+    whether it was adopted (its writes then go out with the login; one still
+    here says why it cannot). Unstamped ops and stored-login ops are left
+    out: a re-login sends those."""
+    found: dict[str, dict] = {}
+    for op in ops:
+        stamp = (op.get("context") or {}).get("principal") if isinstance(op, dict) else None
+        if not isinstance(stamp, dict) or not stamp.get("fingerprint"):
+            continue
+        if stamp.get("source") not in (CredentialSource.ENV, CredentialSource.CODE):
+            continue
+        fp = str(stamp["fingerprint"])
+        if fp in here:
+            continue
+        entry = found.setdefault(
+            fp, {"fingerprint": fp, "source": stamp.get("source"), "writes": 0, "refusal": None}
+        )
+        entry["writes"] += 1
+        if "account" not in entry and stamp_identity(stamp) is not None:
+            entry["account"] = stamp_identity(stamp)
+        refusal = op_refusal(op)
+        if refusal == Refusal.SCOPE or (refusal and entry["refusal"] is None):
+            entry["refusal"] = refusal
+    out = []
+    for fp, entry in found.items():
+        entry["adopted"] = adopted_account(fp) is not None
+        entry.setdefault("account", recorded_account(fp))
+        out.append(entry)
+    return sorted(out, key=lambda e: (-e["writes"], e["fingerprint"]))
+
+
+def queued_ops(queue: "Journal") -> list[tuple[Path, dict]]:
+    """``queue``'s pending ops, multipart uploads (``multipart/ops/``) included."""
+    return queue.pending() + Journal._read_dir(queue.dir / "multipart" / "ops")
 
 
 def is_ingest_path(path: str | None) -> bool:
@@ -4203,6 +4835,56 @@ def op_credential(op: dict) -> tuple[str | None, bool]:
     ingest = op.get("kind") == "http" and is_ingest_path(op.get("path"))
     key = stamp.get("ingest_fingerprint") if ingest else stamp.get("fingerprint")
     return (str(key) if key else None), ingest
+
+
+class AdoptedRouteRefused(errors.ValidationError):
+    """A write of an adopted credential that its adopting login may not send
+    (`adopted_route_refuses`). Dead-lettered with this reason -- visible in
+    `probe outbox status`, retryable -- rather than held: a held write stalls
+    every later write of its run, the close included, for good."""
+
+
+def adopted_route_refuses(op: dict) -> str | None:
+    """Why ``op`` may not go out with the login its credential was adopted by,
+    or None. Checked per write when it is SENT, not once at adoption: an
+    adoption covers what that credential queues later too. Never a DELETE (a
+    login may delete what the credential may not: a companion key's permanent
+    deletes, a token without `delete`); never a write the credential was
+    refused for scope; never one its recorded scopes do not allow."""
+    method = str(op.get("method") or "").upper() if isinstance(op, dict) else ""
+    if method == "DELETE":
+        return "a DELETE goes out only with the credential that queued it"
+    if op_refusal(op) == Refusal.SCOPE:
+        return "Probe refused it for scope: no other credential may send it"
+    fp = op_credential(op)[0]
+    scopes = recorded_scopes(fp)
+    writes = method not in ("GET", "HEAD") if method else op.get("kind") != "http"
+    if scopes is not None and writes and "write" not in scopes:
+        return "the credential that queued it may not write"
+    return None
+
+
+def _login_base_of(context: dict | None, base_url: str | None) -> str | None:
+    """``base_url`` when it is the server ``context``'s stored login is for,
+    else None: what `record_account`'s ``login_of`` may name."""
+    from .config import DEFAULT_BASE_URL, load_context
+
+    try:
+        stored = load_context((context or {}).get("name"))
+    except Exception:  # noqa: BLE001
+        return None
+    base = (stored.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
+    return base if base == str(base_url or "").rstrip("/") else None
+
+
+def _stored_login_fingerprint(context: dict | None) -> str | None:
+    """The fingerprint of the login stored for ``context``'s context, or None."""
+    from .config import load_context
+
+    try:
+        return credential_fingerprint(load_context((context or {}).get("name")).get("token"), None)
+    except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
+        return None
 
 
 def _route_fingerprint(settings, ingest: bool) -> str | None:
@@ -4235,6 +4917,13 @@ def _settings_for_op(
     account, the op waits. Never an environment token; never for an ingest
     write, whose key `/v1/me` cannot vouch for.
 
+    An env or in-code credential the user ADOPTED (`probe outbox adopt`: its
+    process is gone and its token dead, so nothing else will ever send its
+    writes) takes the same path, against the account recorded at adoption.
+    It skips the environment match: a job still running with the dead token
+    would otherwise hand that token to its worker on every pass. Never for an
+    ingest write either.
+
     An op queued before stamping keeps the old rule, `_settings_for`.
     """
     stamp = (context or {}).get("principal")
@@ -4250,8 +4939,9 @@ def _settings_for_op(
 
     name = (context or {}).get("name")
     pinned = ((context or {}).get("base_url") or "").rstrip("/")
+    adopted = None if ingest else adopted_account(stamp.get("fingerprint"))
     try:
-        ambient = resolve(context=name)
+        ambient = resolve(context=name) if adopted is None else None
     except Exception:  # noqa: BLE001 -- an unreadable config is just no candidate
         ambient = None
     if (
@@ -4269,15 +4959,28 @@ def _settings_for_op(
         stored, failure = None, exc
     if stored is not None and _route_fingerprint(stored, ingest) == wanted:
         return stored
-    if stamp.get("source") != CredentialSource.CONFIG or ingest:
+    if (stamp.get("source") != CredentialSource.CONFIG and adopted is None) or ingest:
         raise CredentialNotHere(
             f"queued with a credential from {stamp.get('source') or 'elsewhere'} "
             f"(fingerprint {wanted}) that this process does not hold; it is delivered by the "
             "process that queued it, or by `probe outbox drain` run with the same credential"
         )
+    record = load_context(name)
+    if adopted is not None:
+        from .config import DEFAULT_BASE_URL
+
+        stored_base = (record.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
+        if pinned and pinned != stored_base:
+            # Adopted for the login stored here, which is another server's:
+            # it waits (held, never dead-lettered), and that login's token is
+            # never sent to the server the write is pinned to.
+            raise CredentialNotHere(
+                f"adopted, but queued for {pinned} and the login stored for context "
+                f"{name or '<default>'} is {stored_base}'s; it waits",
+                permanent=True,
+            )
     if failure is not None:
         raise failure
-    record = load_context(name)
     if not (record.get("token") or record.get("ingest_token")):
         # Logged out since: park until a sign-in, exactly as an unstamped op
         # would -- but never hand this op to an environment token instead.
@@ -4289,7 +4992,30 @@ def _settings_for_op(
     # from someone else's environment either.
     stored.token = record.get("token")
     stored.ingest_token = record.get("ingest_token")
+    from .config import DEFAULT_BASE_URL as _DEFAULT_BASE
+
+    record_base = (record.get("base_url") or _DEFAULT_BASE).rstrip("/")
+    env_base = (os.environ.get("PROBE_BASE_URL") or "").rstrip("/")
+    if stored.base_url.rstrip("/") != record_base and (
+        adopted is not None or stored.base_url.rstrip("/") != env_base
+    ):
+        # The config changed between the reads: this token is never sent to a
+        # server its own record does not name. The next pass reads it again.
+        raise CredentialNotHere(
+            f"the login of context {name or '<default>'} changed while this write was routed; "
+            "it waits"
+        )
     queued_as = stamp_identity(stamp) or account or recorded_account(stamp.get("fingerprint"))
+    if adopted is not None:
+        if queued_as not in (None, adopted):
+            # One token is one account: an op recording another account was
+            # not queued by the credential the user vouched for.
+            raise CredentialNotHere(
+                f"adopted for another account than the one its write records "
+                f"(fingerprint {wanted}); it waits",
+                permanent=True,
+            )
+        queued_as = adopted
     if queued_as is None:
         raise CredentialNotHere(
             f"queued under an earlier login of context {name or '<default>'} whose account "
@@ -4574,7 +5300,7 @@ def _prefetch_uploads(journal, entries, client_for, workers, run_ref) -> dict:
         try:
             if journal.receipt(op["correlation"]) is not None:
                 continue
-            client = client_for(op.get("context"))
+            client = client_for(op.get("context"), op=op)
         except Exception:  # noqa: BLE001 -- the serial pass will report it
             continue
         candidates.append((path, op, client))
@@ -4827,6 +5553,7 @@ def drain(
                 combined.unknown_kinds += part.unknown_kinds
                 combined.in_progress += part.in_progress
                 combined.coalesced += part.coalesced
+                combined.skipped += part.skipped
                 combined.dead_letter_records.extend(part.dead_letter_records)
                 combined.progressed_runs |= part.progressed_runs
                 for lane, stall in part.stalled_runs.items():
@@ -4869,6 +5596,18 @@ def drain(
     # every later op of that credential in the pass, the writer's own included.
     cooling = _cooling_refusals(journal)
     refused_now: dict[str, str] = {}
+    # Fingerprint -> adopted (`probe outbox adopt`), read once per pass.
+    adoptions: dict[str, bool] = {}
+    # Adopted fingerprint -> the fingerprint of the login its writes go out
+    # with this pass. A refusal of THAT login is recorded under it too, so the
+    # banner names it and its cooldown holds the adopted writes back as well.
+    adopted_login: dict[str, str] = {}
+
+    def is_adopted(fingerprint: str) -> bool:
+        if fingerprint not in adoptions:
+            adoptions[fingerprint] = adopted_account(fingerprint) is not None
+        return adoptions[fingerprint]
+
     delivered_fps: set[str] = set()
     # One token is one account: what any of a token's writes recorded about it
     # vouches for all of them (#2041 re-review). Filled from the queue below.
@@ -4894,11 +5633,15 @@ def drain(
             settings = getattr(sender, "settings", None)
             if settings is None or credential_fingerprint(settings.token, None) != fp:
                 return  # went out with a later login (the account was known): nothing to learn
-            record_account(fp, _identity_of(settings, getattr(sender, "transport", None)))
+            record_account(
+                fp,
+                _identity_of(settings, getattr(sender, "transport", None)),
+                login_of=_login_base_of(op.get("context"), settings.base_url),
+            )
         except Exception:  # noqa: BLE001 -- evidence for later, never a delivery step
             return
 
-    def client_for(context: dict | None, ingest: bool = False):
+    def client_for(context: dict | None, ingest: bool = False, op: dict | None = None):
         stamp = (context or {}).get("principal")
         stamped_fp = None
         if isinstance(stamp, dict):
@@ -4907,11 +5650,17 @@ def drain(
         # What a client_factory is told: the route, so it matches the right key.
         asked = {**context, "route": "ingest"} if (ingest and isinstance(context, dict)) else context
         refused_at = refused_now.get(stamped_fp) if stamped_fp else None
-        if refused_at is None and stamped_fp in cooling and (
-            client_factory is None or client_factory(asked) is None
+        if (
+            refused_at is None
+            and stamped_fp in cooling
+            and (ingest or not is_adopted(stamped_fp))
+            and (client_factory is None or client_factory(asked) is None)
         ):
             # Refused in an earlier pass. The writer itself (client_factory)
             # may still try: a re-login it picked up is how its writes recover.
+            # So may an adopted credential's writes, which go out with the
+            # stored login now: the refusal on record is of the dead token,
+            # which a job still running with it re-records every cooldown.
             refused_at = cooling[stamped_fp]
         if refused_at is not None:
             # Set aside with every other write of that credential, so it
@@ -4920,6 +5669,20 @@ def drain(
                 f"its credential was refused by the API at {refused_at}; it waits for a "
                 f"new sign-in ({WIZARD_HINT}), or for the process that holds that credential"
             )
+        if (
+            op is not None
+            and stamped_fp
+            and not ingest
+            and is_adopted(stamped_fp)
+            and (client_factory is None or client_factory(asked) is None)
+        ):
+            refused_here = adopted_route_refuses(op)
+            if refused_here is not None:
+                raise AdoptedRouteRefused(
+                    f"queued with a revoked credential that was adopted, but {refused_here} "
+                    "(`probe outbox retry` requeues it if that credential comes back)",
+                    status=422,
+                )
         if isinstance(clients.get(key), CredentialNotHere):
             # A fresh instance: re-raising one object grows its traceback per op.
             raise CredentialNotHere(str(clients[key]), permanent=clients[key].permanent)
@@ -4929,6 +5692,20 @@ def drain(
                 clients[key] = supplied
             else:
                 try:
+                    if stamped_fp and not ingest and is_adopted(stamped_fp):
+                        # Before `_settings_for_op`, whose account check is the
+                        # login's first request and may be what is refused.
+                        login_fp = _stored_login_fingerprint(context)
+                        if login_fp:
+                            adopted_login[stamped_fp] = login_fp
+                        login_refused = refused_now.get(login_fp or "") or cooling.get(
+                            login_fp or ""
+                        )
+                        if login_refused:
+                            raise CredentialNotHere(
+                                f"adopted by the login stored here, which the API refused at "
+                                f"{login_refused}; it waits for a new sign-in ({WIZARD_HINT})"
+                            )
                     account = accounts.get((stamp or {}).get("fingerprint") or "")
                     settings = _settings_for_op(context, ingest=ingest, account=account)
                 except CredentialNotHere as absent:
@@ -5243,6 +6020,19 @@ def drain(
                 # below record what it can and move on.
                 verdict = "permanent"
             if verdict == "auth":
+                from .key_refusal import credential_refused
+
+                if _stamp_fingerprint(op) in adopted_login:
+                    # Refused while going out with the ADOPTING login: what
+                    # that login may do says nothing about the credential
+                    # that queued it (`op_refusal`).
+                    op["refused_via_adoption"] = True
+                elif isinstance(exc, errors.ScopeError) and not credential_refused(403, str(exc)):
+                    # Sticky: a later 401 (the token revoked) rewrites
+                    # `last_error`, and must not erase that this write asked
+                    # for more than its credential may do (`op_refusal`).
+                    op["refused_for_scope"] = True
+                    op.pop("refused_via_adoption", None)
                 write_text_atomic(path, json.dumps(op, indent=2) + "\n", mode=0o600)
                 known[path.name] = _meta_of(op)  # a hashed upload now has a size
                 refused_context = op.get("context")
@@ -5268,6 +6058,10 @@ def drain(
                     # to stop the whole pass and block the box (#2041 review).
                     refused_now[refused_fp] = now_iso()
                     delivered_fps.discard(refused_fp)
+                    login_fp = adopted_login.get(refused_fp)
+                    if login_fp:
+                        refused_now[login_fp] = refused_now[refused_fp]
+                        delivered_fps.discard(login_fp)
                     if lane is not None:
                         stalled[lane] = LaneStall(op["last_error"], status=getattr(exc, "status", None))
                     report.credential_refused += 1
@@ -5287,7 +6081,10 @@ def drain(
                     verdict == "permanent"
                     and op.get("kind") in ("upload", "multipart_upload")
                     and not op.get("correlation")
-                    and not isinstance(exc, CredentialBlocked)
+                    # An adopted credential's refused upload: nothing may
+                    # write for it with the adopting login, a fallback row
+                    # included.
+                    and not isinstance(exc, (CredentialBlocked, AdoptedRouteRefused))
                 ):
                     # BUILDING the fallback client resolves credentials, and
                     # that resolution is itself a thing that can fail -- for
@@ -5316,8 +6113,11 @@ def drain(
                         # just no longer counts as blocking (see
                         # `Run._queued_ops`).
                         op["blocking"] = False
-                if _is_multipart(op):
-                    # Plan (g): a dead multipart upload keeps no bytes. Its
+                if _is_multipart(op) and not isinstance(exc, AdoptedRouteRefused):
+                    # Plan (g): a dead multipart upload keeps no bytes (one
+                    # refused on the adopted route keeps them, for a retry
+                    # with its own credential, and is never aborted with the
+                    # adopting login: that is a DELETE). Its
                     # staged copy goes and the server's upload is aborted
                     # (best-effort: the server's own sweep aborts an idle one).
                     try:
@@ -5403,7 +6203,10 @@ def drain(
                 if credential_lanes[lane]:
                     report.permanently_held += 1
                 continue
-            if lane in stalled or lane in skip or lane in held_runs:
+            if lane in skip:
+                report.skipped += 1
+                continue  # backed off: its run waits; the other runs do not
+            if lane in stalled or lane in held_runs:
                 continue  # its run waits; the other runs do not
             if path.name > held_back.get(lane, path.name):
                 report.held_back += 1
@@ -5459,7 +6262,7 @@ def drain(
                 # head through `settle_failure` again after it landed (review of
                 # #2053).
                 try:
-                    client = client_for(op.get("context"))
+                    client = client_for(op.get("context"), op=op)
                 except OpHeldHere as held:
                     # Every op of the batch shares the head's context (it is in
                     # `_merge_key`), so none of them is this drainer's to send.
@@ -5503,7 +6306,11 @@ def drain(
                 else:
                     with attribution_scope(op.get("attribution", "ambient")):
                         result = _execute(
-                            journal, client_for(op.get("context"), op_credential(op)[1]), path, op, run_ids
+                            journal,
+                            client_for(op.get("context"), op_credential(op)[1], op=op),
+                            path,
+                            op,
+                            run_ids,
                         )
                     journal._save_delivery_receipt(op, result)
                 delivered_fp = _stamp_fingerprint(op)
@@ -5566,16 +6373,22 @@ def drain(
             # Merged with what is on disk NOW, under the append lock: a `probe
             # login` during this pass cleared the list (clear_auth_block), and
             # writing back the one read at the start undid it (#2041 re-review).
-            on_disk = (
-                Journal.read_status(journal.dir, include_receipts=False) or {}
-            ).get("refused_fingerprints") or {}
+            previous = Journal.read_status(journal.dir, include_receipts=False) or {}
+            on_disk = previous.get("refused_fingerprints") or {}
             if not isinstance(on_disk, dict):
                 on_disk = {}
+            # A held run the caller backs off is skipped on the next pass, and
+            # not recounting its holds wrote `held: 0` while they still waited:
+            # the stuck signal flickered pass to pass. The last count stands
+            # for the ops this pass did not look at.
+            carried = min(_status_count(previous.get("held")), report.skipped)
+            carried_close = min(_status_count(previous.get("close_held")), carried)
             cleared = set(cooling) - set(on_disk)
             report.remaining = journal._write_status_locked(
                 known=known,
                 auth_blocked_since=(now_iso() if report.queue_auth_stopped else None),
-                held=report.credential_held + report.credential_refused + report.close_held,
+                held=report.credential_held + report.credential_refused + report.close_held + carried,
+                close_held=report.close_held + carried_close,
                 held_at=now_iso(),
                 refused_fingerprints={
                     **{fp: at for fp, at in on_disk.items() if fp not in delivered_fps},

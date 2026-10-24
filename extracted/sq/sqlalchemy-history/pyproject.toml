@@ -14,21 +14,22 @@ authors = [
 ]
 license = "Apache-2.0 AND BSD-3-Clause"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["SQLAlchemy>=2", "SQLAlchemy-Utils>=0.30.12", "anyio>3"]
+dependencies = ["SQLAlchemy>=2", "anyio>=4,<5"]
 
 [project.optional-dependencies]
 asyncio = ["SQLAlchemy[asyncio]>=2"]
@@ -36,12 +37,13 @@ alembic = ["alembic"]
 
 [project.urls]
 Homepage = "https://github.com/corridor/sqlalchemy-history"
+Documentation = "https://corridor.github.io/sqlalchemy-history/"
 Repository = "https://github.com/corridor/sqlalchemy-history"
 Issues = "https://github.com/corridor/sqlalchemy-history/issues"
 Changelog = "https://github.com/corridor/sqlalchemy-history/releases"
 
 [dependency-groups]
-dev = ["ruff", "prek"]
+lint = ["ruff", "prek"]
 test = [
     "sqlalchemy-history[asyncio]",
     "pytest",
@@ -59,12 +61,14 @@ test = [
     "termcolor",          # Used in benchmark.py
 ]
 docs = [
-    "mkdocs",
-    "mkdocs-autorefs",
-    "mkdocs-awesome-pages-plugin",
     "mkdocstrings-python",
+    "zensical",
 ]
-
+dev = [
+    { include-group = "test" },
+    { include-group = "docs" },
+    { include-group = "lint" },
+]
 [tool.setuptools_scm]
 root = "."
 
@@ -75,8 +79,14 @@ include = ["sqlalchemy_history", "sqlalchemy_history.*"]
 sqlalchemy_history = ["py.typed"]
 
 [tool.coverage.run]
-dynamic_context = "test_function"
 branch = true
 
 [tool.uv]
 exclude-newer = "1 week" # Cooldown period for new vulnerabilities
+
+[tool.pytest.ini_options]
+markers = [
+    "skip_db(*databases: str, reason: str): skip the test for the selected --db backend",
+]
+addopts = ["--strict-config", "--strict-markers"]
+filterwarnings = ["error::sqlalchemy.exc.SAWarning"]

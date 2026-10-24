@@ -36,7 +36,7 @@ class PlanUsage(BaseModel):
     period_end: Optional[datetime] = None
     objects_processed: Optional[StrictInt] = None
     object_cap: Optional[StrictInt] = None
-    vectors_stored: Optional[StrictInt] = None
+    vectors_stored: Optional[StrictInt] = Field(default=None, description="Documents stored across the organization's namespaces: each namespace's own documents, counted exactly by the vector store. This is the same number the invoice bills as documents stored. The field keeps its historical name; its unit is documents, not index vectors.")
     vectors_stored_complete: Optional[StrictBool] = Field(default=True, description="Whether `vectors_stored` counted every namespace. The total is the sum of each namespace's live count, and a namespace whose count does not finish in time contributes 0 rather than failing the request. When this is false the total is a FLOOR: real usage is higher, so `usage_pct` and `cap_state` are under-reported and a plan at its cap can read as ok. Retrying usually resolves it, since the slow count is cached only briefly.")
     vector_cap: Optional[StrictInt] = None
     usage_pct: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Percent of the relevant cap consumed.")

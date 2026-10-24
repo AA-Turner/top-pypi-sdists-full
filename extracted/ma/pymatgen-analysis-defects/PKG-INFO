@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymatgen-analysis-defects
-Version: 2026.10.16
+Version: 2026.10.24
 Summary: Pymatgen extension for defects analysis
 Author-email: Jimmy-Xuan Shen <jmmshn@gmail.com>
 License-Expression: BSD-3-Clause-LBNL

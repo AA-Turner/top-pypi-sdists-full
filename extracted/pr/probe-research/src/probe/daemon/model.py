@@ -115,6 +115,13 @@ class GateMode(StrEnum):
     ON = "on"
 
 
+class PromptWake(StrEnum):
+    """Whether a researcher prompt wakes the reader (`READER_PROMPT_WAKE_HEADER`)."""
+
+    ON = "on"
+    OFF = "off"
+
+
 #: Settings the server sends on every chat answer beside the context sizes
 #: (daemon cost round 4): the reader gate's mode and the writer's least gap in
 #: seconds between two runs. Absent (an older server), OFF and 0 stand. The
@@ -128,6 +135,13 @@ WRITER_HISTORY_HEADER = "x-probe-writer-history"
 WRITER_EVENTS_HEADER = "x-probe-writer-events"
 ENV_WRITER_HISTORY = "PROBE_DAEMON_WRITER_HISTORY"
 ENV_WRITER_EVENTS = "PROBE_DAEMON_WRITER_EVENTS"
+#: Whether the researcher's prompt alone wakes the daemon's reader (plan
+#: probe-hints T5): ON (the default, and what an older server's silence means)
+#: or OFF, per team, once the hints and `probe ask` are shown to cover what
+#: prompt-time reader turns caught. Asks and the READ_EVERY_S new-events wake
+#: are never switched off. The environment variable wins over the server.
+READER_PROMPT_WAKE_HEADER = "x-probe-reader-prompt-wake"
+ENV_READER_PROMPT_WAKE = "PROBE_READER_PROMPT_WAKE"
 #: A pushed gap above this is clamped: a session is never recorded less than hourly.
 MAX_WRITER_GAP_S = 3600
 _PUSHED: dict[str, object] = {}
@@ -153,12 +167,15 @@ async def _remember_served_model(response) -> None:
 
 
 def remember_pushed_settings(headers: Any) -> None:
-    """Keep the reader gate's mode, the writer's gap and the writer's layout
-    (history, events) from a chat answer's headers. A missing or malformed value
-    leaves the last good one."""
+    """Keep the reader gate's mode, the reader's prompt wake, the writer's gap and
+    the writer's layout (history, events) from a chat answer's headers. A
+    missing or malformed value leaves the last good one."""
     mode = (headers.get(READER_GATE_HEADER) or "").strip().lower()
     if mode in {m.value for m in GateMode}:
         _PUSHED[READER_GATE_HEADER] = GateMode(mode)
+    wake = (headers.get(READER_PROMPT_WAKE_HEADER) or "").strip().lower()
+    if wake in {m.value for m in PromptWake}:
+        _PUSHED[READER_PROMPT_WAKE_HEADER] = PromptWake(wake)
     raw = headers.get(WRITER_GAP_HEADER)
     try:
         gap = int(str(raw).strip()) if raw is not None else None
@@ -178,6 +195,15 @@ def reader_gate_mode() -> GateMode:
     if env in {m.value for m in GateMode}:
         return GateMode(env)
     return _PUSHED.get(READER_GATE_HEADER, GateMode.OFF)  # type: ignore[return-value]
+
+
+def reader_prompt_wake() -> bool:
+    """`PROBE_READER_PROMPT_WAKE`, else the server's switch, else ON: does a
+    researcher prompt alone wake the daemon's reader?"""
+    env = (os.environ.get(ENV_READER_PROMPT_WAKE) or "").strip().lower()
+    if env in {m.value for m in PromptWake}:
+        return env == PromptWake.ON
+    return _PUSHED.get(READER_PROMPT_WAKE_HEADER, PromptWake.ON) == PromptWake.ON
 
 
 def writer_min_gap_s() -> float:

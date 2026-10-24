@@ -1,0 +1,1 @@
+import{a$ as o,t,am as s}from"./index-Ctz-kJ0Q.js";import{g as n}from"./format-Cg-z8WTh.js";function g(a,e){const r=n(a,e);o(e).reason==="management_key_required"?t.error(r,{action:{label:a("management.title"),onClick:s}}):t.error(r)}export{g as t};

@@ -1,0 +1,16 @@
+# Production stack configuration for Hydra Everywhere.
+#
+# Runtime project: internal-airbyte-ai-infra
+# Runtime region: us-west3
+# DNS zone project: airbyte-intranet
+# DNS zone: internal-airbyte-ai
+config:
+  gcp:project: internal-airbyte-ai-infra
+  gcp:region: us-west3
+  hydra-review-webapp:domain: my-prs.internal.airbyte.ai
+  hydra-review-webapp:preview-domain: preview.my-prs.internal.airbyte.ai
+  hydra-review-webapp:hydra-preview-domain: preview.hydra.internal.airbyte.ai
+  hydra-review-webapp:dns-zone-project: airbyte-intranet
+  hydra-review-webapp:dns-zone-name: internal-airbyte-ai
+  hydra-review-webapp:devin-org-id: org_iq47F3xxV39G0Zhn
+  hydra-review-webapp:github-client-id: Ov23liMMRto8kLH0RNEY

@@ -514,6 +514,7 @@ class ContinueUpdateRollbackInputTypeDef(TypedDict):
     RoleARN: NotRequired[str]
     ResourcesToSkip: NotRequired[Sequence[str]]
     ClientRequestToken: NotRequired[str]
+    ForceRollback: NotRequired[bool]
 
 
 class DeploymentConfigTypeDef(TypedDict):

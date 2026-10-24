@@ -111,8 +111,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -188,8 +190,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -265,8 +269,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -350,7 +356,7 @@ class AnnotationsApi:
     @validate_call
     def bulk_annotations(
         self,
-        bulk_annotations_request: BulkAnnotationsRequest,
+        bulk_annotations_request: Annotated[BulkAnnotationsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -368,7 +374,7 @@ class AnnotationsApi:
 
         Create, update, and/or delete annotations in a single call.  Each operation is independent — a failure in one does not roll back the others. Maximum 1000 operations per type (creates, updates, deletes).
 
-        :param bulk_annotations_request: (required)
+        :param bulk_annotations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_annotations_request: BulkAnnotationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -406,8 +412,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -423,7 +431,7 @@ class AnnotationsApi:
     @validate_call
     def bulk_annotations_with_http_info(
         self,
-        bulk_annotations_request: BulkAnnotationsRequest,
+        bulk_annotations_request: Annotated[BulkAnnotationsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -441,7 +449,7 @@ class AnnotationsApi:
 
         Create, update, and/or delete annotations in a single call.  Each operation is independent — a failure in one does not roll back the others. Maximum 1000 operations per type (creates, updates, deletes).
 
-        :param bulk_annotations_request: (required)
+        :param bulk_annotations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_annotations_request: BulkAnnotationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -479,8 +487,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -496,7 +506,7 @@ class AnnotationsApi:
     @validate_call
     def bulk_annotations_without_preload_content(
         self,
-        bulk_annotations_request: BulkAnnotationsRequest,
+        bulk_annotations_request: Annotated[BulkAnnotationsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -514,7 +524,7 @@ class AnnotationsApi:
 
         Create, update, and/or delete annotations in a single call.  Each operation is independent — a failure in one does not roll back the others. Maximum 1000 operations per type (creates, updates, deletes).
 
-        :param bulk_annotations_request: (required)
+        :param bulk_annotations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_annotations_request: BulkAnnotationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -552,8 +562,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -643,7 +655,7 @@ class AnnotationsApi:
     @validate_call
     def create_annotation(
         self,
-        create_annotation_request: CreateAnnotationRequest,
+        create_annotation_request: Annotated[CreateAnnotationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -661,7 +673,7 @@ class AnnotationsApi:
 
         Record a human decision on a document.
 
-        :param create_annotation_request: (required)
+        :param create_annotation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_annotation_request: CreateAnnotationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -699,8 +711,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -716,7 +730,7 @@ class AnnotationsApi:
     @validate_call
     def create_annotation_with_http_info(
         self,
-        create_annotation_request: CreateAnnotationRequest,
+        create_annotation_request: Annotated[CreateAnnotationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -734,7 +748,7 @@ class AnnotationsApi:
 
         Record a human decision on a document.
 
-        :param create_annotation_request: (required)
+        :param create_annotation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_annotation_request: CreateAnnotationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -772,8 +786,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -789,7 +805,7 @@ class AnnotationsApi:
     @validate_call
     def create_annotation_without_preload_content(
         self,
-        create_annotation_request: CreateAnnotationRequest,
+        create_annotation_request: Annotated[CreateAnnotationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -807,7 +823,7 @@ class AnnotationsApi:
 
         Record a human decision on a document.
 
-        :param create_annotation_request: (required)
+        :param create_annotation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_annotation_request: CreateAnnotationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -845,8 +861,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -992,8 +1010,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1065,8 +1085,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1138,8 +1160,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1272,8 +1296,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1345,8 +1371,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1418,8 +1446,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1556,8 +1586,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1633,8 +1665,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1710,8 +1744,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1847,8 +1883,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1920,8 +1958,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1993,8 +2033,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2073,7 +2115,7 @@ class AnnotationsApi:
         self,
         skip: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         limit: Optional[Annotated[int, Field(le=500, strict=True, ge=1)]] = None,
-        list_annotations_request: Optional[ListAnnotationsRequest] = None,
+        list_annotations_request: Annotated[Optional[ListAnnotationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2095,7 +2137,7 @@ class AnnotationsApi:
         :type skip: int
         :param limit:
         :type limit: int
-        :param list_annotations_request:
+        :param list_annotations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_annotations_request: ListAnnotationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2135,8 +2177,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2154,7 +2198,7 @@ class AnnotationsApi:
         self,
         skip: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         limit: Optional[Annotated[int, Field(le=500, strict=True, ge=1)]] = None,
-        list_annotations_request: Optional[ListAnnotationsRequest] = None,
+        list_annotations_request: Annotated[Optional[ListAnnotationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2176,7 +2220,7 @@ class AnnotationsApi:
         :type skip: int
         :param limit:
         :type limit: int
-        :param list_annotations_request:
+        :param list_annotations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_annotations_request: ListAnnotationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2216,8 +2260,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2235,7 +2281,7 @@ class AnnotationsApi:
         self,
         skip: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         limit: Optional[Annotated[int, Field(le=500, strict=True, ge=1)]] = None,
-        list_annotations_request: Optional[ListAnnotationsRequest] = None,
+        list_annotations_request: Annotated[Optional[ListAnnotationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2257,7 +2303,7 @@ class AnnotationsApi:
         :type skip: int
         :param limit:
         :type limit: int
-        :param list_annotations_request:
+        :param list_annotations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_annotations_request: ListAnnotationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2297,8 +2343,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2399,7 +2447,7 @@ class AnnotationsApi:
     def patch_annotation(
         self,
         annotation_id: StrictStr,
-        patch_annotation_request: PatchAnnotationRequest,
+        patch_annotation_request: Annotated[PatchAnnotationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2419,7 +2467,7 @@ class AnnotationsApi:
 
         :param annotation_id: (required)
         :type annotation_id: str
-        :param patch_annotation_request: (required)
+        :param patch_annotation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_annotation_request: PatchAnnotationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2458,8 +2506,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2476,7 +2526,7 @@ class AnnotationsApi:
     def patch_annotation_with_http_info(
         self,
         annotation_id: StrictStr,
-        patch_annotation_request: PatchAnnotationRequest,
+        patch_annotation_request: Annotated[PatchAnnotationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2496,7 +2546,7 @@ class AnnotationsApi:
 
         :param annotation_id: (required)
         :type annotation_id: str
-        :param patch_annotation_request: (required)
+        :param patch_annotation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_annotation_request: PatchAnnotationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2535,8 +2585,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2553,7 +2605,7 @@ class AnnotationsApi:
     def patch_annotation_without_preload_content(
         self,
         annotation_id: StrictStr,
-        patch_annotation_request: PatchAnnotationRequest,
+        patch_annotation_request: Annotated[PatchAnnotationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2573,7 +2625,7 @@ class AnnotationsApi:
 
         :param annotation_id: (required)
         :type annotation_id: str
-        :param patch_annotation_request: (required)
+        :param patch_annotation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_annotation_request: PatchAnnotationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2612,8 +2664,10 @@ class AnnotationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

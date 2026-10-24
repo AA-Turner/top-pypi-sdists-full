@@ -197,7 +197,7 @@ if you need to include a literal ``{{``, ``{%``, or ``{#`` in the output.
 
 import ast
 import builtins
-import datetime
+import datetime as dt
 import linecache
 import os.path
 import re
@@ -335,7 +335,7 @@ class Template:
             "json_encode": escape.json_encode,
             "squeeze": escape.squeeze,
             "linkify": escape.linkify,
-            "datetime": datetime,
+            "datetime": dt,
             "_tt_utf8": escape.utf8,  # for internal use
             "_tt_string_types": (unicode_type, bytes),
             # __name__ and __loader__ allow the traceback mechanism to find

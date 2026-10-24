@@ -55,6 +55,8 @@ from .type_defs import (
     GetCaseAttachmentUploadUrlResponseTypeDef,
     GetCaseRequestTypeDef,
     GetCaseResponseTypeDef,
+    GetFindingMetricsRequestTypeDef,
+    GetFindingMetricsResponseTypeDef,
     GetMembershipRequestTypeDef,
     GetMembershipResponseTypeDef,
     ListCaseEditsRequestTypeDef,
@@ -226,6 +228,16 @@ class SecurityIncidentResponseClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_case_attachment_upload_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#get_case_attachment_upload_url)
+        """
+
+    async def get_finding_metrics(
+        self, **kwargs: Unpack[GetFindingMetricsRequestTypeDef]
+    ) -> GetFindingMetricsResponseTypeDef:
+        """
+        Returns finding-lifecycle metrics for a membership over a date range.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/client/get_finding_metrics.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/client/#get_finding_metrics)
         """
 
     async def get_membership(

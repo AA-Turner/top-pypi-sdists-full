@@ -35,6 +35,7 @@ __all__ = (
     "OperationTypeType",
     "OperatorType",
     "PaginatorName",
+    "PriceTypeType",
     "ReachabilityStatusType",
     "RegionName",
     "ResourceServiceName",
@@ -378,6 +379,7 @@ OperationTypeType = Literal[
     "UPDATE_NAMESERVER",
 ]
 OperatorType = Literal["BEGINS_WITH", "GE", "LE"]
+PriceTypeType = Literal["REGISTRY_PREMIUM", "STANDARD"]
 ReachabilityStatusType = Literal["DONE", "EXPIRED", "PENDING"]
 SortOrderType = Literal["ASC", "DESC"]
 StatusFlagType = Literal[
@@ -391,6 +393,7 @@ TransferableType = Literal[
     "DOMAIN_IN_ANOTHER_ACCOUNT",
     "DOMAIN_IN_OWN_ACCOUNT",
     "DONT_KNOW",
+    "PENDING",
     "PREMIUM_DOMAIN",
     "TRANSFERABLE",
     "UNTRANSFERABLE",
@@ -550,13 +553,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -624,6 +626,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -758,6 +761,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -808,7 +812,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -56,28 +56,49 @@ def watcher_prefix(source: str) -> str:
     return capture.watcher_prefix
 
 
+def _watcher_dir() -> Path:
+    """Mirrors `tap.config._watcher_dir`: `/tmp`, or Windows's temp folder (the
+    hooks' Git Bash `/tmp`)."""
+    if os.name == "nt":
+        import tempfile
+
+        return Path(tempfile.gettempdir())
+    return Path("/tmp")
+
+
 def pid_file(session_id: str, source: str) -> Path:
-    return Path("/tmp") / f"{watcher_prefix(source)}-watcher-{session_id}.pid"
+    return _watcher_dir() / f"{watcher_prefix(source)}-watcher-{session_id}.pid"
 
 
 def hosted_file(session_id: str, source: str) -> Path:
     """Mirrors `tap.config.hosted_file`: the Probe service records the session
     itself (plan A2), and this names its pid."""
-    return Path("/tmp") / f"{watcher_prefix(source)}-watcher-{session_id}.hosted"
+    return _watcher_dir() / f"{watcher_prefix(source)}-watcher-{session_id}.hosted"
 
 
 def _hosted_pid(session_id: str, source: str) -> int | None:
     """The service's pid when it records `session_id` (`tap.record_client.hosted_pid`)."""
+    from probe.service import procid
+
     path = hosted_file(session_id, source)
     try:
-        if path.lstat().st_uid != os.getuid():
+        if hasattr(os, "getuid") and path.lstat().st_uid != os.getuid():
             return None
         pid = int(path.read_text(encoding="utf-8").strip())
-        if pid <= 1:
+        if pid <= 1 or not procid.exists(pid):
             return None
-        os.kill(pid, 0)
     except (OSError, ValueError):
         return None
+    if os.name == "nt":
+        # No other process's command line to read: the service named itself
+        # in its lock file (`server._name_holder`).
+        from probe.service import paths
+
+        try:
+            pid_s, _, start = paths.lock_path().read_text(encoding="utf-8").strip().partition(" ")
+        except OSError:
+            return None
+        return pid if pid_s == str(pid) and start and procid.alive(pid, start) is True else None
     try:
         completed = subprocess.run(  # noqa: S603 - fixed binary, no shell
             ["/bin/ps", "-ww", "-p", str(pid), "-o", "command="],
@@ -103,7 +124,7 @@ def _looks_like_the_uploader(pid: int) -> bool:
       * `tap/start.py::daemon_state` -- the SPAWNER. A live pid whose `/bin/ps
         -ww -p <pid> -o command=` output does not contain the substring `tap` is
         classified `stale`, not `running`, and the spawner then starts one.
-      * `probe-research-pi/src/core/daemon.ts::isDaemonAlive` -- matches that exact
+      * `probe-research-pi/src/core/daemon.ts::isWatcherAlive` -- matches that exact
         substring form, and says in its own comment why matching matters more
         than being strict.
       * this function.
@@ -216,8 +237,10 @@ def session_capture_state(session_id: str, source: str | None = None) -> Capture
     if pid <= 0:
         return CaptureState(False, None, "not started")
     try:
-        os.kill(pid, 0)
-    except OSError:
+        from probe._shared import oscompat  # os.kill(pid, 0) answers nothing on Windows
+
+        oscompat.probe_pid(pid)
+    except (OSError, OverflowError):
         return CaptureState(False, None, "not started")
     if not _looks_like_the_uploader(pid):
         return CaptureState(False, None, "not started")

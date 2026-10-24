@@ -93,15 +93,13 @@ def copy_dotted_table(table: Container) -> InlineTableValue:
     ]
     if removed:
         splice_out(value, removed, newline, is_multiline=multiline)
-    if not value.items:
-        return InlineTableValue()
-
     strip_framing_comments(value)
+    value._key_index.clear()  # noqa: SLF001
     for entry in value.items:
         entry.key_parts = entry.key_parts[depth:]
         entry.key_seps = entry.key_seps[depth:]
         entry.key_path = entry.key_path[depth:]
-    value.reindex()
+        value._key_index[entry.key_path] = entry  # noqa: SLF001
     value.reset_multiline_cache()
     if multiline and not value.is_multiline():
         set_comma_value_multiline(
@@ -170,7 +168,8 @@ def delete_entry(t: Container, key: str) -> None:
     The logical inline view must already contain ``key``. When ``key`` names a
     synthetic dotted-prefix container (e.g. ``a`` in
     ``{a.b = 1, a.c = 2}``), every entry whose ``key_parts`` start with
-    that prefix is removed.
+    that prefix is removed. Emptying a dotted parent materialises it as
+    an explicit empty inline table.
     """
     root = _outermost_inline(t)
     iv = root._value  # noqa: SLF001
@@ -182,6 +181,21 @@ def delete_entry(t: Container, key: str) -> None:
         indices: list[int] = [found[0]]
     else:
         indices = _find_prefix_entries(iv, full_path)
+    if t._kind is _Kind.INLINE_DOTTED_INNER and len(t) == 1:  # noqa: SLF001
+        # Keep the last owned entry's position and trivia for the empty table.
+        entry = iv.items[indices[-1]]
+        if len(indices) > 1:
+            _remove_entries(iv, indices[:-1], root._doc_newline)  # noqa: SLF001
+        depth = len(full_path) - 1
+        del iv._key_index[entry.key_path]  # noqa: SLF001
+        entry.key_parts = entry.key_parts[:depth]
+        entry.key_seps = entry.key_seps[: depth - 1]
+        entry.key_path = entry.key_path[:depth]
+        value = InlineTableValue()
+        entry.value = value
+        t._value = value  # noqa: SLF001
+        iv._key_index[entry.key_path] = entry  # noqa: SLF001
+        return
     _remove_entries(iv, indices, root._doc_newline)  # noqa: SLF001
 
 
@@ -225,6 +239,7 @@ def reorder_inline(c: Container, new_key_order: list[str]) -> None:
             owned_positions.append(i)
 
     new_owned = [e for k in new_key_order for e in blocks[k]]
+    order_labels = [iv.items[pos]._order for pos in owned_positions]  # noqa: SLF001
     reorder_owned(
         iv,
         owned_positions,
@@ -232,7 +247,8 @@ def reorder_inline(c: Container, new_key_order: list[str]) -> None:
         root._doc_newline,  # noqa: SLF001
         is_multiline=iv.is_multiline(),
     )
-    iv.reindex()
+    for entry, order in zip(new_owned, order_labels, strict=True):
+        entry._order = order  # noqa: SLF001
 
 
 def set_inline_multiline(root: Container, *, multiline: bool, indent: str) -> None:

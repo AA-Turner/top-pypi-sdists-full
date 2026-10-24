@@ -32,6 +32,7 @@ from ._document_primitives import (
 from ._paragraph_text_edit import clear_text_element, sanitize_keeping_tabs, set_text_with_tabs
 from ._paragraph_text_edit import new_own_text_node, own_text_nodes
 from . import table_sizes as _table_sizes
+from .table_structure import TableStructureEdits
 
 from .body import Label, parse_label_element
 from .objects import Caption, _read_caption, _remove_caption, _write_caption
@@ -521,6 +522,7 @@ class HwpxOxmlTableCell:
         The table is created inside a new paragraph within the cell's
         ``<hp:subList>``.
         """
+        _table_sizes.new_table_width(width, cols)  # checked before a paragraph is added
         # Resolve border fill ID
         if border_fill_id_ref is None:
             document = self.table.paragraph.section.document
@@ -578,7 +580,7 @@ class HwpxOxmlTableRow:
         ]
 
 
-class HwpxOxmlTable:
+class HwpxOxmlTable(TableStructureEdits):
     """Representation of an ``<hp:tbl>`` inline object."""
 
     def __init__(self, element: ET.Element, paragraph: "HwpxOxmlParagraph"):
@@ -662,7 +664,7 @@ class HwpxOxmlTable:
     def label(self) -> "Label | None":
         """This table's ``hp:label`` (Avery-style label-sheet/nameplate
         print layout), or ``None`` if it doesn't have one. Table-exclusive
-        (DEV-023, ``docs/owpml-deviations.md`` — reverse-engineered from
+        (DEV-023, ``docs/owpml-deviations.md`` — inferred from
         75 real private documents, structure matches the vendored schema
         exactly, no deviation to register beyond the element's existence)."""
 
@@ -691,7 +693,7 @@ class HwpxOxmlTable:
         Always placed as the table's *last* child -- every real occurrence
         (436/436, DEV-023) sits after all ``hp:tr`` rows, matching
         ``ParaList XML schema.xml``'s own sequence order. Values are not
-        restricted to the two combinations the reverse-engineering sample
+        restricted to the two combinations the format inference sample
         observed (a 2x9 small-label sheet and a 1x2 large-square nameplate
         layout) -- there is no real-corpus evidence for what other
         combinations Hancom accepts or rejects, so this does not guess at
@@ -751,7 +753,7 @@ class HwpxOxmlTable:
         if rows <= 0 or cols <= 0:
             raise ValueError("rows and cols must be positive integers")
 
-        table_width = width if width is not None else cols * _DEFAULT_CELL_WIDTH
+        table_width = _table_sizes.new_table_width(width if width is not None else cols * _DEFAULT_CELL_WIDTH, cols)
         table_height = height if height is not None else rows * _DEFAULT_CELL_HEIGHT
         if border_fill_id_ref is None:
             raise ValueError("border_fill_id_ref must be provided")

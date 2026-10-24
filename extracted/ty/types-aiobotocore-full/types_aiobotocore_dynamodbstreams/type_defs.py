@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from .literals import (
     KeyTypeType,
@@ -54,6 +54,7 @@ __all__ = (
     "StreamDescriptionTypeDef",
     "StreamRecordTypeDef",
     "StreamTypeDef",
+    "TimestampTypeDef",
 )
 
 
@@ -92,13 +93,7 @@ class GetRecordsInputTypeDef(TypedDict):
     Limit: NotRequired[int]
 
 
-class GetShardIteratorInputTypeDef(TypedDict):
-    StreamArn: str
-    ShardId: str
-    ShardIteratorType: ShardIteratorTypeType
-    SequenceNumber: NotRequired[str]
-
-
+TimestampTypeDef = Union[datetime, str]
 IdentityTypeDef = TypedDict(
     "IdentityTypeDef",
     {
@@ -150,6 +145,14 @@ class DescribeStreamInputTypeDef(TypedDict):
 class GetShardIteratorOutputTypeDef(TypedDict):
     ShardIterator: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetShardIteratorInputTypeDef(TypedDict):
+    StreamArn: str
+    ShardId: str
+    ShardIteratorType: ShardIteratorTypeType
+    SequenceNumber: NotRequired[str]
+    Timestamp: NotRequired[TimestampTypeDef]
 
 
 class ListStreamsOutputTypeDef(TypedDict):

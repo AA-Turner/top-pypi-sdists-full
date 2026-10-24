@@ -22,10 +22,14 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.base_feature_extractor_model_input import BaseFeatureExtractorModelInput
-from mixpeek.models.namespace_infrastructure_input import NamespaceInfrastructureInput
+from mixpeek.models.namespace_cost_cap_override import NamespaceCostCapOverride
+from mixpeek.models.namespace_infrastructure import NamespaceInfrastructure
 from mixpeek.models.namespace_scope import NamespaceScope
+from mixpeek.models.namespace_spend_budget_update import NamespaceSpendBudgetUpdate
+from mixpeek.models.namespace_trusted_issuer import NamespaceTrustedIssuer
 from mixpeek.models.namespace_type import NamespaceType
 from mixpeek.models.payload_index_config_input import PayloadIndexConfigInput
+from mixpeek.models.tiering_override import TieringOverride
 from mixpeek.models.vector_config_spec import VectorConfigSpec
 from typing import Optional, Set
 from typing_extensions import Self
@@ -45,9 +49,14 @@ class CreateNamespaceRequest(BaseModel):
     vector_configs: Optional[List[VectorConfigSpec]] = Field(default=None, description="Optional vector index configurations for standalone mode. Each entry defines a named vector index with dimension and distance metric. If omitted, indexes are auto-created on first upsert (schema-on-write).")
     payload_indexes: Optional[List[PayloadIndexConfigInput]] = Field(default=None, description="Optional list of custom payload index configurations. Indexes required by selected feature extractors will be added automatically.")
     auto_create_indexes: Optional[StrictBool] = Field(default=None, description="Enable automatic creation of vector store payload indexes based on filter usage patterns. When enabled, the system tracks which fields are most frequently filtered (>100 queries/24h) and automatically creates indexes to improve query performance. Background task runs every 6 hours. Expected performance improvement: 50-90% latency reduction for filtered queries. Defaults: managed namespaces off, standalone namespaces on. Set explicitly to false to opt out (including for standalone, so an agent can manage indexes itself).")
+    adaptive_indexing: Optional[StrictBool] = Field(default=None, description="Let the vector index re-tune its own partition size and flush threshold from observed search latency. Off by default. When on, every change it makes is recorded in the namespace's mxp_platform_events collection (event_type index_adaptation) with the parameter, its old and new value, the search count that triggered it, and p95 search latency before and after.")
     ttl_seconds: Optional[Annotated[int, Field(strict=True, ge=60)]] = Field(default=None, description="Time-to-live in seconds. Namespace will be auto-deleted after this duration.")
-    infrastructure: Optional[NamespaceInfrastructureInput] = Field(default=None, description="Optional dedicated infrastructure configuration for this namespace. Required for custom plugins and custom models (Enterprise tier). If None, uses shared infrastructure or organization-level infrastructure.")
-    __properties: ClassVar[List[str]] = ["namespace_id", "namespace_name", "mode", "namespace_type", "scope", "description", "features", "feature_extractors", "vector_configs", "payload_indexes", "auto_create_indexes", "ttl_seconds", "infrastructure"]
+    infrastructure: Optional[NamespaceInfrastructure] = Field(default=None, description="Optional dedicated infrastructure configuration for this namespace. Required for custom plugins and custom models (Enterprise tier). If None, uses shared infrastructure or organization-level infrastructure.")
+    trusted_issuers: Optional[Annotated[List[NamespaceTrustedIssuer], Field(max_length=5)]] = Field(default=None, description="Identity providers whose end-user tokens (OIDC/JWT, verified against a JWKS) may call this namespace directly from a browser, each with the retrievers and collections it may use and the claims applied as filters. None or empty accepts no end-user tokens.")
+    tiering: Optional[TieringOverride] = Field(default=None, description="This namespace's tiering override: enabled, idle_days {cold, frozen} and exempt (a reason). Each field left unset inherits the platform's data-class default, and each collection inherits from here. An exempt namespace is never demoted. The same override PATCH sets.")
+    spend_budget: Optional[NamespaceSpendBudgetUpdate] = Field(default=None, description="Set this namespace's daily and monthly spend budget in USD. It must fit inside the organization's budget. A null field returns to the organization's namespace default. Each change is recorded with who made it, when, and the prior value.")
+    cost_cap_override: Optional[NamespaceCostCapOverride] = Field(default=None, description="Start this namespace with an explicit daily inference cost cap instead of the tier default. Requires daily_usd, reason and owner.")
+    __properties: ClassVar[List[str]] = ["namespace_id", "namespace_name", "mode", "namespace_type", "scope", "description", "features", "feature_extractors", "vector_configs", "payload_indexes", "auto_create_indexes", "adaptive_indexing", "ttl_seconds", "infrastructure", "trusted_issuers", "tiering", "spend_budget", "cost_cap_override"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -112,6 +121,22 @@ class CreateNamespaceRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of infrastructure
         if self.infrastructure:
             _dict['infrastructure'] = self.infrastructure.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in trusted_issuers (list)
+        _items = []
+        if self.trusted_issuers:
+            for _item_trusted_issuers in self.trusted_issuers:
+                if _item_trusted_issuers:
+                    _items.append(_item_trusted_issuers.to_dict())
+            _dict['trusted_issuers'] = _items
+        # override the default output from pydantic by calling `to_dict()` of tiering
+        if self.tiering:
+            _dict['tiering'] = self.tiering.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of spend_budget
+        if self.spend_budget:
+            _dict['spend_budget'] = self.spend_budget.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of cost_cap_override
+        if self.cost_cap_override:
+            _dict['cost_cap_override'] = self.cost_cap_override.to_dict()
         return _dict
 
     @classmethod
@@ -135,8 +160,13 @@ class CreateNamespaceRequest(BaseModel):
             "vector_configs": [VectorConfigSpec.from_dict(_item) for _item in obj["vector_configs"]] if obj.get("vector_configs") is not None else None,
             "payload_indexes": [PayloadIndexConfigInput.from_dict(_item) for _item in obj["payload_indexes"]] if obj.get("payload_indexes") is not None else None,
             "auto_create_indexes": obj.get("auto_create_indexes"),
+            "adaptive_indexing": obj.get("adaptive_indexing"),
             "ttl_seconds": obj.get("ttl_seconds"),
-            "infrastructure": NamespaceInfrastructureInput.from_dict(obj["infrastructure"]) if obj.get("infrastructure") is not None else None
+            "infrastructure": NamespaceInfrastructure.from_dict(obj["infrastructure"]) if obj.get("infrastructure") is not None else None,
+            "trusted_issuers": [NamespaceTrustedIssuer.from_dict(_item) for _item in obj["trusted_issuers"]] if obj.get("trusted_issuers") is not None else None,
+            "tiering": TieringOverride.from_dict(obj["tiering"]) if obj.get("tiering") is not None else None,
+            "spend_budget": NamespaceSpendBudgetUpdate.from_dict(obj["spend_budget"]) if obj.get("spend_budget") is not None else None,
+            "cost_cap_override": NamespaceCostCapOverride.from_dict(obj["cost_cap_override"]) if obj.get("cost_cap_override") is not None else None
         })
         return _obj
 

@@ -35,11 +35,13 @@ class UsageBreakdownResponse(BaseModel):
     by_extractor: Dict[str, StrictInt] = Field(description="Credits consumed by extractor")
     by_namespace: Optional[Dict[str, StrictInt]] = Field(default=None, description="Credits consumed by namespace (chargeback / cost-allocation for multi-namespace orgs). Keyed by namespace_id; excludes namespace-less consumption. Empty for older usage recorded before per-namespace attribution.")
     by_retriever: Optional[Dict[str, StrictInt]] = Field(default=None, description="Credits consumed by retriever (per-product query-cost attribution for chargeback). Keyed by retriever_id (resource_type='retriever' charges: queries, enrichment). Empty when no retriever-attributed usage.")
+    by_resource_kind: Optional[Dict[str, Union[StrictFloat, StrictInt]]] = Field(default=None, description="Credits consumed by the kind of resource charged: extractor_run, retriever, mvs, upload, storage, inference or other. Read from the daily per-resource cost rollup, so it covers the days that rollup has run; empty when it has no rows for the month.")
+    by_storage_class: Optional[Dict[str, Union[StrictFloat, StrictInt]]] = Field(default=None, description="Average stored data per storage class over the billing month, in GB-months (each day's GB summed, divided by the days in the month). Keyed by the bucket's class name, lowercased (standard, nearline, coldline, archive on GCS; standard, standard_ia, glacier and so on on S3). Empty when no storage was measured for the month.")
     pending_credits: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Unflushed sub-credit usage accrued but not yet committed to by_operation. Micro-priced per-op usage (e.g. MVS writes/queries at ~0.001 credit each) accumulates here and rolls into by_operation in whole credits as it crosses 1 — so real activity is visible immediately, before a whole credit accrues.")
     pending_by_operation: Optional[Dict[str, Union[StrictFloat, StrictInt]]] = Field(default=None, description="Unflushed fractional credits by operation type.")
     period_start: datetime = Field(description="Start of billing period")
     period_end: datetime = Field(description="End of billing period")
-    __properties: ClassVar[List[str]] = ["billing_month", "total_credits", "total_cost_usd", "by_operation", "by_extractor", "by_namespace", "by_retriever", "pending_credits", "pending_by_operation", "period_start", "period_end"]
+    __properties: ClassVar[List[str]] = ["billing_month", "total_credits", "total_cost_usd", "by_operation", "by_extractor", "by_namespace", "by_retriever", "by_resource_kind", "by_storage_class", "pending_credits", "pending_by_operation", "period_start", "period_end"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -99,6 +101,8 @@ class UsageBreakdownResponse(BaseModel):
             "by_extractor": obj.get("by_extractor"),
             "by_namespace": obj.get("by_namespace"),
             "by_retriever": obj.get("by_retriever"),
+            "by_resource_kind": obj.get("by_resource_kind"),
+            "by_storage_class": obj.get("by_storage_class"),
             "pending_credits": obj.get("pending_credits") if obj.get("pending_credits") is not None else 0.0,
             "pending_by_operation": obj.get("pending_by_operation"),
             "period_start": obj.get("period_start"),

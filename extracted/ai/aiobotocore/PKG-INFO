@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aiobotocore
-Version: 3.9.2
+Version: 3.10.0
 Summary: Async client for aws services using botocore and aiohttp
 Project-URL: Repository, https://github.com/aio-libs/aiobotocore
 Project-URL: Documentation, https://aiobotocore.aio-libs.org
@@ -19,12 +19,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Requires-Dist: aiohttp<4.0.0,>=3.14.0
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.43.107,>=1.43.101
+Requires-Dist: botocore<1.43.118,>=1.43.115
 Requires-Dist: jmespath<2.0.0,>=0.7.1
-Requires-Dist: multidict<7.0.0,>=6.0.0
+Requires-Dist: multidict<8.0.0,>=6.0.0
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: typing-extensions<5.0.0,>=4.14.0; python_version < '3.11'
 Requires-Dist: wrapt<3.0.0,>=1.10.10
@@ -258,6 +259,16 @@ Requirements
 
 Changes
 -------
+
+3.10.0 (2026-10-23)
+^^^^^^^^^^^^^^^^^^^
+* support Python 3.15 and declare it in the package classifiers (#1780)
+* bump botocore dependency specification to support
+  ``"botocore >= 1.43.115, < 1.43.118"`` (#1772, #1779, #1789)
+* update ``AioRefreshableCredentials`` and ``AioDeferredRefreshableCredentials``
+  to match botocore's revised credential refresh logic (staged expiry time
+  published together with the refreshed credentials) (#1789)
+* allow ``multidict`` 7.x (dependency range widened to ``< 8.0.0``) (#1786)
 
 3.9.2 (2026-09-30)
 ^^^^^^^^^^^^^^^^^^

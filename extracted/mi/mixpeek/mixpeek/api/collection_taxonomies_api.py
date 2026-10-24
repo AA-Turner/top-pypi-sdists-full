@@ -44,7 +44,7 @@ class CollectionTaxonomiesApi:
     def apply_taxonomy_to_collection(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Collection ID or name to apply taxonomy to")],
-        apply_taxonomy_request: ApplyTaxonomyRequest,
+        apply_taxonomy_request: Annotated[ApplyTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -64,7 +64,7 @@ class CollectionTaxonomiesApi:
 
         :param collection_identifier: Collection ID or name to apply taxonomy to (required)
         :type collection_identifier: str
-        :param apply_taxonomy_request: (required)
+        :param apply_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type apply_taxonomy_request: ApplyTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -103,8 +103,10 @@ class CollectionTaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -121,7 +123,7 @@ class CollectionTaxonomiesApi:
     def apply_taxonomy_to_collection_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Collection ID or name to apply taxonomy to")],
-        apply_taxonomy_request: ApplyTaxonomyRequest,
+        apply_taxonomy_request: Annotated[ApplyTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -141,7 +143,7 @@ class CollectionTaxonomiesApi:
 
         :param collection_identifier: Collection ID or name to apply taxonomy to (required)
         :type collection_identifier: str
-        :param apply_taxonomy_request: (required)
+        :param apply_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type apply_taxonomy_request: ApplyTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -180,8 +182,10 @@ class CollectionTaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -198,7 +202,7 @@ class CollectionTaxonomiesApi:
     def apply_taxonomy_to_collection_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Collection ID or name to apply taxonomy to")],
-        apply_taxonomy_request: ApplyTaxonomyRequest,
+        apply_taxonomy_request: Annotated[ApplyTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -218,7 +222,7 @@ class CollectionTaxonomiesApi:
 
         :param collection_identifier: Collection ID or name to apply taxonomy to (required)
         :type collection_identifier: str
-        :param apply_taxonomy_request: (required)
+        :param apply_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type apply_taxonomy_request: ApplyTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -257,8 +261,10 @@ class CollectionTaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

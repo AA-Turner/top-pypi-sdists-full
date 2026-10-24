@@ -443,12 +443,13 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
         # message (the way tool results are delivered as a tool turn). The
         # Anthropic translator merges this with a preceding tool-result turn so
         # role alternation stays valid.
-        # A hidden injection (is_visible_to_user=false — steering notes,
-        # agent_collab write-backs) must stay hidden on the DURABLE row too:
-        # persistence lifts metadata["is_visible_to_user"] into the typed
-        # column (PROMOTED_MESSAGE_COLUMNS); without the stamp the delivered
-        # message persisted as a visible user-authored bubble.
-        _msg_metadata = {"is_visible_to_user": False} if not is_visible_to_user else None
+        # NOTHING THE MODEL READS IS HIDDEN FROM THE OWNING PERSON (owner ruling 2026-10-23).
+        # A host note (scheduled wake, deferred-tool result, background-run result, steer,
+        # agent_collab write-back, session-offer note) persists VISIBLE, flagged as the
+        # host's — ``metadata.authored_by = "host"`` with ``authored_reason`` and
+        # ``injection_source`` — so the chat labels it instead of quoting it as the person.
+        # The row's own ``is_visible_to_user`` no longer hides the delivered turn.
+        source = str(_row_field(row, "source", "") or "")
         # 🚨 AUTHORSHIP IS STAMPED BY THE WRITER — no reader can infer it. Both
         # halves of this branch land as role="user"; only this code knows which
         # one a person actually typed. A queued user_message IS her words, so
@@ -461,12 +462,12 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
                 role="user",
                 content=[TextContent(text=text)],
                 user_content=[TextContent(text=text)],
-                metadata=_msg_metadata or {},
+                metadata={},
             )
         else:
             _delivered = host_authored_user_turn(text, reason=f"injection:{kind}")
-            if _msg_metadata:
-                _delivered.metadata.update(_msg_metadata)
+            if source:
+                _delivered.metadata["injection_source"] = source
         config.messages.append(_delivered)
         # Echo the text + is_visible_to_user on the event so a client that didn't
         # originate the queue (reopened panel, other device) can render the
@@ -476,7 +477,7 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
                 injection_id=injection_id,
                 kind=kind,
                 text=text,
-                is_visible_to_user=is_visible_to_user,
+                is_visible_to_user=True,
                 position=len(config.messages) - 1,
             )
         )

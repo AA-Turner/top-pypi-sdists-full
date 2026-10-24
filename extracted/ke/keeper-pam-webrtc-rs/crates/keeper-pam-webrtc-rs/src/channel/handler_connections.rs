@@ -13,12 +13,35 @@ use crate::channel::core::Channel;
 use crate::models::ConversationType;
 use crate::tube_protocol::{CloseConnectionReason, ControlMessage, Frame};
 use crate::unlikely; // Branch prediction optimization
-use crate::webrtc_data_channel::WebRTCDataChannel;
 use anyhow::{anyhow, Result};
 use bytes::{BufMut, Bytes};
 use log::{debug, error, info, trace, warn};
+use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+fn log_handler_failure(error: &HandlerError) {
+    let operation = match error {
+        HandlerError::ConnectionFailed(_) => "connection",
+        HandlerError::AuthenticationFailed(_) => "authentication",
+        HandlerError::RecordingFailed(_) => "recording",
+        _ => "lifecycle",
+    };
+    let outcome = if matches!(error, HandlerError::Timeout(_)) {
+        "timed_out"
+    } else {
+        "failed"
+    };
+    if let HandlerError::IoError(error) = error {
+        if let Some(errno) = error.raw_os_error() {
+            tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation, outcome, errno, "Handler failed");
+        } else {
+            tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation, outcome, "Handler IO failed");
+        }
+    } else {
+        tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation, outcome, "Handler failed");
+    }
+}
 
 fn drain_terminal_batch(
     first: Bytes,
@@ -56,31 +79,244 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Zero-copy event callback for WebRTC data channel
-///
-/// Implements the EventCallback trait from guacr-handlers for zero-copy
-/// integration. All instructions are forwarded directly to WebRTC with
-/// reference-counted Bytes (no copying). Only critical events trigger
-/// additional processing.
-///
-/// Zero-copy event callback for built-in protocol handlers
+/// Terminal events select a reason; only the dedicated sender closes the wire.
+#[derive(Clone, Copy, Default)]
+struct HandlerTermination {
+    reason: Option<CloseConnectionReason>,
+    finished: bool,
+    discard_output: bool,
+    producer_done: bool,
+}
+
+fn request_termination(
+    terminal: &tokio::sync::watch::Sender<HandlerTermination>,
+    reason: CloseConnectionReason,
+    finished: bool,
+) {
+    terminal.send_modify(|state| {
+        // A normal completion must never overwrite an explicit critical event.
+        if state.reason != Some(CloseConnectionReason::SecurityThreat)
+            && (reason != CloseConnectionReason::Normal || state.reason.is_none())
+        {
+            state.reason = Some(reason);
+        }
+        state.finished |= finished;
+    });
+}
+
+fn finish_termination(
+    terminal: &tokio::sync::watch::Sender<HandlerTermination>,
+    reason: CloseConnectionReason,
+) {
+    request_termination(terminal, reason, true);
+    terminal.send_modify(|state| state.producer_done = true);
+}
+
+#[derive(Clone)]
 struct WebRtcEventCallback {
-    /// WebRTC data channel for sending instructions
-    webrtc: WebRTCDataChannel,
-    /// Connection number for framing
     conn_no: u32,
-    /// Channel ID for logging
     channel_id: String,
-    /// Conversation ID for logging
     conversation_id: String,
-    /// Notify when connection closes
-    conn_closed_tx: mpsc::UnboundedSender<(u32, String)>,
-    /// Buffer pool for frame encoding
-    buffer_pool: crate::buffer_pool::BufferPool,
-    /// Channel close reason storage
-    channel_close_reason: Arc<tokio::sync::Mutex<Option<CloseConnectionReason>>>,
-    /// Send queue for instructions (avoids spawning task per instruction)
+    terminal: tokio::sync::watch::Sender<HandlerTermination>,
     send_queue_tx: mpsc::Sender<Bytes>,
+    handler_senders: Arc<dashmap::DashMap<u32, mpsc::Sender<Bytes>>>,
+}
+#[derive(Clone)]
+struct HandlerOutput {
+    conn_no: u32,
+    channel_id: String,
+    buffer_pool: crate::buffer_pool::BufferPool,
+    channel_close_reason: Arc<tokio::sync::Mutex<Option<CloseConnectionReason>>>,
+    conn_closed_tx: mpsc::UnboundedSender<(u32, String)>,
+    handler_senders: Arc<dashmap::DashMap<u32, mpsc::Sender<Bytes>>>,
+    finalization_deadline: std::time::Duration,
+}
+
+/// The sole owner of output ordering and connection retirement. Closing the
+/// receiver seals admission but preserves every queued instruction and permit.
+async fn send_handler_output<S, Fut>(
+    mut rx: mpsc::Receiver<Bytes>,
+    terminal: tokio::sync::watch::Sender<HandlerTermination>,
+    output: HandlerOutput,
+    mut send: S,
+) -> Result<(), HandlerError>
+where
+    S: FnMut(Bytes) -> Fut,
+    Fut: Future<Output = Result<(), String>>,
+{
+    let mut changes = terminal.subscribe();
+    let mut pending = None;
+    let mut failure = None;
+    loop {
+        if changes.borrow().discard_output {
+            rx.close();
+            while rx.try_recv().is_ok() {}
+            break;
+        }
+        if changes.borrow().finished {
+            // Producers can retain cloned senders in auxiliary tasks. Completion,
+            // not every clone drop, seals admission after queued output drains.
+            rx.close();
+        }
+        let first = match pending.take() {
+            Some(first) => first,
+            None => tokio::select! {
+                biased;
+                _ = changes.changed() => continue,
+                next = rx.recv() => match next {
+                    Some(first) => first,
+                    None if changes.borrow().finished => break,
+                    None => {
+                        // An early drop of the callback is not handler completion:
+                        // recording finalization may still be running.
+                        let _ = changes.changed().await;
+                        continue;
+                    }
+                },
+            },
+        };
+        let payload = if first.first() == Some(&0x20) {
+            drain_terminal_batch(first, &mut rx, &mut pending)
+        } else {
+            first
+        };
+        let frame = Frame {
+            connection_no: output.conn_no,
+            timestamp_ms: now_ms(),
+            payload,
+        };
+        if send(frame.encode_with_pool(&output.buffer_pool))
+            .await
+            .is_err()
+        {
+            tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "send", outcome = "failed", "Handler instruction send failed");
+            rx.close();
+            terminal.send_modify(|state| state.discard_output = true);
+            request_termination(&terminal, CloseConnectionReason::HandlerError, true);
+            failure = Some(HandlerError::ChannelError(
+                "Instruction send failed".to_string(),
+            ));
+            break;
+        }
+    }
+    let reason = terminal
+        .borrow()
+        .reason
+        .unwrap_or(CloseConnectionReason::Normal);
+    let wait_for_producer_before_close = reason != CloseConnectionReason::SecurityThreat;
+    if wait_for_producer_before_close {
+        // A normal or error terminal frame follows final admitted output and
+        // required producer cleanup.
+        while !changes.borrow().producer_done {
+            let _ = changes.changed().await;
+        }
+    }
+    if reason != CloseConnectionReason::Normal {
+        let mut stored = output.channel_close_reason.lock().await;
+        if *stored != Some(CloseConnectionReason::SecurityThreat) {
+            *stored = Some(reason);
+        }
+    }
+    let mut payload = output.buffer_pool.acquire();
+    payload.extend_from_slice(&output.conn_no.to_be_bytes());
+    payload.put_u8(reason as u8);
+    let frame = Frame::new_control_with_pool(
+        ControlMessage::CloseConnection,
+        &payload,
+        &output.buffer_pool,
+    );
+    if send(frame.encode_with_pool(&output.buffer_pool))
+        .await
+        .is_err()
+    {
+        tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "close", outcome = "failed", "Handler close send failed");
+        failure.get_or_insert_with(|| HandlerError::ChannelError("Close send failed".to_string()));
+    }
+    if !wait_for_producer_before_close {
+        // Threat policy closes the wire and input route immediately, but local
+        // retirement still waits for producer cleanup or its backstop.
+        while !changes.borrow().producer_done {
+            let _ = changes.changed().await;
+        }
+    }
+    output.handler_senders.remove(&output.conn_no);
+    let _ = output
+        .conn_closed_tx
+        .send((output.conn_no, output.channel_id));
+    match failure {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+/// Normal/error completion waits for handler finalization. A broken sender seals
+/// output, lets the handler finalize within its deadline, and aborts only as a
+/// last resort. Threats close the wire immediately while retaining local cleanup.
+async fn run_handler_session<H, S, Fut>(
+    handler: H,
+    rx: mpsc::Receiver<Bytes>,
+    terminal: tokio::sync::watch::Sender<HandlerTermination>,
+    output: HandlerOutput,
+    send: S,
+) -> Result<(), HandlerError>
+where
+    H: Future<Output = Result<(), HandlerError>> + Send + 'static,
+    S: FnMut(Bytes) -> Fut,
+    Fut: Future<Output = Result<(), String>>,
+{
+    let mut changes = terminal.subscribe();
+    let mut producer = tokio::task::JoinSet::new();
+    producer.spawn(handler);
+    let sender = send_handler_output(rx, terminal.clone(), output.clone(), send);
+    tokio::pin!(sender);
+    let mut deadline = Box::pin(tokio::time::sleep(std::time::Duration::MAX));
+    let mut deadline_armed = false;
+    let producer_result = loop {
+        tokio::select! {
+            biased;
+            result = producer.join_next() => {
+                let result = match result {
+                    Some(Ok(result)) => result,
+                    _ => Err(HandlerError::ChannelError("Handler task failed".to_string())),
+                };
+                let requested_reason = match &result {
+                    Err(HandlerError::SecurityViolation(_)) => CloseConnectionReason::SecurityThreat,
+                    Err(_) => CloseConnectionReason::HandlerError,
+                    Ok(()) => CloseConnectionReason::Normal,
+                };
+                finish_termination(&terminal, requested_reason);
+                let reason = terminal
+                    .borrow()
+                    .reason
+                    .unwrap_or(CloseConnectionReason::HandlerError);
+                if reason == CloseConnectionReason::SecurityThreat {
+                    break Err(HandlerError::SecurityViolation("Handler threat policy terminated session".to_string()));
+                }
+                break result;
+            }
+            _ = changes.changed() => {
+                if changes.borrow().reason.is_some() && !deadline_armed {
+                    deadline.as_mut().reset(tokio::time::Instant::now() + output.finalization_deadline);
+                    deadline_armed = true;
+                }
+            }
+            _ = &mut deadline, if deadline_armed => {
+                let reason = terminal.borrow().reason.unwrap_or(CloseConnectionReason::HandlerError);
+                tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "finalize", outcome = "timed_out", "Handler finalization exceeded deadline");
+                producer.abort_all();
+                let _ = producer.join_next().await;
+                finish_termination(&terminal, reason);
+                break Err(HandlerError::ChannelError("Handler finalization exceeded deadline".to_string()));
+            }
+            result = &mut sender => {
+                // The sender cannot finish before producer_done is acknowledged.
+                // Keep polling it here to propagate backpressure/send failures.
+                return result;
+            }
+        }
+    };
+    let sender_result = sender.await;
+    producer_result.and(sender_result)
 }
 
 #[async_trait]
@@ -91,124 +327,33 @@ impl EventCallback for WebRtcEventCallback {
     /// bypass this method and go directly through send_instruction() for zero-copy.
     fn on_event(&self, event: HandlerEvent) {
         match event {
-            HandlerEvent::Error { message, code } => {
-                error!(
-                    "Handler error (channel: {}, conversation_id: {}, conn: {}): {} (code: {:?})",
-                    self.channel_id, self.conversation_id, self.conn_no, message, code
-                );
+            HandlerEvent::Error { message: _, code } => {
+                if let Some(code) = code {
+                    tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "lifecycle", outcome = "failed", error_code = i64::from(code), "Handler error");
+                } else {
+                    tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "lifecycle", outcome = "failed", "Handler error");
+                }
 
-                // Send CloseConnection control message with error reason
-                let mut payload = self.buffer_pool.acquire();
-                payload.extend_from_slice(&self.conn_no.to_be_bytes());
-                payload.put_u8(CloseConnectionReason::HandlerError as u8);
-
-                let webrtc = self.webrtc.clone();
-                let channel_id = self.channel_id.clone();
-                let conversation_id = self.conversation_id.clone();
-                let conn_no = self.conn_no;
-                let buffer_pool = self.buffer_pool.clone();
-
-                tokio::spawn(async move {
-                    let frame = Frame::new_control_with_pool(
-                        ControlMessage::CloseConnection,
-                        &payload,
-                        &buffer_pool,
-                    );
-                    let encoded = frame.encode_with_pool(&buffer_pool);
-                    if let Err(e) = webrtc.send(encoded).await {
-                        error!(
-                            "Failed to send CloseConnection for handler error (channel: {}, conversation_id: {}, conn: {}): {}",
-                            channel_id, conversation_id, conn_no, e
-                        );
-                    }
-                });
-
-                // Notify connection closed
-                self.conn_closed_tx
-                    .send((self.conn_no, self.channel_id.clone()))
-                    .ok();
+                request_termination(&self.terminal, CloseConnectionReason::HandlerError, false);
             }
 
-            HandlerEvent::Disconnect { reason } => {
+            HandlerEvent::Disconnect { reason: _ } => {
                 info!(
-                    "Handler disconnect (channel: {}, conversation_id: {}, conn: {}): {}",
-                    self.channel_id, self.conversation_id, self.conn_no, reason
+                    "Handler disconnect (channel: {}, conversation_id: {}, conn: {})",
+                    self.channel_id, self.conversation_id, self.conn_no
                 );
 
-                // Send CloseConnection control message with normal reason
-                let mut payload = self.buffer_pool.acquire();
-                payload.extend_from_slice(&self.conn_no.to_be_bytes());
-                payload.put_u8(CloseConnectionReason::Normal as u8);
-
-                let webrtc = self.webrtc.clone();
-                let channel_id = self.channel_id.clone();
-                let conversation_id = self.conversation_id.clone();
-                let conn_no = self.conn_no;
-                let buffer_pool = self.buffer_pool.clone();
-
-                tokio::spawn(async move {
-                    let frame = Frame::new_control_with_pool(
-                        ControlMessage::CloseConnection,
-                        &payload,
-                        &buffer_pool,
-                    );
-                    let encoded = frame.encode_with_pool(&buffer_pool);
-                    if let Err(e) = webrtc.send(encoded).await {
-                        error!(
-                            "Failed to send CloseConnection for disconnect (channel: {}, conversation_id: {}, conn: {}): {}",
-                            channel_id, conversation_id, conn_no, e
-                        );
-                    }
-                });
-
-                // Notify connection closed
-                self.conn_closed_tx
-                    .send((self.conn_no, self.channel_id.clone()))
-                    .ok();
+                request_termination(&self.terminal, CloseConnectionReason::Normal, false);
             }
 
-            HandlerEvent::ThreatDetected { level, description } => {
-                error!(
-                    "THREAT DETECTED (channel: {}, conversation_id: {}, conn: {}): [{}] {}",
-                    self.channel_id, self.conversation_id, self.conn_no, level, description
-                );
-
-                // Immediate termination for security threats
-                let mut payload = self.buffer_pool.acquire();
-                payload.extend_from_slice(&self.conn_no.to_be_bytes());
-                payload.put_u8(CloseConnectionReason::SecurityThreat as u8);
-
-                let webrtc = self.webrtc.clone();
-                let channel_id = self.channel_id.clone();
-                let conversation_id = self.conversation_id.clone();
-                let conn_no = self.conn_no;
-                let buffer_pool = self.buffer_pool.clone();
-
-                tokio::spawn(async move {
-                    let frame = Frame::new_control_with_pool(
-                        ControlMessage::CloseConnection,
-                        &payload,
-                        &buffer_pool,
-                    );
-                    let encoded = frame.encode_with_pool(&buffer_pool);
-                    if let Err(e) = webrtc.send(encoded).await {
-                        error!(
-                            "Failed to send CloseConnection for threat (channel: {}, conversation_id: {}, conn: {}): {}",
-                            channel_id, conversation_id, conn_no, e
-                        );
-                    }
-                });
-
-                // Store threat detection as close reason
-                let close_reason = self.channel_close_reason.clone();
-                tokio::spawn(async move {
-                    *close_reason.lock().await = Some(CloseConnectionReason::SecurityThreat);
-                });
-
-                // Notify connection closed
-                self.conn_closed_tx
-                    .send((self.conn_no, self.channel_id.clone()))
-                    .ok();
+            HandlerEvent::ThreatDetected {
+                level: _,
+                description: _,
+            } => {
+                self.handler_senders.remove(&self.conn_no);
+                self.terminal
+                    .send_modify(|state| state.discard_output = true);
+                request_termination(&self.terminal, CloseConnectionReason::SecurityThreat, true);
             }
 
             HandlerEvent::Ready { connection_id } => {
@@ -235,22 +380,12 @@ impl EventCallback for WebRtcEventCallback {
                     "Received Instruction event (should use send_instruction): {} bytes (channel: {}, conversation_id: {}, conn: {})",
                     bytes.len(), self.channel_id, self.conversation_id, self.conn_no
                 );
-                // Spawn to call async from sync context (rare path, only for HandlerEvent::Instruction)
-                let send_queue_tx = self.send_queue_tx.clone();
-                let channel_id = self.channel_id.clone();
-                let conversation_id = self.conversation_id.clone();
-                let conn_no = self.conn_no;
-                tokio::spawn(async move {
-                    if let Err(e) = send_queue_tx.send(bytes).await {
-                        trace!(
-                            "Send queue closed (channel: {}, conversation_id: {}, conn: {}): {}",
-                            channel_id,
-                            conversation_id,
-                            conn_no,
-                            e
-                        );
-                    }
-                });
+                // The synchronous compatibility path cannot await backpressure.
+                // Failed admission is terminal, never detached or silently dropped.
+                if self.send_queue_tx.try_send(bytes).is_err() {
+                    tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "send", outcome = "failed", "Handler instruction admission failed");
+                    request_termination(&self.terminal, CloseConnectionReason::HandlerError, true);
+                }
             }
         }
     }
@@ -268,21 +403,13 @@ impl EventCallback for WebRtcEventCallback {
     /// The channel capacity (256) gives image protocols headroom while Guacamole
     /// sync/ACK flow control in terminal handlers prevents unbounded queuing.
     async fn send_instruction(&self, instruction: Bytes) -> Result<(), HandlerError> {
+        if self.terminal.borrow().discard_output {
+            return Err(HandlerError::ChannelError("Send queue closed".to_string()));
+        }
         // Send to dedicated sender task with backpressure (blocks if queue full)
         // This is the RIGHT behavior: better to slow down the handler than drop frames
-        if let Err(e) = self.send_queue_tx.send(instruction).await {
-            // Channel closed - sender task died, connection is closing
-            trace!(
-                "Send queue closed (expected during shutdown) (channel: {}, conversation_id: {}, conn: {}): {}",
-                self.channel_id,
-                self.conversation_id,
-                self.conn_no,
-                e
-            );
-            return Err(HandlerError::ChannelError(format!(
-                "Send queue closed: {}",
-                e
-            )));
+        if self.send_queue_tx.send(instruction).await.is_err() {
+            return Err(HandlerError::ChannelError("Send queue closed".to_string()));
         }
         Ok(())
     }
@@ -347,110 +474,28 @@ pub async fn invoke_builtin_handler(
             channel.channel_id, protocol_name, channel.conversation_id
         );
 
-        // Clone the Arc so we can move it into the spawn
         let handler_arc = Arc::clone(&handler);
-
-        // Create send queue for outbound instructions (Handler → WebRTC)
-        // This avoids spawning a new task for every instruction (fixes "one char behind" issue)
-        let (send_queue_tx, mut send_queue_rx) = mpsc::channel::<Bytes>(256);
-
-        // Spawn dedicated sender task (one task for all instructions)
-        let webrtc_for_sender = channel.webrtc.clone();
-        let buffer_pool_for_sender = channel.buffer_pool.clone();
-        let channel_id_for_sender = channel.channel_id.clone();
-        let conversation_id_for_sender = channel.conversation_id.clone();
-        let conn_no_for_sender = conn_no;
-
-        let sender_handle = tokio::spawn(async move {
-            debug!(
-                "Dedicated sender task started (channel: {}, conversation_id: {}, conn: {})",
-                channel_id_for_sender, conversation_id_for_sender, conn_no_for_sender
-            );
-
-            // Pending item saved when a batch drain encounters a non-terminal frame.
-            let mut pending: Option<bytes::Bytes> = None;
-
-            loop {
-                // Take the saved item first, otherwise wait for the next one.
-                let first = match pending.take() {
-                    Some(p) => p,
-                    None => match send_queue_rx.recv().await {
-                        Some(msg) => msg,
-                        None => break,
-                    },
-                };
-
-                // Opcode 0x20 = binary TerminalData (SSH/DB/Telnet hot path).
-                // Under heavy output (e.g. cmatrix) hundreds of small frames queue
-                // up per second. Drain them all into one WebRTC message to reduce
-                // browser onmessage dispatch overhead. The browser parser loops over
-                // all frames in a single message, so this is transparent to the client.
-                //
-                // Any other opcode (Guacamole text 0x30-0x39, JPEG 0x10/0x11, etc.)
-                // is sent immediately without batching — those are either infrequent
-                // control instructions or independent image frames that must not merge.
-                const TERMINAL_DATA_OPCODE: u8 = 0x20;
-
-                let is_terminal = first.first() == Some(&TERMINAL_DATA_OPCODE);
-
-                let payload = if is_terminal {
-                    drain_terminal_batch(first, &mut send_queue_rx, &mut pending)
-                } else {
-                    first
-                };
-
-                let frame = Frame {
-                    connection_no: conn_no_for_sender,
-                    timestamp_ms: now_ms(),
-                    payload,
-                };
-
-                let encoded = frame.encode_with_pool(&buffer_pool_for_sender);
-
-                if let Err(e) = webrtc_for_sender.send(encoded).await {
-                    error!(
-                        "Failed to send instruction (channel: {}, conversation_id: {}, conn: {}): {}",
-                        channel_id_for_sender, conversation_id_for_sender, conn_no_for_sender, e
-                    );
-                    break;
-                }
-            }
-
-            debug!(
-                "Dedicated sender task ended (channel: {}, conversation_id: {}, conn: {})",
-                channel_id_for_sender, conversation_id_for_sender, conn_no_for_sender
-            );
-        });
-
-        // Spawn monitor task to track sender task completion
-        let sender_completion_tx = Arc::clone(&spawned_task_completion_tx);
-        let sender_monitor_channel_id = channel.channel_id.clone();
-        let sender_monitor_conversation_id = channel.conversation_id.clone();
-        tokio::spawn(async move {
-            match sender_handle.await {
-                Ok(()) => {
-                    if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!("Handler sender task completed normally (channel: {}, conversation_id: {})", sender_monitor_channel_id, sender_monitor_conversation_id);
-                    }
-                }
-                Err(e) => {
-                    error!("Handler sender task panicked or was cancelled: {} (channel: {}, conversation_id: {})", e, sender_monitor_channel_id, sender_monitor_conversation_id);
-                }
-            }
-            let _ = sender_completion_tx.send(());
-        });
-
-        // Create event callback for zero-copy integration
+        let (send_queue_tx, send_queue_rx) = mpsc::channel::<Bytes>(256);
+        let (terminal, _) = tokio::sync::watch::channel(HandlerTermination::default());
         let callback = Arc::new(WebRtcEventCallback {
-            webrtc: channel.webrtc.clone(),
             conn_no,
             channel_id: channel.channel_id.clone(),
             conversation_id: channel.conversation_id.clone(),
-            conn_closed_tx: channel.conn_closed_tx.clone(),
+            terminal: terminal.clone(),
+            send_queue_tx,
+            handler_senders: channel.handler_senders.clone(),
+        });
+        let output = HandlerOutput {
+            conn_no,
+            channel_id: channel.channel_id.clone(),
             buffer_pool: channel.buffer_pool.clone(),
             channel_close_reason: channel.channel_close_reason.clone(),
-            send_queue_tx,
-        });
+            conn_closed_tx: channel.conn_closed_tx.clone(),
+            handler_senders: channel.handler_senders.clone(),
+            finalization_deadline: channel.timeouts.handler_finalization,
+        };
+        let handler_finalization_timeout = output.finalization_deadline;
+        let webrtc = channel.webrtc.clone();
 
         // Create channel for bidirectional communication (WebRTC → Handler)
         // The handler receives client messages (keyboard, mouse, etc.) through this channel
@@ -461,8 +506,6 @@ pub async fn invoke_builtin_handler(
 
         // Spawn handler task with event callback
         let protocol_for_task = protocol_name.clone();
-        let handler_senders = channel.handler_senders.clone();
-        let conn_closed_tx_clone = channel.conn_closed_tx.clone();
         let channel_id_clone = channel.channel_id.clone();
         let conversation_id_clone = channel.conversation_id.clone();
         // Clone video_output before the spawn — channel is a borrow, can't cross spawn boundary
@@ -473,38 +516,32 @@ pub async fn invoke_builtin_handler(
                 protocol_for_task, channel_id_clone, conversation_id_clone
             );
 
-            // Get event handler inside the task (where handler_arc lives)
-            if let Some(event_handler) = handler_arc.as_event_based() {
-                match event_handler
+            let producer = async move {
+                let event_handler = handler_arc.as_event_based().ok_or_else(|| {
+                    HandlerError::Unsupported("Event interface unavailable".to_string())
+                })?;
+                event_handler
                     .connect_with_events(
                         params,
                         callback,
                         from_client_rx,
                         video_tx_for_handler,
-                        guacr_handlers::SessionHooks::default(),
+                        guacr_handlers::SessionHooks {
+                            handler_finalization_timeout,
+                            ..Default::default()
+                        },
                     )
                     .await
-                {
-                    Ok(()) => {
-                        info!(
-                            "Event-based handler completed successfully: {} (channel: {}, conversation_id: {})",
-                            protocol_for_task, channel_id_clone, conversation_id_clone
-                        );
-                    }
-                    Err(e) => {
-                        error!("Event-based handler failed: {} - {} (channel: {}, conversation_id: {})", protocol_for_task, e, channel_id_clone, conversation_id_clone);
-                    }
-                }
+            };
+            let result =
+                run_handler_session(producer, send_queue_rx, terminal, output, move |encoded| {
+                    let webrtc = webrtc.clone();
+                    async move { webrtc.send(encoded).await }
+                })
+                .await;
+            if let Err(error) = result {
+                log_handler_failure(&error);
             }
-
-            // Cleanup: Remove handler sender when task completes
-            handler_senders.remove(&conn_no);
-
-            // Notify main Channel run loop that connection has closed
-            // This triggers cleanup of backend connection and signals to WebRTC client
-            conn_closed_tx_clone
-                .send((conn_no, channel_id_clone.clone()))
-                .ok();
 
             info!(
                 "Event-based handler session ended for protocol: {} (channel: {}, conversation_id: {})",
@@ -524,7 +561,7 @@ pub async fn invoke_builtin_handler(
                     }
                 }
                 Err(e) => {
-                    error!("Event-based handler task panicked or was cancelled: {} (channel: {}, conversation_id: {})", e, handler_monitor_channel_id, handler_monitor_conversation_id);
+                    tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "lifecycle", outcome = if e.is_cancelled() { "cancelled" } else { "failed" }, "Event-based handler task ended abnormally");
                 }
             }
             let _ = handler_completion_tx.send(());
@@ -581,13 +618,7 @@ pub async fn invoke_builtin_handler(
                 Ok(())
             }
             Err(e) => {
-                error!(
-                    "Channel-based handler failed: {} - {} (channel: {}, conversation_id: {})",
-                    protocol_for_handler,
-                    e,
-                    channel_id_for_handler_task,
-                    conversation_id_for_handler_task
-                );
+                log_handler_failure(&e);
                 Err(anyhow!("Handler error: {}", e))
             }
         }
@@ -707,10 +738,7 @@ pub async fn invoke_builtin_handler(
                 }
             }
             Err(e) => {
-                error!(
-                    "Channel-based handler cleanup task panicked or was cancelled: {} (channel: {}, conversation_id: {})",
-                    e, cleanup_monitor_channel_id, cleanup_monitor_conversation_id
-                );
+                tracing::error!(target: "keeper_pam_webrtc_rs::channel::handler_connections", operation = "cleanup", outcome = if e.is_cancelled() { "cancelled" } else { "failed" }, "Handler cleanup task ended abnormally");
             }
         }
         let _ = cleanup_completion_tx.send(());
@@ -762,3 +790,7 @@ mod terminal_batch_tests {
         assert_eq!(next, second);
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/handler_lifecycle_tests.rs"]
+mod handler_lifecycle_tests;

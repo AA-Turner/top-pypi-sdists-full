@@ -11,8 +11,8 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::Grammar,
 	node::{Blocks, Elements},
+	scope::Scope,
 	span::Span,
 	unparse::Unparse,
 };
@@ -39,7 +39,12 @@ pub fn unparse<S: Span>(content: &Blocks<S>, f: &mut std::fmt::Formatter) -> std
 	Ok(())
 }
 
-fn quote_rest<'data, S, E>(
+/// Parse a quote beginning with [`REST_PREFIX`], which quotes everything after it.
+///
+/// # Errors
+/// If the data does not begin with such a quote.
+#[must_use]
+pub fn quote_rest<'data, S, E>(
 	context: Context,
 ) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
 where
@@ -50,11 +55,16 @@ where
 	// survives into the content.
 	preceded(
 		(tag(REST_PREFIX), one_of(" \t")),
-		block(context.with_grammar(Grammar::QuoteRest)),
+		block(context.with_scope(Scope::QuoteRest)),
 	)
 }
 
-fn quote_line<'data, S, E>(
+/// Parse a quote whose every line begins with [`LINE_PREFIX`].
+///
+/// # Errors
+/// If the data does not begin with such a quote.
+#[must_use]
+pub fn quote_line<'data, S, E>(
 	context: Context,
 ) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
 where
@@ -65,10 +75,10 @@ where
 	// including the first. The trailing `opt` mops up a bare `>` on the final line, which the block
 	// loop backtracks over because no block content follows it.
 	preceded(
-		peek(Grammar::Quote.line_prefix()),
+		peek(Scope::Quote.line_prefix()),
 		terminated(
-			block(context.with_grammar(Grammar::Quote)),
-			opt(Grammar::Quote.line_prefix()),
+			block(context.with_scope(Scope::Quote)),
+			opt(Scope::Quote.line_prefix()),
 		),
 	)
 }
@@ -576,23 +586,38 @@ mod test {
 		);
 	}
 
-	/// Both syntaxes are the one `Rule::Quote`, so disabling it leaves `>>>` as text.
+	/// Each quote syntax is enabled on its own: disabling one leaves it as text, and the other
+	/// still parses.
 	#[test]
-	fn rest_quote_needs_the_quote_rule() {
+	fn quote_syntaxes_are_independent() {
 		use crate::{
 			context::Options,
 			parse,
-			rule::{Rule, RuleSet},
+			syntax::{Syntax, SyntaxSet},
 		};
 
-		let options = Options {
-			allowed_rules: RuleSet::all() - Rule::Quote,
+		let without = |syntax| Options {
+			syntaxes: SyntaxSet::all() - syntax,
 			..Options::default()
 		};
+
 		let s = ">>> foo";
-		let res = parse::<(), _>(s, options)
+		let res = parse::<(), _>(s, without(Syntax::MultilineQuote))
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(res, spanned_vec!(paragraph!(">>> foo")));
+		let res = parse::<(), _>(s, without(Syntax::Quote))
+			.map_err(handle_nom_err(s))
+			.expect("unable to parse");
+		assert_eq!(
+			res,
+			spanned_vec!(Block::Quote(spanned_vec!(paragraph!("foo"))))
+		);
+
+		let s = "> foo";
+		let res = parse::<(), _>(s, without(Syntax::Quote))
+			.map_err(handle_nom_err(s))
+			.expect("unable to parse");
+		assert_eq!(res, spanned_vec!(paragraph!("> foo")));
 	}
 }

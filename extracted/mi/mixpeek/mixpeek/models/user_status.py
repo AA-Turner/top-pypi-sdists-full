@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class UserStatus(str, Enum):
     """
-    Lifecycle state of an organization user.  Status values control whether a user can authenticate and access resources:  - ACTIVE: User is fully operational and can authenticate with their API keys. - SUSPENDED: User access is temporarily disabled. API keys will not work but   account data is preserved. Can be reactivated by an admin. - PENDING: User invitation has been created but not yet accepted. User cannot   authenticate until they complete the onboarding flow.
+    Lifecycle state of an organization user.  Status values control whether a user can authenticate and access resources:  - ACTIVE: User is fully operational and can authenticate with their API keys. - SUSPENDED: User access is disabled. Setting this status revokes every API   key the user owns, and no new key can be created for them while suspended.   Account data is preserved. An admin can reactivate the user, who then   creates new keys: the revoked keys stay revoked. - PENDING: User invitation has been created but not yet accepted. User cannot   authenticate until they complete the onboarding flow.
     """
 
     """

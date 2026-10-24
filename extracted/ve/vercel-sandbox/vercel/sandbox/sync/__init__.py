@@ -16,10 +16,12 @@ from vercel.sandbox._internal.errors import (
     SandboxInvalidHandleError,
     SandboxPathNotFoundError,
     SandboxResponseError,
+    SandboxStdinError,
     SandboxStreamError,
     SandboxTerminalStateError,
     SandboxTimeoutError as SandboxTimeoutError,
     SandboxUploadSizeMismatchError,
+    SandboxUserAlreadyExistsError,
 )
 from vercel.sandbox._internal.models import (
     CompletedProcess,
@@ -73,6 +75,7 @@ from vercel.sandbox._internal.options import (
     SyncSandboxCredentialsFactory,
     SyncSandboxServiceOptions as SandboxServiceOptions,
 )
+from vercel.sandbox._internal.process_stdin import SyncProcessStdin
 from vercel.sandbox._internal.service import SandboxService, get_sync_sandbox_service
 from vercel.sandbox._internal.state import SnapshotRetentionState
 from vercel.sandbox._internal.sync_filesystem_handle import (
@@ -95,6 +98,7 @@ from vercel.sandbox._internal.sync_runtime import (
     _ManagedSyncSandbox,
     create_sandbox as _create_sandbox,
     delete_drive as _delete_drive,
+    fork_drive as _fork_drive,
     fork_sandbox as _fork_sandbox,
     get_drive as _get_drive,
     get_or_create_drive as _get_or_create_drive,
@@ -108,6 +112,8 @@ from vercel.sandbox._internal.sync_runtime import (
     resume_sandbox as _resume_sandbox,
 )
 from vercel.sandbox._internal.text_reader import SyncTextReader
+from vercel.sandbox.protocols import SyncSandboxExecution, SyncSandboxFilesystemOperations
+from vercel.sandbox.sync.user import SyncSandboxUser
 
 from .client import SyncSandboxClient
 
@@ -423,6 +429,19 @@ def resume_sandbox(
     )
 
 
+def fork_drive(*, source: str, name: str) -> SyncDrive:
+    """Fork a Drive by project-local name without fetching it first.
+
+    The new Drive inherits the source's committed data, region, and maximum
+    size. API failures propagate as SandboxApiError (404 or 409).
+
+    Args:
+        source: Project-local source Drive name.
+        name: Project-local name for the new Drive.
+    """
+    return _fork_drive(_service(), source=source, name=name)
+
+
 def get_drive(*, name_or_id: str) -> SyncDrive:
     """Look up a Drive by name or ID without creating it.
 
@@ -593,6 +612,9 @@ def get_snapshot(*, snapshot_id: str) -> SyncSnapshot:
 
 
 __all__ = [
+    "SyncSandboxUser",
+    "SyncSandboxExecution",
+    "SyncSandboxFilesystemOperations",
     "DriveHandle",
     "DriveMount",
     "DriveReference",
@@ -617,6 +639,7 @@ __all__ = [
     "SandboxInvalidHandleError",
     "SandboxPathNotFoundError",
     "SandboxUploadSizeMismatchError",
+    "SandboxUserAlreadyExistsError",
     "NetworkPolicy",
     "NetworkPolicyForwardRuleSummary",
     "NetworkPolicyInjectionRuleSummary",
@@ -637,6 +660,7 @@ __all__ = [
     "SandboxQueryByStatusUpdatedAt",
     "SandboxResponseError",
     "SandboxInteractiveError",
+    "SandboxStdinError",
     "SandboxStreamError",
     "SandboxServiceOptions",
     "SandboxSource",
@@ -656,6 +680,7 @@ __all__ = [
     "SyncInteractiveSessionOperation",
     "SyncInteractiveStream",
     "SyncProcess",
+    "SyncProcessStdin",
     "SyncSandboxFilesystem",
     "SyncSandboxFilesystemBatch",
     "SyncSandboxRuntimeSession",
@@ -668,6 +693,7 @@ __all__ = [
     "SyncTextReader",
     "create_sandbox",
     "delete_drive",
+    "fork_drive",
     "fork_sandbox",
     "get_or_create_sandbox",
     "get_sandbox",

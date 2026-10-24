@@ -166,6 +166,8 @@ from .type_defs import (
     ModifyServerlessCacheResponseTypeDef,
     ModifyUserGroupMessageTypeDef,
     ModifyUserMessageTypeDef,
+    PrepareMigrationRequestTypeDef,
+    PrepareMigrationResponseTypeDef,
     PurchaseReservedCacheNodesOfferingMessageTypeDef,
     PurchaseReservedCacheNodesOfferingResultTypeDef,
     RebalanceSlotsInGlobalReplicationGroupMessageTypeDef,
@@ -182,6 +184,8 @@ from .type_defs import (
     ServiceUpdatesMessageTypeDef,
     StartMigrationMessageTypeDef,
     StartMigrationResponseTypeDef,
+    StopMigrationRequestTypeDef,
+    StopMigrationResponseTypeDef,
     TagListMessageTypeDef,
     TestFailoverMessageTypeDef,
     TestFailoverResultTypeDef,
@@ -248,6 +252,7 @@ class Exceptions(BaseClientExceptions):
     InvalidUserGroupStateFault: type[BotocoreClientError]
     InvalidUserStateFault: type[BotocoreClientError]
     InvalidVPCNetworkStateFault: type[BotocoreClientError]
+    MigrationHealthFault: type[BotocoreClientError]
     NoOperationFault: type[BotocoreClientError]
     NodeGroupNotFoundFault: type[BotocoreClientError]
     NodeGroupsPerReplicationGroupQuotaExceededFault: type[BotocoreClientError]
@@ -262,7 +267,9 @@ class Exceptions(BaseClientExceptions):
     ReservedCacheNodeQuotaExceededFault: type[BotocoreClientError]
     ReservedCacheNodesOfferingNotFoundFault: type[BotocoreClientError]
     ServerlessCacheAlreadyExistsFault: type[BotocoreClientError]
+    ServerlessCacheAlreadyUnderMigrationFault: type[BotocoreClientError]
     ServerlessCacheNotFoundFault: type[BotocoreClientError]
+    ServerlessCacheNotUnderMigrationFault: type[BotocoreClientError]
     ServerlessCacheQuotaForCustomerExceededFault: type[BotocoreClientError]
     ServerlessCacheSnapshotAlreadyExistsFault: type[BotocoreClientError]
     ServerlessCacheSnapshotNotFoundFault: type[BotocoreClientError]
@@ -364,7 +371,7 @@ class ElastiCacheClient(AioBaseClient):
         self, **kwargs: Unpack[CompleteMigrationMessageTypeDef]
     ) -> CompleteMigrationResponseTypeDef:
         """
-        Complete the migration of data.
+        Completes the migration of data.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticache/client/complete_migration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticache/client/#complete_migration)
@@ -995,6 +1002,17 @@ class ElastiCacheClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticache/client/#modify_user_group)
         """
 
+    async def prepare_migration(
+        self, **kwargs: Unpack[PrepareMigrationRequestTypeDef]
+    ) -> PrepareMigrationResponseTypeDef:
+        """
+        Prepares the serverless cache for data migration by validating the
+        configuration and setting up the migration resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticache/client/prepare_migration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticache/client/#prepare_migration)
+        """
+
     async def purchase_reserved_cache_nodes_offering(
         self, **kwargs: Unpack[PurchaseReservedCacheNodesOfferingMessageTypeDef]
     ) -> PurchaseReservedCacheNodesOfferingResultTypeDef:
@@ -1062,10 +1080,20 @@ class ElastiCacheClient(AioBaseClient):
         self, **kwargs: Unpack[StartMigrationMessageTypeDef]
     ) -> StartMigrationResponseTypeDef:
         """
-        Start the migration of data.
+        Starts the migration of data.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticache/client/start_migration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticache/client/#start_migration)
+        """
+
+    async def stop_migration(
+        self, **kwargs: Unpack[StopMigrationRequestTypeDef]
+    ) -> StopMigrationResponseTypeDef:
+        """
+        Stops an ongoing data sync between the source and the serverless cache.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticache/client/stop_migration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticache/client/#stop_migration)
         """
 
     async def test_failover(

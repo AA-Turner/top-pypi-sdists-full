@@ -23,14 +23,14 @@ async def test_summarize_content_runs_declared_variables_through_its_mandate(mon
         "x" * 100_001,
         "Keep the facts.",
         ctx=None,
-        model_id="test-model",
     )
 
     inputs = captured["inputs"]
     assert captured["agent_cls"] is _summarize_helper.SummarizeContentAgent
     assert inputs.instructions == "Keep the facts."
     assert inputs.content == "x" * 100_000
-    assert captured["config_overrides"] == {"model": "test-model"}
+    # The mandate's agent owns the model; this helper never overrides it.
+    assert not (captured.get("config_overrides") or {}).get("model")
     assert output == "summary"
     assert usage == ["usage"]
 

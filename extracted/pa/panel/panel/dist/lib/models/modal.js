@@ -10,12 +10,11 @@ import { div, button } from "@bokehjs/core/dom";
 import { ModelEvent, server_event } from "@bokehjs/core/bokeh_events";
 import { UIElementView } from "@bokehjs/models/ui/ui_element";
 import { isNumber } from "@bokehjs/core/util/types";
-import modal_css from "../styles/models/modal.css";
-let ModalDialogEvent = class ModalDialogEvent extends ModelEvent {
-    static { ModalDialogEvent_1 = this; }
+import modal_css from "styles/models/modal.css";
+import { await_resources, define_external_resources, load_resources, render_resource_error, } from "./resources";
+let ModalDialogEvent = ModalDialogEvent_1 = class ModalDialogEvent extends ModelEvent {
     model;
     open;
-    static __name__ = "ModalDialogEvent";
     constructor(model, open) {
         super();
         this.model = model;
@@ -36,10 +35,16 @@ ModalDialogEvent = ModalDialogEvent_1 = __decorate([
 ], ModalDialogEvent);
 export { ModalDialogEvent };
 export class ModalView extends BkColumnView {
-    static __name__ = "ModalView";
     modal;
     close_button;
     content;
+    async lazy_initialize() {
+        await super.lazy_initialize();
+        const error = await await_resources(this.model);
+        if (error != null) {
+            render_resource_error(this, error, UIElementView.prototype.render);
+        }
+    }
     connect_signals() {
         super.connect_signals();
         const { show_close_button } = this.model.properties;
@@ -133,7 +138,6 @@ export class ModalView extends BkColumnView {
     }
 }
 export class Modal extends BkColumn {
-    static __name__ = "Modal";
     constructor(attrs) {
         super(attrs);
     }
@@ -145,6 +149,11 @@ export class Modal extends BkColumn {
             show_close_button: [Bool, true],
             background_close: [Bool, true],
         }));
+        define_external_resources(this);
+    }
+    initialize() {
+        super.initialize();
+        load_resources(this);
     }
 }
 //# sourceMappingURL=modal.js.map

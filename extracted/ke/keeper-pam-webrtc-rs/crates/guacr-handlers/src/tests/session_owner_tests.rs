@@ -26,10 +26,9 @@ async fn test_new_has_no_session_and_zero_viewers() {
     assert_eq!(sender.viewer_count(), 0, "no viewers before attach_session");
 }
 
-/// The owner disconnect notice is control traffic; it must not become the frame a
-/// late-joining viewer is handed as initial state.
+/// Terminal close retires cached display bytes, including on surviving owner handles.
 #[tokio::test]
-async fn test_owner_disconnect_does_not_poison_frame_cache() {
+async fn test_owner_disconnect_retires_frame_cache() {
     let (tx, _rx) = mpsc::channel(4);
     let mut sender = SessionOwnerSender::new(tx);
 
@@ -41,11 +40,8 @@ async fn test_owner_disconnect_does_not_poison_frame_cache() {
     sender.send(frame.clone()).await.unwrap();
     sender.owner_disconnect(&id);
 
-    assert_eq!(
-        handle.last_frame(),
-        Some(frame),
-        "the disconnect notice must not overwrite the cached frame"
-    );
+    assert!(handle.last_frame().is_none());
+    assert_eq!(handle.broadcast(frame), 0);
 }
 
 #[tokio::test]
@@ -173,11 +169,7 @@ async fn test_owner_disconnect_sends_disconnect_to_viewers() {
     let notif = viewer_rx
         .try_recv()
         .expect("viewer must receive disconnect notification after owner_disconnect");
-    let as_str = String::from_utf8_lossy(&notif);
-    assert!(
-        as_str.contains("disconnect"),
-        "notification must contain 'disconnect'; got: {as_str}"
-    );
+    assert_eq!(notif, Bytes::from_static(b"10.disconnect;"));
 }
 
 #[tokio::test]
@@ -241,11 +233,76 @@ async fn test_full_lifecycle_attach_send_disconnect() {
 
     sender.owner_disconnect(&id);
 
-    // After disconnect the broadcast channel closes — viewer gets Closed error.
-    let result = viewer_rx.try_recv();
-    // The last item from disconnect may or may not still be in the buffer,
-    // but eventually the channel must close.
-    // We only assert the session is gone from the registry.
+    assert_eq!(
+        viewer_rx.try_recv().unwrap(),
+        Bytes::from_static(b"10.disconnect;")
+    );
+    assert!(matches!(
+        viewer_rx.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Closed)
+    ));
     assert!(session_sharing::lookup(&id).is_none());
-    let _ = result; // allow either Ok(disconnect) or Err(Empty/Closed)
+}
+
+#[tokio::test]
+async fn test_old_owner_disconnect_preserves_fresh_registration() {
+    let id = unique_id("replacement_owner_");
+    let old = session_sharing::register(&id).unwrap();
+    let (owner_tx, _owner_rx) = mpsc::channel(4);
+    let mut old_owner = SessionOwnerSender::new(owner_tx);
+    old_owner.attach_session(old.clone());
+    session_sharing::deregister(&id);
+    let replacement = session_sharing::register(&id).unwrap();
+    let mut viewer = replacement.subscribe();
+    old_owner.owner_disconnect(&id);
+    assert!(session_sharing::lookup(&id).is_some());
+    let frame = Bytes::from_static(b"new-owner-output");
+    assert_eq!(replacement.broadcast(frame.clone()), 1);
+    assert_eq!(viewer.try_recv().unwrap(), frame);
+    assert_eq!(old.broadcast(Bytes::from_static(b"old-output")), 0);
+    assert!(matches!(
+        viewer.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
+    session_sharing::deregister(&id);
+}
+
+#[tokio::test]
+async fn rejected_owner_output_does_not_reach_viewer_or_cache() {
+    let id = unique_id("unaccepted_output_");
+    let handle = session_sharing::register(&id).unwrap();
+    let mut viewer = handle.subscribe();
+    let (tx, mut owner) = mpsc::channel(1);
+    let mut sender = SessionOwnerSender::new(tx);
+    sender.attach_session(handle.clone());
+    let first = Bytes::from_static(b"first-accepted-display");
+    let next = Bytes::from_static(b"retry-display");
+    sender.try_send(first.clone()).unwrap();
+    assert_eq!(viewer.try_recv().unwrap(), first);
+    for _ in 0..3 {
+        assert!(matches!(
+            sender.try_send(next.clone()),
+            Err(mpsc::error::TrySendError::Full(_))
+        ));
+        assert!(matches!(
+            viewer.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
+        assert_eq!(handle.last_frame(), Some(first.clone()));
+    }
+    assert_eq!(owner.recv().await.unwrap(), first);
+    sender.try_send(next.clone()).unwrap();
+    assert_eq!(owner.recv().await.unwrap(), next);
+    assert_eq!(viewer.try_recv().unwrap(), next);
+    drop(owner);
+    assert!(matches!(
+        sender.try_send(Bytes::from_static(b"closed-output")),
+        Err(mpsc::error::TrySendError::Closed(_))
+    ));
+    assert!(matches!(
+        viewer.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
+    assert_eq!(handle.last_frame(), Some(next));
+    session_sharing::deregister(&id);
 }

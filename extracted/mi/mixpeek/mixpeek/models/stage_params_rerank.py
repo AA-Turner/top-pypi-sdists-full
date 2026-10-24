@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.stage_defs_stage_cache_behavior import StageDefsStageCacheBehavior
+from mixpeek.models.stage_defs_stage_learning_config import StageDefsStageLearningConfig
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,19 +30,23 @@ class StageParamsRerank(BaseModel):
     """
     Configuration for reranking documents using cross-encoder models.  Reranking refines search results by computing query-document relevance scores using cross-encoder models (e.g., BGE reranker). More accurate than vector similarity but slower, so typically used on top-K results.  You can use a builtin reranker (via inference_name) or bring your own reranker plugin (via feature_uri). When feature_uri is set, it takes precedence over inference_name.  Common Pipeline:     feature_filter (retrieve 100) → rerank (refine to 10) → sort_relevance
     """ # noqa: E501
-    cache_behavior: Optional[StageDefsStageCacheBehavior] = Field(default=None, description="Controls internal caching behavior for this stage. OPTIONAL - defaults to 'auto' for transparent performance.   'auto' (default): Automatic caching for deterministic operations. Stage intelligently caches results based on inputs and parameters. Use for transformations, parsing, formatting, stable API calls. Cache invalidates automatically when parameters change. Recommended for 95% of use cases.   'disabled': Skip all internal caching. Every execution runs fresh without cache lookup. Use for templates with now(), random(), or external APIs that must be called every time (real-time data). No performance benefit but guarantees fresh execution.   'aggressive': Cache even non-deterministic operations. Use ONLY when you fully understand caching implications. May cache time-sensitive or random data. Generally not recommended - prefer 'auto' or 'disabled'.   Note: This controls internal stage caching. Retriever-level caching (cache_config.cache_stage_names) is separate and caches complete stage outputs.")
+    cache_behavior: Optional[StageDefsStageCacheBehavior] = Field(default=None, description="Controls internal caching behavior for this stage. OPTIONAL - defaults to 'auto' for transparent performance.   'auto' (default): Automatic caching for deterministic operations. Stage intelligently caches results based on inputs and parameters. Use for transformations, parsing, formatting, stable API calls. Cache invalidates automatically when parameters change. A feature_search whose every search takes a raw query vector (input_mode 'vector') is not cached under 'auto': distinct vectors never repeat, so the lookup only adds latency; set 'aggressive' to cache them anyway. Recommended for 95% of use cases.   'disabled': Skip all internal caching. Every execution runs fresh without cache lookup. Use for templates with now(), random(), or external APIs that must be called every time (real-time data). No performance benefit but guarantees fresh execution.   'aggressive': Cache even non-deterministic operations. Use ONLY when you fully understand caching implications. May cache time-sensitive or random data. Generally not recommended - prefer 'auto' or 'disabled'.   Note: This controls internal stage caching. Retriever-level caching (cache_config.cache_stage_names) is separate and caches complete stage outputs.")
     cache_ttl_seconds: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Time-to-live for cache entries in seconds. OPTIONAL - defaults to None (LRU eviction only).   When None (default, recommended): Cache uses Redis LRU eviction policy. Most frequently used items stay cached automatically. No manual TTL management needed. Memory bounded by Redis maxmemory setting.   When specified: Cache entries expire after this duration regardless of usage. Useful for data that becomes stale after specific time periods. Lower values for frequently changing external data. Higher values for stable transformations.   Examples: - None: LRU-based eviction (recommended for most cases) - 300: 5 minutes (for semi-static external data) - 3600: 1 hour (for stable transformations) - 86400: 24 hours (for rarely changing operations)   Performance Note: TTL adds minimal overhead (<1ms) but forces eviction even for frequently accessed items. Use None unless you have specific staleness requirements.")
     feature_uri: Optional[StrictStr] = Field(default='null', description="Feature URI of a custom reranker plugin. When set, overrides inference_name. The plugin must accept {pairs: [[query, doc], ...]} and return {scores: [float, ...]}. Format: mixpeek://plugin_name@version/feature_name")
     inference_name: Optional[StrictStr] = Field(default='BAAI__bge_reranker_v2_m3', description="Reranking inference service name. Must be a reranking service. Use GET /engine/inference to list available rerankers. Ignored when feature_uri is set.")
+    decision_model: Optional[StrictStr] = Field(default='null', description="OPTIONAL. Which decision model answers, for the decision-model inference names ('mixpeek__decision', 'typesafe__jev'). 'jev-latest' is TypeSafe Jev; a generative model name such as 'gemini-3.5-flash-lite' swaps in that LLM answering the same question. Default: the platform's DECISION_MODEL_DEFAULT for mixpeek__decision, Jev for typesafe__jev.")
+    relevance_criteria: Optional[StrictStr] = Field(default='null', description="OPTIONAL. What makes a document relevant, stated as a condition, for rerankers that judge relevance against criteria. Used by 'typesafe__jev' (TypeSafe Jev), which scores each (query, document) pair as the probability that this condition holds. Jev reads it literally, so name the exact condition, e.g. 'The document states the refund policy for damaged items'. Default: the document answers the query. Cross-encoders ignore it.")
+    learning_config: Optional[StageDefsStageLearningConfig] = Field(default=None, description="OPTIONAL. The rerank stage's learning block: the evaluation dataset a trained reranker is scored on, and the trained set the evaluation gate shipped. Read-only parts are refused on write.")
     query: Optional[StrictStr] = Field(default='{{INPUT.query}}', description="Query text to compare against documents. Supports template variables: {{INPUT.query}}, etc.")
     document_field: Optional[StrictStr] = Field(default='content', description="Document field path containing text to rerank against")
     top_k: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Number of top documents to keep after reranking. If None, returns all documents in reranked order.")
+    max_candidates: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=10, description="How many incoming documents the reranker scores: the first max_candidates in the order the previous stage returned them. Documents past the cap follow the reranked ones unscored, in their incoming order, so nothing is dropped; top_k then trims the combined list. A cross-encoder costs time per document (about 3 s per document at 0.5 CPU for BAAI__bge_reranker_v2_m3), so the cap bounds the stage's latency: at 4 CPU, 10 documents take about 8 s. Set null to score every incoming document.")
     score_field: Optional[StrictStr] = Field(default='scores.rerank', description="Document field path to store reranking scores")
     batch_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=32, description="Batch size for reranking inference calls")
     max_document_chars: Optional[Annotated[int, Field(le=50000, strict=True, ge=100)]] = Field(default=2000, description="Maximum characters of document text to send for reranking. The cross-encoder tokenizer truncates to ~512 tokens anyway, so sending full page content (often 10K+ chars) wastes bandwidth and increases latency. 2000 chars ≈ 500 tokens covers the tokenizer window with margin.")
     max_concurrent_batches: Optional[Annotated[int, Field(le=10, strict=True, ge=1)]] = Field(default=3, description="Maximum number of inference batches to process concurrently. When the number of pairs exceeds batch_size, they are split into batches and sent as concurrent inference requests.")
     hard_timeout_ms: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="OPTIONAL. Per-retriever override for this rerank stage's hard cancellation ceiling (ms) — the wall-clock point at which the executor cancels the stage and degrades gracefully (returning the pre-rerank order rather than nothing). When None (default) the global stage-latency-budget ceiling applies (rerank = 10000ms). Set this to express intent a single fixed ceiling cannot: a batch evaluation where 30s is fine, versus a user-facing widget that must fail at 2s. Clamped to the gateway-safe maximum so it can never push the cancel past the upstream timeout.")
-    __properties: ClassVar[List[str]] = ["cache_behavior", "cache_ttl_seconds", "feature_uri", "inference_name", "query", "document_field", "top_k", "score_field", "batch_size", "max_document_chars", "max_concurrent_batches", "hard_timeout_ms"]
+    __properties: ClassVar[List[str]] = ["cache_behavior", "cache_ttl_seconds", "feature_uri", "inference_name", "decision_model", "relevance_criteria", "learning_config", "query", "document_field", "top_k", "max_candidates", "score_field", "batch_size", "max_document_chars", "max_concurrent_batches", "hard_timeout_ms"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,6 +87,9 @@ class StageParamsRerank(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of learning_config
+        if self.learning_config:
+            _dict['learning_config'] = self.learning_config.to_dict()
         return _dict
 
     @classmethod
@@ -98,9 +106,13 @@ class StageParamsRerank(BaseModel):
             "cache_ttl_seconds": obj.get("cache_ttl_seconds"),
             "feature_uri": obj.get("feature_uri") if obj.get("feature_uri") is not None else 'null',
             "inference_name": obj.get("inference_name") if obj.get("inference_name") is not None else 'BAAI__bge_reranker_v2_m3',
+            "decision_model": obj.get("decision_model") if obj.get("decision_model") is not None else 'null',
+            "relevance_criteria": obj.get("relevance_criteria") if obj.get("relevance_criteria") is not None else 'null',
+            "learning_config": StageDefsStageLearningConfig.from_dict(obj["learning_config"]) if obj.get("learning_config") is not None else None,
             "query": obj.get("query") if obj.get("query") is not None else '{{INPUT.query}}',
             "document_field": obj.get("document_field") if obj.get("document_field") is not None else 'content',
             "top_k": obj.get("top_k") if obj.get("top_k") is not None else null,
+            "max_candidates": obj.get("max_candidates") if obj.get("max_candidates") is not None else 10,
             "score_field": obj.get("score_field") if obj.get("score_field") is not None else 'scores.rerank',
             "batch_size": obj.get("batch_size") if obj.get("batch_size") is not None else 32,
             "max_document_chars": obj.get("max_document_chars") if obj.get("max_document_chars") is not None else 2000,

@@ -31,8 +31,8 @@ class DocumentLineageResponse(BaseModel):
     document_id: StrictStr = Field(description="Document that was traced.")
     collection_id: StrictStr = Field(description="Collection it was traced in.")
     lineage: Optional[DocumentLineage] = Field(default=None, description="Null when the document carries no lineage, in which case `message` says why. Null is not an error and the response is still 200.")
-    depth: Optional[StrictInt] = Field(default=0, description="ALWAYS 0 TODAY. Reserved for depth in the decomposition tree, pending calculation from lineage_path. Do not read 0 as 'this is a root document'.")
-    total_steps: Optional[StrictInt] = Field(default=0, description="ALWAYS 0 TODAY, for the same reason as `depth`. Do not read 0 as 'no processing happened'.")
+    depth: Optional[StrictInt] = Field(default=0, description="Processing steps between the root object and this document: 1 for a document made directly from a bucket object, 2 for one made from such a document, and so on. Equals total_steps unless an upstream document no longer exists, when it also counts the steps the chain cannot list. 0 only when the document has no lineage.")
+    total_steps: Optional[StrictInt] = Field(default=0, description="Number of entries in lineage.lineage_chain. 0 only when the document has no lineage.")
     message: Optional[StrictStr] = Field(default=None, description="Present only when `lineage` is null, explaining the absence. Absent on a successful trace.")
     __properties: ClassVar[List[str]] = ["document_id", "collection_id", "lineage", "depth", "total_steps", "message"]
 

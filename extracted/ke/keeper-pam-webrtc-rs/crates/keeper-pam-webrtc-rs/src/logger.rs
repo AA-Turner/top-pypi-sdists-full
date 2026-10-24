@@ -1,5 +1,6 @@
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 
 #[cfg(not(feature = "python-support"))]
 use log::Level;
@@ -28,9 +29,8 @@ pub static VERBOSE_LOGGING: AtomicBool = AtomicBool::new(false);
 /// Set KEEPER_GATEWAY_INCLUDE_WEBRTC_LOGS=1 to enable for deep protocol debugging
 pub static INCLUDE_WEBRTC_LOGS: AtomicBool = AtomicBool::new(false);
 
-/// Global flag tracking if logger has been initialized
-/// Used to make initialize_logger() idempotent for Commander compatibility
-static LOGGER_INITIALIZED: AtomicBool = AtomicBool::new(false);
+/// Cache both success and failure: an occupied subscriber is not successful init.
+static LOGGER_INITIALIZED: OnceLock<Result<(), InitializeLoggerError>> = OnceLock::new();
 
 /// Check if verbose logging is enabled (optimized for false case)
 #[inline(always)]
@@ -59,7 +59,7 @@ fn set_webrtc_logging(enabled: bool) {
 }
 
 // Custom error type for logger initialization
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InitializeLoggerError {
     SetLoggerError(String),
     SetGlobalDefaultError(String),
@@ -94,13 +94,12 @@ impl From<InitializeLoggerError> for PyErr {
 /// * `logger_name` - Logger name (for debug messages only)
 /// * `verbose` - Enable verbose-gated debug logs (controls `is_verbose_logging()`)
 /// * `level` - Log level (Python int: 10=DEBUG, 20=INFO, etc.)
-///   **NOTE**: In Python mode, this is IGNORED. Rust always passes all logs
-///   to Python at TRACE level, and Python's logger config controls filtering.
-///   Only used in standalone Rust mode.
+///   Python mode preserves this global minimum; Python's logger configuration
+///   performs any additional per-namespace filtering.
 ///
 /// # Python Integration
 /// When running in gateway (Python mode):
-/// - Rust passes ALL logs to Python at TRACE level
+/// - Rust passes records enabled by the supplied global level to Python
 /// - Python filters based on stdio_config.py logger configuration:
 ///   - keeper_pam_webrtc_rs: DEBUG (if --debug) or INFO
 ///   - webrtc_ice, webrtc_sctp, etc.: WARNING (suppresses spam)
@@ -117,20 +116,19 @@ pub fn initialize_logger(
     // Check environment variable for WebRTC library logging
     let include_webrtc_logs = crate::config::include_webrtc_logs();
 
-    // IDEMPOTENT: If already initialized, just update flags and return
-    // This makes Commander's repeated calls safe and efficient
-    if LOGGER_INITIALIZED.swap(true, Ordering::SeqCst) {
-        set_verbose_logging(is_verbose);
-        set_webrtc_logging(include_webrtc_logs);
-        log::debug!(
-            "Logger already initialized for '{}', updated verbose={}, webrtc_logs={}",
-            logger_name,
-            is_verbose,
-            include_webrtc_logs
-        );
-        return Ok(());
-    }
+    LOGGER_INITIALIZED
+        .get_or_init(|| install_logger(logger_name, is_verbose, level))
+        .clone()?;
+    set_verbose_logging(is_verbose);
+    set_webrtc_logging(include_webrtc_logs);
+    Ok(())
+}
 
+fn install_logger(
+    logger_name: &str,
+    is_verbose: bool,
+    level: i32,
+) -> Result<(), InitializeLoggerError> {
     #[cfg(feature = "python-support")]
     {
         // Convert Python level to Rust LevelFilter
@@ -147,16 +145,22 @@ pub fn initialize_logger(
         // A background task receives them and forwards to Python's logging system
         let (channel_logger, log_receiver) = create_channel_logger(level_filter);
 
-        // Install as global logger
-        log::set_boxed_logger(Box::new(channel_logger))
-            .map_err(|e| InitializeLoggerError::SetLoggerError(e.to_string()))?;
+        use crate::operational_diagnostics::ChannelLayer;
+        use tracing_subscriber::layer::SubscriberExt;
 
-        log::set_max_level(level_filter);
+        let channel_logger = std::sync::Arc::new(channel_logger);
+        let subscriber = tracing_subscriber::registry().with(ChannelLayer(channel_logger.clone()));
+        // Install first: an occupied tracing subscriber must not leave raw log fallback.
+        tracing::subscriber::set_global_default(subscriber).map_err(|_| {
+            InitializeLoggerError::SetGlobalDefaultError("subscriber unavailable".into())
+        })?;
 
-        // Spawn background task to forward logs to Python
-        // This task acquires the GIL only when forwarding logs, not during Rust logging!
+        // Keep the installed tracing transport live even if an external log logger conflicts.
         let runtime_handle = crate::runtime::get_runtime();
         spawn_logger_task(log_receiver, runtime_handle);
+        log::set_boxed_logger(Box::new(channel_logger))
+            .map_err(|_| InitializeLoggerError::SetLoggerError("logger unavailable".into()))?;
+        log::set_max_level(level_filter);
 
         log::debug!(
             "Channel-based logger initialized for '{}' with level {:?}",
@@ -172,9 +176,6 @@ pub fn initialize_logger(
         //   etc.
         // This approach is simpler and respects Python as the "owner" of logging.
         // If performance becomes an issue, we can add per-target filtering back.
-
-        set_verbose_logging(is_verbose);
-        set_webrtc_logging(include_webrtc_logs);
     }
 
     #[cfg(not(feature = "python-support"))]
@@ -213,24 +214,23 @@ pub fn initialize_logger(
             }
         });
 
+        use guacr_handlers::operational_diagnostics::{SafeEventFormat, SafeFields};
         let subscriber = FmtSubscriber::builder()
             .with_env_filter(filter)
             .with_span_events(FmtSpan::CLOSE)
-            .with_target(true)
-            .with_level(true)
-            .with_ansi(false)
-            .compact()
+            .fmt_fields(SafeFields)
+            .event_format(SafeEventFormat(
+                tracing_subscriber::fmt::format()
+                    .compact()
+                    .with_target(true)
+                    .with_level(true)
+                    .with_ansi(false),
+            ))
             .finish();
 
-        tracing::subscriber::set_global_default(subscriber).map_err(|e| {
-            let msg = format!("Logger already initialized or failed to set: {e}");
-            tracing::debug!("{}", msg);
-            InitializeLoggerError::SetGlobalDefaultError(e.to_string())
+        tracing::subscriber::set_global_default(subscriber).map_err(|_| {
+            InitializeLoggerError::SetGlobalDefaultError("subscriber unavailable".into())
         })?;
-
-        // Set global flags AFTER subscriber is ready (for non-Python logging)
-        set_verbose_logging(is_verbose);
-        set_webrtc_logging(include_webrtc_logs_standalone);
 
         log::debug!(
             "Logger initialized for '{}' (verbose: {}, webrtc_logs: {})",

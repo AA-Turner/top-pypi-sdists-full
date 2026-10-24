@@ -99,7 +99,8 @@ async def test_a_verbalized_turn_streams_no_json_and_restores_the_emitter(monkey
         )
         assert overlay is not None
 
-        async def _dispatch(_self, request):
+        async def _dispatch(_self, request, *, transient_retries: int = 0):
+            _ = transient_retries
             # Exactly what _execute_dispatch does once the overlay exists, then
             # what a provider does: read the CONTEXT emitter and stream.
             request.config.metadata = {unified_client_mod._VERBALIZED_DECISION_KEY: overlay}
@@ -135,7 +136,8 @@ async def test_the_emitter_is_restored_when_the_dispatch_raises(monkeypatch):
     try:
         config = _config()
 
-        async def _dispatch(_self, request):
+        async def _dispatch(_self, request, *, transient_retries: int = 0):
+            _ = transient_retries
             request.config.metadata = {}
             unified_client_mod._install_decision_text_gate(request.config)
             raise RuntimeError("provider refused")

@@ -88,6 +88,7 @@ if TYPE_CHECKING:
         AutoScalingSpec,
         ComputeClass,
         DeleteScalingGroupResponse,
+        ExecutionBackend,
         GrpcReadinessProbe,
         GrpcStartupProbe,
         ListScalingGroupsResponse,
@@ -3365,6 +3366,7 @@ class ChalkClient:
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
         compute_class: Optional["ComputeClass"] = None,
+        execution_target: Optional["ExecutionBackend"] = None,
     ) -> "ModelDeployment":
         """Deploy a registered model version behind a stable, named endpoint.
 
@@ -3407,6 +3409,9 @@ class ChalkClient:
         compute_class
             Where to run the model container. ``HOST`` requires fixed replicas without
             autoscaling triggers; the default is the Kubernetes pod-based class.
+        execution_target
+            Cluster placement. ``SERVERLESS`` selects serverless compute; ``ENVIRONMENT``
+            or omission uses the environment's cluster. Placement cannot change after creation.
 
         retries
             Retries after the initial asynchronous execution. Must be a nonnegative
@@ -3430,14 +3435,15 @@ class ChalkClient:
 
         Examples
         --------
-        >>> from chalk.scalinggroup import AutoScalingSpec, ComputeClass, ScalingGroupResourceRequest
+        >>> from chalk.scalinggroup import AutoScalingSpec, ComputeClass, ExecutionBackend, ScalingGroupResourceRequest
         >>> deployment = client.create_model_deployment(
         ...     name="ner",
         ...     model_name="ner-model",
         ...     model_version=3,
-        ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=2),
+        ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=1),
         ...     resources=ScalingGroupResourceRequest(cpu="2", memory="4Gi"),
         ...     compute_class=ComputeClass.HOST,
+        ...     execution_target=ExecutionBackend.SERVERLESS,
         ... )
         >>> deployment.remote(text="Ada Lovelace was born in London")
         >>> deployment.defer(text="Ada Lovelace was born in London").get(timeout=30)
@@ -3650,6 +3656,7 @@ class ChalkClient:
         retries: Optional[int] = None,
         queue_policy: Optional[QueuePolicy] = None,
         compute_class: Optional["ComputeClass"] = None,
+        execution_target: Optional["ExecutionBackend"] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`, which returns a typed
         `ModelDeployment` and can wait for readiness.

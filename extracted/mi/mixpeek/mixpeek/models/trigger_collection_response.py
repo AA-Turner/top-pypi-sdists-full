@@ -20,26 +20,28 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.batch_cost_estimate import BatchCostEstimate
 from typing import Optional, Set
 from typing_extensions import Self
 
 class TriggerCollectionResponse(BaseModel):
     """
-    Response after triggering collection processing.  Use `batch_id` or `task_id` to monitor progress via GET /v1/batches/{batch_id} or GET /v1/tasks/{task_id}.
+    Response after triggering collection processing.  Use `batch_id` or `task_id` to monitor progress via GET /v1/batches/{batch_id} or GET /v1/tasks/{task_id}. A bucket-sourced trigger answers before it has read the bucket: the batch starts in DRAFT with no objects, and the task reads FAILED with the reason if the bucket has no matching objects or the submission is refused.
     """ # noqa: E501
-    batch_id: StrictStr = Field(description="ID of the created batch for tracking progress.")
+    batch_id: Optional[StrictStr] = Field(default=None, description="ID of the created batch for tracking progress. Null for a stored-text re-embed (`reembed`), which runs as a task, not a batch.")
     task_id: StrictStr = Field(description="Task ID for monitoring via GET /v1/tasks/{task_id}.")
     collection_id: StrictStr = Field(description="ID of the collection being processed.")
     source_bucket_ids: Optional[List[StrictStr]] = Field(default=None, description="Bucket IDs that objects were discovered from (bucket-sourced collections).")
     source_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collection IDs that documents were read from (collection-sourced collections).")
-    object_count: Optional[StrictInt] = Field(default=None, description="Total number of objects included in the batch (bucket-sourced collections).")
-    batch_ids: Optional[List[StrictStr]] = Field(default=None, description="All batch IDs created for this trigger. Present when a large load was auto-chunked into multiple right-sized batches; `batch_id` is the first of these. Null (absent) for a single-batch trigger.")
+    object_count: Optional[StrictInt] = Field(default=None, description="Number of objects in the trigger (bucket-sourced collections). Null when the trigger answered before reading the bucket; the count is then on the task, as `additional_data.trigger.object_count`.")
+    batch_ids: Optional[List[StrictStr]] = Field(default=None, description="All batch IDs created for this trigger. Present when a large load was auto-chunked into multiple right-sized batches; `batch_id` is the first of these. Null (absent) for a single-batch trigger, and when the trigger answered before reading the bucket: the task then lists them as `additional_data.trigger.batch_ids`.")
     task_ids: Optional[List[StrictStr]] = Field(default=None, description="Task IDs for each created batch, aligned with `batch_ids`.")
     batch_count: Optional[StrictInt] = Field(default=None, description="Number of batches created. Null for a single-batch trigger; set when the load was auto-chunked into multiple batches.")
     document_count: Optional[StrictInt] = Field(default=None, description="Total number of documents to process (collection-sourced collections).")
     total_tiers: StrictInt = Field(description="Number of processing tiers in the DAG.")
     message: StrictStr = Field(description="Human-readable status message.")
-    __properties: ClassVar[List[str]] = ["batch_id", "task_id", "collection_id", "source_bucket_ids", "source_collection_ids", "object_count", "batch_ids", "task_ids", "batch_count", "document_count", "total_tiers", "message"]
+    estimate: Optional[BatchCostEstimate] = Field(default=None, description="OPTIONAL. What this trigger was estimated to cost when it was submitted: the same calculation submit bills by, read from each batch before it ran, summed over the batches when the load was split. Absent for a collection-sourced trigger, when the estimate could not be computed in time, and when the trigger answered before reading the bucket: each batch's task then carries it as `additional_data.estimate`.")
+    __properties: ClassVar[List[str]] = ["batch_id", "task_id", "collection_id", "source_bucket_ids", "source_collection_ids", "object_count", "batch_ids", "task_ids", "batch_count", "document_count", "total_tiers", "message", "estimate"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,9 @@ class TriggerCollectionResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of estimate
+        if self.estimate:
+            _dict['estimate'] = self.estimate.to_dict()
         return _dict
 
     @classmethod
@@ -103,7 +108,8 @@ class TriggerCollectionResponse(BaseModel):
             "batch_count": obj.get("batch_count"),
             "document_count": obj.get("document_count"),
             "total_tiers": obj.get("total_tiers"),
-            "message": obj.get("message")
+            "message": obj.get("message"),
+            "estimate": BatchCostEstimate.from_dict(obj["estimate"]) if obj.get("estimate") is not None else None
         })
         return _obj
 

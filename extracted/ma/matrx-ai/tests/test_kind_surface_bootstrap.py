@@ -40,7 +40,7 @@ from matrx_ai.processing.blocks.kind_surfaces_generated import (
 
 AIDREAM_ROOT = Path(__file__).resolve().parents[3]
 FE_TWIN = (
-    Path(os.environ.get("MATRX_FRONTEND_ROOT", AIDREAM_ROOT.parent / "matrx-frontend"))
+    Path(os.environ.get("MATRX_FRONTEND_ROOT", AIDREAM_ROOT / "apps/matrx-frontend"))
     / "features/content-ir/registry/system-surfaces.generated.ts"
 )
 

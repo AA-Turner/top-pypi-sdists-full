@@ -1,4 +1,4 @@
-import type { Block, Rule } from "@discord/markdown-types";
+import type { Block, SyntaxFlags } from "@discord/markdown-types";
 import init, {
 	parse as rawParse,
 	profile as rawProfile,
@@ -15,9 +15,9 @@ const wasmUrl = new URL(
 
 await init({ module_or_path: wasmUrl });
 
-/** Parse markdown into its AST. */
-export function parse(content: string, allowedRules?: Rule[] | null): Block[] {
-	return rawParse(content, allowedRules);
+/** Parse markdown into its AST. `flags` defaults to every syntax. */
+export function parse(content: string, flags?: SyntaxFlags | null): Block[] {
+	return rawParse(content, flags);
 }
 
 /**
@@ -62,9 +62,6 @@ export interface Profile {
  *
  * Collecting costs under 2x an ordinary {@link parse}.
  */
-export function profile(
-	content: string,
-	allowedRules?: Rule[] | null,
-): Profile {
-	return rawProfile(content, allowedRules);
+export function profile(content: string, flags?: SyntaxFlags | null): Profile {
+	return rawProfile(content, flags);
 }

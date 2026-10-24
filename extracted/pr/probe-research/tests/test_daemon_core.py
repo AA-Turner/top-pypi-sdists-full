@@ -96,6 +96,34 @@ def test_codex_lines_and_mode():
     assert not a.capabilities.question_tool  # terminal fallback
 
 
+def test_codex_marks_a_helper_agents_message_and_skips_an_encrypted_one():
+    """Plan probe-hints T4: Codex's multi-agent `agent_message` (real shape,
+    2026-10-18), read as a peer agent's message when its payload is plain."""
+    from probe.daemon.events import PEER_TOOL
+
+    a = adapters.for_source("codex")
+
+    def message(author: str, recipient: str, content: list) -> dict:
+        return {"timestamp": "2026-10-19T04:05:08.299Z", "type": "response_item",
+                "payload": {"type": "agent_message", "id": "amsg_1", "author": author, "recipient": recipient,
+                            "content": content}}
+
+    header = "Message Type: {kind}\nTask name: {task}\nSender: {sender}\nPayload:\n"
+    lines = [
+        {"type": "inter_agent_communication_metadata", "payload": {"trigger_turn": True}},
+        message("/root/zoom_hotspots", "/root", [{"type": "input_text", "text": header.format(
+            kind="FINAL_ANSWER", task="/root", sender="/root/zoom_hotspots")
+            + "Highest priority is removing repeated cancellation work.\n\n- `stage.tsx` cancels twice."}]),
+        message("/root", "/root/zoom_hotspots", [
+            {"type": "input_text", "text": header.format(kind="NEW_TASK", task="/root/zoom_hotspots", sender="/root")},
+            {"type": "encrypted_content", "encrypted_content": "gAAAAABq1qsk"}]),
+    ]
+    [ev] = _parse(a, lines)
+    assert ev.kind == Kind.META and ev.tool == PEER_TOOL
+    assert ev.text == "Highest priority is removing repeated cancellation work.\n\n- `stage.tsx` cancels twice."
+    assert ev.command() == "/root/zoom_hotspots" and ev.ts == "2026-10-19T04:05:08.299Z"
+
+
 def test_unknown_harness_is_refused_loudly():
     with pytest.raises(LookupError):
         adapters.for_source("nobody")

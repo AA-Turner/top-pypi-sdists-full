@@ -7,9 +7,9 @@ use crate::dispatch::constants::{
     AUDIT_ROUTE, BUILD_ROUTE, CHECK_ROUTE, CLONE_ROUTE, COMPILE_ROUTE, CONTRACT_ROUTE, COST_ROUTE,
     DAG_ROUTE, DEBUG_ROUTE, DIFF_ROUTE, FORMAT_ROUTE, FRESHNESS_ROUTE, INIT_ROUTE, JANITOR_ROUTE,
     LINEAGE_ROUTE, LOAD_ROUTE, PLAN_ROUTE, PLAYGROUND_ROUTE, QUERY_ROUTE, RECALL_COMMAND_NAME,
-    RECALL_ROUTE, REFACTOR_ROUTE, RULES_ROUTE, SCOPE_ROUTE, SEED_ROUTE, SKILLS_ROUTE, TEST_ROUTE,
+    RECALL_ROUTE, REFACTOR_ROUTE, REVIEW_ROUTE, RULES_ROUTE, SCOPE_ROUTE, SEED_ROUTE, SKILLS_ROUTE,
+    TEST_ROUTE,
 };
-use crate::dispatch::main::unavailable_handler::unavailable_handler;
 use crate::dispatch::models::{CommandFacts, Dispatch, DispatchFailure, Route};
 
 /// The route `facts` select, checked in the order the Python dispatcher checked them.
@@ -21,11 +21,7 @@ pub fn command_dispatch(facts: &CommandFacts) -> Dispatch {
     let checked =
         |route: &'static Route, failure: Option<DispatchFailure>| Dispatch::Run(route, failure);
     match command {
-        "rename" => checked(
-            &REFACTOR_ROUTE,
-            (!facts.refactor_target).then(|| unavailable_handler(command, "C950")),
-        ),
-        "mv" => run(&REFACTOR_ROUTE),
+        "rename" | "mv" => run(&REFACTOR_ROUTE),
         "contract" => checked(
             &CONTRACT_ROUTE,
             (!facts.contract_ready).then(|| {
@@ -54,6 +50,7 @@ pub fn command_dispatch(facts: &CommandFacts) -> Dispatch {
             (!facts.from_target).then(|| failure("clone requires --from", "C406", None)),
         ),
         "diff" => run(&DIFF_ROUTE),
+        "review" => run(&REVIEW_ROUTE),
         "query" => run(&QUERY_ROUTE),
         RECALL_COMMAND_NAME => run(&RECALL_ROUTE),
         "cost" => run(&COST_ROUTE),

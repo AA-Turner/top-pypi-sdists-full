@@ -7,7 +7,7 @@ import responses
 from responses.matchers import json_params_matcher
 
 from roboflow import API_URL
-from roboflow.adapters.rfapi import AnnotationSaveError, ImageUploadError
+from roboflow.adapters.rfapi import AnnotationSaveError, ImageUploadError, RoboflowError
 from roboflow.config import DEFAULT_BATCH_NAME
 from tests import PROJECT_NAME, ROBOFLOW_API_KEY, WORKSPACE_NAME, RoboflowTest, ordered
 
@@ -155,6 +155,37 @@ class TestProject(RoboflowTest):
             )
 
         self.assertEqual(str(error.exception), "Image was already annotated.")
+
+    ANNOTATE_URL = (
+        f"{API_URL}/dataset/{PROJECT_NAME}/annotate/img-1?api_key={ROBOFLOW_API_KEY}&name=valid_annotation.json"
+    )
+
+    def _save_annotation(self, num_retry_uploads):
+        with patch("roboflow.util.general.time.sleep"):
+            return self.project.save_annotation(
+                annotation_path="tests/annotations/valid_annotation.json",
+                image_id="img-1",
+                num_retry_uploads=num_retry_uploads,
+            )
+
+    def test_save_annotation_retries_a_failed_save(self):
+        responses.add(responses.POST, self.ANNOTATE_URL, json={"error": {"message": "Internal error"}}, status=500)
+        responses.add(responses.POST, self.ANNOTATE_URL, json={"success": True}, status=200)
+
+        annotation, _, retry_attempts = self._save_annotation(num_retry_uploads=2)
+
+        self.assertEqual(annotation, {"success": True})
+        self.assertEqual(retry_attempts, 1)
+        responses.assert_call_count(self.ANNOTATE_URL, 2)
+
+    def test_save_annotation_raises_after_the_configured_retries(self):
+        responses.add(responses.POST, self.ANNOTATE_URL, json={"error": {"message": "Internal error"}}, status=500)
+
+        with self.assertRaises(AnnotationSaveError) as error:
+            self._save_annotation(num_retry_uploads=2)
+
+        self.assertEqual(str(error.exception), "Internal error")
+        responses.assert_call_count(self.ANNOTATE_URL, 3)
 
     def test_upload_single_file_returns_result(self):
         """upload() should return a list with the single_upload result dict for a single file (#254)."""
@@ -941,6 +972,21 @@ class TestProject(RoboflowTest):
         results = self.project.search()
         self.assertEqual(len(results), 2)
 
+    def test_search_raises_the_api_error(self):
+        message = "Invalid search request."
+        responses.add(
+            responses.POST,
+            f"{API_URL}/{WORKSPACE_NAME}/{PROJECT_NAME}/search?api_key={ROBOFLOW_API_KEY}",
+            json={"error": message},
+            status=400,
+        )
+
+        with self.assertRaises(RoboflowError) as ctx:
+            self.project.search()
+
+        self.assertEqual(str(ctx.exception), message)
+        self.assertEqual(ctx.exception.status_code, 400)
+
 
 class TestZipUpload(RoboflowTest):
     def _rfapi_mocks(self, get_status_side_effect=None, get_status_return=None):
@@ -1218,3 +1264,70 @@ class TestZipUpload(RoboflowTest):
 
             if _os.path.exists(zip_path):
                 _os.unlink(zip_path)
+
+
+class TestPerImageAnnotationOverwrite(RoboflowTest):
+    """upload_dataset on a directory (per-image flow) forwards annotation_overwrite to the annotate POST."""
+
+    def _upload(self, image, annotate_status=200, annotate_json=None, **kwargs):
+        import re
+
+        dataset = {
+            "location": "/test/location/",
+            "images": [
+                {
+                    "file": "img.jpg",
+                    "split": "train",
+                    "annotationfile": {"name": "annotation.coco.json", "rawText": "{}"},
+                }
+            ],
+        }
+        responses.add(
+            responses.POST,
+            re.compile(rf"{API_URL}/dataset/{PROJECT_NAME}/annotate/img-id\?.*"),
+            json=annotate_json or {"success": True},
+            status=annotate_status,
+        )
+        with (
+            patch("roboflow.util.folderparser.parsefolder", return_value=dataset),
+            patch("roboflow.core.project.Project.upload_image", return_value=(image, 0.1, 0)),
+            patch("roboflow.core.workspace.Workspace._get_or_create_project", return_value=(self.project, False)),
+            patch("builtins.print") as mock_print,
+        ):
+            self.workspace.upload_dataset(dataset_path="/test/dataset", project_name=PROJECT_NAME, **kwargs)
+        annotate_calls = [c for c in responses.calls if "/annotate/" in c.request.url]
+        logs = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+        return annotate_calls, logs
+
+    @responses.activate
+    def test_fresh_image_annotates_without_overwrite(self):
+        calls, logs = self._upload({"id": "img-id", "success": True})
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("overwrite=true", calls[0].request.url)
+        self.assertIn("annotations = OK", logs)
+
+    @responses.activate
+    def test_duplicate_without_overwrite_keeps_existing_annotations(self):
+        calls, logs = self._upload(
+            {"id": "img-id", "duplicate": True},
+            annotate_status=409,
+            annotate_json={"error": {"message": "Image was already annotated. To overwrite, pass overwrite=true."}},
+        )
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("overwrite=true", calls[0].request.url)
+        self.assertIn(
+            "annotations = kept existing (pass --annotation-overwrite / annotation_overwrite=True to replace)", logs
+        )
+
+    @responses.activate
+    def test_duplicate_with_overwrite_true_sends_overwrite(self):
+        calls, _ = self._upload({"id": "img-id", "duplicate": True}, annotation_overwrite=True)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("overwrite=true", calls[0].request.url)
+
+    @responses.activate
+    def test_classification_defaults_to_overwrite(self):
+        self.project.type = "classification"
+        calls, _ = self._upload({"id": "img-id", "duplicate": True})
+        self.assertEqual(len(calls), 1)
+        self.assertIn("overwrite=true", calls[0].request.url)

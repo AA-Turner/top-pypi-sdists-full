@@ -29,10 +29,12 @@ from pydantic import ValidationError  # type: ignore
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound
 from databricks.labs.dqx.base import DQEngineBase
+from databricks.labs.dqx.datacontract.library_metrics import LibraryMetricRulesBuilder
 from databricks.labs.dqx.engine import DQEngine
 from databricks.labs.dqx.errors import InvalidPhysicalTypeError, ODCSContractError, ParameterError
 from databricks.labs.dqx.telemetry import telemetry_logger
 from databricks.labs.dqx.package_utils import missing_required_packages
+from databricks.labs.dqx.utils import normalize_column_expr
 
 # DQLLMEngine is referenced only as a type annotation. Eagerly importing it
 # requires installation of [llm] extras which may not be installed or wanted
@@ -93,6 +95,7 @@ class DataContractRulesGenerator(DQEngineBase):
         generate_schema_validation: bool = True,
         strict_schema_validation: bool = True,
         default_criticality: str = "error",
+        process_library_rules: bool = True,
     ) -> list[dict]:
         """
         Generate DQX quality rules from an ODCS v3.x data contract.
@@ -102,6 +105,13 @@ class DataContractRulesGenerator(DQEngineBase):
         When the contract defines a schema and generate_schema_validation is True, one dataset-level
         has_valid_schema rule per schema is generated. strict_schema_validation is passed as the
         strict argument to has_valid_schema (default True = exact match).
+
+        Explicit rules carry their quality entry's ``dimension``, ``description`` and flattened
+        ``customProperties`` in ``user_metadata`` alongside the contract provenance keys, so
+        contract-authored context is not lost on import. A quality ``owner`` or ``steward``
+        custom property (or, failing that, the first ODCS ``team`` member with an
+        owner/steward-like role) is emitted as a top-level ``owner`` on the generated rule
+        for Rules Registry ownership.
 
         Args:
             contract: Pre-loaded DataContract object from datacontract-cli. Can be created with:
@@ -115,6 +125,7 @@ class DataContractRulesGenerator(DQEngineBase):
             generate_schema_validation: Whether to generate dataset-level has_valid_schema rules from the contract schema (default True).
             strict_schema_validation: Passed as the strict argument to has_valid_schema (default True = exact columns, order, types; False = permissive).
             default_criticality: Default criticality level for generated rules (default is "error").
+            process_library_rules: Whether to generate rules from ODCS library quality metric entries (default True). Set to False to skip this mapping entirely.
 
         Returns:
             A list of dictionaries representing the generated DQX quality rules.
@@ -133,10 +144,12 @@ class DataContractRulesGenerator(DQEngineBase):
             odcs,
             generate_predefined_rules,
             process_text_rules,
+            process_library_rules,
             generate_schema_validation,
             strict_schema_validation,
             default_criticality,
         )
+        self._apply_contract_owners(dq_rules, odcs)
         valid_rules = self._validate_generated_rules(dq_rules)
 
         return valid_rules
@@ -232,16 +245,20 @@ class DataContractRulesGenerator(DQEngineBase):
         odcs: OpenDataContractStandard,
         generate_predefined_rules: bool,
         process_text_rules: bool,
+        process_library_rules: bool,
         generate_schema_validation: bool,
         strict_schema_validation: bool,
         default_criticality: str,
     ) -> list[dict]:
         """Generate all rules from ODCS v3.x contract schemas."""
-        dq_rules = []
+        dq_rules: list[dict] = []
+        # Names of the rules generated so far, kept incrementally; library rule names are suffixed to stay unique.
+        taken_names: set[str] = set()
 
         # ODCS v3.x uses schema_ list instead of models dict
         for schema_obj in odcs.schema_ or []:
             schema_name = schema_obj.name or "unknown_schema"
+            schema_start = len(dq_rules)
 
             if generate_schema_validation:
                 schema_validation_rules = self._generate_schema_validation_rules_for_schema(
@@ -261,6 +278,13 @@ class DataContractRulesGenerator(DQEngineBase):
 
             explicit_rules = self._process_explicit_rules_for_schema(schema_obj, schema_name, odcs, default_criticality)
             dq_rules.extend(explicit_rules)
+
+            if process_library_rules:
+                taken_names.update(rule["name"] for rule in dq_rules[schema_start:] if rule.get("name"))
+                library_rules = self._process_library_rules_for_schema(
+                    schema_obj, schema_name, odcs, default_criticality, taken_names
+                )
+                dq_rules.extend(library_rules)
 
         return dq_rules
 
@@ -737,6 +761,7 @@ class DataContractRulesGenerator(DQEngineBase):
         has_float_limits = (minimum is not None and isinstance(minimum, float)) or (
             maximum is not None and isinstance(maximum, float)
         )
+        normalized_column = normalize_column_expr(column_path)
 
         if minimum is not None and maximum is not None:
             if has_float_limits:
@@ -745,7 +770,7 @@ class DataContractRulesGenerator(DQEngineBase):
                         "check": {
                             "function": "sql_expression",
                             "arguments": {
-                                "expression": f"{column_path} >= {minimum} AND {column_path} <= {maximum}",
+                                "expression": f"{normalized_column} >= {minimum} AND {normalized_column} <= {maximum}",
                                 "columns": [column_path],
                             },
                         },
@@ -786,7 +811,7 @@ class DataContractRulesGenerator(DQEngineBase):
                         "check": {
                             "function": "sql_expression",
                             "arguments": {
-                                "expression": f"{column_path} >= {minimum}",
+                                "expression": f"{normalized_column} >= {minimum}",
                                 "columns": [column_path],
                             },
                         },
@@ -826,7 +851,7 @@ class DataContractRulesGenerator(DQEngineBase):
                         "check": {
                             "function": "sql_expression",
                             "arguments": {
-                                "expression": f"{column_path} <= {maximum}",
+                                "expression": f"{normalized_column} <= {maximum}",
                                 "columns": [column_path],
                             },
                         },
@@ -871,13 +896,15 @@ class DataContractRulesGenerator(DQEngineBase):
         if min_length is None and max_length is None:
             return []
 
+        normalized_column = normalize_column_expr(column_path)
+
         if min_length is not None and max_length is not None and min_length == max_length:
             return [
                 {
                     "check": {
                         "function": "sql_expression",
                         "arguments": {
-                            "expression": f"LENGTH({column_path}) = {min_length}",
+                            "expression": f"LENGTH({normalized_column}) = {min_length}",
                             "columns": [column_path],
                         },
                     },
@@ -897,7 +924,7 @@ class DataContractRulesGenerator(DQEngineBase):
                     "check": {
                         "function": "sql_expression",
                         "arguments": {
-                            "expression": f"LENGTH({column_path}) >= {min_length} AND LENGTH({column_path}) <= {max_length}",
+                            "expression": f"LENGTH({normalized_column}) >= {min_length} AND LENGTH({normalized_column}) <= {max_length}",
                             "columns": [column_path],
                         },
                     },
@@ -917,7 +944,7 @@ class DataContractRulesGenerator(DQEngineBase):
                     "check": {
                         "function": "sql_expression",
                         "arguments": {
-                            "expression": f"LENGTH({column_path}) >= {min_length}",
+                            "expression": f"LENGTH({normalized_column}) >= {min_length}",
                             "columns": [column_path],
                         },
                     },
@@ -937,7 +964,7 @@ class DataContractRulesGenerator(DQEngineBase):
                     "check": {
                         "function": "sql_expression",
                         "arguments": {
-                            "expression": f"LENGTH({column_path}) <= {max_length}",
+                            "expression": f"LENGTH({normalized_column}) <= {max_length}",
                             "columns": [column_path],
                         },
                     },
@@ -1255,7 +1282,12 @@ class DataContractRulesGenerator(DQEngineBase):
     ) -> dict | None:
         """Build a DQX rule from a quality rule's implementation."""
         return self._build_explicit_rule_from_implementation(
-            quality_rule.implementation, property_name, schema_name, odcs, default_criticality
+            quality_rule.implementation,
+            property_name,
+            schema_name,
+            odcs,
+            default_criticality,
+            quality_rule=quality_rule,
         )
 
     def _build_explicit_rule_from_implementation(
@@ -1265,6 +1297,7 @@ class DataContractRulesGenerator(DQEngineBase):
         schema_name: str,
         odcs: OpenDataContractStandard,
         default_criticality: str,
+        quality_rule: DataQuality | None = None,
     ) -> dict | None:
         """Build a DQX rule from an explicit implementation in the contract.
 
@@ -1275,8 +1308,11 @@ class DataContractRulesGenerator(DQEngineBase):
             if check is None:
                 logger.warning("Implementation missing 'check' attribute, skipping rule")
                 return None
+            filter_rule = filter_rule or self._quality_row_filter(quality_rule)
 
-            return self._build_rule_dict(check, name, criticality, filter_rule, schema_name, property_name, odcs)
+            return self._build_rule_dict(
+                check, name, criticality, filter_rule, schema_name, property_name, odcs, quality_rule
+            )
         except (AttributeError, KeyError, TypeError) as e:
             # Malformed contract structure - fail fast
             raise ODCSContractError(
@@ -1299,6 +1335,114 @@ class DataContractRulesGenerator(DQEngineBase):
         filter_rule: str | None = impl.get("filter")
         return check, name, criticality, filter_rule
 
+    # Provenance keys this generator owns. Contract-authored metadata may add
+    # tags but must never overwrite these, or downstream consumers that filter
+    # on provenance (which contract a rule came from, which schema/field) would
+    # be reading attacker- or typo-controlled values.
+    _PROVENANCE_METADATA_KEYS: frozenset[str] = frozenset(
+        {"contract_id", "contract_version", "odcs_version", "schema", "rule_type", "field"}
+    )
+    _ROW_FILTER_PROPERTY_KEYS: frozenset[str] = frozenset({"row_filter", "rowFilter"})
+    # Accept both legacy ODCS ``steward`` and preferred ``owner`` customProperty keys.
+    _OWNER_PROPERTY_KEYS: frozenset[str] = frozenset({"steward", "owner"})
+    # ODCS team roles that imply ownership of generated rules (legacy steward roles kept).
+    _OWNER_TEAM_ROLES: frozenset[str] = frozenset({"steward", "data steward", "owner"})
+
+    @classmethod
+    def _quality_row_filter(cls, quality_rule: DataQuality | None) -> str | None:
+        """Read an operational row filter from ODCS custom properties.
+
+        ``implementation.filter`` remains authoritative. This fallback lets
+        contracts carry the filter through the standard ODCS extension point.
+        """
+        if quality_rule is None:
+            return None
+        for custom_property in quality_rule.customProperties or []:
+            key = getattr(custom_property, "property", None)
+            value = getattr(custom_property, "value", None)
+            normalized_key = key.strip() if isinstance(key, str) else None
+            if normalized_key in cls._ROW_FILTER_PROPERTY_KEYS and isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    @classmethod
+    def _iter_team_members(cls, odcs: OpenDataContractStandard):
+        """Yield ODCS team members whether ``team`` is a list or a Team object."""
+        team = getattr(odcs, "team", None)
+        if team is None:
+            return
+        members = team if isinstance(team, list) else getattr(team, "members", None) or []
+        yield from members
+
+    @classmethod
+    def _contract_owner(cls, odcs: OpenDataContractStandard) -> str | None:
+        """First contract ``team`` member with an owner/steward-like role."""
+        for member in cls._iter_team_members(odcs):
+            role = getattr(member, "role", None)
+            username = getattr(member, "username", None)
+            if not isinstance(username, str) or not username.strip():
+                continue
+            if isinstance(role, str) and role.strip().lower() in cls._OWNER_TEAM_ROLES:
+                return username.strip()
+        return None
+
+    @classmethod
+    def _quality_owner(cls, quality_rule: DataQuality | None) -> str | None:
+        """Per-quality owner override from customProperties (``owner`` or ``steward``)."""
+        if quality_rule is None:
+            return None
+        for custom_property in quality_rule.customProperties or []:
+            key = getattr(custom_property, "property", None)
+            value = getattr(custom_property, "value", None)
+            normalized_key = key.strip() if isinstance(key, str) else None
+            if normalized_key in cls._OWNER_PROPERTY_KEYS and isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    @classmethod
+    def _resolve_owner(cls, odcs: OpenDataContractStandard, quality_rule: DataQuality | None = None) -> str | None:
+        return cls._quality_owner(quality_rule) or cls._contract_owner(odcs)
+
+    @classmethod
+    def _apply_contract_owners(cls, rules: list[dict], odcs: OpenDataContractStandard) -> None:
+        """Fill missing top-level ``owner`` from the contract team (predefined/schema rules)."""
+        default_owner = cls._contract_owner(odcs)
+        if not default_owner:
+            return
+        for rule in rules:
+            if isinstance(rule, dict) and not rule.get("owner"):
+                rule["owner"] = default_owner
+
+    @classmethod
+    def _quality_metadata(cls, quality_rule: DataQuality | None) -> dict[str, str]:
+        """Collect the ODCS quality fields that belong in ``user_metadata``.
+
+        ``customProperties`` is the ODCS extension point, so it is flattened to
+        ``{property: value}`` entries. The first-class ``dimension`` and
+        ``description`` fields are applied afterwards, so they win over a
+        same-named custom property. Provenance keys are dropped.
+
+        Values are stringified because ``user_metadata`` is a string map;
+        nested structures are JSON-encoded rather than discarded.
+        """
+        if quality_rule is None:
+            return {}
+
+        metadata: dict[str, str] = {}
+        for custom_property in quality_rule.customProperties or []:
+            key = getattr(custom_property, "property", None)
+            value = getattr(custom_property, "value", None)
+            if not isinstance(key, str) or not key.strip() or value is None:
+                continue
+            metadata[key.strip()] = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+
+        for key, value in (("dimension", quality_rule.dimension), ("description", quality_rule.description)):
+            if isinstance(value, str) and value.strip():
+                metadata[key] = value.strip()
+
+        operational_keys = cls._PROVENANCE_METADATA_KEYS | cls._ROW_FILTER_PROPERTY_KEYS | cls._OWNER_PROPERTY_KEYS
+        return {k: v for k, v in metadata.items() if k not in operational_keys}
+
     def _build_rule_dict(
         self,
         check_dict: dict,
@@ -1308,8 +1452,14 @@ class DataContractRulesGenerator(DQEngineBase):
         schema_name: str,
         property_name: str | None,
         odcs: OpenDataContractStandard,
+        quality_rule: DataQuality | None = None,
+        extra_metadata: dict[str, str] | None = None,
     ) -> dict:
-        """Build the final rule dictionary with metadata."""
+        """Build the final rule dictionary with metadata.
+
+        *extra_metadata* (e.g. the metric keys of a library rule, including its *rule_type*) is applied
+        last, so it overrides the defaults and any same-named custom property.
+        """
         user_metadata: dict = {
             "contract_id": odcs.id or "unknown",
             "contract_version": odcs.version or "unknown",
@@ -1319,6 +1469,8 @@ class DataContractRulesGenerator(DQEngineBase):
         }
         if property_name:
             user_metadata["field"] = property_name
+        user_metadata.update(self._quality_metadata(quality_rule))
+        user_metadata.update(extra_metadata or {})
 
         rule = {
             "check": check_dict,
@@ -1328,4 +1480,40 @@ class DataContractRulesGenerator(DQEngineBase):
         }
         if filter_rule:
             rule["filter"] = filter_rule
+        owner = self._resolve_owner(odcs, quality_rule)
+        if owner:
+            rule["owner"] = owner
         return rule
+
+    def _process_library_rules_for_schema(
+        self,
+        schema_obj: SchemaObject,
+        schema_name: str,
+        odcs: OpenDataContractStandard,
+        default_criticality: str,
+        taken_names: set[str],
+    ) -> list[dict]:
+        """Generate rules from the ODCS type: library quality metric entries of a schema.
+
+        The mapping itself lives in *library_metrics*; each rule is assembled by *_build_rule_dict*, so
+        library rules get the same provenance, owner, row filter and customProperties handling as
+        explicit rules. Library rule names are suffixed where they would repeat a name in *taken_names*
+        (the rules already generated for the contract).
+        """
+
+        def build_rule(
+            check: dict, name: str, entry: DataQuality, property_name: str | None, metric_metadata: dict[str, str]
+        ) -> dict:
+            return self._build_rule_dict(
+                check,
+                name,
+                default_criticality,
+                self._quality_row_filter(entry),
+                schema_name,
+                property_name,
+                odcs,
+                entry,
+                extra_metadata=metric_metadata,
+            )
+
+        return LibraryMetricRulesBuilder(build_rule).build_for_schema(schema_obj, schema_name, taken_names)

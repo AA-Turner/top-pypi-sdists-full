@@ -115,6 +115,10 @@ def _via_label(node: "AxNode") -> "AxNode | None":
     return getattr(node, "via_label", None)
 
 
+def _covered(node: "AxNode") -> bool:
+    return bool(getattr(node, "covered", False))
+
+
 AX_DOC_MAX_CHARS = 500_000
 TEXT_TRUNCATE_CHARS = 200
 
@@ -179,6 +183,10 @@ def _render_states(node: "AxNode") -> list[str]:
         states.append("[required]")
     if node.readonly:
         states.append("[readonly]")
+    if _covered(node):
+        # Another element is painted over it (``_actionable.annotate_tree``):
+        # a click lands on that element, not on this one.
+        states.append("[covered]")
     return states
 
 
@@ -245,7 +253,8 @@ def serialize_ax_tree(
             for backward compatibility with any reader that predates this
             field. A radio/checkbox covered by its own label grounds on the
             label: its entry carries the label's id/role/name plus
-            ``display_role``/``display_name`` and ``via_label: True``.
+            ``display_role``/``display_name`` and ``via_label: True``. A
+            control another element is painted over carries ``covered: True``.
 
     Rendering rules (spec section 2, + frame-merge rules below):
         - Structural container roles ({"none", "generic", "rootwebarea",
@@ -424,6 +433,8 @@ def serialize_ax_tree(
                 "display_name": display_name.strip(),
                 "via_label": True,
             }
+        if _covered(node):
+            ref_table[ref]["covered"] = True
 
         if fc is not None:
             render_frame(fc, depth + 1, frame_num)

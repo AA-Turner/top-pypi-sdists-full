@@ -502,25 +502,29 @@ def test_codex_add_failure_names_the_plugin_and_stops(monkeypatch):
 
 
 def test_codex_reinstall_it_cannot_confirm_says_so(monkeypatch):
-    """`codex plugin list` failing and a plugin genuinely missing both leave the
-    list empty, so the message claims neither."""
+    """`codex plugin list` failing and a plugin genuinely missing both leave
+    nothing listed, so the message claims neither; `list_unreadable` says which."""
     _fake_codex(monkeypatch, {"plugin list --json": _failed_with("boom")})
 
     res = updater.update_codex_plugins()
 
     assert not res.confirmed
+    assert res.list_unreadable
     assert res.message == (
         "could not confirm probe-research or probe-research-tap in "
         "`codex plugin list --json` after reinstalling"
     )
 
 
-def test_a_codex_list_that_is_not_an_object_reads_as_empty(monkeypatch):
+def test_a_codex_list_that_is_not_an_object_is_unread_not_empty(monkeypatch):
+    """None, not {}: an empty list says no Probe plugin is installed, which is
+    no failed update (`updater.nothing_installed`); a list it cannot read says
+    nothing either way."""
     _fake_codex(
         monkeypatch,
         {"plugin list --json": subprocess.CompletedProcess([], 0, stdout="[]", stderr="")},
     )
-    assert updater._codex_plugin_versions() == {}
+    assert updater._codex_plugin_versions() is None
 
 
 def _reason(detail: str) -> str:

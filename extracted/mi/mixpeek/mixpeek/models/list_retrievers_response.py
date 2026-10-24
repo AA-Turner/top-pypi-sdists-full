@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.degraded_entry import DegradedEntry
 from mixpeek.models.pagination_response import PaginationResponse
 from mixpeek.models.retriever_model_output import RetrieverModelOutput
 from typing import Optional, Set
@@ -32,7 +33,8 @@ class ListRetrieversResponse(BaseModel):
     results: Optional[List[RetrieverModelOutput]] = Field(default=None, description="List of retrievers in the namespace.")
     total: Optional[StrictInt] = Field(default=0, description="Total number of retrievers.")
     pagination: Optional[PaginationResponse] = Field(default=None, description="Pagination details (next/previous cursors and total).")
-    __properties: ClassVar[List[str]] = ["results", "total", "pagination"]
+    warnings: Optional[List[DegradedEntry]] = Field(default=None, description="Why this page may not be the whole answer. An entry with resource 'namespace' and reason 'unresolved' means X-Namespace did not resolve for this API key, so the empty list is not that namespace's contents (the same condition as the X-Namespace-Unresolved response header). Empty when the namespace resolved.")
+    __properties: ClassVar[List[str]] = ["results", "total", "pagination", "warnings"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,6 +85,13 @@ class ListRetrieversResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of pagination
         if self.pagination:
             _dict['pagination'] = self.pagination.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in warnings (list)
+        _items = []
+        if self.warnings:
+            for _item_warnings in self.warnings:
+                if _item_warnings:
+                    _items.append(_item_warnings.to_dict())
+            _dict['warnings'] = _items
         return _dict
 
     @classmethod
@@ -97,7 +106,8 @@ class ListRetrieversResponse(BaseModel):
         _obj = cls.model_validate({
             "results": [RetrieverModelOutput.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None,
             "total": obj.get("total") if obj.get("total") is not None else 0,
-            "pagination": PaginationResponse.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None
+            "pagination": PaginationResponse.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None,
+            "warnings": [DegradedEntry.from_dict(_item) for _item in obj["warnings"]] if obj.get("warnings") is not None else None
         })
         return _obj
 

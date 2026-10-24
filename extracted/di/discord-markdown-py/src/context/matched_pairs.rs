@@ -8,14 +8,14 @@ use nom::{
 
 use crate::{
 	Input,
-	grammar::{Grammar, GrammarSet},
+	scope::{Scope, ScopeSet},
 	util::balanced_span,
 };
 
-pub const GRAMMARS: GrammarSet = enum_set!(Grammar::MaskedLinkText);
+pub const SCOPES: ScopeSet = enum_set!(Scope::MaskedLinkText);
 
 pub struct MatchedPairsParser<E> {
-	pub grammars: GrammarSet,
+	pub scopes: ScopeSet,
 	pub error: PhantomData<E>,
 }
 
@@ -30,8 +30,8 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		for grammar in (self.grammars & GRAMMARS).iter() {
-			let Some((open, close)) = grammar.bracket_delimiters() else {
+		for scope in (self.scopes & SCOPES).iter() {
+			let Some((open, close)) = scope.bracket_delimiters() else {
 				continue;
 			};
 			if let Some(span_len) = balanced_span(input.as_bytes(), open, close) {

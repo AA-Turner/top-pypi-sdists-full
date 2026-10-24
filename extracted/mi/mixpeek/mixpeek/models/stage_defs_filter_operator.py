@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class StageDefsFilterOperator(str, Enum):
     """
-    Supported filter operators across database implementations.
+    Supported filter operators across database implementations.  `text` is a case-insensitive substring match on the MVS vector store, in the in-memory evaluator and in the collections list filter; it does not tokenize or rank. On the Mongo query translator it becomes a Mongo `$text` search, which needs a collection text index and searches every indexed field. For whole-word matching on one field use `words`: every word of the value must appear as a whole word, compared on its English stem.
     """
 
     """
@@ -43,6 +43,7 @@ class StageDefsFilterOperator(str, Enum):
     IS_NULL = 'is_null'
     TEXT = 'text'
     PHRASE = 'phrase'
+    WORDS = 'words'
     GEO_RADIUS = 'geo_radius'
     GEO_BOUNDING_BOX = 'geo_bounding_box'
     GEO_POLYGON = 'geo_polygon'

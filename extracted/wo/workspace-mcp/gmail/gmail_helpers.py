@@ -509,7 +509,7 @@ def _derive_reply_all_recipients(
         )
 
     derived_cc = cc
-    if not derived_cc:
+    if derived_cc is None:
         seen = {addr.lower() for _n, addr in getaddresses([derived_to or ""]) if addr}
         seen |= excluded
         others = []
@@ -681,7 +681,7 @@ class _HTMLBlockTextExtractor(HTMLParser):
 
     # Elements whose boundaries are visible line breaks once the markup is
     # gone. Table cells are deliberately absent: a line per cell would wreck
-    # table-based layouts, and the separator they do need is its own issue.
+    # table-based layouts, so handle_starttag separates them with a space.
     _BLOCK_TAGS = frozenset(
         {
             "address",
@@ -747,6 +747,10 @@ class _HTMLBlockTextExtractor(HTMLParser):
             # A nested block starts a new visual line even when its parent
             # already contains text (for example, Name<div>Title</div>).
             self._append_line_break()
+        elif tag in ("td", "th"):
+            # Separating at the start tag also covers omitted </td> and </th>.
+            if self._text and not self._text[-1].endswith((" ", "\n")):
+                self._text.append(" ")
 
     def handle_endtag(self, tag):
         # Closing a block ends its visual line. _append_line_break avoids a
@@ -1104,10 +1108,23 @@ def _build_forward_content(
     return subject, forward_plain, forward_html
 
 
+_REPLY_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]*\]\s*)*re\s*:", re.IGNORECASE)
+
+
 def _reply_subject(subject: str, in_reply_to: Optional[str]) -> str:
-    """Prefix ``Re:`` onto a reply's subject unless it already carries one."""
-    if in_reply_to and not subject.lower().startswith("re:"):
+    """Prefix ``Re:`` onto a reply's subject unless one follows any ``[tag]`` prefixes."""
+    if in_reply_to and not _REPLY_PREFIX_RE.match(subject):
         return f"Re: {subject}"
+    return subject
+
+
+def _inherit_reply_subject(thread_id: str, target: Optional[Mapping[str, Any]]) -> str:
+    """Return the replied-to message's subject, raising when it has none."""
+    subject = (target or {}).get("subject") or ""
+    if not subject.strip():
+        raise UserInputError(
+            f"Could not inherit a subject from thread '{thread_id}'. Pass 'subject' explicitly."
+        )
     return subject
 
 

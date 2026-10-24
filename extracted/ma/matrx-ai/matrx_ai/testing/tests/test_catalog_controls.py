@@ -296,6 +296,17 @@ def _flash_rule(ui_values: list[str]) -> dict[str, dict]:
 
 
 class TestVocabularyGate:
+    @staticmethod
+    def _assert_declared_processor_mapping(adj, *, requested: str, sent: str) -> None:
+        assert len(adj) == 1
+        adjustment = adj[0]
+        assert adjustment.key == "reasoning_effort"
+        assert adjustment.action == "mapped"
+        assert adjustment.canonical_value == requested
+        assert adjustment.sent_value == {"thinking_config": {"thinking_level": sent}}
+        assert adjustment.expected is True
+        assert adjustment.provenance == "declared"
+
     def test_unsupported_resolved_level_is_reconciled_not_sent(self):
         compiled = _compiled_ordered(_flash_rule(["auto", "none", "low", "medium", "high"]))
         out, adj = compiled.outbound({"reasoning_effort": "minimal"})
@@ -303,15 +314,15 @@ class TestVocabularyGate:
         assert [a.action for a in adj] == ["unsupported_value"]
         assert (adj[0].canonical_value, adj[0].sent_value) == ("minimal", "low")
 
-    def test_same_map_same_family_but_a_model_that_supports_it_is_untouched(self):
-        # The ONLY difference from the case above is the offering's declaration
-        # — which is exactly the per-model fact the family map cannot carry.
+    def test_same_map_and_supported_model_records_only_declared_processor_mapping(self):
+        # This offering supports minimal, so the vocabulary gate leaves the value alone.
+        # The processor still records the model-specific wire translation as declared.
         compiled = _compiled_ordered(
             _flash_rule(["auto", "none", "minimal", "low", "medium", "high"])
         )
         out, adj = compiled.outbound({"reasoning_effort": "minimal"})
         assert out["thinking_config"]["thinking_level"] == "minimal"
-        assert adj == []
+        self._assert_declared_processor_mapping(adj, requested="minimal", sent="minimal")
 
     def test_never_reconciles_an_intensity_onto_none(self):
         # A model whose floor is "high" must serve "minimal" with high, never
@@ -327,7 +338,7 @@ class TestVocabularyGate:
         assert adj[0].action == "unsupported_value"
         assert adj[0].sent_value is None
 
-    def test_rule_without_ui_values_is_unaffected(self):
+    def test_rule_without_ui_values_skips_vocabulary_gate_but_records_processor_mapping(self):
         compiled = _compiled_ordered(
             {
                 "reasoning_effort": {
@@ -338,9 +349,9 @@ class TestVocabularyGate:
         )
         out, adj = compiled.outbound({"reasoning_effort": "minimal"})
         assert out["thinking_config"]["thinking_level"] == "minimal"
-        assert adj == []
+        self._assert_declared_processor_mapping(adj, requested="minimal", sent="minimal")
 
-    def test_authored_family_downgrades_are_not_overridden(self):
+    def test_authored_family_downgrade_remains_and_records_processor_mapping(self):
         # gemini-3-pro maps medium -> low BY DESIGN. "low" is supported, so the
         # gate must leave that authored decision alone (never escalate to high).
         compiled = _compiled_ordered(
@@ -354,4 +365,4 @@ class TestVocabularyGate:
         )
         out, adj = compiled.outbound({"reasoning_effort": "medium"})
         assert out["thinking_config"]["thinking_level"] == "low"
-        assert adj == []
+        self._assert_declared_processor_mapping(adj, requested="medium", sent="low")

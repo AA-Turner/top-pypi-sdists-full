@@ -49,7 +49,7 @@ class TriggersApi:
     @validate_call
     def create_trigger(
         self,
-        shared_triggers_models_create_trigger_request: SharedTriggersModelsCreateTriggerRequest,
+        shared_triggers_models_create_trigger_request: Annotated[SharedTriggersModelsCreateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class TriggersApi:
 
         Create a new trigger for scheduled job execution.      **Action Types:**     - `cluster`: Execute clustering on a cluster definition     - `taxonomy_enrichment`: Apply taxonomy enrichment to a collection      **Schedule Types:**     - `cron`: Execute at specific times using cron expressions (e.g., \"0 2 * * *\" for daily at 2am)     - `interval`: Execute at fixed intervals (e.g., every 6 hours)     - `event`: Execute when specific events occur (e.g., after 100 documents added)     - `conditional`: Execute when conditions are met (e.g., drift threshold exceeded)      **Examples:**      Cluster trigger (daily at 2am):     ```json     {       \"action_type\": \"cluster\",       \"action_config\": {\"cluster_id\": \"clust_abc123\"},       \"trigger_type\": \"cron\",       \"schedule_config\": {\"cron_expression\": \"0 2 * * *\", \"timezone\": \"UTC\"},       \"description\": \"Daily clustering at 2am\"     }     ```      Taxonomy enrichment trigger (every 6 hours):     ```json     {       \"action_type\": \"taxonomy_enrichment\",       \"action_config\": {         \"taxonomy_id\": \"tax_products\",         \"collection_id\": \"col_inventory\",         \"batch_size\": 1000       },       \"trigger_type\": \"interval\",       \"schedule_config\": {\"interval_seconds\": 21600},       \"description\": \"Re-enrich products every 6 hours\"     }     ```
 
-        :param shared_triggers_models_create_trigger_request: (required)
+        :param shared_triggers_models_create_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_triggers_models_create_trigger_request: SharedTriggersModelsCreateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -100,13 +100,15 @@ class TriggersApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SharedTriggersModelsTriggerModel",
+            '200': "SharedTriggersModelsTriggerModel",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -122,7 +124,7 @@ class TriggersApi:
     @validate_call
     def create_trigger_with_http_info(
         self,
-        shared_triggers_models_create_trigger_request: SharedTriggersModelsCreateTriggerRequest,
+        shared_triggers_models_create_trigger_request: Annotated[SharedTriggersModelsCreateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -140,7 +142,7 @@ class TriggersApi:
 
         Create a new trigger for scheduled job execution.      **Action Types:**     - `cluster`: Execute clustering on a cluster definition     - `taxonomy_enrichment`: Apply taxonomy enrichment to a collection      **Schedule Types:**     - `cron`: Execute at specific times using cron expressions (e.g., \"0 2 * * *\" for daily at 2am)     - `interval`: Execute at fixed intervals (e.g., every 6 hours)     - `event`: Execute when specific events occur (e.g., after 100 documents added)     - `conditional`: Execute when conditions are met (e.g., drift threshold exceeded)      **Examples:**      Cluster trigger (daily at 2am):     ```json     {       \"action_type\": \"cluster\",       \"action_config\": {\"cluster_id\": \"clust_abc123\"},       \"trigger_type\": \"cron\",       \"schedule_config\": {\"cron_expression\": \"0 2 * * *\", \"timezone\": \"UTC\"},       \"description\": \"Daily clustering at 2am\"     }     ```      Taxonomy enrichment trigger (every 6 hours):     ```json     {       \"action_type\": \"taxonomy_enrichment\",       \"action_config\": {         \"taxonomy_id\": \"tax_products\",         \"collection_id\": \"col_inventory\",         \"batch_size\": 1000       },       \"trigger_type\": \"interval\",       \"schedule_config\": {\"interval_seconds\": 21600},       \"description\": \"Re-enrich products every 6 hours\"     }     ```
 
-        :param shared_triggers_models_create_trigger_request: (required)
+        :param shared_triggers_models_create_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_triggers_models_create_trigger_request: SharedTriggersModelsCreateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -173,13 +175,15 @@ class TriggersApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SharedTriggersModelsTriggerModel",
+            '200': "SharedTriggersModelsTriggerModel",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -195,7 +199,7 @@ class TriggersApi:
     @validate_call
     def create_trigger_without_preload_content(
         self,
-        shared_triggers_models_create_trigger_request: SharedTriggersModelsCreateTriggerRequest,
+        shared_triggers_models_create_trigger_request: Annotated[SharedTriggersModelsCreateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -213,7 +217,7 @@ class TriggersApi:
 
         Create a new trigger for scheduled job execution.      **Action Types:**     - `cluster`: Execute clustering on a cluster definition     - `taxonomy_enrichment`: Apply taxonomy enrichment to a collection      **Schedule Types:**     - `cron`: Execute at specific times using cron expressions (e.g., \"0 2 * * *\" for daily at 2am)     - `interval`: Execute at fixed intervals (e.g., every 6 hours)     - `event`: Execute when specific events occur (e.g., after 100 documents added)     - `conditional`: Execute when conditions are met (e.g., drift threshold exceeded)      **Examples:**      Cluster trigger (daily at 2am):     ```json     {       \"action_type\": \"cluster\",       \"action_config\": {\"cluster_id\": \"clust_abc123\"},       \"trigger_type\": \"cron\",       \"schedule_config\": {\"cron_expression\": \"0 2 * * *\", \"timezone\": \"UTC\"},       \"description\": \"Daily clustering at 2am\"     }     ```      Taxonomy enrichment trigger (every 6 hours):     ```json     {       \"action_type\": \"taxonomy_enrichment\",       \"action_config\": {         \"taxonomy_id\": \"tax_products\",         \"collection_id\": \"col_inventory\",         \"batch_size\": 1000       },       \"trigger_type\": \"interval\",       \"schedule_config\": {\"interval_seconds\": 21600},       \"description\": \"Re-enrich products every 6 hours\"     }     ```
 
-        :param shared_triggers_models_create_trigger_request: (required)
+        :param shared_triggers_models_create_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_triggers_models_create_trigger_request: SharedTriggersModelsCreateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -246,13 +250,15 @@ class TriggersApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SharedTriggersModelsTriggerModel",
+            '200': "SharedTriggersModelsTriggerModel",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -398,8 +404,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -471,8 +479,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -544,8 +554,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -678,8 +690,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -751,8 +765,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -824,8 +840,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -958,8 +976,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1031,8 +1051,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1104,8 +1126,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1246,8 +1270,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1327,8 +1353,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1408,8 +1436,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1496,7 +1526,7 @@ class TriggersApi:
     @validate_call
     def list_triggers(
         self,
-        shared_triggers_models_list_triggers_request: Optional[SharedTriggersModelsListTriggersRequest] = None,
+        shared_triggers_models_list_triggers_request: Annotated[Optional[SharedTriggersModelsListTriggersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1514,7 +1544,7 @@ class TriggersApi:
 
         List triggers with filters and pagination.
 
-        :param shared_triggers_models_list_triggers_request:
+        :param shared_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type shared_triggers_models_list_triggers_request: SharedTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1552,8 +1582,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1569,7 +1601,7 @@ class TriggersApi:
     @validate_call
     def list_triggers_with_http_info(
         self,
-        shared_triggers_models_list_triggers_request: Optional[SharedTriggersModelsListTriggersRequest] = None,
+        shared_triggers_models_list_triggers_request: Annotated[Optional[SharedTriggersModelsListTriggersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1587,7 +1619,7 @@ class TriggersApi:
 
         List triggers with filters and pagination.
 
-        :param shared_triggers_models_list_triggers_request:
+        :param shared_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type shared_triggers_models_list_triggers_request: SharedTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1625,8 +1657,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1642,7 +1676,7 @@ class TriggersApi:
     @validate_call
     def list_triggers_without_preload_content(
         self,
-        shared_triggers_models_list_triggers_request: Optional[SharedTriggersModelsListTriggersRequest] = None,
+        shared_triggers_models_list_triggers_request: Annotated[Optional[SharedTriggersModelsListTriggersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1660,7 +1694,7 @@ class TriggersApi:
 
         List triggers with filters and pagination.
 
-        :param shared_triggers_models_list_triggers_request:
+        :param shared_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type shared_triggers_models_list_triggers_request: SharedTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1698,8 +1732,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1789,7 +1825,7 @@ class TriggersApi:
     @validate_call
     def list_triggers_0(
         self,
-        shared_triggers_models_list_triggers_request: Optional[SharedTriggersModelsListTriggersRequest] = None,
+        shared_triggers_models_list_triggers_request: Annotated[Optional[SharedTriggersModelsListTriggersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1807,7 +1843,7 @@ class TriggersApi:
 
         List triggers with filters and pagination.      **Filters:**     - `action_type`: Filter by action type (cluster, taxonomy_enrichment)     - `trigger_type`: Filter by trigger type (cron, interval, event, conditional)     - `status`: Filter by status (active, paused, disabled, failed)     - `resource_id`: Filter by resource ID (cluster_id or taxonomy_id)
 
-        :param shared_triggers_models_list_triggers_request:
+        :param shared_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type shared_triggers_models_list_triggers_request: SharedTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1845,8 +1881,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1862,7 +1900,7 @@ class TriggersApi:
     @validate_call
     def list_triggers_0_with_http_info(
         self,
-        shared_triggers_models_list_triggers_request: Optional[SharedTriggersModelsListTriggersRequest] = None,
+        shared_triggers_models_list_triggers_request: Annotated[Optional[SharedTriggersModelsListTriggersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1880,7 +1918,7 @@ class TriggersApi:
 
         List triggers with filters and pagination.      **Filters:**     - `action_type`: Filter by action type (cluster, taxonomy_enrichment)     - `trigger_type`: Filter by trigger type (cron, interval, event, conditional)     - `status`: Filter by status (active, paused, disabled, failed)     - `resource_id`: Filter by resource ID (cluster_id or taxonomy_id)
 
-        :param shared_triggers_models_list_triggers_request:
+        :param shared_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type shared_triggers_models_list_triggers_request: SharedTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1918,8 +1956,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1935,7 +1975,7 @@ class TriggersApi:
     @validate_call
     def list_triggers_0_without_preload_content(
         self,
-        shared_triggers_models_list_triggers_request: Optional[SharedTriggersModelsListTriggersRequest] = None,
+        shared_triggers_models_list_triggers_request: Annotated[Optional[SharedTriggersModelsListTriggersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1953,7 +1993,7 @@ class TriggersApi:
 
         List triggers with filters and pagination.      **Filters:**     - `action_type`: Filter by action type (cluster, taxonomy_enrichment)     - `trigger_type`: Filter by trigger type (cron, interval, event, conditional)     - `status`: Filter by status (active, paused, disabled, failed)     - `resource_id`: Filter by resource ID (cluster_id or taxonomy_id)
 
-        :param shared_triggers_models_list_triggers_request:
+        :param shared_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type shared_triggers_models_list_triggers_request: SharedTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1991,8 +2031,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2138,8 +2180,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2211,8 +2255,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2284,8 +2330,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2418,8 +2466,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2491,8 +2541,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2564,8 +2616,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2643,7 +2697,7 @@ class TriggersApi:
     def update_trigger(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        shared_triggers_models_update_trigger_request: SharedTriggersModelsUpdateTriggerRequest,
+        shared_triggers_models_update_trigger_request: Annotated[SharedTriggersModelsUpdateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2663,7 +2717,7 @@ class TriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param shared_triggers_models_update_trigger_request: (required)
+        :param shared_triggers_models_update_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_triggers_models_update_trigger_request: SharedTriggersModelsUpdateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2702,8 +2756,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2720,7 +2776,7 @@ class TriggersApi:
     def update_trigger_with_http_info(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        shared_triggers_models_update_trigger_request: SharedTriggersModelsUpdateTriggerRequest,
+        shared_triggers_models_update_trigger_request: Annotated[SharedTriggersModelsUpdateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2740,7 +2796,7 @@ class TriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param shared_triggers_models_update_trigger_request: (required)
+        :param shared_triggers_models_update_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_triggers_models_update_trigger_request: SharedTriggersModelsUpdateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2779,8 +2835,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2797,7 +2855,7 @@ class TriggersApi:
     def update_trigger_without_preload_content(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        shared_triggers_models_update_trigger_request: SharedTriggersModelsUpdateTriggerRequest,
+        shared_triggers_models_update_trigger_request: Annotated[SharedTriggersModelsUpdateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2817,7 +2875,7 @@ class TriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param shared_triggers_models_update_trigger_request: (required)
+        :param shared_triggers_models_update_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_triggers_models_update_trigger_request: SharedTriggersModelsUpdateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2856,8 +2914,10 @@ class TriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

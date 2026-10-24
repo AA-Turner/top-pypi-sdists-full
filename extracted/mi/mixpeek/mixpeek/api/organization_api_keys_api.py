@@ -48,7 +48,7 @@ class OrganizationAPIKeysApi:
     def create_key_organizations_users_email(
         self,
         user_email: StrictStr,
-        api_key_create_request: APIKeyCreateRequest,
+        api_key_create_request: Annotated[APIKeyCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -68,7 +68,7 @@ class OrganizationAPIKeysApi:
 
         :param user_email: (required)
         :type user_email: str
-        :param api_key_create_request: (required)
+        :param api_key_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type api_key_create_request: APIKeyCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -107,8 +107,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -125,7 +127,7 @@ class OrganizationAPIKeysApi:
     def create_key_organizations_users_email_with_http_info(
         self,
         user_email: StrictStr,
-        api_key_create_request: APIKeyCreateRequest,
+        api_key_create_request: Annotated[APIKeyCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -145,7 +147,7 @@ class OrganizationAPIKeysApi:
 
         :param user_email: (required)
         :type user_email: str
-        :param api_key_create_request: (required)
+        :param api_key_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type api_key_create_request: APIKeyCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -184,8 +186,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -202,7 +206,7 @@ class OrganizationAPIKeysApi:
     def create_key_organizations_users_email_without_preload_content(
         self,
         user_email: StrictStr,
-        api_key_create_request: APIKeyCreateRequest,
+        api_key_create_request: Annotated[APIKeyCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -222,7 +226,7 @@ class OrganizationAPIKeysApi:
 
         :param user_email: (required)
         :type user_email: str
-        :param api_key_create_request: (required)
+        :param api_key_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type api_key_create_request: APIKeyCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -261,8 +265,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -372,7 +378,7 @@ class OrganizationAPIKeysApi:
     ) -> GenericSuccessResponse:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Studio session keys can be revoked here by name or key_id; list them with include_session_keys=true.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
@@ -418,8 +424,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -453,7 +461,7 @@ class OrganizationAPIKeysApi:
     ) -> ApiResponse[GenericSuccessResponse]:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Studio session keys can be revoked here by name or key_id; list them with include_session_keys=true.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
@@ -499,8 +507,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -534,7 +544,7 @@ class OrganizationAPIKeysApi:
     ) -> RESTResponseType:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Studio session keys can be revoked here by name or key_id; list them with include_session_keys=true.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
@@ -580,8 +590,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -667,6 +679,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         include_revoked: Optional[StrictBool] = None,
+        include_session_keys: Annotated[Optional[StrictBool], Field(description="Also list the short-lived Studio session keys minted at each Studio login. Each can be revoked by its key_id with DELETE.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -688,6 +701,8 @@ class OrganizationAPIKeysApi:
         :type user_email: str
         :param include_revoked:
         :type include_revoked: bool
+        :param include_session_keys: Also list the short-lived Studio session keys minted at each Studio login. Each can be revoked by its key_id with DELETE.
+        :type include_session_keys: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -713,6 +728,7 @@ class OrganizationAPIKeysApi:
         _param = self._list_keys_organizations_users_email_serialize(
             user_email=user_email,
             include_revoked=include_revoked,
+            include_session_keys=include_session_keys,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -725,8 +741,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -744,6 +762,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         include_revoked: Optional[StrictBool] = None,
+        include_session_keys: Annotated[Optional[StrictBool], Field(description="Also list the short-lived Studio session keys minted at each Studio login. Each can be revoked by its key_id with DELETE.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -765,6 +784,8 @@ class OrganizationAPIKeysApi:
         :type user_email: str
         :param include_revoked:
         :type include_revoked: bool
+        :param include_session_keys: Also list the short-lived Studio session keys minted at each Studio login. Each can be revoked by its key_id with DELETE.
+        :type include_session_keys: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -790,6 +811,7 @@ class OrganizationAPIKeysApi:
         _param = self._list_keys_organizations_users_email_serialize(
             user_email=user_email,
             include_revoked=include_revoked,
+            include_session_keys=include_session_keys,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -802,8 +824,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -821,6 +845,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         include_revoked: Optional[StrictBool] = None,
+        include_session_keys: Annotated[Optional[StrictBool], Field(description="Also list the short-lived Studio session keys minted at each Studio login. Each can be revoked by its key_id with DELETE.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -842,6 +867,8 @@ class OrganizationAPIKeysApi:
         :type user_email: str
         :param include_revoked:
         :type include_revoked: bool
+        :param include_session_keys: Also list the short-lived Studio session keys minted at each Studio login. Each can be revoked by its key_id with DELETE.
+        :type include_session_keys: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -867,6 +894,7 @@ class OrganizationAPIKeysApi:
         _param = self._list_keys_organizations_users_email_serialize(
             user_email=user_email,
             include_revoked=include_revoked,
+            include_session_keys=include_session_keys,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -879,8 +907,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -893,6 +923,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email,
         include_revoked,
+        include_session_keys,
         _request_auth,
         _content_type,
         _headers,
@@ -920,6 +951,10 @@ class OrganizationAPIKeysApi:
         if include_revoked is not None:
             
             _query_params.append(('include_revoked', include_revoked))
+            
+        if include_session_keys is not None:
+            
+            _query_params.append(('include_session_keys', include_session_keys))
             
         # process the header parameters
         # process the form parameters
@@ -1021,8 +1056,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1098,8 +1135,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1175,8 +1214,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1257,7 +1298,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         key_name: StrictStr,
-        api_key_update_request: APIKeyUpdateRequest,
+        api_key_update_request: Annotated[APIKeyUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1279,7 +1320,7 @@ class OrganizationAPIKeysApi:
         :type user_email: str
         :param key_name: (required)
         :type key_name: str
-        :param api_key_update_request: (required)
+        :param api_key_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type api_key_update_request: APIKeyUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1319,8 +1360,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1338,7 +1381,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         key_name: StrictStr,
-        api_key_update_request: APIKeyUpdateRequest,
+        api_key_update_request: Annotated[APIKeyUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1360,7 +1403,7 @@ class OrganizationAPIKeysApi:
         :type user_email: str
         :param key_name: (required)
         :type key_name: str
-        :param api_key_update_request: (required)
+        :param api_key_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type api_key_update_request: APIKeyUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1400,8 +1443,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1419,7 +1464,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         key_name: StrictStr,
-        api_key_update_request: APIKeyUpdateRequest,
+        api_key_update_request: Annotated[APIKeyUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1441,7 +1486,7 @@ class OrganizationAPIKeysApi:
         :type user_email: str
         :param key_name: (required)
         :type key_name: str
-        :param api_key_update_request: (required)
+        :param api_key_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type api_key_update_request: APIKeyUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1481,8 +1526,10 @@ class OrganizationAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

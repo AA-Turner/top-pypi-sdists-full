@@ -52,7 +52,7 @@ def parallel_parallax_fwd_kernel(
     BS: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_hq = i_bh // HQ, i_bh % HQ
     i_h = i_hq // G
 
@@ -225,7 +225,7 @@ def parallel_parallax_bwd_kernel_preprocess(
     BT: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_hq = i_bh // HQ, i_bh % HQ
 
     if IS_VARLEN:
@@ -288,7 +288,7 @@ def parallel_parallax_bwd_kernel_dqr(
     BS: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_hq = i_bh // HQ, i_bh % HQ
     i_h = i_hq // G
 
@@ -465,7 +465,7 @@ def parallel_parallax_bwd_kernel_dkv(
     BS: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_hq = i_bh // HQ, i_bh % HQ
     i_h = i_hq // G
 
@@ -764,7 +764,6 @@ def parallel_parallax(
     scale: float | None = None,
     window_size: int | None = None,
     cu_seqlens: torch.LongTensor | None = None,
-    **kwargs,
 ) -> torch.Tensor:
     r"""
     Causal Parallax (parameterized local linear attention) with autograd,
@@ -796,14 +795,13 @@ def parallel_parallax(
         o (torch.Tensor):
             output of shape `[B, T, HQ, D]`.
     """
-    if 'head_first' in kwargs:
-        raise DeprecationWarning(
-            "head_first has been removed. Inputs must be in `[B, T, H, ...]` format.",
-        )
     if q.dtype not in (torch.bfloat16, torch.float16):
         raise TypeError(f"parallel_parallax requires bf16 or fp16 inputs, got q.dtype={q.dtype}")
     if scale is None:
         scale = k.shape[-1] ** -0.5
+    HQ, H = q.shape[2], k.shape[2]
+    if H == 0 or HQ % H != 0:
+        raise ValueError(f"The number of query heads ({HQ}) must be divisible by the number of key/value heads ({H}).")
     if cu_seqlens is not None and q.shape[0] != 1:
         raise ValueError(
             f"The batch size is expected to be 1 rather than {q.shape[0]} when using `cu_seqlens`. "

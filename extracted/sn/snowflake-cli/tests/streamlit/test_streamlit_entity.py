@@ -53,28 +53,6 @@ def _statement_count(sql: str) -> int:
 
 class TestStreamlitEntity(StreamlitTestClass):
     @staticmethod
-    def _create_entity(project_root: Path, main_file: str, artifacts):
-        workspace_ctx = WorkspaceContext(
-            console=mock.MagicMock(spec=AbstractConsole),
-            project_root=project_root,
-            get_default_role=lambda: "mock_role",
-            get_default_warehouse=lambda: "mock_warehouse",
-        )
-        model = StreamlitEntityModel(
-            type="streamlit",
-            identifier="test_streamlit",
-            main_file=main_file,
-            artifacts=artifacts,
-        )
-        model.set_entity_id("test_streamlit")
-        return StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
-
-    @staticmethod
-    def _write_file(path: Path, content: str = ""):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-
-    @staticmethod
     def _bundle_output(project_root: Path) -> Path:
         return project_root / "output" / "bundle" / "streamlit" / "test_streamlit"
 
@@ -172,6 +150,131 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert list(bundle_map.all_sources()) == [Path("app.py")]
         assert list(bundle_map.to_deploy_paths(Path("app.py"))) == [Path("app.py")]
         assert (output / "app.py").exists()
+
+    def test_bundle_includes_snowflake_yml_when_opted_in(self, tmp_path):
+        self._write_file(tmp_path / "app.py")
+        self._write_file(tmp_path / "snowflake.yml", "definition_version: 2\n")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[],
+            include_project_definition=True,
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert Path("snowflake.yml") in list(bundle_map.all_sources())
+        assert (output / "snowflake.yml").exists()
+        assert (output / "app.py").exists()
+
+    def test_bundle_skips_snowflake_yml_when_not_opted_in(self, tmp_path):
+        self._write_file(tmp_path / "app.py")
+        self._write_file(tmp_path / "snowflake.yml", "definition_version: 2\n")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[],
+            include_project_definition=False,
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert Path("snowflake.yml") not in list(bundle_map.all_sources())
+        assert not (output / "snowflake.yml").exists()
+
+    def test_bundle_skips_snowflake_yml_auto_insert_when_missing(self, tmp_path):
+        self._write_file(tmp_path / "app.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[],
+            include_project_definition=True,
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("app.py")]
+        assert not (output / "snowflake.yml").exists()
+
+    @pytest.mark.parametrize("artifact", ["snowflake.yml", "*.yml"])
+    def test_bundle_skips_snowflake_yml_auto_insert_when_covered_by_artifact(
+        self, tmp_path, artifact
+    ):
+        self._write_file(tmp_path / "app.py")
+        self._write_file(tmp_path / "snowflake.yml", "definition_version: 2\n")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=["app.py", artifact],
+            include_project_definition=True,
+        )
+
+        bundle_map = entity.bundle()
+
+        assert list(bundle_map.all_sources()).count(Path("snowflake.yml")) == 1
+
+    def test_bundle_skips_snowflake_yml_auto_insert_when_covered_by_same_dest(
+        self, tmp_path
+    ):
+        """An artifact with ``src=snowflake.yml, dest='./'`` already deploys the
+        file to the deploy root, so auto-insert is skipped."""
+        self._write_file(tmp_path / "app.py")
+        self._write_file(tmp_path / "snowflake.yml", "definition_version: 2\n")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[
+                "app.py",
+                PathMapping(src="snowflake.yml", dest="./"),
+            ],
+            include_project_definition=True,
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()).count(Path("snowflake.yml")) == 1
+        assert (output / "snowflake.yml").exists()
+
+    @pytest.mark.parametrize(
+        "include_project_definition, artifacts, expected_warning",
+        [
+            (True, [], True),
+            (False, ["snowflake.yml"], True),
+            (False, ["*.yml"], True),
+            (False, [], False),
+        ],
+    )
+    def test_deploy_warns_only_when_snowflake_yml_is_uploaded(
+        self, tmp_path, include_project_definition, artifacts, expected_warning
+    ):
+        self._write_file(tmp_path / "app.py")
+        self._write_file(tmp_path / "snowflake.yml", "definition_version: 2\n")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=artifacts,
+            include_project_definition=include_project_definition,
+        )
+        action_context = mock.MagicMock()
+
+        entity.deploy(action_context, _open=False, replace=False)
+
+        warnings = [
+            call.args[0]
+            for call in entity._workspace_ctx.console.warning.call_args_list  # noqa: SLF001
+            if call.args
+        ]
+        assert (
+            any(
+                "snowflake.yml" in warning and "USAGE" in warning
+                for warning in warnings
+            )
+            == expected_warning
+        )
 
     @pytest.mark.parametrize(
         "main_file, artifact_dir, expected_source, sibling_file",
@@ -1184,6 +1287,9 @@ class TestStreamlitEntity(StreamlitTestClass):
         if describe_side_effect is not None:
             self.mock_describe.side_effect = describe_side_effect
         elif describe_return is not None:
+            describe_return.fetchone.return_value.setdefault(
+                "main_file", "streamlit_app.py"
+            )
             self.mock_describe.return_value = describe_return
 
         mock_stage_manager = mock_stage_manager_cls.return_value
@@ -1375,6 +1481,7 @@ class TestStreamlitEntity(StreamlitTestClass):
             "live_version_location_uri": live_uri,
             "query_warehouse": "test_warehouse",
             "runtime_name": SPCS_RUNTIME_V2_NAME,
+            "main_file": "streamlit_app.py",
         }
         entity, _, _ = self._setup_versioned_replace_mocks(
             mock_bundle,

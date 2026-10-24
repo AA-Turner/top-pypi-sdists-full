@@ -1,6 +1,5 @@
 import { TextAreaInput as BkTextAreaInput, TextAreaInputView as BkTextAreaInputView } from "@bokehjs/models/widgets/textarea_input";
 export class TextAreaInputView extends BkTextAreaInputView {
-    static __name__ = "TextAreaInputView";
     connect_signals() {
         super.connect_signals();
         const { value, max_rows } = this.model.properties;
@@ -25,7 +24,6 @@ export class TextAreaInputView extends BkTextAreaInputView {
     }
 }
 export class TextAreaInput extends BkTextAreaInput {
-    static __name__ = "TextAreaInput";
     constructor(attrs) {
         super(attrs);
     }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: diffusers
-Version: 0.41.0
+Version: 0.42.0
 Summary: State-of-the-art diffusion in PyTorch.
 Home-page: https://github.com/huggingface/diffusers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/diffusers/graphs/contributors)
@@ -15,15 +15,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.10.0
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: importlib_metadata
 Requires-Dist: filelock
-Requires-Dist: huggingface-hub<2.0,>=1.32.0
+Requires-Dist: huggingface-hub<3.0,>=1.32.0
 Requires-Dist: numpy
 Requires-Dist: regex!=2019.12.17
 Requires-Dist: requests

@@ -18,11 +18,12 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.costs_info import CostsInfo
 from mixpeek.models.extractor_source import ExtractorSource
 from mixpeek.models.payload_index_config_output import PayloadIndexConfigOutput
+from mixpeek.models.serve_app_status import ServeAppStatus
 from mixpeek.models.vector_index_definition import VectorIndexDefinition
 from typing import Optional, Set
 from typing_extensions import Self
@@ -43,17 +44,19 @@ class FeatureExtractorResponseModel(BaseModel):
     inference_type: Optional[StrictStr] = Field(default=None, description="Kind of real-time inference this extractor provides: 'embedding', 'rerank', 'classify', 'generate', or 'general'. Null if batch-only.")
     input_schema: Dict[str, Any]
     output_schema: Dict[str, Any]
-    parameter_schema: Dict[str, Any]
+    parameter_schema: Optional[Dict[str, Any]]
     supported_input_types: List[StrictStr]
     max_inputs: Dict[str, StrictInt]
     default_parameters: Dict[str, Any]
     costs: Optional[CostsInfo] = Field(default=None, description="Credit cost information for this extractor")
-    required_vector_indexes: List[VectorIndexDefinition]
-    required_payload_indexes: List[PayloadIndexConfigOutput]
+    required_vector_indexes: Optional[List[VectorIndexDefinition]]
+    required_payload_indexes: Optional[List[PayloadIndexConfigOutput]]
     position_fields: Optional[List[StrictStr]] = Field(default=None, description="Output fields that uniquely identify each document within a source object. Enables idempotent reprocessing: rerunning a batch produces the same document IDs, so existing documents are updated instead of creating duplicates. Works with bucket `unique_key` to enable fully deterministic document IDs. Empty list means single-output extractor (one document per source). Read-only (set by extractor).")
     capabilities: Optional[List[StrictStr]] = Field(default=None, description="What this extractor can do: 'batch' (feature extraction during ingestion), 'realtime' (query-time inference for retriever stages)")
     example_usage: Optional[Dict[str, Any]] = Field(default=None, description="Minimal working configuration for namespace + collection + input_mappings + parameters")
-    __properties: ClassVar[List[str]] = ["feature_extractor_name", "version", "feature_extractor_id", "description", "icon", "category", "source", "type_mode", "expected_input_types", "inference_type", "input_schema", "output_schema", "parameter_schema", "supported_input_types", "max_inputs", "default_parameters", "costs", "required_vector_indexes", "required_payload_indexes", "position_fields", "capabilities", "example_usage"]
+    realtime_available: Optional[StrictBool] = Field(default=None, description="Whether every Ray Serve application this extractor needs for real-time inference is running on the deployment serving this request. True when all of them report RUNNING. False when one is absent or not running; see serve_apps for which. Null when the extractor needs none, or when the live list could not be read.")
+    serve_apps: Optional[List[ServeAppStatus]] = Field(default=None, description="The Ray Serve applications this extractor needs for real-time inference, each with its live status. Empty when it needs none.")
+    __properties: ClassVar[List[str]] = ["feature_extractor_name", "version", "feature_extractor_id", "description", "icon", "category", "source", "type_mode", "expected_input_types", "inference_type", "input_schema", "output_schema", "parameter_schema", "supported_input_types", "max_inputs", "default_parameters", "costs", "required_vector_indexes", "required_payload_indexes", "position_fields", "capabilities", "example_usage", "realtime_available", "serve_apps"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -111,6 +114,28 @@ class FeatureExtractorResponseModel(BaseModel):
                 if _item_required_payload_indexes:
                     _items.append(_item_required_payload_indexes.to_dict())
             _dict['required_payload_indexes'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in serve_apps (list)
+        _items = []
+        if self.serve_apps:
+            for _item_serve_apps in self.serve_apps:
+                if _item_serve_apps:
+                    _items.append(_item_serve_apps.to_dict())
+            _dict['serve_apps'] = _items
+        # set to None if parameter_schema (nullable) is None
+        # and model_fields_set contains the field
+        if self.parameter_schema is None and "parameter_schema" in self.model_fields_set:
+            _dict['parameter_schema'] = None
+
+        # set to None if required_vector_indexes (nullable) is None
+        # and model_fields_set contains the field
+        if self.required_vector_indexes is None and "required_vector_indexes" in self.model_fields_set:
+            _dict['required_vector_indexes'] = None
+
+        # set to None if required_payload_indexes (nullable) is None
+        # and model_fields_set contains the field
+        if self.required_payload_indexes is None and "required_payload_indexes" in self.model_fields_set:
+            _dict['required_payload_indexes'] = None
+
         return _dict
 
     @classmethod
@@ -144,7 +169,9 @@ class FeatureExtractorResponseModel(BaseModel):
             "required_payload_indexes": [PayloadIndexConfigOutput.from_dict(_item) for _item in obj["required_payload_indexes"]] if obj.get("required_payload_indexes") is not None else None,
             "position_fields": obj.get("position_fields"),
             "capabilities": obj.get("capabilities"),
-            "example_usage": obj.get("example_usage")
+            "example_usage": obj.get("example_usage"),
+            "realtime_available": obj.get("realtime_available"),
+            "serve_apps": [ServeAppStatus.from_dict(_item) for _item in obj["serve_apps"]] if obj.get("serve_apps") is not None else None
         })
         return _obj
 

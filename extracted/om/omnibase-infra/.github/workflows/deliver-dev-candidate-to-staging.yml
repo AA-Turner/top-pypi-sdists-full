@@ -326,7 +326,7 @@ jobs:
 
       - name: Mint a read-only omninode_infra token
         id: infra-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
           private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
@@ -891,13 +891,21 @@ jobs:
             kubectl logs -n "${LAB_NAMESPACE}" "${POD}" --all-containers || true
           done
 
+      # OMN-17427. On a timeout the wait explains every Deployment that is not
+      # ready in THIS step's log: its conditions, each pod's status and last
+      # state, the events naming it, and the tail of the current and previous
+      # container logs. Run 39668407696 waited 1800s, printed only
+      # `omninode-runtime 0/1 NOT READY`, and the cause sat in the artifact, so
+      # every red run was diagnosed by hand. The same explanation, with the
+      # logs untruncated, lands in the uploaded artifact under not-ready/.
       - name: Wait for every runtime-family Deployment and the projection topic
         id: boot-wait
         run: |
           set -euo pipefail
           python3 omnibase_infra/scripts/ci/boot_gate.py wait \
             --namespace "${LAB_NAMESPACE}" \
-            --timeout-seconds "${BOOT_WAIT_SECONDS}"
+            --timeout-seconds "${BOOT_WAIT_SECONDS}" \
+            --diagnostics-dir /tmp/boot-gate-diagnostics/not-ready
 
       # OMN-17530 follow-up, and OMN-18364. This step is THIS JOB'S Python
       # interpreter, not one step's private dependency, and it is placed
@@ -1240,7 +1248,7 @@ jobs:
       # credentials fail the job; they do not skip the read.
       - name: Obtain a read-only Actions token for omnimarket (D11, OMN-19311)
         id: d11-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
           private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
@@ -1355,7 +1363,7 @@ jobs:
       - name: Obtain a read-only Actions token for the pinned sibling repository
         id: sibling-token
         if: github.event.client_payload.pinned_repo != ''
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
           private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
@@ -1516,7 +1524,7 @@ jobs:
 
       - name: Mint onexbot-occ-writer app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
           private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}

@@ -1,4 +1,6 @@
 import os
+import sqlite3
+import threading
 import unittest
 
 try:
@@ -40,6 +42,19 @@ class TestSqlStorage(StorageTests, BaseTestCase):
 
     def get_huey(self):
         return SqlHuey(database=SQLHUEY_URL, utc=False)
+
+    def test_sqlite_waits_for_write_lock(self):
+        if not isinstance(self.s.database, peewee.SqliteDatabase):
+            self.skipTest('requires sqlite')
+        self.s.enqueue(b'a')
+        conn = sqlite3.connect(self.s.database.database, isolation_level=None,
+                               check_same_thread=False)
+        conn.execute('begin immediate')  # Hold the write lock briefly.
+        t = threading.Timer(0.1, conn.execute, ('commit',))
+        t.start()
+        self.assertEqual(self.s.dequeue(), b'a')
+        t.join()
+        conn.close()
 
     def test_sql_huey_basic(self):
         @self.huey.task()

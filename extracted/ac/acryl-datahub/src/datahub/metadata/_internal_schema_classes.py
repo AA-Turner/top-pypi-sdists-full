@@ -182,7 +182,7 @@ class DataHubAccessTokenInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'dataHubAccessTokenInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.access.token.DataHubAccessTokenInfo")
 
     def __init__(self,
@@ -9584,6 +9584,7 @@ class DataHubSearchConfigClass(DictWrapper):
         weightsPerFieldValue: Union[None, Dict[str, float]]=None,
         fieldNameAliases: Union[None, List[str]]=None,
         copyTo: Union[None, List[str]]=None,
+        copyUrnTo: Union[None, List[str]]=None,
     ):
         super().__init__()
         
@@ -9623,6 +9624,7 @@ class DataHubSearchConfigClass(DictWrapper):
         self.weightsPerFieldValue = weightsPerFieldValue
         self.fieldNameAliases = fieldNameAliases
         self.copyTo = copyTo
+        self.copyUrnTo = copyUrnTo
     
     def _restore_defaults(self) -> None:
         self.fieldName = self.RECORD_SCHEMA.fields_dict["fieldName"].default
@@ -9641,6 +9643,7 @@ class DataHubSearchConfigClass(DictWrapper):
         self.weightsPerFieldValue = self.RECORD_SCHEMA.fields_dict["weightsPerFieldValue"].default
         self.fieldNameAliases = self.RECORD_SCHEMA.fields_dict["fieldNameAliases"].default
         self.copyTo = self.RECORD_SCHEMA.fields_dict["copyTo"].default
+        self.copyUrnTo = self.RECORD_SCHEMA.fields_dict["copyUrnTo"].default
     
     
     @property
@@ -9805,13 +9808,26 @@ class DataHubSearchConfigClass(DictWrapper):
         """Shared search fields this property's values are copied into, on Search V3.
     Each entry names a shared field (entityName, qualifiedName, description,
     columns, other) or a root field that feeds one (name, description).
-    The property's own field is unchanged, and the stored name is unchanged.
-    Unset copies nowhere. A number or date property ignores this list."""
+    For a URN property this copies the parsed name. The complete URN is
+    copyUrnTo. The property's own field is unchanged, and the stored name is
+    unchanged. Unset copies nowhere. A number or date property ignores this list."""
         return self._inner_dict.get('copyTo')  # type: ignore
     
     @copyTo.setter
     def copyTo(self, value: Union[None, List[str]]) -> None:
         self._inner_dict['copyTo'] = value
+    
+    
+    @property
+    def copyUrnTo(self) -> Union[None, List[str]]:
+        """Shared search fields the complete URN is copied into, on Search V3.
+    Same names as copyTo. Ignored unless the value type is URN. A destination
+    listed here and in copyTo receives both the complete URN and the parsed name."""
+        return self._inner_dict.get('copyUrnTo')  # type: ignore
+    
+    @copyUrnTo.setter
+    def copyUrnTo(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['copyUrnTo'] = value
     
     
 class SearchFieldTypeClass(object):
@@ -11237,7 +11253,7 @@ class SlackUserInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'slackUserInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataplatform.slack.SlackUserInfo")
 
     def __init__(self,
@@ -14148,7 +14164,7 @@ class DataTypeInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'dataTypeInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datatype.DataTypeInfo")
 
     def __init__(self,
@@ -14416,7 +14432,7 @@ class EntityTypeInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'entityTypeInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.entitytype.EntityTypeInfo")
 
     def __init__(self,
@@ -15629,7 +15645,7 @@ class FormInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'formInfo'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.form.FormInfo")
 
     def __init__(self,
@@ -18744,7 +18760,7 @@ class LifecycleStageTypeInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'lifecycleStageTypeInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.lifecycle.LifecycleStageTypeInfo")
 
     def __init__(self,
@@ -20862,6 +20878,36 @@ class SchemaFieldKeyClass(_Aspect):
         self._inner_dict['fieldPath'] = value
     
     
+class SearchTemplateKeyClass(_Aspect):
+    """Key for a search query template."""
+
+
+    ASPECT_NAME = 'searchTemplateKey'
+    ASPECT_INFO = {'keyForEntity': 'searchTemplate', 'entityCategory': 'core', 'entityAspects': ['searchTemplateProperties'], 'entityDoc': 'A Mustache-rendered search query template, addressed by URN and selected at query time. Managed through the generic entity API. Not included in default search, browse, or autocomplete entity-type lists.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.SearchTemplateKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique id for the template. Well-known system ids are fulltext, light, list, structured,
+    exact, structuredExact, identity, search, and searchLight."""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
 class SemanticModelKeyClass(_Aspect):
     """Key for a Semantic Model"""
 
@@ -22922,7 +22968,7 @@ class EditableMLPrimaryKeyPropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'editableMlPrimaryKeyProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.EditableMLPrimaryKeyProperties")
 
     def __init__(self,
@@ -24034,7 +24080,7 @@ class MLPrimaryKeyPropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'mlPrimaryKeyProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties")
 
     def __init__(self,
@@ -26011,7 +26057,7 @@ class OwnershipTypeInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'ownershipTypeInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ownership.OwnershipTypeInfo")
 
     def __init__(self,
@@ -27136,7 +27182,7 @@ class PostInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'postInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.post.PostInfo")
 
     def __init__(self,
@@ -27258,7 +27304,7 @@ class QueryPropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'queryProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.query.QueryProperties")
 
     def __init__(self,
@@ -28072,7 +28118,7 @@ class RolePropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'roleProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.role.RoleProperties")
 
     def __init__(self,
@@ -28383,7 +28429,7 @@ class EditableSchemaMetadataClass(_Aspect):
 
 
     ASPECT_NAME = 'editableSchemaMetadata'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.schema.EditableSchemaMetadata")
 
     def __init__(self,
@@ -28446,7 +28492,8 @@ class EditableSchemaMetadataClass(_Aspect):
     
     @property
     def editableSchemaFieldInfo(self) -> List["EditableSchemaFieldInfoClass"]:
-        """Client provided a list of fields from document schema."""
+        """Client provided a list of fields from document schema. Descriptions, tags and glossary
+    terms on these columns are one step from the entity, so they index as degree 1."""
         return self._inner_dict.get('editableSchemaFieldInfo')  # type: ignore
     
     @editableSchemaFieldInfo.setter
@@ -29580,12 +29627,1418 @@ class SchemaFieldInfoClass(_Aspect):
         self._inner_dict['schemaFieldAliases'] = value
     
     
+class HighlightFieldOverridesClass(DictWrapper):
+    """Template override of the highlight-field set. Applied to the schema-derived highlight fields.
+    {@code replace} cannot be combined with {@code add} or {@code remove}. An explicitly present
+    empty object clears an inherited override. Whether highlighting runs stays on
+    {@code SearchFlags.skipHighlighting}."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.HighlightFieldOverrides")
+    def __init__(self,
+        add: Union[None, List[str]]=None,
+        remove: Union[None, List[str]]=None,
+        replace: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.add = add
+        self.remove = remove
+        self.replace = replace
+    
+    def _restore_defaults(self) -> None:
+        self.add = self.RECORD_SCHEMA.fields_dict["add"].default
+        self.remove = self.RECORD_SCHEMA.fields_dict["remove"].default
+        self.replace = self.RECORD_SCHEMA.fields_dict["replace"].default
+    
+    
+    @property
+    def add(self) -> Union[None, List[str]]:
+        """Field names added on top of the base set."""
+        return self._inner_dict.get('add')  # type: ignore
+    
+    @add.setter
+    def add(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['add'] = value
+    
+    
+    @property
+    def remove(self) -> Union[None, List[str]]:
+        """Field names removed from the base set."""
+        return self._inner_dict.get('remove')  # type: ignore
+    
+    @remove.setter
+    def remove(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['remove'] = value
+    
+    
+    @property
+    def replace(self) -> Union[None, List[str]]:
+        """Wholesale replacement of the base set."""
+        return self._inner_dict.get('replace')  # type: ignore
+    
+    @replace.setter
+    def replace(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['replace'] = value
+    
+    
+class SearchFieldBoostClass(DictWrapper):
+    """A queried field and its boost, used by a search template's field overrides."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchFieldBoost")
+    def __init__(self,
+        fieldName: str,
+        boost: float,
+        subfield: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.fieldName = fieldName
+        self.boost = boost
+        self.subfield = subfield
+    
+    def _restore_defaults(self) -> None:
+        self.fieldName = str()
+        self.boost = float()
+        self.subfield = self.RECORD_SCHEMA.fields_dict["subfield"].default
+    
+    
+    @property
+    def fieldName(self) -> str:
+        """Indexed field name, or a structured-property definition URN. A subfield is separate.
+    A nested contribution uses its degree-suffixed indexed name, such as {@code tags_1} for tags
+    that live one relationship away from the entity. {@code tags} is the direct contribution.
+    Each degree has its own boost."""
+        return self._inner_dict.get('fieldName')  # type: ignore
+    
+    @fieldName.setter
+    def fieldName(self, value: str) -> None:
+        self._inner_dict['fieldName'] = value
+    
+    
+    @property
+    def boost(self) -> float:
+        """Boost applied to this field. Matches {@code boostScore} on {@code @Searchable}."""
+        return self._inner_dict.get('boost')  # type: ignore
+    
+    @boost.setter
+    def boost(self, value: float) -> None:
+        self._inner_dict['boost'] = value
+    
+    
+    @property
+    def subfield(self) -> Union[None, str]:
+        """Subfield appended after a structured-property field. Valid values are {@code keyword} and
+    {@code text}."""
+        return self._inner_dict.get('subfield')  # type: ignore
+    
+    @subfield.setter
+    def subfield(self, value: Union[None, str]) -> None:
+        self._inner_dict['subfield'] = value
+    
+    
+class SearchFieldOverridesClass(DictWrapper):
+    """Template override of the queried-field set. Applied to the PDL {@code @Searchable}
+    {@code queryByDefault} fields. {@code replace} cannot be combined with {@code add},
+    {@code remove}, or {@code override}. An explicitly present empty object clears an inherited
+    override. {@code add}, {@code remove}, and {@code override} merge by field with the parent."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchFieldOverrides")
+    def __init__(self,
+        add: Union[None, List["SearchFieldBoostClass"]]=None,
+        remove: Union[None, List[str]]=None,
+        replace: Union[None, List["SearchFieldBoostClass"]]=None,
+        override: Union[None, List["SearchFieldBoostClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.add = add
+        self.remove = remove
+        self.replace = replace
+        self.override = override
+    
+    def _restore_defaults(self) -> None:
+        self.add = self.RECORD_SCHEMA.fields_dict["add"].default
+        self.remove = self.RECORD_SCHEMA.fields_dict["remove"].default
+        self.replace = self.RECORD_SCHEMA.fields_dict["replace"].default
+        self.override = self.RECORD_SCHEMA.fields_dict["override"].default
+    
+    
+    @property
+    def add(self) -> Union[None, List["SearchFieldBoostClass"]]:
+        """Fields added on top of the base set."""
+        return self._inner_dict.get('add')  # type: ignore
+    
+    @add.setter
+    def add(self, value: Union[None, List["SearchFieldBoostClass"]]) -> None:
+        self._inner_dict['add'] = value
+    
+    
+    @property
+    def remove(self) -> Union[None, List[str]]:
+        """Indexed field names removed from the base set. A nested contribution is removed by its
+    degree-suffixed name, such as {@code tags_1}, which leaves the direct field in the set."""
+        return self._inner_dict.get('remove')  # type: ignore
+    
+    @remove.setter
+    def remove(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['remove'] = value
+    
+    
+    @property
+    def replace(self) -> Union[None, List["SearchFieldBoostClass"]]:
+        """Wholesale replacement of the base set."""
+        return self._inner_dict.get('replace')  # type: ignore
+    
+    @replace.setter
+    def replace(self, value: Union[None, List["SearchFieldBoostClass"]]) -> None:
+        self._inner_dict['replace'] = value
+    
+    
+    @property
+    def override(self) -> Union[None, List["SearchFieldBoostClass"]]:
+        """Weight changes for fields that remain in the queried set. Does not add or remove a field."""
+        return self._inner_dict.get('override')  # type: ignore
+    
+    @override.setter
+    def override(self, value: Union[None, List["SearchFieldBoostClass"]]) -> None:
+        self._inner_dict['override'] = value
+    
+    
+class SearchTemplateBoostClass(DictWrapper):
+    """A closed list-membership boost. The service renders a terms filter for {@code values} and
+    applies {@code weight}. {@code values} is one of {@code viewerUrn}, {@code viewerGroupsJson},
+    {@code viewerDomainsJson}, or {@code domainsJson}."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateBoost")
+    def __init__(self,
+        field: str,
+        values: str,
+        weight: float,
+        subfield: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.field = field
+        self.subfield = subfield
+        self.values = values
+        self.weight = weight
+    
+    def _restore_defaults(self) -> None:
+        self.field = str()
+        self.subfield = self.RECORD_SCHEMA.fields_dict["subfield"].default
+        self.values = str()
+        self.weight = float()
+    
+    
+    @property
+    def field(self) -> str:
+        """Field the terms filter matches. A structured property is its definition URN. A nested
+    contribution uses its degree-suffixed indexed name, such as {@code tags_1}."""
+        return self._inner_dict.get('field')  # type: ignore
+    
+    @field.setter
+    def field(self, value: str) -> None:
+        self._inner_dict['field'] = value
+    
+    
+    @property
+    def subfield(self) -> Union[None, str]:
+        """Subfield appended after a structured-property field. {@code keyword} or {@code text}."""
+        return self._inner_dict.get('subfield')  # type: ignore
+    
+    @subfield.setter
+    def subfield(self, value: Union[None, str]) -> None:
+        self._inner_dict['subfield'] = value
+    
+    
+    @property
+    def values(self) -> str:
+        """Injectable list the service fills for the request."""
+        return self._inner_dict.get('values')  # type: ignore
+    
+    @values.setter
+    def values(self, value: str) -> None:
+        self._inner_dict['values'] = value
+    
+    
+    @property
+    def weight(self) -> float:
+        """Weight applied when the field matches one value in the list."""
+        return self._inner_dict.get('weight')  # type: ignore
+    
+    @weight.setter
+    def weight(self, value: float) -> None:
+        self._inner_dict['weight'] = value
+    
+    
+class SearchTemplateDefaultRouteClass(DictWrapper):
+    """Where a query goes when no route pattern matches. An explicit record with no
+    template clears an inherited default, and the miss stays on this template."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateDefaultRoute")
+    def __init__(self,
+        template: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.template = template
+    
+    def _restore_defaults(self) -> None:
+        self.template = self.RECORD_SCHEMA.fields_dict["template"].default
+    
+    
+    @property
+    def template(self) -> Union[None, str]:
+        """Template to run when no pattern matches. Absent clears an inherited default."""
+        return self._inner_dict.get('template')  # type: ignore
+    
+    @template.setter
+    def template(self, value: Union[None, str]) -> None:
+        self._inner_dict['template'] = value
+    
+    
+class SearchTemplateDialectClass(object):
+    # No docs available.
+    
+    ELASTICSEARCH = "ELASTICSEARCH"
+    POSTGRES = "POSTGRES"
+    
+    
+class SearchTemplateLadderClass(DictWrapper):
+    """How this template hands off to another. {@code select} is a conjunction evaluated before the
+    query. {@code stop} is a disjunction evaluated after. {@code next} is the following template.
+    {@code parallel} runs those templates together and {@code join} decides which page is served.
+    {@code fusion} names how a merge group would combine hits. An explicitly present empty ladder
+    drops an inherited ladder."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateLadder")
+    def __init__(self,
+        select: Union[None, List[str]]=None,
+        stop: Union[None, List["SearchTemplateLadderStopClass"]]=None,
+        next: Union[None, str]=None,
+        parallel: Union[None, List[str]]=None,
+        join: Union[None, str]=None,
+        fusion: Union[None, str]=None,
+        fusionCap: Union[None, int]=None,
+        facets: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.select = select
+        self.stop = stop
+        self.next = next
+        self.parallel = parallel
+        self.join = join
+        self.fusion = fusion
+        self.fusionCap = fusionCap
+        self.facets = facets
+    
+    def _restore_defaults(self) -> None:
+        self.select = self.RECORD_SCHEMA.fields_dict["select"].default
+        self.stop = self.RECORD_SCHEMA.fields_dict["stop"].default
+        self.next = self.RECORD_SCHEMA.fields_dict["next"].default
+        self.parallel = self.RECORD_SCHEMA.fields_dict["parallel"].default
+        self.join = self.RECORD_SCHEMA.fields_dict["join"].default
+        self.fusion = self.RECORD_SCHEMA.fields_dict["fusion"].default
+        self.fusionCap = self.RECORD_SCHEMA.fields_dict["fusionCap"].default
+        self.facets = self.RECORD_SCHEMA.fields_dict["facets"].default
+    
+    
+    @property
+    def select(self) -> Union[None, List[str]]:
+        """Predicates that must all match before this template is searched. Empty means always attempt.
+    A single leading {@code -} inverts a predicate."""
+        return self._inner_dict.get('select')  # type: ignore
+    
+    @select.setter
+    def select(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['select'] = value
+    
+    
+    @property
+    def stop(self) -> Union[None, List["SearchTemplateLadderStopClass"]]:
+        """Conditions that keep this rung. Required when {@code next} is set and {@code parallel} is
+    not, and when a {@code merge} group sets {@code next}. {@code any} and {@code allEmpty} may
+    set {@code next} with no group stop."""
+        return self._inner_dict.get('stop')  # type: ignore
+    
+    @stop.setter
+    def stop(self, value: Union[None, List["SearchTemplateLadderStopClass"]]) -> None:
+        self._inner_dict['stop'] = value
+    
+    
+    @property
+    def next(self) -> Union[None, str]:
+        """Template to run when this rung is skipped, fails, or does not stop. A parallel {@code merge}
+    fuses member hits and does not search this URN."""
+        return self._inner_dict.get('next')  # type: ignore
+    
+    @next.setter
+    def next(self, value: Union[None, str]) -> None:
+        self._inner_dict['next'] = value
+    
+    
+    @property
+    def parallel(self) -> Union[None, List[str]]:
+        """Keyword templates to run together. Each member is one query. The group's {@code next} is the
+    fallback when no member remains."""
+        return self._inner_dict.get('parallel')  # type: ignore
+    
+    @parallel.setter
+    def parallel(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['parallel'] = value
+    
+    
+    @property
+    def join(self) -> Union[None, str]:
+        """How a parallel group is served: {@code any}, {@code allEmpty}, or {@code merge}."""
+        return self._inner_dict.get('join')  # type: ignore
+    
+    @join.setter
+    def join(self, value: Union[None, str]) -> None:
+        self._inner_dict['join'] = value
+    
+    
+    @property
+    def fusion(self) -> Union[None, str]:
+        """Merge policy name. {@code interleave}, {@code weightedBlend}, {@code fillFreeSlots}, or
+    {@code keywordPreferred}. Stored and checked. The walk's merge stays reciprocal rank."""
+        return self._inner_dict.get('fusion')  # type: ignore
+    
+    @fusion.setter
+    def fusion(self, value: Union[None, str]) -> None:
+        self._inner_dict['fusion'] = value
+    
+    
+    @property
+    def fusionCap(self) -> Union[None, int]:
+        """Cap on hits a merge policy may take from each member."""
+        return self._inner_dict.get('fusionCap')  # type: ignore
+    
+    @fusionCap.setter
+    def fusionCap(self, value: Union[None, int]) -> None:
+        self._inner_dict['fusionCap'] = value
+    
+    
+    @property
+    def facets(self) -> Union[None, str]:
+        """How merge facets are built. {@code firstMember}, {@code patchFromMembers}, or
+    {@code candidates}. {@code candidates} is legal only on a vector retrieval group."""
+        return self._inner_dict.get('facets')  # type: ignore
+    
+    @facets.setter
+    def facets(self, value: Union[None, str]) -> None:
+        self._inner_dict['facets'] = value
+    
+    
+class SearchTemplateLadderStopClass(DictWrapper):
+    """One stop condition. Stop is a disjunction: the rung is kept when any condition matches.
+    {@code minHits} matches when the total is at least this value. {@code emptyWhen} matches when
+    the total is zero and the named query shape holds."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateLadderStop")
+    def __init__(self,
+        minHits: Union[None, int]=None,
+        emptyWhen: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.minHits = minHits
+        self.emptyWhen = emptyWhen
+    
+    def _restore_defaults(self) -> None:
+        self.minHits = self.RECORD_SCHEMA.fields_dict["minHits"].default
+        self.emptyWhen = self.RECORD_SCHEMA.fields_dict["emptyWhen"].default
+    
+    
+    @property
+    def minHits(self) -> Union[None, int]:
+        """Keep the rung when {@code numEntities} is at least this value."""
+        return self._inner_dict.get('minHits')  # type: ignore
+    
+    @minHits.setter
+    def minHits(self, value: Union[None, int]) -> None:
+        self._inner_dict['minHits'] = value
+    
+    
+    @property
+    def emptyWhen(self) -> Union[None, str]:
+        """Keep an empty rung when the query has this shape. One of {@code scoreSort}, {@code pageSize},
+    {@code columnFilter}, {@code singleTerm}, {@code multiWord}, {@code dotted},
+    {@code spacelessIdentifier}, {@code identity}, or {@code longQuery}. A single leading
+    {@code -} inverts the predicate. {@code columnFilter} is a column constraint.
+    {@code longQuery} is four or more tokens after alphanumeric splitting."""
+        return self._inner_dict.get('emptyWhen')  # type: ignore
+    
+    @emptyWhen.setter
+    def emptyWhen(self, value: Union[None, str]) -> None:
+        self._inner_dict['emptyWhen'] = value
+    
+    
+class SearchTemplateNormalizationClass(DictWrapper):
+    """Limits and edit distances for query text Java prepares before rendering.
+    Unset keeps the parent value. An explicitly present empty value drops the
+    inherited section. Java clamps every value to a safe range and to the clause
+    budget. Authorization and system filters are not part of this section."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateNormalization")
+    def __init__(self,
+        wildcardMinimumLength: Union[None, int]=None,
+        synonymCap: Union[None, int]=None,
+        fuzzyTokenThreshold: Union[None, int]=None,
+        mediumFuzzyTokenThreshold: Union[None, int]=None,
+        broadQueryTokenCap: Union[None, int]=None,
+        shortFuzzyEdits: Union[None, int]=None,
+        mediumFuzzyEdits: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.wildcardMinimumLength = wildcardMinimumLength
+        self.synonymCap = synonymCap
+        self.fuzzyTokenThreshold = fuzzyTokenThreshold
+        self.mediumFuzzyTokenThreshold = mediumFuzzyTokenThreshold
+        self.broadQueryTokenCap = broadQueryTokenCap
+        self.shortFuzzyEdits = shortFuzzyEdits
+        self.mediumFuzzyEdits = mediumFuzzyEdits
+    
+    def _restore_defaults(self) -> None:
+        self.wildcardMinimumLength = self.RECORD_SCHEMA.fields_dict["wildcardMinimumLength"].default
+        self.synonymCap = self.RECORD_SCHEMA.fields_dict["synonymCap"].default
+        self.fuzzyTokenThreshold = self.RECORD_SCHEMA.fields_dict["fuzzyTokenThreshold"].default
+        self.mediumFuzzyTokenThreshold = self.RECORD_SCHEMA.fields_dict["mediumFuzzyTokenThreshold"].default
+        self.broadQueryTokenCap = self.RECORD_SCHEMA.fields_dict["broadQueryTokenCap"].default
+        self.shortFuzzyEdits = self.RECORD_SCHEMA.fields_dict["shortFuzzyEdits"].default
+        self.mediumFuzzyEdits = self.RECORD_SCHEMA.fields_dict["mediumFuzzyEdits"].default
+    
+    
+    @property
+    def wildcardMinimumLength(self) -> Union[None, int]:
+        """Minimum characters of a single token before a contains-wildcard is added.
+    Unset inherits, or 5 when no ancestor sets it."""
+        return self._inner_dict.get('wildcardMinimumLength')  # type: ignore
+    
+    @wildcardMinimumLength.setter
+    def wildcardMinimumLength(self, value: Union[None, int]) -> None:
+        self._inner_dict['wildcardMinimumLength'] = value
+    
+    
+    @property
+    def synonymCap(self) -> Union[None, int]:
+        """Maximum synonym expansions placed in the query context. Unset inherits, or 8
+    when no ancestor sets it. The clause budget can lower this further."""
+        return self._inner_dict.get('synonymCap')  # type: ignore
+    
+    @synonymCap.setter
+    def synonymCap(self, value: Union[None, int]) -> None:
+        self._inner_dict['synonymCap'] = value
+    
+    
+    @property
+    def fuzzyTokenThreshold(self) -> Union[None, int]:
+        """Minimum token length before a fuzzy edit is applied. Unset inherits, or 5
+    when no ancestor sets it."""
+        return self._inner_dict.get('fuzzyTokenThreshold')  # type: ignore
+    
+    @fuzzyTokenThreshold.setter
+    def fuzzyTokenThreshold(self, value: Union[None, int]) -> None:
+        self._inner_dict['fuzzyTokenThreshold'] = value
+    
+    
+    @property
+    def mediumFuzzyTokenThreshold(self) -> Union[None, int]:
+        """Token length where {@code mediumFuzzyEdits} replaces {@code shortFuzzyEdits}.
+    Unset inherits, or two characters above {@code fuzzyTokenThreshold} when no
+    ancestor sets it."""
+        return self._inner_dict.get('mediumFuzzyTokenThreshold')  # type: ignore
+    
+    @mediumFuzzyTokenThreshold.setter
+    def mediumFuzzyTokenThreshold(self, value: Union[None, int]) -> None:
+        self._inner_dict['mediumFuzzyTokenThreshold'] = value
+    
+    
+    @property
+    def broadQueryTokenCap(self) -> Union[None, int]:
+        """Maximum tokens kept in {@code broadQuery}. Unset inherits, or 8 when no
+    ancestor sets it. A template may raise this up to 256. The clause budget
+    can keep fewer."""
+        return self._inner_dict.get('broadQueryTokenCap')  # type: ignore
+    
+    @broadQueryTokenCap.setter
+    def broadQueryTokenCap(self, value: Union[None, int]) -> None:
+        self._inner_dict['broadQueryTokenCap'] = value
+    
+    
+    @property
+    def shortFuzzyEdits(self) -> Union[None, int]:
+        """Fuzzy edits for a token at least {@code fuzzyTokenThreshold} long and shorter
+    than {@code mediumFuzzyTokenThreshold}. Unset inherits, or 1 when no ancestor
+    sets it."""
+        return self._inner_dict.get('shortFuzzyEdits')  # type: ignore
+    
+    @shortFuzzyEdits.setter
+    def shortFuzzyEdits(self, value: Union[None, int]) -> None:
+        self._inner_dict['shortFuzzyEdits'] = value
+    
+    
+    @property
+    def mediumFuzzyEdits(self) -> Union[None, int]:
+        """Fuzzy edits for a token at least {@code mediumFuzzyTokenThreshold} long.
+    Unset inherits, or 2 when no ancestor sets it."""
+        return self._inner_dict.get('mediumFuzzyEdits')  # type: ignore
+    
+    @mediumFuzzyEdits.setter
+    def mediumFuzzyEdits(self, value: Union[None, int]) -> None:
+        self._inner_dict['mediumFuzzyEdits'] = value
+    
+    
+class SearchTemplatePropertiesClass(_Aspect):
+    """A Mustache-rendered search query template. Sections that are unset are inherited from
+    {@code parent}. An explicitly present empty string for {@code query}, {@code clauses},
+    {@code functionScore}, {@code rescore}, {@code knn}, or {@code ladder} drops that inherited
+    section. An explicitly present empty {@code ranking} or {@code retrieval} drops that inherited
+    section. An explicitly present empty {@code fields}, {@code highlightFields},
+    {@code aggregations}, or {@code sort} drops the inherited override and falls back to the schema
+    or Java default. An explicitly present empty {@code boosts} drops an inherited list.
+    An explicitly present empty {@code structuredPropertyQuery} drops an inherited section.
+    A child replaces only the structured-property clauses it sets. An explicitly present
+    empty {@code normalization} drops inherited query-normalization settings. A child
+    replaces only the normalization fields it sets. Each non-empty {@code queryFragments}
+    value adds to the root-first comma join for that hole. An empty string drops inherited
+    pieces for that hole.
+    {@code routes} is replaced as a whole list: unset keeps the parent list, an empty list
+    drops it, and a non-empty list replaces it. {@code defaultRoute} is inherited on its own.
+    Unset keeps the parent default. A record with a template replaces it. A record with no
+    template clears it.
+    
+    {@code apiVersion} is the template and Mustache-context contract. Unset keeps the parent
+    version. When no ancestor sets it, the resolved version is 1. A value other than 1 is rejected
+    when the template is written and when it is loaded. An accepted write stores 1 when the caller
+    omits it. {@code capabilities} names features this body requires. Unset keeps the parent list.
+    An empty list drops it. A non-empty list replaces it. A name this release does not implement is
+    rejected when the template is written and when it is loaded.
+    
+    {@code dialect}, {@code apiVersion}, {@code parent}, and {@code editable} are searchable with
+    {@code queryByDefault} false. A write uses {@code parent} to find its children; the other
+    fields support template administration filters. {@code aspectJson} stores this aspect's JSON,
+    the same JSON stored in SQL, at
+    {@code _aspects.searchTemplateProperties._aspectJson} without indexing it, so a template
+    reload can read the body from search. Write time and actor stay on system metadata
+    ({@code aspectCreated}, {@code aspectModified}): SQL stores them on the aspect row, and search
+    copies them to {@code _system}. The entity stays out of the default search, browse, and
+    autocomplete entity-type lists."""
+
+
+    ASPECT_NAME = 'searchTemplateProperties'
+    ASPECT_INFO = {'aspectJson': True}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateProperties")
+
+    def __init__(self,
+        name: str,
+        description: Union[None, str]=None,
+        dialect: Optional[Union[str, "SearchTemplateDialectClass"]]=None,
+        apiVersion: Union[None, int]=None,
+        capabilities: Union[None, List[str]]=None,
+        query: Union[None, str]=None,
+        queryFragments: Union[None, Dict[str, str]]=None,
+        clauses: Union[None, str]=None,
+        functionScore: Union[None, str]=None,
+        rescore: Union[None, str]=None,
+        knn: Union[None, str]=None,
+        ranking: Union[None, "SearchTemplateRankingClass"]=None,
+        retrieval: Union[None, "SearchTemplateRetrievalClass"]=None,
+        ladder: Union[None, "SearchTemplateLadderClass"]=None,
+        aggregations: Union[None, str]=None,
+        sort: Union[None, str]=None,
+        fields: Union[None, "SearchFieldOverridesClass"]=None,
+        structuredPropertyQuery: Union[None, "StructuredPropertyQueryClass"]=None,
+        normalization: Union[None, "SearchTemplateNormalizationClass"]=None,
+        highlightFields: Union[None, "HighlightFieldOverridesClass"]=None,
+        parameters: Union[None, Dict[str, str]]=None,
+        boosts: Union[None, List["SearchTemplateBoostClass"]]=None,
+        routes: Union[None, List["SearchTemplateRouteClass"]]=None,
+        defaultRoute: Union[None, "SearchTemplateDefaultRouteClass"]=None,
+        parent: Union[None, str]=None,
+        editable: Optional[bool]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        if dialect is None:
+            # default: 'ELASTICSEARCH'
+            self.dialect = self.RECORD_SCHEMA.fields_dict["dialect"].default
+        else:
+            self.dialect = dialect
+        self.apiVersion = apiVersion
+        self.capabilities = capabilities
+        self.query = query
+        self.queryFragments = queryFragments
+        self.clauses = clauses
+        self.functionScore = functionScore
+        self.rescore = rescore
+        self.knn = knn
+        self.ranking = ranking
+        self.retrieval = retrieval
+        self.ladder = ladder
+        self.aggregations = aggregations
+        self.sort = sort
+        self.fields = fields
+        self.structuredPropertyQuery = structuredPropertyQuery
+        self.normalization = normalization
+        self.highlightFields = highlightFields
+        self.parameters = parameters
+        self.boosts = boosts
+        self.routes = routes
+        self.defaultRoute = defaultRoute
+        self.parent = parent
+        if editable is None:
+            # default: True
+            self.editable = self.RECORD_SCHEMA.fields_dict["editable"].default
+        else:
+            self.editable = editable
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.dialect = self.RECORD_SCHEMA.fields_dict["dialect"].default
+        self.apiVersion = self.RECORD_SCHEMA.fields_dict["apiVersion"].default
+        self.capabilities = self.RECORD_SCHEMA.fields_dict["capabilities"].default
+        self.query = self.RECORD_SCHEMA.fields_dict["query"].default
+        self.queryFragments = self.RECORD_SCHEMA.fields_dict["queryFragments"].default
+        self.clauses = self.RECORD_SCHEMA.fields_dict["clauses"].default
+        self.functionScore = self.RECORD_SCHEMA.fields_dict["functionScore"].default
+        self.rescore = self.RECORD_SCHEMA.fields_dict["rescore"].default
+        self.knn = self.RECORD_SCHEMA.fields_dict["knn"].default
+        self.ranking = self.RECORD_SCHEMA.fields_dict["ranking"].default
+        self.retrieval = self.RECORD_SCHEMA.fields_dict["retrieval"].default
+        self.ladder = self.RECORD_SCHEMA.fields_dict["ladder"].default
+        self.aggregations = self.RECORD_SCHEMA.fields_dict["aggregations"].default
+        self.sort = self.RECORD_SCHEMA.fields_dict["sort"].default
+        self.fields = self.RECORD_SCHEMA.fields_dict["fields"].default
+        self.structuredPropertyQuery = self.RECORD_SCHEMA.fields_dict["structuredPropertyQuery"].default
+        self.normalization = self.RECORD_SCHEMA.fields_dict["normalization"].default
+        self.highlightFields = self.RECORD_SCHEMA.fields_dict["highlightFields"].default
+        self.parameters = self.RECORD_SCHEMA.fields_dict["parameters"].default
+        self.boosts = self.RECORD_SCHEMA.fields_dict["boosts"].default
+        self.routes = self.RECORD_SCHEMA.fields_dict["routes"].default
+        self.defaultRoute = self.RECORD_SCHEMA.fields_dict["defaultRoute"].default
+        self.parent = self.RECORD_SCHEMA.fields_dict["parent"].default
+        self.editable = self.RECORD_SCHEMA.fields_dict["editable"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """What this template ranks or matches. Not searchable."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def dialect(self) -> Union[str, "SearchTemplateDialectClass"]:
+        """Body language. Elasticsearch and OpenSearch share {@code ELASTICSEARCH}. {@code POSTGRES}
+    stores Mustache text for a future SQL compiler and is not executed by this release."""
+        return self._inner_dict.get('dialect')  # type: ignore
+    
+    @dialect.setter
+    def dialect(self, value: Union[str, "SearchTemplateDialectClass"]) -> None:
+        self._inner_dict['dialect'] = value
+    
+    
+    @property
+    def apiVersion(self) -> Union[None, int]:
+        """Template and Mustache-context contract. This release implements 1. Unset inherits the parent
+    version, or 1 when no ancestor sets it. Any other value is rejected at write and at load."""
+        return self._inner_dict.get('apiVersion')  # type: ignore
+    
+    @apiVersion.setter
+    def apiVersion(self, value: Union[None, int]) -> None:
+        self._inner_dict['apiVersion'] = value
+    
+    
+    @property
+    def capabilities(self) -> Union[None, List[str]]:
+        """Features this body requires. Unset inherits the parent list. An empty list drops it. A
+    non-empty list replaces it. This release implements {@code keyword}, {@code rescore},
+    {@code functionScore}, {@code routes}, {@code ladder}, {@code aggregations},
+    {@code structuredPropertyQuery}, {@code normalization}, {@code fieldOverrides},
+    {@code highlights}, {@code sort}, {@code boosts}, and {@code queryFragments}. Any other
+    name is rejected at write and at load."""
+        return self._inner_dict.get('capabilities')  # type: ignore
+    
+    @capabilities.setter
+    def capabilities(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['capabilities'] = value
+    
+    
+    @property
+    def query(self) -> Union[None, str]:
+        """Mustache text for the query. For {@code ELASTICSEARCH} this renders to one query DSL object.
+    For {@code POSTGRES} it is opaque text and is not parsed as JSON."""
+        return self._inner_dict.get('query')  # type: ignore
+    
+    @query.setter
+    def query(self, value: Union[None, str]) -> None:
+        self._inner_dict['query'] = value
+    
+    
+    @property
+    def queryFragments(self) -> Union[None, Dict[str, str]]:
+        """JSON spliced into a named hole in {@code query}. Each level that sets a non-empty key adds a
+    piece, joined root-first with commas. An unset key adds nothing. An empty string drops
+    inherited pieces for that key. {@code parameters} stays a separate map of named values."""
+        return self._inner_dict.get('queryFragments')  # type: ignore
+    
+    @queryFragments.setter
+    def queryFragments(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['queryFragments'] = value
+    
+    
+    @property
+    def clauses(self) -> Union[None, str]:
+        """Mustache JSON object with {@code must}, {@code must_not}, {@code filter}, and {@code should}
+    arrays. Merged into the resolved query after parent inheritance."""
+        return self._inner_dict.get('clauses')  # type: ignore
+    
+    @clauses.setter
+    def clauses(self, value: Union[None, str]) -> None:
+        self._inner_dict['clauses'] = value
+    
+    
+    @property
+    def functionScore(self) -> Union[None, str]:
+        """Mustache JSON for one function_score wrapper: {@code functions}, {@code score_mode},
+    {@code boost_mode}. Java wraps it around the rendered query once."""
+        return self._inner_dict.get('functionScore')  # type: ignore
+    
+    @functionScore.setter
+    def functionScore(self, value: Union[None, str]) -> None:
+        self._inner_dict['functionScore'] = value
+    
+    
+    @property
+    def rescore(self) -> Union[None, str]:
+        """Mustache JSON for one rescore clause ({@code window_size}, {@code query}). Unset means no
+    rescore."""
+        return self._inner_dict.get('rescore')  # type: ignore
+    
+    @rescore.setter
+    def rescore(self, value: Union[None, str]) -> None:
+        self._inner_dict['rescore'] = value
+    
+    
+    @property
+    def knn(self) -> Union[None, str]:
+        """Mustache JSON for document rerank weights: {@code keyword_weight} and {@code vector_weight}.
+    {@code k} and {@code num_candidates} are unused; the candidates are the keyword rows already
+    returned. Unset means this template stays in keyword order. An explicit empty value drops an
+    inherited section, so a child keeps the parent's clauses and functionScore. Applied only when
+    semantic read is on and the request includes document entities."""
+        return self._inner_dict.get('knn')  # type: ignore
+    
+    @knn.setter
+    def knn(self, value: Union[None, str]) -> None:
+        self._inner_dict['knn'] = value
+    
+    
+    @property
+    def ranking(self) -> Union[None, "SearchTemplateRankingClass"]:
+        """Service ranking. Unset keeps the parent section. An explicit empty value drops it. OSS
+    runs {@code preset none} and {@code windowSizer fixed} only."""
+        return self._inner_dict.get('ranking')  # type: ignore
+    
+    @ranking.setter
+    def ranking(self, value: Union[None, "SearchTemplateRankingClass"]) -> None:
+        self._inner_dict['ranking'] = value
+    
+    
+    @property
+    def retrieval(self) -> Union[None, "SearchTemplateRetrievalClass"]:
+        """Retrieval mode and vector settings. Unset is keyword. An explicit empty value drops an
+    inherited retrieval section."""
+        return self._inner_dict.get('retrieval')  # type: ignore
+    
+    @retrieval.setter
+    def retrieval(self, value: Union[None, "SearchTemplateRetrievalClass"]) -> None:
+        self._inner_dict['retrieval'] = value
+    
+    
+    @property
+    def ladder(self) -> Union[None, "SearchTemplateLadderClass"]:
+        """Selection, stop, and the next template. Unset means this template is one query. An explicit
+    empty value drops an inherited ladder."""
+        return self._inner_dict.get('ladder')  # type: ignore
+    
+    @ladder.setter
+    def ladder(self, value: Union[None, "SearchTemplateLadderClass"]) -> None:
+        self._inner_dict['ladder'] = value
+    
+    
+    @property
+    def aggregations(self) -> Union[None, str]:
+        """Mustache JSON object of aggregation name to aggregation body. Unset keeps the annotation
+    default facets."""
+        return self._inner_dict.get('aggregations')  # type: ignore
+    
+    @aggregations.setter
+    def aggregations(self, value: Union[None, str]) -> None:
+        self._inner_dict['aggregations'] = value
+    
+    
+    @property
+    def sort(self) -> Union[None, str]:
+        """Mustache JSON array of sort clauses. Unset, or an explicit empty value, keeps the Java
+    default of {@code _score} descending then {@code urn} ascending."""
+        return self._inner_dict.get('sort')  # type: ignore
+    
+    @sort.setter
+    def sort(self, value: Union[None, str]) -> None:
+        self._inner_dict['sort'] = value
+    
+    
+    @property
+    def fields(self) -> Union[None, "SearchFieldOverridesClass"]:
+        """Template default for queried fields."""
+        return self._inner_dict.get('fields')  # type: ignore
+    
+    @fields.setter
+    def fields(self, value: Union[None, "SearchFieldOverridesClass"]) -> None:
+        self._inner_dict['fields'] = value
+    
+    
+    @property
+    def structuredPropertyQuery(self) -> Union[None, "StructuredPropertyQueryClass"]:
+        """Analyzed, exact, and name-and-value clauses for structured properties. Unset inherits
+    the parent clause by clause. An explicit empty value drops an inherited section. The
+    template does not store per-property clauses or resolved field paths. A running
+    name-and-value clause requires a positive weight. Other weights, when set, must be
+    positive."""
+        return self._inner_dict.get('structuredPropertyQuery')  # type: ignore
+    
+    @structuredPropertyQuery.setter
+    def structuredPropertyQuery(self, value: Union[None, "StructuredPropertyQueryClass"]) -> None:
+        self._inner_dict['structuredPropertyQuery'] = value
+    
+    
+    @property
+    def normalization(self) -> Union[None, "SearchTemplateNormalizationClass"]:
+        """Wildcard, synonym, fuzzy, and broad-query limits. Unset inherits field by field. An
+    explicit empty value drops an inherited section. Java clamps each value and the clause
+    budget can keep fewer synonyms, fuzzy expansions, or broad-query tokens."""
+        return self._inner_dict.get('normalization')  # type: ignore
+    
+    @normalization.setter
+    def normalization(self, value: Union[None, "SearchTemplateNormalizationClass"]) -> None:
+        self._inner_dict['normalization'] = value
+    
+    
+    @property
+    def highlightFields(self) -> Union[None, "HighlightFieldOverridesClass"]:
+        """Template default for highlight fields."""
+        return self._inner_dict.get('highlightFields')  # type: ignore
+    
+    @highlightFields.setter
+    def highlightFields(self, value: Union[None, "HighlightFieldOverridesClass"]) -> None:
+        self._inner_dict['highlightFields'] = value
+    
+    
+    @property
+    def parameters(self) -> Union[None, Dict[str, str]]:
+        """User Mustache variables, for example {@code deprecatedBoost}."""
+        return self._inner_dict.get('parameters')  # type: ignore
+    
+    @parameters.setter
+    def parameters(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['parameters'] = value
+    
+    
+    @property
+    def boosts(self) -> Union[None, List["SearchTemplateBoostClass"]]:
+        """List-membership weights. Each entry names a field, an injectable list, and a weight. An empty
+    array drops an inherited list. A child that sets this replaces the parent's list."""
+        return self._inner_dict.get('boosts')  # type: ignore
+    
+    @boosts.setter
+    def boosts(self, value: Union[None, List["SearchTemplateBoostClass"]]) -> None:
+        self._inner_dict['boosts'] = value
+    
+    
+    @property
+    def routes(self) -> Union[None, List["SearchTemplateRouteClass"]]:
+        """Ordered RE2 routes. The first pattern that matches the whole trimmed query selects the
+    template. Unset keeps the parent list. An empty list drops it. A non-empty list replaces it."""
+        return self._inner_dict.get('routes')  # type: ignore
+    
+    @routes.setter
+    def routes(self, value: Union[None, List["SearchTemplateRouteClass"]]) -> None:
+        self._inner_dict['routes'] = value
+    
+    
+    @property
+    def defaultRoute(self) -> Union[None, "SearchTemplateDefaultRouteClass"]:
+        """Template used when no route pattern matches. Unset keeps the parent default. A record with
+    a template replaces it. A record with no template clears it, and the miss stays on this body."""
+        return self._inner_dict.get('defaultRoute')  # type: ignore
+    
+    @defaultRoute.setter
+    def defaultRoute(self, value: Union[None, "SearchTemplateDefaultRouteClass"]) -> None:
+        self._inner_dict['defaultRoute'] = value
+    
+    
+    @property
+    def parent(self) -> Union[None, str]:
+        """Parent template. The child replaces only the sections it sets. The parent must use the same
+    dialect. Indexed so a write can load the templates whose parent is this URN. The IsPartOf
+    edge is removed when this template or its parent is hard deleted."""
+        return self._inner_dict.get('parent')  # type: ignore
+    
+    @parent.setter
+    def parent(self, value: Union[None, str]) -> None:
+        self._inner_dict['parent'] = value
+    
+    
+    @property
+    def editable(self) -> bool:
+        """When false, only the system actor may change this template."""
+        return self._inner_dict.get('editable')  # type: ignore
+    
+    @editable.setter
+    def editable(self, value: bool) -> None:
+        self._inner_dict['editable'] = value
+    
+    
+class SearchTemplateRankingClass(DictWrapper):
+    """Service ranking applied to the keyword page. An explicitly present empty value drops an
+    inherited ranking section. {@code usage}, {@code usageAndMatchTier}, and {@code tokenCurve}
+    are stored here and executed only by a deployment that advertises them."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateRanking")
+    def __init__(self,
+        preset: Union[None, str]=None,
+        window: Union[None, int]=None,
+        windowSizer: Union[None, str]=None,
+        parameters: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.preset = preset
+        self.window = window
+        self.windowSizer = windowSizer
+        self.parameters = parameters
+    
+    def _restore_defaults(self) -> None:
+        self.preset = self.RECORD_SCHEMA.fields_dict["preset"].default
+        self.window = self.RECORD_SCHEMA.fields_dict["window"].default
+        self.windowSizer = self.RECORD_SCHEMA.fields_dict["windowSizer"].default
+        self.parameters = self.RECORD_SCHEMA.fields_dict["parameters"].default
+    
+    
+    @property
+    def preset(self) -> Union[None, str]:
+        """Ranking formula. {@code none}, {@code usage}, or {@code usageAndMatchTier}."""
+        return self._inner_dict.get('preset')  # type: ignore
+    
+    @preset.setter
+    def preset(self, value: Union[None, str]) -> None:
+        self._inner_dict['preset'] = value
+    
+    
+    @property
+    def window(self) -> Union[None, int]:
+        """How many hits the formula reranks."""
+        return self._inner_dict.get('window')  # type: ignore
+    
+    @window.setter
+    def window(self, value: Union[None, int]) -> None:
+        self._inner_dict['window'] = value
+    
+    
+    @property
+    def windowSizer(self) -> Union[None, str]:
+        """How the window size is chosen. {@code fixed} or {@code tokenCurve}."""
+        return self._inner_dict.get('windowSizer')  # type: ignore
+    
+    @windowSizer.setter
+    def windowSizer(self, value: Union[None, str]) -> None:
+        self._inner_dict['windowSizer'] = value
+    
+    
+    @property
+    def parameters(self) -> Union[None, Dict[str, str]]:
+        """Formula parameters, for example a usage weight."""
+        return self._inner_dict.get('parameters')  # type: ignore
+    
+    @parameters.setter
+    def parameters(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['parameters'] = value
+    
+    
+class SearchTemplateRetrievalClass(DictWrapper):
+    """How candidates are retrieved before ranking. An explicitly present empty value drops an
+    inherited retrieval section. Unset mode is keyword. Vector mode and a bridge are stored as
+    data and executed only by a deployment that advertises them."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateRetrieval")
+    def __init__(self,
+        mode: Union[None, str]=None,
+        model: Union[None, str]=None,
+        field: Union[None, str]=None,
+        candidateCap: Union[None, int]=None,
+        total: Union[None, str]=None,
+        facets: Union[None, str]=None,
+        page: Union[None, str]=None,
+        authorization: Union[None, str]=None,
+        onFailure: Union[None, str]=None,
+        bridge: Union[None, "SearchTemplateRetrievalBridgeClass"]=None,
+    ):
+        super().__init__()
+        
+        self.mode = mode
+        self.model = model
+        self.field = field
+        self.candidateCap = candidateCap
+        self.total = total
+        self.facets = facets
+        self.page = page
+        self.authorization = authorization
+        self.onFailure = onFailure
+        self.bridge = bridge
+    
+    def _restore_defaults(self) -> None:
+        self.mode = self.RECORD_SCHEMA.fields_dict["mode"].default
+        self.model = self.RECORD_SCHEMA.fields_dict["model"].default
+        self.field = self.RECORD_SCHEMA.fields_dict["field"].default
+        self.candidateCap = self.RECORD_SCHEMA.fields_dict["candidateCap"].default
+        self.total = self.RECORD_SCHEMA.fields_dict["total"].default
+        self.facets = self.RECORD_SCHEMA.fields_dict["facets"].default
+        self.page = self.RECORD_SCHEMA.fields_dict["page"].default
+        self.authorization = self.RECORD_SCHEMA.fields_dict["authorization"].default
+        self.onFailure = self.RECORD_SCHEMA.fields_dict["onFailure"].default
+        self.bridge = self.RECORD_SCHEMA.fields_dict["bridge"].default
+    
+    
+    @property
+    def mode(self) -> Union[None, str]:
+        """{@code keyword} or {@code vector}."""
+        return self._inner_dict.get('mode')  # type: ignore
+    
+    @mode.setter
+    def mode(self, value: Union[None, str]) -> None:
+        self._inner_dict['mode'] = value
+    
+    
+    @property
+    def model(self) -> Union[None, str]:
+        """Embedding model name for vector retrieval."""
+        return self._inner_dict.get('model')  # type: ignore
+    
+    @model.setter
+    def model(self, value: Union[None, str]) -> None:
+        self._inner_dict['model'] = value
+    
+    
+    @property
+    def field(self) -> Union[None, str]:
+        """Vector field."""
+        return self._inner_dict.get('field')  # type: ignore
+    
+    @field.setter
+    def field(self, value: Union[None, str]) -> None:
+        self._inner_dict['field'] = value
+    
+    
+    @property
+    def candidateCap(self) -> Union[None, int]:
+        """Cap on vector candidates."""
+        return self._inner_dict.get('candidateCap')  # type: ignore
+    
+    @candidateCap.setter
+    def candidateCap(self, value: Union[None, int]) -> None:
+        self._inner_dict['candidateCap'] = value
+    
+    
+    @property
+    def total(self) -> Union[None, str]:
+        """How the vector total is counted."""
+        return self._inner_dict.get('total')  # type: ignore
+    
+    @total.setter
+    def total(self, value: Union[None, str]) -> None:
+        self._inner_dict['total'] = value
+    
+    
+    @property
+    def facets(self) -> Union[None, str]:
+        """How vector facets are produced."""
+        return self._inner_dict.get('facets')  # type: ignore
+    
+    @facets.setter
+    def facets(self, value: Union[None, str]) -> None:
+        self._inner_dict['facets'] = value
+    
+    
+    @property
+    def page(self) -> Union[None, str]:
+        """How a vector page is chosen."""
+        return self._inner_dict.get('page')  # type: ignore
+    
+    @page.setter
+    def page(self, value: Union[None, str]) -> None:
+        self._inner_dict['page'] = value
+    
+    
+    @property
+    def authorization(self) -> Union[None, str]:
+        """How authorization is applied to vector candidates."""
+        return self._inner_dict.get('authorization')  # type: ignore
+    
+    @authorization.setter
+    def authorization(self, value: Union[None, str]) -> None:
+        self._inner_dict['authorization'] = value
+    
+    
+    @property
+    def onFailure(self) -> Union[None, str]:
+        """What to do when vector retrieval fails."""
+        return self._inner_dict.get('onFailure')  # type: ignore
+    
+    @onFailure.setter
+    def onFailure(self, value: Union[None, str]) -> None:
+        self._inner_dict['onFailure'] = value
+    
+    
+    @property
+    def bridge(self) -> Union[None, "SearchTemplateRetrievalBridgeClass"]:
+        """Optional second retrieval leg."""
+        return self._inner_dict.get('bridge')  # type: ignore
+    
+    @bridge.setter
+    def bridge(self, value: Union[None, "SearchTemplateRetrievalBridgeClass"]) -> None:
+        self._inner_dict['bridge'] = value
+    
+    
+class SearchTemplateRetrievalBridgeClass(DictWrapper):
+    """Second retrieval leg that fills the page from a pivot field. Stored as data. A deployment
+    that does not advertise bridge retrieval fails the search when this section is set."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateRetrievalBridge")
+    def __init__(self,
+        pivotField: Union[None, str]=None,
+        onFailure: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.pivotField = pivotField
+        self.onFailure = onFailure
+    
+    def _restore_defaults(self) -> None:
+        self.pivotField = self.RECORD_SCHEMA.fields_dict["pivotField"].default
+        self.onFailure = self.RECORD_SCHEMA.fields_dict["onFailure"].default
+    
+    
+    @property
+    def pivotField(self) -> Union[None, str]:
+        """Field used to find the related candidates."""
+        return self._inner_dict.get('pivotField')  # type: ignore
+    
+    @pivotField.setter
+    def pivotField(self, value: Union[None, str]) -> None:
+        self._inner_dict['pivotField'] = value
+    
+    
+    @property
+    def onFailure(self) -> Union[None, str]:
+        """What to do when the bridge leg fails. The keyword page is the fallback."""
+        return self._inner_dict.get('onFailure')  # type: ignore
+    
+    @onFailure.setter
+    def onFailure(self, value: Union[None, str]) -> None:
+        self._inner_dict['onFailure'] = value
+    
+    
+class SearchTemplateRouteClass(DictWrapper):
+    """One ordered route. The pattern is RE2 and must match the whole trimmed query."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateRoute")
+    def __init__(self,
+        queryRegex: str,
+        template: str,
+    ):
+        super().__init__()
+        
+        self.queryRegex = queryRegex
+        self.template = template
+    
+    def _restore_defaults(self) -> None:
+        self.queryRegex = str()
+        self.template = str()
+    
+    
+    @property
+    def queryRegex(self) -> str:
+        """RE2 pattern matched against the whole trimmed query."""
+        return self._inner_dict.get('queryRegex')  # type: ignore
+    
+    @queryRegex.setter
+    def queryRegex(self, value: str) -> None:
+        self._inner_dict['queryRegex'] = value
+    
+    
+    @property
+    def template(self) -> str:
+        """Template to run when the pattern matches."""
+        return self._inner_dict.get('template')  # type: ignore
+    
+    @template.setter
+    def template(self, value: str) -> None:
+        self._inner_dict['template'] = value
+    
+    
+class StructuredPropertyClauseClass(DictWrapper):
+    """One structured-property clause. The template decides that the clause runs.
+    Java resolves the current property definitions and keeps the clause on fields
+    the template already selected. {@code enabled} false keeps the clause in an
+    inherited section and does not run it."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.StructuredPropertyClause")
+    def __init__(self,
+        enabled: Optional[Union[bool, None]]=None,
+        operator: Union[None, Union[str, "StructuredPropertyOperatorClass"]]=None,
+        weight: Union[None, float]=None,
+    ):
+        super().__init__()
+        
+        if enabled is None:
+            # default: True
+            self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        else:
+            self.enabled = enabled
+        self.operator = operator
+        self.weight = weight
+    
+    def _restore_defaults(self) -> None:
+        self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        self.operator = self.RECORD_SCHEMA.fields_dict["operator"].default
+        self.weight = self.RECORD_SCHEMA.fields_dict["weight"].default
+    
+    
+    @property
+    def enabled(self) -> Union[bool, None]:
+        """When false, this clause does not run. Unset means the clause runs."""
+        return self._inner_dict.get('enabled')  # type: ignore
+    
+    @enabled.setter
+    def enabled(self, value: Union[bool, None]) -> None:
+        self._inner_dict['enabled'] = value
+    
+    
+    @property
+    def operator(self) -> Union[None, Union[str, "StructuredPropertyOperatorClass"]]:
+        """How analyzed tokens combine. Exact and name-and-value clauses ignore this.
+    Unset means OR."""
+        return self._inner_dict.get('operator')  # type: ignore
+    
+    @operator.setter
+    def operator(self, value: Union[None, Union[str, "StructuredPropertyOperatorClass"]]) -> None:
+        self._inner_dict['operator'] = value
+    
+    
+    @property
+    def weight(self) -> Union[None, float]:
+        """Positive multiplier. Analyzed and exact clauses multiply the field weight by
+    this value; unset means 1. Name-and-value uses this value as the term weight
+    and requires it when the clause runs."""
+        return self._inner_dict.get('weight')  # type: ignore
+    
+    @weight.setter
+    def weight(self, value: Union[None, float]) -> None:
+        self._inner_dict['weight'] = value
+    
+    
+class StructuredPropertyOperatorClass(object):
+    # No docs available.
+    
+    AND = "AND"
+    OR = "OR"
+    
+    
+class StructuredPropertyQueryClass(DictWrapper):
+    """Structured-property clauses added beside the rendered query. Java resolves which
+    properties are indexed, their field paths, and their value types. The template
+    chooses which clauses run and their operator and weight. An explicitly present
+    empty value drops an inherited section. A child replaces only the clauses it sets.
+    An unset clause keeps the parent clause."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.StructuredPropertyQuery")
+    def __init__(self,
+        analyzedValue: Union[None, "StructuredPropertyClauseClass"]=None,
+        exactValue: Union[None, "StructuredPropertyClauseClass"]=None,
+        nameAndValue: Union[None, "StructuredPropertyClauseClass"]=None,
+    ):
+        super().__init__()
+        
+        self.analyzedValue = analyzedValue
+        self.exactValue = exactValue
+        self.nameAndValue = nameAndValue
+    
+    def _restore_defaults(self) -> None:
+        self.analyzedValue = self.RECORD_SCHEMA.fields_dict["analyzedValue"].default
+        self.exactValue = self.RECORD_SCHEMA.fields_dict["exactValue"].default
+        self.nameAndValue = self.RECORD_SCHEMA.fields_dict["nameAndValue"].default
+    
+    
+    @property
+    def analyzedValue(self) -> Union[None, "StructuredPropertyClauseClass"]:
+        """Analyzed {@code .text} and {@code .stemmed} matching. Unset does not run this
+    clause unless a parent set it."""
+        return self._inner_dict.get('analyzedValue')  # type: ignore
+    
+    @analyzedValue.setter
+    def analyzedValue(self, value: Union[None, "StructuredPropertyClauseClass"]) -> None:
+        self._inner_dict['analyzedValue'] = value
+    
+    
+    @property
+    def exactValue(self) -> Union[None, "StructuredPropertyClauseClass"]:
+        """Exact keyword or whole-term matching. Unset does not run this clause unless a
+    parent set it."""
+        return self._inner_dict.get('exactValue')  # type: ignore
+    
+    @exactValue.setter
+    def exactValue(self, value: Union[None, "StructuredPropertyClauseClass"]) -> None:
+        self._inner_dict['exactValue'] = value
+    
+    
+    @property
+    def nameAndValue(self) -> Union[None, "StructuredPropertyClauseClass"]:
+        """Name-and-value span matching for string and rich-text properties. Unset does
+    not run this clause unless a parent set it. A running clause requires a
+    positive weight."""
+        return self._inner_dict.get('nameAndValue')  # type: ignore
+    
+    @nameAndValue.setter
+    def nameAndValue(self, value: Union[None, "StructuredPropertyClauseClass"]) -> None:
+        self._inner_dict['nameAndValue'] = value
+    
+    
 class DataHubSecretValueClass(_Aspect):
     """The value of a DataHub Secret"""
 
 
     ASPECT_NAME = 'dataHubSecretValue'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.secret.DataHubSecretValue")
 
     def __init__(self,
@@ -31327,7 +32780,7 @@ class StructuredPropertyDefinitionClass(_Aspect):
 
 
     ASPECT_NAME = 'propertyDefinition'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.structured.StructuredPropertyDefinition")
 
     def __init__(self,
@@ -33007,7 +34460,7 @@ class DataHubViewInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'dataHubViewInfo'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.view.DataHubViewInfo")
 
     def __init__(self,
@@ -33489,6 +34942,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.QueryKey': QueryKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.RoleKey': RoleKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey': SchemaFieldKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.SearchTemplateKey': SearchTemplateKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.SemanticModelKey': SemanticModelKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.TagKey': TagKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.TelemetryKey': TelemetryKeyClass,
@@ -33657,6 +35111,23 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.schemafield.SchemaFieldAliases': SchemaFieldAliasesClass,
     'com.linkedin.pegasus2avro.schemafield.SchemaFieldInfo': SchemaFieldInfoClass,
+    'com.linkedin.pegasus2avro.search.template.HighlightFieldOverrides': HighlightFieldOverridesClass,
+    'com.linkedin.pegasus2avro.search.template.SearchFieldBoost': SearchFieldBoostClass,
+    'com.linkedin.pegasus2avro.search.template.SearchFieldOverrides': SearchFieldOverridesClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateBoost': SearchTemplateBoostClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateDefaultRoute': SearchTemplateDefaultRouteClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateDialect': SearchTemplateDialectClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateLadder': SearchTemplateLadderClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateLadderStop': SearchTemplateLadderStopClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateNormalization': SearchTemplateNormalizationClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateProperties': SearchTemplatePropertiesClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateRanking': SearchTemplateRankingClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateRetrieval': SearchTemplateRetrievalClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateRetrievalBridge': SearchTemplateRetrievalBridgeClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateRoute': SearchTemplateRouteClass,
+    'com.linkedin.pegasus2avro.search.template.StructuredPropertyClause': StructuredPropertyClauseClass,
+    'com.linkedin.pegasus2avro.search.template.StructuredPropertyOperator': StructuredPropertyOperatorClass,
+    'com.linkedin.pegasus2avro.search.template.StructuredPropertyQuery': StructuredPropertyQueryClass,
     'com.linkedin.pegasus2avro.secret.DataHubSecretValue': DataHubSecretValueClass,
     'com.linkedin.pegasus2avro.semanticmodel.Dimension': DimensionClass,
     'com.linkedin.pegasus2avro.semanticmodel.SemanticFieldAnnotation': SemanticFieldAnnotationClass,
@@ -34101,6 +35572,7 @@ __SCHEMA_TYPES = {
     'QueryKey': QueryKeyClass,
     'RoleKey': RoleKeyClass,
     'SchemaFieldKey': SchemaFieldKeyClass,
+    'SearchTemplateKey': SearchTemplateKeyClass,
     'SemanticModelKey': SemanticModelKeyClass,
     'TagKey': TagKeyClass,
     'TelemetryKey': TelemetryKeyClass,
@@ -34269,6 +35741,23 @@ __SCHEMA_TYPES = {
     'UrnForeignKey': UrnForeignKeyClass,
     'SchemaFieldAliases': SchemaFieldAliasesClass,
     'SchemaFieldInfo': SchemaFieldInfoClass,
+    'HighlightFieldOverrides': HighlightFieldOverridesClass,
+    'SearchFieldBoost': SearchFieldBoostClass,
+    'SearchFieldOverrides': SearchFieldOverridesClass,
+    'SearchTemplateBoost': SearchTemplateBoostClass,
+    'SearchTemplateDefaultRoute': SearchTemplateDefaultRouteClass,
+    'SearchTemplateDialect': SearchTemplateDialectClass,
+    'SearchTemplateLadder': SearchTemplateLadderClass,
+    'SearchTemplateLadderStop': SearchTemplateLadderStopClass,
+    'SearchTemplateNormalization': SearchTemplateNormalizationClass,
+    'SearchTemplateProperties': SearchTemplatePropertiesClass,
+    'SearchTemplateRanking': SearchTemplateRankingClass,
+    'SearchTemplateRetrieval': SearchTemplateRetrievalClass,
+    'SearchTemplateRetrievalBridge': SearchTemplateRetrievalBridgeClass,
+    'SearchTemplateRoute': SearchTemplateRouteClass,
+    'StructuredPropertyClause': StructuredPropertyClauseClass,
+    'StructuredPropertyOperator': StructuredPropertyOperatorClass,
+    'StructuredPropertyQuery': StructuredPropertyQueryClass,
     'DataHubSecretValue': DataHubSecretValueClass,
     'Dimension': DimensionClass,
     'SemanticFieldAnnotation': SemanticFieldAnnotationClass,
@@ -34345,275 +35834,277 @@ avrojson.set_global_json_converter(_json_converter)
     
 
 ASPECT_CLASSES: List[Type[_Aspect]] = [
-    DataHubFileInfoClass,
-    IncidentInfoClass,
-    IncidentNotesClass,
-    IncidentExternalLinksClass,
-    IncidentSourceClass,
-    PlatformResourceInfoClass,
-    PlatformResourceKeyClass,
-    ActorsClass,
-    RolePropertiesClass,
-    DataHubConnectionDetailsClass,
-    GlossaryTermsClass,
-    OwnershipClass,
-    FormsClass,
-    CostClass,
-    EmbedClass,
-    VersionPropertiesClass,
-    IncidentsSummaryClass,
-    OperationClass,
-    SiblingsClass,
-    AliasesClass,
-    UpstreamMetricsClass,
-    DataTransformLogicClass,
-    InstitutionalMemoryClass,
-    GlobalTagsClass,
-    SemanticContentClass,
-    InputFieldsClass,
-    DeprecationClass,
-    DocumentationClass,
-    BrowsePathsV2Class,
-    SubTypesClass,
-    StatusClass,
-    AiContextClass,
-    BrowsePathsClass,
-    OriginClass,
-    DataPlatformInstanceClass,
-    DisplayPropertiesClass,
-    SemanticTextClass,
-    AccessClass,
-    IcebergWarehouseInfoClass,
-    DataPlatformInstancePropertiesClass,
-    ContainerClass,
-    EditableContainerPropertiesClass,
-    ContainerPropertiesClass,
-    ApplicationLineageClass,
-    ApplicationsClass,
-    ApplicationPropertiesClass,
-    ApplicationKeyClass,
-    DataJobInputOutputClass,
-    DataFlowInfoClass,
-    EditableDataJobPropertiesClass,
-    EditableDataFlowPropertiesClass,
-    DataJobInfoClass,
-    VersionInfoClass,
-    DatahubIngestionRunSummaryClass,
-    DatahubIngestionCheckpointClass,
-    SystemMetadataClass,
-    DatasetUpstreamLineageClass,
-    EditableDatasetPropertiesClass,
-    DatasetProfileClass,
-    UpstreamLineageClass,
-    IcebergCatalogInfoClass,
-    DatasetPropertiesClass,
-    SemanticModelPropertiesClass,
-    ViewPropertiesClass,
-    DatasetDeprecationClass,
-    PartitionsSummaryClass,
-    DatasetUsageStatisticsClass,
-    MetricRelationshipsClass,
-    MetricUpstreamsClass,
-    MetricInfoClass,
-    SemanticModelInfoClass,
-    SemanticFieldAnnotationClass,
-    DomainsClass,
-    DomainPropertiesClass,
-    AIAgentInfoClass,
-    AIAgentDependenciesClass,
-    StorageFeaturesClass,
-    UsageFeaturesClass,
-    ExecutionRequestKeyClass,
-    AssertionKeyClass,
-    DataHubOpenAPISchemaKeyClass,
-    GlossaryNodeKeyClass,
-    ERModelRelationshipKeyClass,
-    AIAgentKeyClass,
-    DataHubPolicyKeyClass,
-    DataProcessKeyClass,
-    DataJobKeyClass,
-    DataHubRoleKeyClass,
-    LifecycleStageTypeKeyClass,
-    SemanticModelKeyClass,
-    DataHubPageTemplateKeyClass,
-    DataHubUpgradeKeyClass,
-    DataHubAccessTokenKeyClass,
-    DataProcessInstanceKeyClass,
-    DatasetKeyClass,
-    DataPlatformKeyClass,
-    DataHubStepStateKeyClass,
-    QueryKeyClass,
-    DataPlatformInstanceKeyClass,
-    MLModelDeploymentKeyClass,
-    TestKeyClass,
-    TelemetryKeyClass,
-    OwnershipTypeKeyClass,
-    ApiKeyClass,
-    RoleKeyClass,
-    IncidentKeyClass,
-    MLPrimaryKeyKeyClass,
-    GlobalSettingsKeyClass,
-    DataHubSecretKeyClass,
-    DataHubConnectionKeyClass,
-    NotebookKeyClass,
-    DataHubFileKeyClass,
-    FormKeyClass,
-    CorpUserKeyClass,
-    MLModelGroupKeyClass,
-    MLFeatureKeyClass,
-    AgentSkillKeyClass,
-    ContainerKeyClass,
-    DataHubViewKeyClass,
-    VersionSetKeyClass,
-    DataHubIngestionSourceKeyClass,
-    MetricKeyClass,
-    DomainKeyClass,
-    DataHubPageModuleKeyClass,
-    GlossaryTermKeyClass,
-    DataHubPersonaKeyClass,
-    DataContractKeyClass,
-    SchemaFieldKeyClass,
-    DashboardKeyClass,
-    ChartKeyClass,
-    MLModelKeyClass,
-    DataHubRetentionKeyClass,
-    DocumentKeyClass,
-    DataHubActionKeyClass,
-    PostKeyClass,
-    DataFlowKeyClass,
-    MLFeatureTableKeyClass,
-    InviteTokenKeyClass,
-    TagKeyClass,
-    CorpGroupKeyClass,
-    GlossaryRelatedTermsClass,
-    GlossaryNodeInfoClass,
-    GlossaryTermInfoClass,
-    TagPropertiesClass,
-    DataPlatformInfoClass,
-    SlackUserInfoClass,
-    SchemaMetadataClass,
-    EditableSchemaMetadataClass,
-    QueryPropertiesClass,
-    QueryUsageStatisticsClass,
-    QuerySubjectsClass,
-    DataHubViewInfoClass,
-    RepositoryLineageClass,
-    RepositoryPropertiesClass,
-    RepositorySourceClass,
-    RepositoryKeyClass,
-    DataHubStepStatePropertiesClass,
-    EditableMLModelPropertiesClass,
-    MLFeatureTablePropertiesClass,
-    MLModelPropertiesClass,
-    MLMetricClass,
-    EvaluationDataClass,
-    EditableMLFeaturePropertiesClass,
-    EditableMLFeatureTablePropertiesClass,
-    CaveatsAndRecommendationsClass,
-    MLModelGroupPropertiesClass,
-    MLModelDeploymentPropertiesClass,
-    MLPrimaryKeyPropertiesClass,
-    TrainingDataClass,
-    IntendedUseClass,
-    MLFeaturePropertiesClass,
-    EditableMLPrimaryKeyPropertiesClass,
-    MLTrainingRunPropertiesClass,
-    EditableMLModelGroupPropertiesClass,
-    MLModelFactorPromptsClass,
-    SourceCodeClass,
-    MetricsClass,
-    EthicalConsiderationsClass,
-    QuantitativeAnalysesClass,
-    MLHyperParamClass,
-    AgentSkillInfoClass,
-    DynamicFormAssignmentClass,
-    FormInfoClass,
-    DataHubRoleInfoClass,
-    DataHubPolicyInfoClass,
-    EntityTypeKeyClass,
-    EntityTypeInfoClass,
-    OwnershipTypeInfoClass,
-    RoleMembershipClass,
-    CorpGroupInfoClass,
-    NativeGroupMembershipClass,
-    GroupMembershipClass,
-    CorpGroupEditableInfoClass,
-    CorpUserSettingsClass,
-    CorpUserStatusClass,
-    CorpUserEditableInfoClass,
-    InviteTokenClass,
-    CorpUserCredentialsClass,
-    CorpUserInfoClass,
-    EditableNotebookPropertiesClass,
-    NotebookInfoClass,
-    NotebookContentClass,
-    EditableDashboardPropertiesClass,
-    DashboardInfoClass,
+    LogicalParentClass,
     DashboardUsageStatisticsClass,
-    TestInfoClass,
-    TestResultsClass,
-    DataHubSecretValueClass,
-    DataHubIngestionSourceInfoClass,
-    SchemaFieldAliasesClass,
-    SchemaFieldInfoClass,
+    DashboardInfoClass,
+    EditableDashboardPropertiesClass,
+    DataHubPageTemplatePropertiesClass,
     ERModelRelationshipPropertiesClass,
     EditableERModelRelationshipPropertiesClass,
-    AssetSettingsClass,
-    GlobalSettingsInfoClass,
-    DataHubAccessTokenInfoClass,
-    BusinessAttributesClass,
-    BusinessAttributeInfoClass,
-    BusinessAttributeKeyClass,
-    DataProcessInfoClass,
-    DataProcessInstanceOutputClass,
-    DataProcessInstanceRunEventClass,
-    DataProcessInstanceRelationshipsClass,
-    DataProcessInstancePropertiesClass,
-    DataProcessInstanceInputClass,
+    DataHubUpgradeRequestClass,
+    DataHubUpgradeResultClass,
+    DataHubPageModulePropertiesClass,
     DataProductPropertiesClass,
     DataProductsClass,
     DataProductKeyClass,
-    DataHubRetentionConfigClass,
-    ApiSignatureClass,
-    ApiPropertiesClass,
-    RestApiPropertiesClass,
+    MLFeaturePropertiesClass,
+    MLModelDeploymentPropertiesClass,
+    MLMetricClass,
+    EditableMLFeaturePropertiesClass,
+    MetricsClass,
+    MLTrainingRunPropertiesClass,
+    IntendedUseClass,
+    EditableMLFeatureTablePropertiesClass,
+    EthicalConsiderationsClass,
+    MLPrimaryKeyPropertiesClass,
+    MLFeatureTablePropertiesClass,
+    TrainingDataClass,
+    MLModelGroupPropertiesClass,
+    EvaluationDataClass,
+    MLModelPropertiesClass,
+    EditableMLPrimaryKeyPropertiesClass,
+    EditableMLModelGroupPropertiesClass,
+    QuantitativeAnalysesClass,
+    MLModelFactorPromptsClass,
+    MLHyperParamClass,
+    CaveatsAndRecommendationsClass,
+    SourceCodeClass,
+    EditableMLModelPropertiesClass,
+    DataHubRoleInfoClass,
+    DataHubPolicyInfoClass,
+    UsageFeaturesClass,
+    StorageFeaturesClass,
+    DataHubPageTemplateKeyClass,
+    MetricKeyClass,
+    LifecycleStageTypeKeyClass,
+    CorpUserKeyClass,
+    DataHubPageModuleKeyClass,
+    MLModelKeyClass,
+    ExecutionRequestKeyClass,
+    RoleKeyClass,
+    DataHubRoleKeyClass,
+    DataHubAccessTokenKeyClass,
+    TelemetryKeyClass,
+    DataHubRetentionKeyClass,
+    DatasetKeyClass,
+    GlobalSettingsKeyClass,
+    AIAgentKeyClass,
+    DataHubFileKeyClass,
+    ApiKeyClass,
+    VersionSetKeyClass,
+    DataContractKeyClass,
+    GlossaryNodeKeyClass,
+    DomainKeyClass,
+    DataProcessKeyClass,
+    QueryKeyClass,
+    ContainerKeyClass,
+    TagKeyClass,
+    DashboardKeyClass,
+    SearchTemplateKeyClass,
+    MLFeatureTableKeyClass,
+    FormKeyClass,
+    DataHubUpgradeKeyClass,
+    InviteTokenKeyClass,
+    DataHubStepStateKeyClass,
+    PostKeyClass,
+    GlossaryTermKeyClass,
+    CorpGroupKeyClass,
+    DataHubIngestionSourceKeyClass,
+    DataPlatformKeyClass,
+    DataFlowKeyClass,
+    TestKeyClass,
+    ChartKeyClass,
+    OwnershipTypeKeyClass,
+    DataHubSecretKeyClass,
+    DataProcessInstanceKeyClass,
+    MLModelDeploymentKeyClass,
+    NotebookKeyClass,
+    DataHubOpenAPISchemaKeyClass,
+    MLPrimaryKeyKeyClass,
+    SchemaFieldKeyClass,
+    DataHubConnectionKeyClass,
+    DocumentKeyClass,
+    DataJobKeyClass,
+    DataHubPolicyKeyClass,
+    AssertionKeyClass,
+    MLFeatureKeyClass,
+    DataHubViewKeyClass,
+    DataHubActionKeyClass,
+    AgentSkillKeyClass,
+    IncidentKeyClass,
+    DataPlatformInstanceKeyClass,
+    MLModelGroupKeyClass,
+    DataHubPersonaKeyClass,
+    ERModelRelationshipKeyClass,
+    SemanticModelKeyClass,
+    SystemMetadataClass,
+    IncidentSourceClass,
+    IncidentNotesClass,
+    IncidentInfoClass,
+    IncidentExternalLinksClass,
     DataTypeKeyClass,
     DataTypeInfoClass,
-    DataHubPageTemplatePropertiesClass,
+    OwnershipTypeInfoClass,
+    NotebookContentClass,
+    NotebookInfoClass,
+    EditableNotebookPropertiesClass,
+    VersionSetPropertiesClass,
+    ApplicationKeyClass,
+    ApplicationPropertiesClass,
+    ApplicationsClass,
+    ApplicationLineageClass,
+    DatasetPropertiesClass,
+    PartitionsSummaryClass,
+    DatasetUpstreamLineageClass,
+    EditableDatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
+    UpstreamLineageClass,
+    SemanticModelPropertiesClass,
+    DatasetProfileClass,
+    ViewPropertiesClass,
+    DatasetDeprecationClass,
+    IcebergCatalogInfoClass,
+    TelemetryClientIdClass,
+    MetricInfoClass,
+    MetricRelationshipsClass,
+    MetricUpstreamsClass,
+    DataPlatformInfoClass,
+    SlackUserInfoClass,
+    PostInfoClass,
+    ExecutionRequestResultClass,
     ExecutionRequestSignalClass,
     ExecutionRequestInputClass,
-    ExecutionRequestResultClass,
-    LogicalParentClass,
-    DataHubUpgradeRequestClass,
-    DataHubUpgradeResultClass,
-    ChartUsageStatisticsClass,
-    ChartInfoClass,
-    ChartQueryClass,
-    EditableChartPropertiesClass,
-    DataHubPersonaInfoClass,
-    VersionSetPropertiesClass,
+    VersionInfoClass,
+    DataJobInfoClass,
+    DataFlowInfoClass,
+    DataJobInputOutputClass,
+    EditableDataJobPropertiesClass,
+    EditableDataFlowPropertiesClass,
+    DatahubIngestionRunSummaryClass,
+    DatahubIngestionCheckpointClass,
+    AssetSettingsClass,
+    GlobalSettingsInfoClass,
+    PlatformResourceKeyClass,
+    PlatformResourceInfoClass,
+    DataHubViewInfoClass,
+    GlossaryTermInfoClass,
+    GlossaryRelatedTermsClass,
+    GlossaryNodeInfoClass,
+    ContainerPropertiesClass,
+    ContainerClass,
+    EditableContainerPropertiesClass,
+    DataHubIngestionSourceInfoClass,
+    ActorsClass,
+    RolePropertiesClass,
+    IcebergWarehouseInfoClass,
+    DataPlatformInstancePropertiesClass,
+    AgentSkillInfoClass,
     StructuredPropertiesClass,
+    StructuredPropertySettingsClass,
     StructuredPropertyKeyClass,
     StructuredPropertyDefinitionClass,
-    StructuredPropertySettingsClass,
+    LifecycleStageTypeInfoClass,
+    DataHubAccessTokenInfoClass,
+    TagPropertiesClass,
+    ServiceDefinitionClass,
     ServiceKeyClass,
     ServicePropertiesClass,
-    ServiceDefinitionClass,
     McpServerPropertiesClass,
-    LifecycleStageTypeInfoClass,
+    EntityTypeInfoClass,
+    EntityTypeKeyClass,
+    DataHubSecretValueClass,
+    AIAgentDependenciesClass,
+    AIAgentInfoClass,
+    RepositoryPropertiesClass,
+    RepositoryLineageClass,
+    RepositorySourceClass,
+    RepositoryKeyClass,
+    DataHubFileInfoClass,
+    TestResultsClass,
+    TestInfoClass,
+    SearchTemplatePropertiesClass,
+    DataHubConnectionDetailsClass,
+    RestApiPropertiesClass,
+    ApiPropertiesClass,
+    ApiSignatureClass,
+    ChartInfoClass,
+    EditableChartPropertiesClass,
+    ChartQueryClass,
+    ChartUsageStatisticsClass,
     DocumentSettingsClass,
     DocumentInfoClass,
     DocumentUsageStatisticsClass,
-    TelemetryClientIdClass,
-    PostInfoClass,
-    AssertionInfoClass,
+    BusinessAttributesClass,
+    BusinessAttributeInfoClass,
+    BusinessAttributeKeyClass,
+    SchemaFieldAliasesClass,
+    SchemaFieldInfoClass,
+    SemanticModelInfoClass,
+    SemanticFieldAnnotationClass,
+    QueryPropertiesClass,
+    QuerySubjectsClass,
+    QueryUsageStatisticsClass,
+    DomainPropertiesClass,
+    DomainsClass,
+    DataProcessInstanceRelationshipsClass,
+    DataProcessInstanceOutputClass,
+    DataProcessInstanceRunEventClass,
+    DataProcessInstancePropertiesClass,
+    DataProcessInstanceInputClass,
+    DataProcessInfoClass,
+    InputFieldsClass,
+    DocumentationClass,
+    CostClass,
+    SemanticContentClass,
+    OperationClass,
+    UpstreamMetricsClass,
+    SubTypesClass,
+    InstitutionalMemoryClass,
+    DisplayPropertiesClass,
+    FormsClass,
+    GlobalTagsClass,
+    BrowsePathsClass,
+    BrowsePathsV2Class,
+    OwnershipClass,
+    EmbedClass,
+    OriginClass,
+    AiContextClass,
+    StatusClass,
+    SiblingsClass,
+    DataTransformLogicClass,
+    IncidentsSummaryClass,
+    DataPlatformInstanceClass,
+    SemanticTextClass,
+    VersionPropertiesClass,
+    DeprecationClass,
+    GlossaryTermsClass,
+    AliasesClass,
+    AccessClass,
+    DynamicFormAssignmentClass,
+    FormInfoClass,
+    DataHubRetentionConfigClass,
+    InviteTokenClass,
+    CorpGroupEditableInfoClass,
+    CorpUserStatusClass,
+    CorpUserInfoClass,
+    RoleMembershipClass,
+    CorpUserSettingsClass,
+    CorpGroupInfoClass,
+    NativeGroupMembershipClass,
+    CorpUserEditableInfoClass,
+    CorpUserCredentialsClass,
+    GroupMembershipClass,
+    DataHubStepStatePropertiesClass,
     AssertionNoteClass,
-    AssertionActionsClass,
+    AssertionInfoClass,
     AssertionRunSummaryClass,
+    AssertionActionsClass,
     AssertionRunEventClass,
-    DataContractStatusClass,
+    SchemaMetadataClass,
+    EditableSchemaMetadataClass,
     DataContractPropertiesClass,
-    DataHubPageModulePropertiesClass
+    DataContractStatusClass,
+    DataHubPersonaInfoClass
 ]
 
 ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {
@@ -34625,425 +36116,429 @@ from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
-    dataHubFileInfo: DataHubFileInfoClass
-    incidentInfo: IncidentInfoClass
-    incidentNotes: IncidentNotesClass
-    incidentExternalLinks: IncidentExternalLinksClass
-    incidentSource: IncidentSourceClass
-    platformResourceInfo: PlatformResourceInfoClass
-    platformResourceKey: PlatformResourceKeyClass
-    actors: ActorsClass
-    roleProperties: RolePropertiesClass
-    dataHubConnectionDetails: DataHubConnectionDetailsClass
-    glossaryTerms: GlossaryTermsClass
-    ownership: OwnershipClass
-    forms: FormsClass
-    cost: CostClass
-    embed: EmbedClass
-    versionProperties: VersionPropertiesClass
-    incidentsSummary: IncidentsSummaryClass
-    operation: OperationClass
-    siblings: SiblingsClass
-    aliases: AliasesClass
-    upstreamMetrics: UpstreamMetricsClass
-    dataTransformLogic: DataTransformLogicClass
-    institutionalMemory: InstitutionalMemoryClass
-    globalTags: GlobalTagsClass
-    semanticContent: SemanticContentClass
-    inputFields: InputFieldsClass
-    deprecation: DeprecationClass
-    documentation: DocumentationClass
-    browsePathsV2: BrowsePathsV2Class
-    subTypes: SubTypesClass
-    status: StatusClass
-    aiContext: AiContextClass
-    browsePaths: BrowsePathsClass
-    origin: OriginClass
-    dataPlatformInstance: DataPlatformInstanceClass
-    displayProperties: DisplayPropertiesClass
-    semanticText: SemanticTextClass
-    access: AccessClass
-    icebergWarehouseInfo: IcebergWarehouseInfoClass
-    dataPlatformInstanceProperties: DataPlatformInstancePropertiesClass
-    container: ContainerClass
-    editableContainerProperties: EditableContainerPropertiesClass
-    containerProperties: ContainerPropertiesClass
-    applicationLineage: ApplicationLineageClass
-    applications: ApplicationsClass
-    applicationProperties: ApplicationPropertiesClass
-    applicationKey: ApplicationKeyClass
-    dataJobInputOutput: DataJobInputOutputClass
-    dataFlowInfo: DataFlowInfoClass
-    editableDataJobProperties: EditableDataJobPropertiesClass
-    editableDataFlowProperties: EditableDataFlowPropertiesClass
-    dataJobInfo: DataJobInfoClass
-    versionInfo: VersionInfoClass
-    datahubIngestionRunSummary: DatahubIngestionRunSummaryClass
-    datahubIngestionCheckpoint: DatahubIngestionCheckpointClass
-    systemMetadata: SystemMetadataClass
-    datasetUpstreamLineage: DatasetUpstreamLineageClass
-    editableDatasetProperties: EditableDatasetPropertiesClass
-    datasetProfile: DatasetProfileClass
-    upstreamLineage: UpstreamLineageClass
-    icebergCatalogInfo: IcebergCatalogInfoClass
-    datasetProperties: DatasetPropertiesClass
-    semanticModelProperties: SemanticModelPropertiesClass
-    viewProperties: ViewPropertiesClass
-    datasetDeprecation: DatasetDeprecationClass
-    partitionsSummary: PartitionsSummaryClass
-    datasetUsageStatistics: DatasetUsageStatisticsClass
-    metricRelationships: MetricRelationshipsClass
-    metricUpstreams: MetricUpstreamsClass
-    metricInfo: MetricInfoClass
-    semanticModelInfo: SemanticModelInfoClass
-    semanticFieldAnnotation: SemanticFieldAnnotationClass
-    domains: DomainsClass
-    domainProperties: DomainPropertiesClass
-    aiAgentInfo: AIAgentInfoClass
-    aiAgentDependencies: AIAgentDependenciesClass
-    storageFeatures: StorageFeaturesClass
-    usageFeatures: UsageFeaturesClass
-    dataHubExecutionRequestKey: ExecutionRequestKeyClass
-    assertionKey: AssertionKeyClass
-    dataHubOpenAPISchemaKey: DataHubOpenAPISchemaKeyClass
-    glossaryNodeKey: GlossaryNodeKeyClass
-    erModelRelationshipKey: ERModelRelationshipKeyClass
-    aiAgentKey: AIAgentKeyClass
-    dataHubPolicyKey: DataHubPolicyKeyClass
-    dataProcessKey: DataProcessKeyClass
-    dataJobKey: DataJobKeyClass
-    dataHubRoleKey: DataHubRoleKeyClass
-    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
-    semanticModelKey: SemanticModelKeyClass
-    dataHubPageTemplateKey: DataHubPageTemplateKeyClass
-    dataHubUpgradeKey: DataHubUpgradeKeyClass
-    dataHubAccessTokenKey: DataHubAccessTokenKeyClass
-    dataProcessInstanceKey: DataProcessInstanceKeyClass
-    datasetKey: DatasetKeyClass
-    dataPlatformKey: DataPlatformKeyClass
-    dataHubStepStateKey: DataHubStepStateKeyClass
-    queryKey: QueryKeyClass
-    dataPlatformInstanceKey: DataPlatformInstanceKeyClass
-    mlModelDeploymentKey: MLModelDeploymentKeyClass
-    testKey: TestKeyClass
-    telemetryKey: TelemetryKeyClass
-    ownershipTypeKey: OwnershipTypeKeyClass
-    apiKey: ApiKeyClass
-    roleKey: RoleKeyClass
-    incidentKey: IncidentKeyClass
-    mlPrimaryKeyKey: MLPrimaryKeyKeyClass
-    globalSettingsKey: GlobalSettingsKeyClass
-    dataHubSecretKey: DataHubSecretKeyClass
-    dataHubConnectionKey: DataHubConnectionKeyClass
-    notebookKey: NotebookKeyClass
-    dataHubFileKey: DataHubFileKeyClass
-    formKey: FormKeyClass
-    corpUserKey: CorpUserKeyClass
-    mlModelGroupKey: MLModelGroupKeyClass
-    mlFeatureKey: MLFeatureKeyClass
-    agentSkillKey: AgentSkillKeyClass
-    containerKey: ContainerKeyClass
-    dataHubViewKey: DataHubViewKeyClass
-    versionSetKey: VersionSetKeyClass
-    dataHubIngestionSourceKey: DataHubIngestionSourceKeyClass
-    metricKey: MetricKeyClass
-    domainKey: DomainKeyClass
-    dataHubPageModuleKey: DataHubPageModuleKeyClass
-    glossaryTermKey: GlossaryTermKeyClass
-    dataHubPersonaKey: DataHubPersonaKeyClass
-    dataContractKey: DataContractKeyClass
-    schemaFieldKey: SchemaFieldKeyClass
-    dashboardKey: DashboardKeyClass
-    chartKey: ChartKeyClass
-    mlModelKey: MLModelKeyClass
-    dataHubRetentionKey: DataHubRetentionKeyClass
-    documentKey: DocumentKeyClass
-    dataHubActionKey: DataHubActionKeyClass
-    postKey: PostKeyClass
-    dataFlowKey: DataFlowKeyClass
-    mlFeatureTableKey: MLFeatureTableKeyClass
-    inviteTokenKey: InviteTokenKeyClass
-    tagKey: TagKeyClass
-    corpGroupKey: CorpGroupKeyClass
-    glossaryRelatedTerms: GlossaryRelatedTermsClass
-    glossaryNodeInfo: GlossaryNodeInfoClass
-    glossaryTermInfo: GlossaryTermInfoClass
-    tagProperties: TagPropertiesClass
-    dataPlatformInfo: DataPlatformInfoClass
-    slackUserInfo: SlackUserInfoClass
-    schemaMetadata: SchemaMetadataClass
-    editableSchemaMetadata: EditableSchemaMetadataClass
-    queryProperties: QueryPropertiesClass
-    queryUsageStatistics: QueryUsageStatisticsClass
-    querySubjects: QuerySubjectsClass
-    dataHubViewInfo: DataHubViewInfoClass
-    repositoryLineage: RepositoryLineageClass
-    repositoryProperties: RepositoryPropertiesClass
-    repositorySource: RepositorySourceClass
-    repositoryKey: RepositoryKeyClass
-    dataHubStepStateProperties: DataHubStepStatePropertiesClass
-    editableMlModelProperties: EditableMLModelPropertiesClass
-    mlFeatureTableProperties: MLFeatureTablePropertiesClass
-    mlModelProperties: MLModelPropertiesClass
-    mlMetric: MLMetricClass
-    mlModelEvaluationData: EvaluationDataClass
-    editableMlFeatureProperties: EditableMLFeaturePropertiesClass
-    editableMlFeatureTableProperties: EditableMLFeatureTablePropertiesClass
-    mlModelCaveatsAndRecommendations: CaveatsAndRecommendationsClass
-    mlModelGroupProperties: MLModelGroupPropertiesClass
-    mlModelDeploymentProperties: MLModelDeploymentPropertiesClass
-    mlPrimaryKeyProperties: MLPrimaryKeyPropertiesClass
-    mlModelTrainingData: TrainingDataClass
-    intendedUse: IntendedUseClass
-    mlFeatureProperties: MLFeaturePropertiesClass
-    editableMlPrimaryKeyProperties: EditableMLPrimaryKeyPropertiesClass
-    mlTrainingRunProperties: MLTrainingRunPropertiesClass
-    editableMlModelGroupProperties: EditableMLModelGroupPropertiesClass
-    mlModelFactorPrompts: MLModelFactorPromptsClass
-    sourceCode: SourceCodeClass
-    mlModelMetrics: MetricsClass
-    mlModelEthicalConsiderations: EthicalConsiderationsClass
-    mlModelQuantitativeAnalyses: QuantitativeAnalysesClass
-    mlHyperParam: MLHyperParamClass
-    agentSkillInfo: AgentSkillInfoClass
-    dynamicFormAssignment: DynamicFormAssignmentClass
-    formInfo: FormInfoClass
-    dataHubRoleInfo: DataHubRoleInfoClass
-    dataHubPolicyInfo: DataHubPolicyInfoClass
-    entityTypeKey: EntityTypeKeyClass
-    entityTypeInfo: EntityTypeInfoClass
-    ownershipTypeInfo: OwnershipTypeInfoClass
-    roleMembership: RoleMembershipClass
-    corpGroupInfo: CorpGroupInfoClass
-    nativeGroupMembership: NativeGroupMembershipClass
-    groupMembership: GroupMembershipClass
-    corpGroupEditableInfo: CorpGroupEditableInfoClass
-    corpUserSettings: CorpUserSettingsClass
-    corpUserStatus: CorpUserStatusClass
-    corpUserEditableInfo: CorpUserEditableInfoClass
-    inviteToken: InviteTokenClass
-    corpUserCredentials: CorpUserCredentialsClass
-    corpUserInfo: CorpUserInfoClass
-    editableNotebookProperties: EditableNotebookPropertiesClass
-    notebookInfo: NotebookInfoClass
-    notebookContent: NotebookContentClass
-    editableDashboardProperties: EditableDashboardPropertiesClass
-    dashboardInfo: DashboardInfoClass
+    logicalParent: LogicalParentClass
     dashboardUsageStatistics: DashboardUsageStatisticsClass
-    testInfo: TestInfoClass
-    testResults: TestResultsClass
-    dataHubSecretValue: DataHubSecretValueClass
-    dataHubIngestionSourceInfo: DataHubIngestionSourceInfoClass
-    schemaFieldAliases: SchemaFieldAliasesClass
-    schemafieldInfo: SchemaFieldInfoClass
+    dashboardInfo: DashboardInfoClass
+    editableDashboardProperties: EditableDashboardPropertiesClass
+    dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
     erModelRelationshipProperties: ERModelRelationshipPropertiesClass
     editableERModelRelationshipProperties: EditableERModelRelationshipPropertiesClass
-    assetSettings: AssetSettingsClass
-    globalSettingsInfo: GlobalSettingsInfoClass
-    dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
-    businessAttributes: BusinessAttributesClass
-    businessAttributeInfo: BusinessAttributeInfoClass
-    businessAttributeKey: BusinessAttributeKeyClass
-    dataProcessInfo: DataProcessInfoClass
-    dataProcessInstanceOutput: DataProcessInstanceOutputClass
-    dataProcessInstanceRunEvent: DataProcessInstanceRunEventClass
-    dataProcessInstanceRelationships: DataProcessInstanceRelationshipsClass
-    dataProcessInstanceProperties: DataProcessInstancePropertiesClass
-    dataProcessInstanceInput: DataProcessInstanceInputClass
+    dataHubUpgradeRequest: DataHubUpgradeRequestClass
+    dataHubUpgradeResult: DataHubUpgradeResultClass
+    dataHubPageModuleProperties: DataHubPageModulePropertiesClass
     dataProductProperties: DataProductPropertiesClass
     dataProducts: DataProductsClass
     dataProductKey: DataProductKeyClass
-    dataHubRetentionConfig: DataHubRetentionConfigClass
-    apiSignature: ApiSignatureClass
-    apiProperties: ApiPropertiesClass
-    restApiProperties: RestApiPropertiesClass
+    mlFeatureProperties: MLFeaturePropertiesClass
+    mlModelDeploymentProperties: MLModelDeploymentPropertiesClass
+    mlMetric: MLMetricClass
+    editableMlFeatureProperties: EditableMLFeaturePropertiesClass
+    mlModelMetrics: MetricsClass
+    mlTrainingRunProperties: MLTrainingRunPropertiesClass
+    intendedUse: IntendedUseClass
+    editableMlFeatureTableProperties: EditableMLFeatureTablePropertiesClass
+    mlModelEthicalConsiderations: EthicalConsiderationsClass
+    mlPrimaryKeyProperties: MLPrimaryKeyPropertiesClass
+    mlFeatureTableProperties: MLFeatureTablePropertiesClass
+    mlModelTrainingData: TrainingDataClass
+    mlModelGroupProperties: MLModelGroupPropertiesClass
+    mlModelEvaluationData: EvaluationDataClass
+    mlModelProperties: MLModelPropertiesClass
+    editableMlPrimaryKeyProperties: EditableMLPrimaryKeyPropertiesClass
+    editableMlModelGroupProperties: EditableMLModelGroupPropertiesClass
+    mlModelQuantitativeAnalyses: QuantitativeAnalysesClass
+    mlModelFactorPrompts: MLModelFactorPromptsClass
+    mlHyperParam: MLHyperParamClass
+    mlModelCaveatsAndRecommendations: CaveatsAndRecommendationsClass
+    sourceCode: SourceCodeClass
+    editableMlModelProperties: EditableMLModelPropertiesClass
+    dataHubRoleInfo: DataHubRoleInfoClass
+    dataHubPolicyInfo: DataHubPolicyInfoClass
+    usageFeatures: UsageFeaturesClass
+    storageFeatures: StorageFeaturesClass
+    dataHubPageTemplateKey: DataHubPageTemplateKeyClass
+    metricKey: MetricKeyClass
+    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
+    corpUserKey: CorpUserKeyClass
+    dataHubPageModuleKey: DataHubPageModuleKeyClass
+    mlModelKey: MLModelKeyClass
+    dataHubExecutionRequestKey: ExecutionRequestKeyClass
+    roleKey: RoleKeyClass
+    dataHubRoleKey: DataHubRoleKeyClass
+    dataHubAccessTokenKey: DataHubAccessTokenKeyClass
+    telemetryKey: TelemetryKeyClass
+    dataHubRetentionKey: DataHubRetentionKeyClass
+    datasetKey: DatasetKeyClass
+    globalSettingsKey: GlobalSettingsKeyClass
+    aiAgentKey: AIAgentKeyClass
+    dataHubFileKey: DataHubFileKeyClass
+    apiKey: ApiKeyClass
+    versionSetKey: VersionSetKeyClass
+    dataContractKey: DataContractKeyClass
+    glossaryNodeKey: GlossaryNodeKeyClass
+    domainKey: DomainKeyClass
+    dataProcessKey: DataProcessKeyClass
+    queryKey: QueryKeyClass
+    containerKey: ContainerKeyClass
+    tagKey: TagKeyClass
+    dashboardKey: DashboardKeyClass
+    searchTemplateKey: SearchTemplateKeyClass
+    mlFeatureTableKey: MLFeatureTableKeyClass
+    formKey: FormKeyClass
+    dataHubUpgradeKey: DataHubUpgradeKeyClass
+    inviteTokenKey: InviteTokenKeyClass
+    dataHubStepStateKey: DataHubStepStateKeyClass
+    postKey: PostKeyClass
+    glossaryTermKey: GlossaryTermKeyClass
+    corpGroupKey: CorpGroupKeyClass
+    dataHubIngestionSourceKey: DataHubIngestionSourceKeyClass
+    dataPlatformKey: DataPlatformKeyClass
+    dataFlowKey: DataFlowKeyClass
+    testKey: TestKeyClass
+    chartKey: ChartKeyClass
+    ownershipTypeKey: OwnershipTypeKeyClass
+    dataHubSecretKey: DataHubSecretKeyClass
+    dataProcessInstanceKey: DataProcessInstanceKeyClass
+    mlModelDeploymentKey: MLModelDeploymentKeyClass
+    notebookKey: NotebookKeyClass
+    dataHubOpenAPISchemaKey: DataHubOpenAPISchemaKeyClass
+    mlPrimaryKeyKey: MLPrimaryKeyKeyClass
+    schemaFieldKey: SchemaFieldKeyClass
+    dataHubConnectionKey: DataHubConnectionKeyClass
+    documentKey: DocumentKeyClass
+    dataJobKey: DataJobKeyClass
+    dataHubPolicyKey: DataHubPolicyKeyClass
+    assertionKey: AssertionKeyClass
+    mlFeatureKey: MLFeatureKeyClass
+    dataHubViewKey: DataHubViewKeyClass
+    dataHubActionKey: DataHubActionKeyClass
+    agentSkillKey: AgentSkillKeyClass
+    incidentKey: IncidentKeyClass
+    dataPlatformInstanceKey: DataPlatformInstanceKeyClass
+    mlModelGroupKey: MLModelGroupKeyClass
+    dataHubPersonaKey: DataHubPersonaKeyClass
+    erModelRelationshipKey: ERModelRelationshipKeyClass
+    semanticModelKey: SemanticModelKeyClass
+    systemMetadata: SystemMetadataClass
+    incidentSource: IncidentSourceClass
+    incidentNotes: IncidentNotesClass
+    incidentInfo: IncidentInfoClass
+    incidentExternalLinks: IncidentExternalLinksClass
     dataTypeKey: DataTypeKeyClass
     dataTypeInfo: DataTypeInfoClass
-    dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
+    ownershipTypeInfo: OwnershipTypeInfoClass
+    notebookContent: NotebookContentClass
+    notebookInfo: NotebookInfoClass
+    editableNotebookProperties: EditableNotebookPropertiesClass
+    versionSetProperties: VersionSetPropertiesClass
+    applicationKey: ApplicationKeyClass
+    applicationProperties: ApplicationPropertiesClass
+    applications: ApplicationsClass
+    applicationLineage: ApplicationLineageClass
+    datasetProperties: DatasetPropertiesClass
+    partitionsSummary: PartitionsSummaryClass
+    datasetUpstreamLineage: DatasetUpstreamLineageClass
+    editableDatasetProperties: EditableDatasetPropertiesClass
+    datasetUsageStatistics: DatasetUsageStatisticsClass
+    upstreamLineage: UpstreamLineageClass
+    semanticModelProperties: SemanticModelPropertiesClass
+    datasetProfile: DatasetProfileClass
+    viewProperties: ViewPropertiesClass
+    datasetDeprecation: DatasetDeprecationClass
+    icebergCatalogInfo: IcebergCatalogInfoClass
+    telemetryClientId: TelemetryClientIdClass
+    metricInfo: MetricInfoClass
+    metricRelationships: MetricRelationshipsClass
+    metricUpstreams: MetricUpstreamsClass
+    dataPlatformInfo: DataPlatformInfoClass
+    slackUserInfo: SlackUserInfoClass
+    postInfo: PostInfoClass
+    dataHubExecutionRequestResult: ExecutionRequestResultClass
     dataHubExecutionRequestSignal: ExecutionRequestSignalClass
     dataHubExecutionRequestInput: ExecutionRequestInputClass
-    dataHubExecutionRequestResult: ExecutionRequestResultClass
-    logicalParent: LogicalParentClass
-    dataHubUpgradeRequest: DataHubUpgradeRequestClass
-    dataHubUpgradeResult: DataHubUpgradeResultClass
-    chartUsageStatistics: ChartUsageStatisticsClass
-    chartInfo: ChartInfoClass
-    chartQuery: ChartQueryClass
-    editableChartProperties: EditableChartPropertiesClass
-    dataHubPersonaInfo: DataHubPersonaInfoClass
-    versionSetProperties: VersionSetPropertiesClass
+    versionInfo: VersionInfoClass
+    dataJobInfo: DataJobInfoClass
+    dataFlowInfo: DataFlowInfoClass
+    dataJobInputOutput: DataJobInputOutputClass
+    editableDataJobProperties: EditableDataJobPropertiesClass
+    editableDataFlowProperties: EditableDataFlowPropertiesClass
+    datahubIngestionRunSummary: DatahubIngestionRunSummaryClass
+    datahubIngestionCheckpoint: DatahubIngestionCheckpointClass
+    assetSettings: AssetSettingsClass
+    globalSettingsInfo: GlobalSettingsInfoClass
+    platformResourceKey: PlatformResourceKeyClass
+    platformResourceInfo: PlatformResourceInfoClass
+    dataHubViewInfo: DataHubViewInfoClass
+    glossaryTermInfo: GlossaryTermInfoClass
+    glossaryRelatedTerms: GlossaryRelatedTermsClass
+    glossaryNodeInfo: GlossaryNodeInfoClass
+    containerProperties: ContainerPropertiesClass
+    container: ContainerClass
+    editableContainerProperties: EditableContainerPropertiesClass
+    dataHubIngestionSourceInfo: DataHubIngestionSourceInfoClass
+    actors: ActorsClass
+    roleProperties: RolePropertiesClass
+    icebergWarehouseInfo: IcebergWarehouseInfoClass
+    dataPlatformInstanceProperties: DataPlatformInstancePropertiesClass
+    agentSkillInfo: AgentSkillInfoClass
     structuredProperties: StructuredPropertiesClass
+    structuredPropertySettings: StructuredPropertySettingsClass
     structuredPropertyKey: StructuredPropertyKeyClass
     propertyDefinition: StructuredPropertyDefinitionClass
-    structuredPropertySettings: StructuredPropertySettingsClass
+    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
+    dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
+    tagProperties: TagPropertiesClass
+    serviceDefinition: ServiceDefinitionClass
     serviceKey: ServiceKeyClass
     serviceProperties: ServicePropertiesClass
-    serviceDefinition: ServiceDefinitionClass
     mcpServerProperties: McpServerPropertiesClass
-    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
+    entityTypeInfo: EntityTypeInfoClass
+    entityTypeKey: EntityTypeKeyClass
+    dataHubSecretValue: DataHubSecretValueClass
+    aiAgentDependencies: AIAgentDependenciesClass
+    aiAgentInfo: AIAgentInfoClass
+    repositoryProperties: RepositoryPropertiesClass
+    repositoryLineage: RepositoryLineageClass
+    repositorySource: RepositorySourceClass
+    repositoryKey: RepositoryKeyClass
+    dataHubFileInfo: DataHubFileInfoClass
+    testResults: TestResultsClass
+    testInfo: TestInfoClass
+    searchTemplateProperties: SearchTemplatePropertiesClass
+    dataHubConnectionDetails: DataHubConnectionDetailsClass
+    restApiProperties: RestApiPropertiesClass
+    apiProperties: ApiPropertiesClass
+    apiSignature: ApiSignatureClass
+    chartInfo: ChartInfoClass
+    editableChartProperties: EditableChartPropertiesClass
+    chartQuery: ChartQueryClass
+    chartUsageStatistics: ChartUsageStatisticsClass
     documentSettings: DocumentSettingsClass
     documentInfo: DocumentInfoClass
     documentUsageStatistics: DocumentUsageStatisticsClass
-    telemetryClientId: TelemetryClientIdClass
-    postInfo: PostInfoClass
-    assertionInfo: AssertionInfoClass
+    businessAttributes: BusinessAttributesClass
+    businessAttributeInfo: BusinessAttributeInfoClass
+    businessAttributeKey: BusinessAttributeKeyClass
+    schemaFieldAliases: SchemaFieldAliasesClass
+    schemafieldInfo: SchemaFieldInfoClass
+    semanticModelInfo: SemanticModelInfoClass
+    semanticFieldAnnotation: SemanticFieldAnnotationClass
+    queryProperties: QueryPropertiesClass
+    querySubjects: QuerySubjectsClass
+    queryUsageStatistics: QueryUsageStatisticsClass
+    domainProperties: DomainPropertiesClass
+    domains: DomainsClass
+    dataProcessInstanceRelationships: DataProcessInstanceRelationshipsClass
+    dataProcessInstanceOutput: DataProcessInstanceOutputClass
+    dataProcessInstanceRunEvent: DataProcessInstanceRunEventClass
+    dataProcessInstanceProperties: DataProcessInstancePropertiesClass
+    dataProcessInstanceInput: DataProcessInstanceInputClass
+    dataProcessInfo: DataProcessInfoClass
+    inputFields: InputFieldsClass
+    documentation: DocumentationClass
+    cost: CostClass
+    semanticContent: SemanticContentClass
+    operation: OperationClass
+    upstreamMetrics: UpstreamMetricsClass
+    subTypes: SubTypesClass
+    institutionalMemory: InstitutionalMemoryClass
+    displayProperties: DisplayPropertiesClass
+    forms: FormsClass
+    globalTags: GlobalTagsClass
+    browsePaths: BrowsePathsClass
+    browsePathsV2: BrowsePathsV2Class
+    ownership: OwnershipClass
+    embed: EmbedClass
+    origin: OriginClass
+    aiContext: AiContextClass
+    status: StatusClass
+    siblings: SiblingsClass
+    dataTransformLogic: DataTransformLogicClass
+    incidentsSummary: IncidentsSummaryClass
+    dataPlatformInstance: DataPlatformInstanceClass
+    semanticText: SemanticTextClass
+    versionProperties: VersionPropertiesClass
+    deprecation: DeprecationClass
+    glossaryTerms: GlossaryTermsClass
+    aliases: AliasesClass
+    access: AccessClass
+    dynamicFormAssignment: DynamicFormAssignmentClass
+    formInfo: FormInfoClass
+    dataHubRetentionConfig: DataHubRetentionConfigClass
+    inviteToken: InviteTokenClass
+    corpGroupEditableInfo: CorpGroupEditableInfoClass
+    corpUserStatus: CorpUserStatusClass
+    corpUserInfo: CorpUserInfoClass
+    roleMembership: RoleMembershipClass
+    corpUserSettings: CorpUserSettingsClass
+    corpGroupInfo: CorpGroupInfoClass
+    nativeGroupMembership: NativeGroupMembershipClass
+    corpUserEditableInfo: CorpUserEditableInfoClass
+    corpUserCredentials: CorpUserCredentialsClass
+    groupMembership: GroupMembershipClass
+    dataHubStepStateProperties: DataHubStepStatePropertiesClass
     assertionNote: AssertionNoteClass
-    assertionActions: AssertionActionsClass
+    assertionInfo: AssertionInfoClass
     assertionRunSummary: AssertionRunSummaryClass
+    assertionActions: AssertionActionsClass
     assertionRunEvent: AssertionRunEventClass
-    dataContractStatus: DataContractStatusClass
+    schemaMetadata: SchemaMetadataClass
+    editableSchemaMetadata: EditableSchemaMetadataClass
     dataContractProperties: DataContractPropertiesClass
-    dataHubPageModuleProperties: DataHubPageModulePropertiesClass
+    dataContractStatus: DataContractStatusClass
+    dataHubPersonaInfo: DataHubPersonaInfoClass
 
 
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {
-    'platformResource': PlatformResourceKeyClass,
-    'application': ApplicationKeyClass,
-    'dataHubExecutionRequest': ExecutionRequestKeyClass,
-    'assertion': AssertionKeyClass,
-    'dataHubOpenAPISchema': DataHubOpenAPISchemaKeyClass,
-    'glossaryNode': GlossaryNodeKeyClass,
-    'erModelRelationship': ERModelRelationshipKeyClass,
-    'aiAgent': AIAgentKeyClass,
-    'dataHubPolicy': DataHubPolicyKeyClass,
-    'dataProcess': DataProcessKeyClass,
-    'dataJob': DataJobKeyClass,
-    'dataHubRole': DataHubRoleKeyClass,
-    'lifecycleStageType': LifecycleStageTypeKeyClass,
-    'semanticModel': SemanticModelKeyClass,
-    'dataHubPageTemplate': DataHubPageTemplateKeyClass,
-    'dataHubUpgrade': DataHubUpgradeKeyClass,
-    'dataHubAccessToken': DataHubAccessTokenKeyClass,
-    'dataProcessInstance': DataProcessInstanceKeyClass,
-    'dataset': DatasetKeyClass,
-    'dataPlatform': DataPlatformKeyClass,
-    'dataHubStepState': DataHubStepStateKeyClass,
-    'query': QueryKeyClass,
-    'dataPlatformInstance': DataPlatformInstanceKeyClass,
-    'mlModelDeployment': MLModelDeploymentKeyClass,
-    'test': TestKeyClass,
-    'telemetry': TelemetryKeyClass,
-    'ownershipType': OwnershipTypeKeyClass,
-    'api': ApiKeyClass,
-    'role': RoleKeyClass,
-    'incident': IncidentKeyClass,
-    'mlPrimaryKey': MLPrimaryKeyKeyClass,
-    'globalSettings': GlobalSettingsKeyClass,
-    'dataHubSecret': DataHubSecretKeyClass,
-    'dataHubConnection': DataHubConnectionKeyClass,
-    'notebook': NotebookKeyClass,
-    'dataHubFile': DataHubFileKeyClass,
-    'form': FormKeyClass,
-    'corpuser': CorpUserKeyClass,
-    'mlModelGroup': MLModelGroupKeyClass,
-    'mlFeature': MLFeatureKeyClass,
-    'agentSkill': AgentSkillKeyClass,
-    'container': ContainerKeyClass,
-    'dataHubView': DataHubViewKeyClass,
-    'versionSet': VersionSetKeyClass,
-    'dataHubIngestionSource': DataHubIngestionSourceKeyClass,
-    'metric': MetricKeyClass,
-    'domain': DomainKeyClass,
-    'dataHubPageModule': DataHubPageModuleKeyClass,
-    'glossaryTerm': GlossaryTermKeyClass,
-    'dataHubPersona': DataHubPersonaKeyClass,
-    'dataContract': DataContractKeyClass,
-    'schemaField': SchemaFieldKeyClass,
-    'dashboard': DashboardKeyClass,
-    'chart': ChartKeyClass,
-    'mlModel': MLModelKeyClass,
-    'dataHubRetention': DataHubRetentionKeyClass,
-    'document': DocumentKeyClass,
-    'dataHubAction': DataHubActionKeyClass,
-    'post': PostKeyClass,
-    'dataFlow': DataFlowKeyClass,
-    'mlFeatureTable': MLFeatureTableKeyClass,
-    'inviteToken': InviteTokenKeyClass,
-    'tag': TagKeyClass,
-    'corpGroup': CorpGroupKeyClass,
-    'repository': RepositoryKeyClass,
-    'entityType': EntityTypeKeyClass,
-    'businessAttribute': BusinessAttributeKeyClass,
     'dataProduct': DataProductKeyClass,
+    'dataHubPageTemplate': DataHubPageTemplateKeyClass,
+    'metric': MetricKeyClass,
+    'lifecycleStageType': LifecycleStageTypeKeyClass,
+    'corpuser': CorpUserKeyClass,
+    'dataHubPageModule': DataHubPageModuleKeyClass,
+    'mlModel': MLModelKeyClass,
+    'dataHubExecutionRequest': ExecutionRequestKeyClass,
+    'role': RoleKeyClass,
+    'dataHubRole': DataHubRoleKeyClass,
+    'dataHubAccessToken': DataHubAccessTokenKeyClass,
+    'telemetry': TelemetryKeyClass,
+    'dataHubRetention': DataHubRetentionKeyClass,
+    'dataset': DatasetKeyClass,
+    'globalSettings': GlobalSettingsKeyClass,
+    'aiAgent': AIAgentKeyClass,
+    'dataHubFile': DataHubFileKeyClass,
+    'api': ApiKeyClass,
+    'versionSet': VersionSetKeyClass,
+    'dataContract': DataContractKeyClass,
+    'glossaryNode': GlossaryNodeKeyClass,
+    'domain': DomainKeyClass,
+    'dataProcess': DataProcessKeyClass,
+    'query': QueryKeyClass,
+    'container': ContainerKeyClass,
+    'tag': TagKeyClass,
+    'dashboard': DashboardKeyClass,
+    'searchTemplate': SearchTemplateKeyClass,
+    'mlFeatureTable': MLFeatureTableKeyClass,
+    'form': FormKeyClass,
+    'dataHubUpgrade': DataHubUpgradeKeyClass,
+    'inviteToken': InviteTokenKeyClass,
+    'dataHubStepState': DataHubStepStateKeyClass,
+    'post': PostKeyClass,
+    'glossaryTerm': GlossaryTermKeyClass,
+    'corpGroup': CorpGroupKeyClass,
+    'dataHubIngestionSource': DataHubIngestionSourceKeyClass,
+    'dataPlatform': DataPlatformKeyClass,
+    'dataFlow': DataFlowKeyClass,
+    'test': TestKeyClass,
+    'chart': ChartKeyClass,
+    'ownershipType': OwnershipTypeKeyClass,
+    'dataHubSecret': DataHubSecretKeyClass,
+    'dataProcessInstance': DataProcessInstanceKeyClass,
+    'mlModelDeployment': MLModelDeploymentKeyClass,
+    'notebook': NotebookKeyClass,
+    'dataHubOpenAPISchema': DataHubOpenAPISchemaKeyClass,
+    'mlPrimaryKey': MLPrimaryKeyKeyClass,
+    'schemaField': SchemaFieldKeyClass,
+    'dataHubConnection': DataHubConnectionKeyClass,
+    'document': DocumentKeyClass,
+    'dataJob': DataJobKeyClass,
+    'dataHubPolicy': DataHubPolicyKeyClass,
+    'assertion': AssertionKeyClass,
+    'mlFeature': MLFeatureKeyClass,
+    'dataHubView': DataHubViewKeyClass,
+    'dataHubAction': DataHubActionKeyClass,
+    'agentSkill': AgentSkillKeyClass,
+    'incident': IncidentKeyClass,
+    'dataPlatformInstance': DataPlatformInstanceKeyClass,
+    'mlModelGroup': MLModelGroupKeyClass,
+    'dataHubPersona': DataHubPersonaKeyClass,
+    'erModelRelationship': ERModelRelationshipKeyClass,
+    'semanticModel': SemanticModelKeyClass,
     'dataType': DataTypeKeyClass,
+    'application': ApplicationKeyClass,
+    'platformResource': PlatformResourceKeyClass,
     'structuredProperty': StructuredPropertyKeyClass,
-    'service': ServiceKeyClass
+    'service': ServiceKeyClass,
+    'entityType': EntityTypeKeyClass,
+    'repository': RepositoryKeyClass,
+    'businessAttribute': BusinessAttributeKeyClass
 }
 
 KEY_ASPECT_NAMES: Set[str] = {cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}
 
 ENTITY_TYPE_NAMES: List[str] = [
-    'platformResource',
-    'application',
-    'dataHubExecutionRequest',
-    'assertion',
-    'dataHubOpenAPISchema',
-    'glossaryNode',
-    'erModelRelationship',
-    'aiAgent',
-    'dataHubPolicy',
-    'dataProcess',
-    'dataJob',
-    'dataHubRole',
-    'lifecycleStageType',
-    'semanticModel',
-    'dataHubPageTemplate',
-    'dataHubUpgrade',
-    'dataHubAccessToken',
-    'dataProcessInstance',
-    'dataset',
-    'dataPlatform',
-    'dataHubStepState',
-    'query',
-    'dataPlatformInstance',
-    'mlModelDeployment',
-    'test',
-    'telemetry',
-    'ownershipType',
-    'api',
-    'role',
-    'incident',
-    'mlPrimaryKey',
-    'globalSettings',
-    'dataHubSecret',
-    'dataHubConnection',
-    'notebook',
-    'dataHubFile',
-    'form',
-    'corpuser',
-    'mlModelGroup',
-    'mlFeature',
-    'agentSkill',
-    'container',
-    'dataHubView',
-    'versionSet',
-    'dataHubIngestionSource',
-    'metric',
-    'domain',
-    'dataHubPageModule',
-    'glossaryTerm',
-    'dataHubPersona',
-    'dataContract',
-    'schemaField',
-    'dashboard',
-    'chart',
-    'mlModel',
-    'dataHubRetention',
-    'document',
-    'dataHubAction',
-    'post',
-    'dataFlow',
-    'mlFeatureTable',
-    'inviteToken',
-    'tag',
-    'corpGroup',
-    'repository',
-    'entityType',
-    'businessAttribute',
     'dataProduct',
+    'dataHubPageTemplate',
+    'metric',
+    'lifecycleStageType',
+    'corpuser',
+    'dataHubPageModule',
+    'mlModel',
+    'dataHubExecutionRequest',
+    'role',
+    'dataHubRole',
+    'dataHubAccessToken',
+    'telemetry',
+    'dataHubRetention',
+    'dataset',
+    'globalSettings',
+    'aiAgent',
+    'dataHubFile',
+    'api',
+    'versionSet',
+    'dataContract',
+    'glossaryNode',
+    'domain',
+    'dataProcess',
+    'query',
+    'container',
+    'tag',
+    'dashboard',
+    'searchTemplate',
+    'mlFeatureTable',
+    'form',
+    'dataHubUpgrade',
+    'inviteToken',
+    'dataHubStepState',
+    'post',
+    'glossaryTerm',
+    'corpGroup',
+    'dataHubIngestionSource',
+    'dataPlatform',
+    'dataFlow',
+    'test',
+    'chart',
+    'ownershipType',
+    'dataHubSecret',
+    'dataProcessInstance',
+    'mlModelDeployment',
+    'notebook',
+    'dataHubOpenAPISchema',
+    'mlPrimaryKey',
+    'schemaField',
+    'dataHubConnection',
+    'document',
+    'dataJob',
+    'dataHubPolicy',
+    'assertion',
+    'mlFeature',
+    'dataHubView',
+    'dataHubAction',
+    'agentSkill',
+    'incident',
+    'dataPlatformInstance',
+    'mlModelGroup',
+    'dataHubPersona',
+    'erModelRelationship',
+    'semanticModel',
     'dataType',
+    'application',
+    'platformResource',
     'structuredProperty',
-    'service'
+    'service',
+    'entityType',
+    'repository',
+    'businessAttribute'
 ]
 
 # Entity type -> full list of non-key aspect names, sourced verbatim from
@@ -35053,151 +36548,153 @@ ENTITY_TYPE_NAMES: List[str] = [
 # custom aspects not in this build) can instead fetch it at runtime via
 # DataHubGraph.get_entity_aspect_specs() rather than this codegen constant.
 ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
-    'platformResource': ['dataPlatformInstance', 'platformResourceInfo', 'status'],
-    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
-    'dataHubExecutionRequest': ['dataHubExecutionRequestInput', 'dataHubExecutionRequestSignal', 'dataHubExecutionRequestResult'],
-    'assertion': ['assertionInfo', 'assertionNote', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'],
-    'dataHubOpenAPISchema': ['systemMetadata'],
-    'glossaryNode': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags'],
-    'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
-    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties'],
-    'dataHubPolicy': ['dataHubPolicyInfo'],
-    'dataProcess': ['dataProcessInfo', 'ownership', 'status', 'testResults', 'subTypes'],
-    'dataJob': ['datahubIngestionRunSummary', 'datahubIngestionCheckpoint', 'domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataJobInfo', 'dataJobInputOutput', 'editableDataJobProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'forms', 'subTypes', 'incidentsSummary', 'testResults', 'dataTransformLogic', 'documentation'],
-    'dataHubRole': ['dataHubRoleInfo'],
-    'lifecycleStageType': ['lifecycleStageTypeInfo', 'status'],
-    'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
-    'dataHubPageTemplate': ['dataHubPageTemplateProperties'],
-    'dataHubUpgrade': ['dataHubUpgradeRequest', 'dataHubUpgradeResult'],
-    'dataHubAccessToken': ['dataHubAccessTokenInfo'],
-    'dataProcessInstance': ['dataProcessInstanceInput', 'dataProcessInstanceOutput', 'dataProcessInstanceProperties', 'dataProcessInstanceRelationships', 'dataProcessInstanceRunEvent', 'status', 'testResults', 'dataPlatformInstance', 'subTypes', 'container', 'mlTrainingRunProperties'],
-    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
-    'dataPlatform': ['dataPlatformInfo'],
-    'dataHubStepState': ['dataHubStepStateProperties'],
-    'query': ['queryProperties', 'querySubjects', 'queryUsageStatistics', 'status', 'dataPlatformInstance', 'subTypes'],
-    'dataPlatformInstance': ['dataPlatformInstanceProperties', 'ownership', 'globalTags', 'institutionalMemory', 'deprecation', 'status', 'icebergWarehouseInfo'],
-    'mlModelDeployment': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container'],
-    'test': ['testInfo'],
-    'telemetry': ['telemetryClientId'],
-    'ownershipType': ['ownershipTypeInfo', 'status'],
-    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
-    'role': ['roleProperties', 'actors'],
-    'incident': ['incidentInfo', 'incidentExternalLinks', 'incidentNotes', 'globalTags'],
-    'mlPrimaryKey': ['glossaryTerms', 'editableMlPrimaryKeyProperties', 'domains', 'dataProducts', 'applications', 'mlPrimaryKeyProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
-    'globalSettings': ['globalSettingsInfo'],
-    'dataHubSecret': ['dataHubSecretValue'],
-    'dataHubConnection': ['dataHubConnectionDetails', 'dataPlatformInstance'],
-    'notebook': ['notebookInfo', 'notebookContent', 'editableNotebookProperties', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'browsePaths', 'institutionalMemory', 'domains', 'dataProducts', 'applications', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'testResults', 'documentation'],
-    'dataHubFile': ['dataHubFileInfo', 'status'],
-    'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
-    'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],
-    'mlModelGroup': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation'],
-    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
-    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
-    'container': ['containerProperties', 'editableContainerProperties', 'dataPlatformInstance', 'subTypes', 'ownership', 'deprecation', 'container', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'browsePaths', 'status', 'domains', 'dataProducts', 'applications', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'access', 'documentation'],
-    'dataHubView': ['dataHubViewInfo'],
-    'versionSet': ['versionSetProperties'],
-    'dataHubIngestionSource': ['dataHubIngestionSourceInfo', 'ownership'],
-    'metric': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
-    'domain': ['domainProperties', 'institutionalMemory', 'ownership', 'deprecation', 'structuredProperties', 'forms', 'testResults', 'displayProperties', 'assetSettings'],
-    'dataHubPageModule': ['dataHubPageModuleProperties'],
-    'glossaryTerm': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'globalTags'],
-    'dataHubPersona': ['dataHubPersonaInfo'],
-    'dataContract': ['dataContractProperties', 'dataContractStatus', 'status', 'structuredProperties'],
-    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
-    'dashboard': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access'],
-    'chart': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
-    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'dataProducts', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation'],
-    'dataHubRetention': ['dataHubRetentionConfig'],
-    'document': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
-    'dataHubAction': [],
-    'post': ['postInfo', 'subTypes'],
-    'dataFlow': ['domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
-    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
-    'inviteToken': ['inviteToken'],
-    'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
-    'corpGroup': ['corpGroupInfo', 'corpGroupEditableInfo', 'globalTags', 'ownership', 'status', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
-    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2'],
-    'entityType': ['entityTypeInfo', 'institutionalMemory', 'status'],
-    'businessAttribute': ['businessAttributeInfo', 'status', 'ownership', 'institutionalMemory'],
     'dataProduct': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'deprecation', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings'],
+    'dataHubPageTemplate': ['dataHubPageTemplateProperties'],
+    'metric': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
+    'lifecycleStageType': ['lifecycleStageTypeInfo', 'status'],
+    'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],
+    'dataHubPageModule': ['dataHubPageModuleProperties'],
+    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'dataProducts', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation'],
+    'dataHubExecutionRequest': ['dataHubExecutionRequestInput', 'dataHubExecutionRequestSignal', 'dataHubExecutionRequestResult'],
+    'role': ['roleProperties', 'actors'],
+    'dataHubRole': ['dataHubRoleInfo'],
+    'dataHubAccessToken': ['dataHubAccessTokenInfo'],
+    'telemetry': ['telemetryClientId'],
+    'dataHubRetention': ['dataHubRetentionConfig'],
+    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
+    'globalSettings': ['globalSettingsInfo'],
+    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties'],
+    'dataHubFile': ['dataHubFileInfo', 'status'],
+    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
+    'versionSet': ['versionSetProperties'],
+    'dataContract': ['dataContractProperties', 'dataContractStatus', 'status', 'structuredProperties'],
+    'glossaryNode': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags'],
+    'domain': ['domainProperties', 'institutionalMemory', 'ownership', 'deprecation', 'structuredProperties', 'forms', 'testResults', 'displayProperties', 'assetSettings'],
+    'dataProcess': ['dataProcessInfo', 'ownership', 'status', 'testResults', 'subTypes'],
+    'query': ['queryProperties', 'querySubjects', 'queryUsageStatistics', 'status', 'dataPlatformInstance', 'subTypes'],
+    'container': ['containerProperties', 'editableContainerProperties', 'dataPlatformInstance', 'subTypes', 'ownership', 'deprecation', 'container', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'browsePaths', 'status', 'domains', 'dataProducts', 'applications', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'access', 'documentation'],
+    'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
+    'dashboard': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access'],
+    'searchTemplate': ['searchTemplateProperties'],
+    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
+    'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
+    'dataHubUpgrade': ['dataHubUpgradeRequest', 'dataHubUpgradeResult'],
+    'inviteToken': ['inviteToken'],
+    'dataHubStepState': ['dataHubStepStateProperties'],
+    'post': ['postInfo', 'subTypes'],
+    'glossaryTerm': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'globalTags'],
+    'corpGroup': ['corpGroupInfo', 'corpGroupEditableInfo', 'globalTags', 'ownership', 'status', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'dataHubIngestionSource': ['dataHubIngestionSourceInfo', 'ownership'],
+    'dataPlatform': ['dataPlatformInfo'],
+    'dataFlow': ['domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
+    'test': ['testInfo'],
+    'chart': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
+    'ownershipType': ['ownershipTypeInfo', 'status'],
+    'dataHubSecret': ['dataHubSecretValue'],
+    'dataProcessInstance': ['dataProcessInstanceInput', 'dataProcessInstanceOutput', 'dataProcessInstanceProperties', 'dataProcessInstanceRelationships', 'dataProcessInstanceRunEvent', 'status', 'testResults', 'dataPlatformInstance', 'subTypes', 'container', 'mlTrainingRunProperties'],
+    'mlModelDeployment': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container'],
+    'notebook': ['notebookInfo', 'notebookContent', 'editableNotebookProperties', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'browsePaths', 'institutionalMemory', 'domains', 'dataProducts', 'applications', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'testResults', 'documentation'],
+    'dataHubOpenAPISchema': ['systemMetadata'],
+    'mlPrimaryKey': ['glossaryTerms', 'editableMlPrimaryKeyProperties', 'domains', 'dataProducts', 'applications', 'mlPrimaryKeyProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
+    'dataHubConnection': ['dataHubConnectionDetails', 'dataPlatformInstance'],
+    'document': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
+    'dataJob': ['datahubIngestionRunSummary', 'datahubIngestionCheckpoint', 'domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataJobInfo', 'dataJobInputOutput', 'editableDataJobProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'forms', 'subTypes', 'incidentsSummary', 'testResults', 'dataTransformLogic', 'documentation'],
+    'dataHubPolicy': ['dataHubPolicyInfo'],
+    'assertion': ['assertionInfo', 'assertionNote', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'],
+    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
+    'dataHubView': ['dataHubViewInfo'],
+    'dataHubAction': [],
+    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
+    'incident': ['incidentInfo', 'incidentExternalLinks', 'incidentNotes', 'globalTags'],
+    'dataPlatformInstance': ['dataPlatformInstanceProperties', 'ownership', 'globalTags', 'institutionalMemory', 'deprecation', 'status', 'icebergWarehouseInfo'],
+    'mlModelGroup': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation'],
+    'dataHubPersona': ['dataHubPersonaInfo'],
+    'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
+    'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
     'dataType': ['dataTypeInfo', 'institutionalMemory', 'status'],
+    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'platformResource': ['dataPlatformInstance', 'platformResourceInfo', 'status'],
     'structuredProperty': ['propertyDefinition', 'structuredPropertySettings', 'institutionalMemory', 'status'],
-    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance']
+    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance'],
+    'entityType': ['entityTypeInfo', 'institutionalMemory', 'status'],
+    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2'],
+    'businessAttribute': ['businessAttributeInfo', 'status', 'ownership', 'institutionalMemory']
 }
 
 EntityTypeName = Literal[
-    'platformResource',
-    'application',
-    'dataHubExecutionRequest',
-    'assertion',
-    'dataHubOpenAPISchema',
-    'glossaryNode',
-    'erModelRelationship',
-    'aiAgent',
-    'dataHubPolicy',
-    'dataProcess',
-    'dataJob',
-    'dataHubRole',
-    'lifecycleStageType',
-    'semanticModel',
-    'dataHubPageTemplate',
-    'dataHubUpgrade',
-    'dataHubAccessToken',
-    'dataProcessInstance',
-    'dataset',
-    'dataPlatform',
-    'dataHubStepState',
-    'query',
-    'dataPlatformInstance',
-    'mlModelDeployment',
-    'test',
-    'telemetry',
-    'ownershipType',
-    'api',
-    'role',
-    'incident',
-    'mlPrimaryKey',
-    'globalSettings',
-    'dataHubSecret',
-    'dataHubConnection',
-    'notebook',
-    'dataHubFile',
-    'form',
-    'corpuser',
-    'mlModelGroup',
-    'mlFeature',
-    'agentSkill',
-    'container',
-    'dataHubView',
-    'versionSet',
-    'dataHubIngestionSource',
-    'metric',
-    'domain',
-    'dataHubPageModule',
-    'glossaryTerm',
-    'dataHubPersona',
-    'dataContract',
-    'schemaField',
-    'dashboard',
-    'chart',
-    'mlModel',
-    'dataHubRetention',
-    'document',
-    'dataHubAction',
-    'post',
-    'dataFlow',
-    'mlFeatureTable',
-    'inviteToken',
-    'tag',
-    'corpGroup',
-    'repository',
-    'entityType',
-    'businessAttribute',
     'dataProduct',
+    'dataHubPageTemplate',
+    'metric',
+    'lifecycleStageType',
+    'corpuser',
+    'dataHubPageModule',
+    'mlModel',
+    'dataHubExecutionRequest',
+    'role',
+    'dataHubRole',
+    'dataHubAccessToken',
+    'telemetry',
+    'dataHubRetention',
+    'dataset',
+    'globalSettings',
+    'aiAgent',
+    'dataHubFile',
+    'api',
+    'versionSet',
+    'dataContract',
+    'glossaryNode',
+    'domain',
+    'dataProcess',
+    'query',
+    'container',
+    'tag',
+    'dashboard',
+    'searchTemplate',
+    'mlFeatureTable',
+    'form',
+    'dataHubUpgrade',
+    'inviteToken',
+    'dataHubStepState',
+    'post',
+    'glossaryTerm',
+    'corpGroup',
+    'dataHubIngestionSource',
+    'dataPlatform',
+    'dataFlow',
+    'test',
+    'chart',
+    'ownershipType',
+    'dataHubSecret',
+    'dataProcessInstance',
+    'mlModelDeployment',
+    'notebook',
+    'dataHubOpenAPISchema',
+    'mlPrimaryKey',
+    'schemaField',
+    'dataHubConnection',
+    'document',
+    'dataJob',
+    'dataHubPolicy',
+    'assertion',
+    'mlFeature',
+    'dataHubView',
+    'dataHubAction',
+    'agentSkill',
+    'incident',
+    'dataPlatformInstance',
+    'mlModelGroup',
+    'dataHubPersona',
+    'erModelRelationship',
+    'semanticModel',
     'dataType',
+    'application',
+    'platformResource',
     'structuredProperty',
-    'service'
+    'service',
+    'entityType',
+    'repository',
+    'businessAttribute'
 ]
 
 # fmt: on

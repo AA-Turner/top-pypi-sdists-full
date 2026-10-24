@@ -61,7 +61,7 @@ class CollectionsApi:
     def clone_collection(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Source collection ID or name to clone.")],
-        clone_collection_request: CloneCollectionRequest,
+        clone_collection_request: Annotated[CloneCollectionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -77,11 +77,11 @@ class CollectionsApi:
     ) -> CloneCollectionResponse:
         """Clone Collection
 
-        Clone a collection with optional modifications.      **Purpose:**     Creates a NEW collection (with new ID) based on an existing one. This is the     recommended way to iterate on collection designs when you need to modify core     configuration that PATCH doesn't allow (source, feature_extractor, field_passthrough).      **Clone vs PATCH vs Template:**     - **PATCH**: Update settings in place (enabled, metadata, schedule, taxonomy_applications, tiering_rules and the other mutable fields)     - **Clone**: Copy and modify core configuration (source, feature_extractor). Everything you do not override is copied, including a retriever_transform, schedule, alert and cluster applications, and tiering_rules     - **Template**: Start from a pre-configured pattern (for new projects)      **Common Use Cases:**     - Change feature extractor configuration (model, parameters)     - Modify field_passthrough to include/exclude fields     - Switch to different source (bucket or collection)     - Test modifications before replacing production collection     - Create variants (e.g., different embedding models)      **How it works:**     1. Source collection is copied     2. You provide a new name (REQUIRED)     3. Optionally override any other fields     4. A new collection is created with a new ID     5. Original collection remains unchanged
+        Clone a collection with optional modifications.      **Purpose:**     Creates a NEW collection (with new ID) based on an existing one. This is the     recommended way to iterate on collection designs when you need to modify core     configuration that PATCH doesn't allow (source, feature_extractor, field_passthrough).      **Clone vs PATCH vs Template:**     - **PATCH**: Update settings in place (enabled, metadata, schedule, taxonomy_applications, tiering and the other mutable fields)     - **Clone**: Copy and modify core configuration (source, feature_extractor). Everything you do not override is copied, including a retriever_transform, schedule, alert and cluster applications, and tiering     - **Template**: Start from a pre-configured pattern (for new projects)      **Common Use Cases:**     - Change feature extractor configuration (model, parameters)     - Modify field_passthrough to include/exclude fields     - Switch to different source (bucket or collection)     - Test modifications before replacing production collection     - Create variants (e.g., different embedding models)      **How it works:**     1. Source collection is copied     2. You provide a new name (REQUIRED)     3. Optionally override any other fields     4. A new collection is created with a new ID     5. Original collection remains unchanged
 
         :param collection_identifier: Source collection ID or name to clone. (required)
         :type collection_identifier: str
-        :param clone_collection_request: (required)
+        :param clone_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_collection_request: CloneCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -115,13 +115,15 @@ class CollectionsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneCollectionResponse",
+            '200': "CloneCollectionResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -138,7 +140,7 @@ class CollectionsApi:
     def clone_collection_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Source collection ID or name to clone.")],
-        clone_collection_request: CloneCollectionRequest,
+        clone_collection_request: Annotated[CloneCollectionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -154,11 +156,11 @@ class CollectionsApi:
     ) -> ApiResponse[CloneCollectionResponse]:
         """Clone Collection
 
-        Clone a collection with optional modifications.      **Purpose:**     Creates a NEW collection (with new ID) based on an existing one. This is the     recommended way to iterate on collection designs when you need to modify core     configuration that PATCH doesn't allow (source, feature_extractor, field_passthrough).      **Clone vs PATCH vs Template:**     - **PATCH**: Update settings in place (enabled, metadata, schedule, taxonomy_applications, tiering_rules and the other mutable fields)     - **Clone**: Copy and modify core configuration (source, feature_extractor). Everything you do not override is copied, including a retriever_transform, schedule, alert and cluster applications, and tiering_rules     - **Template**: Start from a pre-configured pattern (for new projects)      **Common Use Cases:**     - Change feature extractor configuration (model, parameters)     - Modify field_passthrough to include/exclude fields     - Switch to different source (bucket or collection)     - Test modifications before replacing production collection     - Create variants (e.g., different embedding models)      **How it works:**     1. Source collection is copied     2. You provide a new name (REQUIRED)     3. Optionally override any other fields     4. A new collection is created with a new ID     5. Original collection remains unchanged
+        Clone a collection with optional modifications.      **Purpose:**     Creates a NEW collection (with new ID) based on an existing one. This is the     recommended way to iterate on collection designs when you need to modify core     configuration that PATCH doesn't allow (source, feature_extractor, field_passthrough).      **Clone vs PATCH vs Template:**     - **PATCH**: Update settings in place (enabled, metadata, schedule, taxonomy_applications, tiering and the other mutable fields)     - **Clone**: Copy and modify core configuration (source, feature_extractor). Everything you do not override is copied, including a retriever_transform, schedule, alert and cluster applications, and tiering     - **Template**: Start from a pre-configured pattern (for new projects)      **Common Use Cases:**     - Change feature extractor configuration (model, parameters)     - Modify field_passthrough to include/exclude fields     - Switch to different source (bucket or collection)     - Test modifications before replacing production collection     - Create variants (e.g., different embedding models)      **How it works:**     1. Source collection is copied     2. You provide a new name (REQUIRED)     3. Optionally override any other fields     4. A new collection is created with a new ID     5. Original collection remains unchanged
 
         :param collection_identifier: Source collection ID or name to clone. (required)
         :type collection_identifier: str
-        :param clone_collection_request: (required)
+        :param clone_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_collection_request: CloneCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -192,13 +194,15 @@ class CollectionsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneCollectionResponse",
+            '200': "CloneCollectionResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -215,7 +219,7 @@ class CollectionsApi:
     def clone_collection_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Source collection ID or name to clone.")],
-        clone_collection_request: CloneCollectionRequest,
+        clone_collection_request: Annotated[CloneCollectionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -231,11 +235,11 @@ class CollectionsApi:
     ) -> RESTResponseType:
         """Clone Collection
 
-        Clone a collection with optional modifications.      **Purpose:**     Creates a NEW collection (with new ID) based on an existing one. This is the     recommended way to iterate on collection designs when you need to modify core     configuration that PATCH doesn't allow (source, feature_extractor, field_passthrough).      **Clone vs PATCH vs Template:**     - **PATCH**: Update settings in place (enabled, metadata, schedule, taxonomy_applications, tiering_rules and the other mutable fields)     - **Clone**: Copy and modify core configuration (source, feature_extractor). Everything you do not override is copied, including a retriever_transform, schedule, alert and cluster applications, and tiering_rules     - **Template**: Start from a pre-configured pattern (for new projects)      **Common Use Cases:**     - Change feature extractor configuration (model, parameters)     - Modify field_passthrough to include/exclude fields     - Switch to different source (bucket or collection)     - Test modifications before replacing production collection     - Create variants (e.g., different embedding models)      **How it works:**     1. Source collection is copied     2. You provide a new name (REQUIRED)     3. Optionally override any other fields     4. A new collection is created with a new ID     5. Original collection remains unchanged
+        Clone a collection with optional modifications.      **Purpose:**     Creates a NEW collection (with new ID) based on an existing one. This is the     recommended way to iterate on collection designs when you need to modify core     configuration that PATCH doesn't allow (source, feature_extractor, field_passthrough).      **Clone vs PATCH vs Template:**     - **PATCH**: Update settings in place (enabled, metadata, schedule, taxonomy_applications, tiering and the other mutable fields)     - **Clone**: Copy and modify core configuration (source, feature_extractor). Everything you do not override is copied, including a retriever_transform, schedule, alert and cluster applications, and tiering     - **Template**: Start from a pre-configured pattern (for new projects)      **Common Use Cases:**     - Change feature extractor configuration (model, parameters)     - Modify field_passthrough to include/exclude fields     - Switch to different source (bucket or collection)     - Test modifications before replacing production collection     - Create variants (e.g., different embedding models)      **How it works:**     1. Source collection is copied     2. You provide a new name (REQUIRED)     3. Optionally override any other fields     4. A new collection is created with a new ID     5. Original collection remains unchanged
 
         :param collection_identifier: Source collection ID or name to clone. (required)
         :type collection_identifier: str
-        :param clone_collection_request: (required)
+        :param clone_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_collection_request: CloneCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -269,13 +273,15 @@ class CollectionsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneCollectionResponse",
+            '200': "CloneCollectionResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -368,7 +374,7 @@ class CollectionsApi:
     @validate_call
     def create_collection(
         self,
-        create_collection_request: CreateCollectionRequest,
+        create_collection_request: Annotated[CreateCollectionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -386,7 +392,7 @@ class CollectionsApi:
 
         Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's vector store collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
 
-        :param create_collection_request: (required)
+        :param create_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_collection_request: CreateCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -424,8 +430,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -441,7 +449,7 @@ class CollectionsApi:
     @validate_call
     def create_collection_with_http_info(
         self,
-        create_collection_request: CreateCollectionRequest,
+        create_collection_request: Annotated[CreateCollectionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -459,7 +467,7 @@ class CollectionsApi:
 
         Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's vector store collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
 
-        :param create_collection_request: (required)
+        :param create_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_collection_request: CreateCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -497,8 +505,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -514,7 +524,7 @@ class CollectionsApi:
     @validate_call
     def create_collection_without_preload_content(
         self,
-        create_collection_request: CreateCollectionRequest,
+        create_collection_request: Annotated[CreateCollectionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -532,7 +542,7 @@ class CollectionsApi:
 
         Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's vector store collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
 
-        :param create_collection_request: (required)
+        :param create_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_collection_request: CreateCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -570,8 +580,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -717,8 +729,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -790,8 +804,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -863,8 +879,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -997,8 +1015,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1070,8 +1090,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1143,8 +1165,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1222,7 +1246,7 @@ class CollectionsApi:
     def export_collection(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to export")],
-        collection_export_request: Optional[CollectionExportRequest] = None,
+        collection_export_request: Annotated[Optional[CollectionExportRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1242,7 +1266,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to export (required)
         :type collection_identifier: str
-        :param collection_export_request:
+        :param collection_export_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type collection_export_request: CollectionExportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1281,8 +1305,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1299,7 +1325,7 @@ class CollectionsApi:
     def export_collection_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to export")],
-        collection_export_request: Optional[CollectionExportRequest] = None,
+        collection_export_request: Annotated[Optional[CollectionExportRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1319,7 +1345,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to export (required)
         :type collection_identifier: str
-        :param collection_export_request:
+        :param collection_export_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type collection_export_request: CollectionExportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1358,8 +1384,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1376,7 +1404,7 @@ class CollectionsApi:
     def export_collection_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to export")],
-        collection_export_request: Optional[CollectionExportRequest] = None,
+        collection_export_request: Annotated[Optional[CollectionExportRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1396,7 +1424,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to export (required)
         :type collection_identifier: str
-        :param collection_export_request:
+        :param collection_export_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type collection_export_request: CollectionExportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1435,8 +1463,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1585,8 +1615,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1658,8 +1690,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1731,8 +1765,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1810,7 +1846,7 @@ class CollectionsApi:
     def import_collection(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to import into")],
-        import_request: ImportRequest,
+        import_request: Annotated[ImportRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1830,7 +1866,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to import into (required)
         :type collection_identifier: str
-        :param import_request: (required)
+        :param import_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type import_request: ImportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1869,8 +1905,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1887,7 +1925,7 @@ class CollectionsApi:
     def import_collection_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to import into")],
-        import_request: ImportRequest,
+        import_request: Annotated[ImportRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1907,7 +1945,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to import into (required)
         :type collection_identifier: str
-        :param import_request: (required)
+        :param import_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type import_request: ImportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1946,8 +1984,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1964,7 +2004,7 @@ class CollectionsApi:
     def import_collection_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to import into")],
-        import_request: ImportRequest,
+        import_request: Annotated[ImportRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1984,7 +2024,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to import into (required)
         :type collection_identifier: str
-        :param import_request: (required)
+        :param import_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type import_request: ImportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2023,8 +2063,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2117,7 +2159,7 @@ class CollectionsApi:
     @validate_call
     def infer_import_schema(
         self,
-        schema_inference_request: SchemaInferenceRequest,
+        schema_inference_request: Annotated[SchemaInferenceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2135,7 +2177,7 @@ class CollectionsApi:
 
         Infer source fields + types from a sample of an external export and return a suggested source->target mapping for the collection-import wizard. Runs on the sample alone; no data is written.
 
-        :param schema_inference_request: (required)
+        :param schema_inference_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type schema_inference_request: SchemaInferenceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2173,8 +2215,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2190,7 +2234,7 @@ class CollectionsApi:
     @validate_call
     def infer_import_schema_with_http_info(
         self,
-        schema_inference_request: SchemaInferenceRequest,
+        schema_inference_request: Annotated[SchemaInferenceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2208,7 +2252,7 @@ class CollectionsApi:
 
         Infer source fields + types from a sample of an external export and return a suggested source->target mapping for the collection-import wizard. Runs on the sample alone; no data is written.
 
-        :param schema_inference_request: (required)
+        :param schema_inference_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type schema_inference_request: SchemaInferenceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2246,8 +2290,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2263,7 +2309,7 @@ class CollectionsApi:
     @validate_call
     def infer_import_schema_without_preload_content(
         self,
-        schema_inference_request: SchemaInferenceRequest,
+        schema_inference_request: Annotated[SchemaInferenceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2281,7 +2327,7 @@ class CollectionsApi:
 
         Infer source fields + types from a sample of an external export and return a suggested source->target mapping for the collection-import wizard. Runs on the sample alone; no data is written.
 
-        :param schema_inference_request: (required)
+        :param schema_inference_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type schema_inference_request: SchemaInferenceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2319,8 +2365,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2418,7 +2466,7 @@ class CollectionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_collections_request: Optional[ListCollectionsRequest] = None,
+        list_collections_request: Annotated[Optional[ListCollectionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2452,7 +2500,7 @@ class CollectionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_collections_request:
+        :param list_collections_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_collections_request: ListCollectionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2498,8 +2546,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2523,7 +2573,7 @@ class CollectionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_collections_request: Optional[ListCollectionsRequest] = None,
+        list_collections_request: Annotated[Optional[ListCollectionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2557,7 +2607,7 @@ class CollectionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_collections_request:
+        :param list_collections_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_collections_request: ListCollectionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2603,8 +2653,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2628,7 +2680,7 @@ class CollectionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_collections_request: Optional[ListCollectionsRequest] = None,
+        list_collections_request: Annotated[Optional[ListCollectionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2662,7 +2714,7 @@ class CollectionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_collections_request:
+        :param list_collections_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_collections_request: ListCollectionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2708,8 +2760,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2841,6 +2895,7 @@ class CollectionsApi:
         self,
         search: Annotated[Optional[StrictStr], Field(description="Free-text search over collection names")] = None,
         namespace_id: Annotated[Optional[StrictStr], Field(description="Ignored — set X-Namespace header")] = None,
+        include_system: Annotated[Optional[StrictBool], Field(description="Include the namespace's system collections (the `_direct_upsert` default that documents/upsert writes to). Off by default.")] = None,
         limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
         page_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
@@ -2870,6 +2925,8 @@ class CollectionsApi:
         :type search: str
         :param namespace_id: Ignored — set X-Namespace header
         :type namespace_id: str
+        :param include_system: Include the namespace's system collections (the `_direct_upsert` default that documents/upsert writes to). Off by default.
+        :type include_system: bool
         :param limit:
         :type limit: int
         :param page_size:
@@ -2911,6 +2968,7 @@ class CollectionsApi:
         _param = self._list_collections_get_serialize(
             search=search,
             namespace_id=namespace_id,
+            include_system=include_system,
             limit=limit,
             page_size=page_size,
             offset=offset,
@@ -2931,8 +2989,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2950,6 +3010,7 @@ class CollectionsApi:
         self,
         search: Annotated[Optional[StrictStr], Field(description="Free-text search over collection names")] = None,
         namespace_id: Annotated[Optional[StrictStr], Field(description="Ignored — set X-Namespace header")] = None,
+        include_system: Annotated[Optional[StrictBool], Field(description="Include the namespace's system collections (the `_direct_upsert` default that documents/upsert writes to). Off by default.")] = None,
         limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
         page_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
@@ -2979,6 +3040,8 @@ class CollectionsApi:
         :type search: str
         :param namespace_id: Ignored — set X-Namespace header
         :type namespace_id: str
+        :param include_system: Include the namespace's system collections (the `_direct_upsert` default that documents/upsert writes to). Off by default.
+        :type include_system: bool
         :param limit:
         :type limit: int
         :param page_size:
@@ -3020,6 +3083,7 @@ class CollectionsApi:
         _param = self._list_collections_get_serialize(
             search=search,
             namespace_id=namespace_id,
+            include_system=include_system,
             limit=limit,
             page_size=page_size,
             offset=offset,
@@ -3040,8 +3104,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3059,6 +3125,7 @@ class CollectionsApi:
         self,
         search: Annotated[Optional[StrictStr], Field(description="Free-text search over collection names")] = None,
         namespace_id: Annotated[Optional[StrictStr], Field(description="Ignored — set X-Namespace header")] = None,
+        include_system: Annotated[Optional[StrictBool], Field(description="Include the namespace's system collections (the `_direct_upsert` default that documents/upsert writes to). Off by default.")] = None,
         limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
         page_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
@@ -3088,6 +3155,8 @@ class CollectionsApi:
         :type search: str
         :param namespace_id: Ignored — set X-Namespace header
         :type namespace_id: str
+        :param include_system: Include the namespace's system collections (the `_direct_upsert` default that documents/upsert writes to). Off by default.
+        :type include_system: bool
         :param limit:
         :type limit: int
         :param page_size:
@@ -3129,6 +3198,7 @@ class CollectionsApi:
         _param = self._list_collections_get_serialize(
             search=search,
             namespace_id=namespace_id,
+            include_system=include_system,
             limit=limit,
             page_size=page_size,
             offset=offset,
@@ -3149,8 +3219,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3163,6 +3235,7 @@ class CollectionsApi:
         self,
         search,
         namespace_id,
+        include_system,
         limit,
         page_size,
         offset,
@@ -3200,6 +3273,10 @@ class CollectionsApi:
         if namespace_id is not None:
             
             _query_params.append(('namespace_id', namespace_id))
+            
+        if include_system is not None:
+            
+            _query_params.append(('include_system', include_system))
             
         if limit is not None:
             
@@ -3334,8 +3411,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3411,8 +3490,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3488,8 +3569,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3572,7 +3655,7 @@ class CollectionsApi:
     def trigger_collection(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to trigger")],
-        trigger_collection_request: Optional[TriggerCollectionRequest] = None,
+        trigger_collection_request: Annotated[Optional[TriggerCollectionRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3588,11 +3671,11 @@ class CollectionsApi:
     ) -> TriggerCollectionResponse:
         """Trigger Collection Processing
 
-        Process data through a collection - works for both bucket-sourced and collection-sourced collections.      **For bucket-sourced collections:**     Discovers objects from source bucket(s), creates a batch, and submits for processing.     Use `include_buckets` to limit which source buckets to process from.      **For collection-sourced collections:**     Processes existing documents from upstream collection(s).     Use `include_collections` to limit which source collections to process from.      **Filtering:**     - `source_filters`: Field-level filters using LogicalOperator format     - Example: `{\"AND\": [{\"field\": \"status\", \"operator\": \"eq\", \"value\": \"pending\"}]}`     - For specific objects: `{\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [\"obj_1\", \"obj_2\"]}]}`      **Returns:**     - batch_id: Track progress via GET /batches/{batch_id}     - task_id: Monitor via GET /tasks/{task_id}
+        Process data through a collection - works for both bucket-sourced and collection-sourced collections.      **For bucket-sourced collections:**     Creates a batch and answers with its id and a task id, then reads the source     bucket(s), splits a load over 1,000 objects into several batches, and submits     them. Use `include_buckets` to limit which source buckets to process from.     If the buckets hold no matching objects, or a submission is refused, the     batch and the task read FAILED with the reason. The task lists every batch     as `additional_data.trigger.batch_ids` once they are submitted.      **For collection-sourced collections:**     Processes existing documents from upstream collection(s).     Use `include_collections` to limit which source collections to process from.      **Filtering:**     - `source_filters`: Field-level filters using LogicalOperator format     - Example: `{\"AND\": [{\"field\": \"status\", \"operator\": \"eq\", \"value\": \"pending\"}]}`     - For specific objects: `{\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [\"obj_1\", \"obj_2\"]}]}`      **Returns:**     - batch_id: Track progress via GET /batches/{batch_id}     - task_id: Monitor via GET /tasks/{task_id}
 
         :param collection_identifier: The ID or name of the collection to trigger (required)
         :type collection_identifier: str
-        :param trigger_collection_request:
+        :param trigger_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type trigger_collection_request: TriggerCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3631,8 +3714,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3649,7 +3734,7 @@ class CollectionsApi:
     def trigger_collection_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to trigger")],
-        trigger_collection_request: Optional[TriggerCollectionRequest] = None,
+        trigger_collection_request: Annotated[Optional[TriggerCollectionRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3665,11 +3750,11 @@ class CollectionsApi:
     ) -> ApiResponse[TriggerCollectionResponse]:
         """Trigger Collection Processing
 
-        Process data through a collection - works for both bucket-sourced and collection-sourced collections.      **For bucket-sourced collections:**     Discovers objects from source bucket(s), creates a batch, and submits for processing.     Use `include_buckets` to limit which source buckets to process from.      **For collection-sourced collections:**     Processes existing documents from upstream collection(s).     Use `include_collections` to limit which source collections to process from.      **Filtering:**     - `source_filters`: Field-level filters using LogicalOperator format     - Example: `{\"AND\": [{\"field\": \"status\", \"operator\": \"eq\", \"value\": \"pending\"}]}`     - For specific objects: `{\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [\"obj_1\", \"obj_2\"]}]}`      **Returns:**     - batch_id: Track progress via GET /batches/{batch_id}     - task_id: Monitor via GET /tasks/{task_id}
+        Process data through a collection - works for both bucket-sourced and collection-sourced collections.      **For bucket-sourced collections:**     Creates a batch and answers with its id and a task id, then reads the source     bucket(s), splits a load over 1,000 objects into several batches, and submits     them. Use `include_buckets` to limit which source buckets to process from.     If the buckets hold no matching objects, or a submission is refused, the     batch and the task read FAILED with the reason. The task lists every batch     as `additional_data.trigger.batch_ids` once they are submitted.      **For collection-sourced collections:**     Processes existing documents from upstream collection(s).     Use `include_collections` to limit which source collections to process from.      **Filtering:**     - `source_filters`: Field-level filters using LogicalOperator format     - Example: `{\"AND\": [{\"field\": \"status\", \"operator\": \"eq\", \"value\": \"pending\"}]}`     - For specific objects: `{\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [\"obj_1\", \"obj_2\"]}]}`      **Returns:**     - batch_id: Track progress via GET /batches/{batch_id}     - task_id: Monitor via GET /tasks/{task_id}
 
         :param collection_identifier: The ID or name of the collection to trigger (required)
         :type collection_identifier: str
-        :param trigger_collection_request:
+        :param trigger_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type trigger_collection_request: TriggerCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3708,8 +3793,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3726,7 +3813,7 @@ class CollectionsApi:
     def trigger_collection_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to trigger")],
-        trigger_collection_request: Optional[TriggerCollectionRequest] = None,
+        trigger_collection_request: Annotated[Optional[TriggerCollectionRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3742,11 +3829,11 @@ class CollectionsApi:
     ) -> RESTResponseType:
         """Trigger Collection Processing
 
-        Process data through a collection - works for both bucket-sourced and collection-sourced collections.      **For bucket-sourced collections:**     Discovers objects from source bucket(s), creates a batch, and submits for processing.     Use `include_buckets` to limit which source buckets to process from.      **For collection-sourced collections:**     Processes existing documents from upstream collection(s).     Use `include_collections` to limit which source collections to process from.      **Filtering:**     - `source_filters`: Field-level filters using LogicalOperator format     - Example: `{\"AND\": [{\"field\": \"status\", \"operator\": \"eq\", \"value\": \"pending\"}]}`     - For specific objects: `{\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [\"obj_1\", \"obj_2\"]}]}`      **Returns:**     - batch_id: Track progress via GET /batches/{batch_id}     - task_id: Monitor via GET /tasks/{task_id}
+        Process data through a collection - works for both bucket-sourced and collection-sourced collections.      **For bucket-sourced collections:**     Creates a batch and answers with its id and a task id, then reads the source     bucket(s), splits a load over 1,000 objects into several batches, and submits     them. Use `include_buckets` to limit which source buckets to process from.     If the buckets hold no matching objects, or a submission is refused, the     batch and the task read FAILED with the reason. The task lists every batch     as `additional_data.trigger.batch_ids` once they are submitted.      **For collection-sourced collections:**     Processes existing documents from upstream collection(s).     Use `include_collections` to limit which source collections to process from.      **Filtering:**     - `source_filters`: Field-level filters using LogicalOperator format     - Example: `{\"AND\": [{\"field\": \"status\", \"operator\": \"eq\", \"value\": \"pending\"}]}`     - For specific objects: `{\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [\"obj_1\", \"obj_2\"]}]}`      **Returns:**     - batch_id: Track progress via GET /batches/{batch_id}     - task_id: Monitor via GET /tasks/{task_id}
 
         :param collection_identifier: The ID or name of the collection to trigger (required)
         :type collection_identifier: str
-        :param trigger_collection_request:
+        :param trigger_collection_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type trigger_collection_request: TriggerCollectionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3785,8 +3872,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3880,7 +3969,7 @@ class CollectionsApi:
     def update_collection(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to update")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3900,7 +3989,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to update (required)
         :type collection_identifier: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3939,8 +4028,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3957,7 +4048,7 @@ class CollectionsApi:
     def update_collection_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to update")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3977,7 +4068,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to update (required)
         :type collection_identifier: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4016,8 +4107,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4034,7 +4127,7 @@ class CollectionsApi:
     def update_collection_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection to update")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4054,7 +4147,7 @@ class CollectionsApi:
 
         :param collection_identifier: The ID or name of the collection to update (required)
         :type collection_identifier: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4093,8 +4186,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4187,7 +4282,7 @@ class CollectionsApi:
     @validate_call
     def validate_import_mapping(
         self,
-        mapping_validation_request: MappingValidationRequest,
+        mapping_validation_request: Annotated[MappingValidationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4205,7 +4300,7 @@ class CollectionsApi:
 
         Validate a finalized source->target mapping before any import. Flags a missing root-identity mapping, source/target type mismatches, vector-dim mismatches against a known index, and unknown source fields.
 
-        :param mapping_validation_request: (required)
+        :param mapping_validation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type mapping_validation_request: MappingValidationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4243,8 +4338,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4260,7 +4357,7 @@ class CollectionsApi:
     @validate_call
     def validate_import_mapping_with_http_info(
         self,
-        mapping_validation_request: MappingValidationRequest,
+        mapping_validation_request: Annotated[MappingValidationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4278,7 +4375,7 @@ class CollectionsApi:
 
         Validate a finalized source->target mapping before any import. Flags a missing root-identity mapping, source/target type mismatches, vector-dim mismatches against a known index, and unknown source fields.
 
-        :param mapping_validation_request: (required)
+        :param mapping_validation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type mapping_validation_request: MappingValidationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4316,8 +4413,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4333,7 +4432,7 @@ class CollectionsApi:
     @validate_call
     def validate_import_mapping_without_preload_content(
         self,
-        mapping_validation_request: MappingValidationRequest,
+        mapping_validation_request: Annotated[MappingValidationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4351,7 +4450,7 @@ class CollectionsApi:
 
         Validate a finalized source->target mapping before any import. Flags a missing root-identity mapping, source/target type mismatches, vector-dim mismatches against a known index, and unknown source fields.
 
-        :param mapping_validation_request: (required)
+        :param mapping_validation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type mapping_validation_request: MappingValidationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4389,8 +4488,10 @@ class CollectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

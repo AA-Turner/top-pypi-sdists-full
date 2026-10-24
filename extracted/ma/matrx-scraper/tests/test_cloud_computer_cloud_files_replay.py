@@ -14,7 +14,6 @@ Needs Docker and the network (pip); skipped otherwise.
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -23,6 +22,7 @@ import pytest
 
 WORKER = Path(__file__).resolve().parents[1] / "matrx_scraper/cloud_browser/worker"
 DOCKERFILE = Path(__file__).resolve().parents[1] / "docker/cloud-computer/Dockerfile"
+SDK = Path(__file__).resolve().parents[3] / "infra/matrx-sandbox/sandbox-image/sdk"
 IMAGE = "python:3.12-slim"
 
 FAKE_BRIDGE = r'''
@@ -72,7 +72,7 @@ chmod -R a+rX /work
 def _docker(home: Path, cloud: Path, script: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["docker", "run", "--rm", "-v", f"{home}:/home/browser-worker", "-v", f"{cloud}:/cloud",
-         "-v", f"{WORKER}:/src:ro", IMAGE, "bash", "-c", SETUP + script],
+         "-v", f"{WORKER}:/src:ro", "-v", f"{SDK}:/sdk:ro", IMAGE, "bash", "-c", SETUP + script],
         capture_output=True, text=True, timeout=900,
     )
 
@@ -98,11 +98,10 @@ def dirs(tmp_path: Path) -> tuple[Path, Path]:
     return home, cloud
 
 
-def _pinned_sdk() -> tuple[str, str]:
+def test_the_image_installs_the_sdk_from_this_repository() -> None:
     text = DOCKERFILE.read_text()
-    commit = re.search(r"ARG MATRX_SDK_COMMIT=(\w+)", text).group(1)  # type: ignore[union-attr]
-    sha = re.search(r"ARG MATRX_SDK_SHA256=(\w+)", text).group(1)  # type: ignore[union-attr]
-    return commit, sha
+    assert "COPY infra/matrx-sandbox/sandbox-image/sdk " in text and "codeload.github.com" not in text
+    assert (SDK / "pyproject.toml").is_file()
 
 
 def test_the_cloud_folder_and_agent_daemon_survive_a_fresh_root(dirs: tuple[Path, Path]) -> None:
@@ -124,21 +123,18 @@ print("STATUS", s.status()["files"], s.status()["stubs"])
     gets_after_first = (cloud / "gets.log").read_text().split()
     assert gets_after_first == ["notes/todo.txt"]
 
-    commit, sha = _pinned_sdk()
     script2 = _py(r"""
 s = mk()
 assert s.initial_done and s.is_stub("video/big.bin"), s.status()
 asyncio.run(s.pull_once()); asyncio.run(s.push_once())
 print("REPLAYED", open("/cloud/gets.log").read().split())
-""") + f"""
+""") + """
 set -e
 apt-get update -qq >/dev/null && apt-get install -y -qq curl >/dev/null
-curl -fsSL -o /tmp/sdk.tgz https://codeload.github.com/armanisadeghi/matrx-sandbox/tar.gz/{commit}
-echo "{sha}  /tmp/sdk.tgz" | sha256sum -c - >/dev/null
-tar xzf /tmp/sdk.tgz -C /tmp
+cp -r /sdk /tmp/matrx-sandbox-sdk && rm -rf /tmp/matrx-sandbox-sdk/.venv
 python3 -m venv /opt/matrx-agent
 pip install -q httpx
-/opt/matrx-agent/bin/pip install -q /tmp/matrx-sandbox-{commit}/sandbox-image/sdk
+/opt/matrx-agent/bin/pip install -q /tmp/matrx-sandbox-sdk
 cd /work && runuser -u browser-worker -- env HOME=/home/browser-worker python3 - <<'PY'
 import asyncio, json, os, pathlib, urllib.request
 from cloud_files_sync import CloudFilesSync, SyncKnobs
@@ -153,19 +149,19 @@ async def main():
     def call(method, path, body=None):
         req = urllib.request.Request(d.base_url + path, method=method,
             data=json.dumps(body).encode() if body is not None else None,
-            headers={{'x-matrx-agent-token': d.token, 'content-type': 'application/json'}})
+            headers={'x-matrx-agent-token': d.token, 'content-type': 'application/json'})
         return json.loads(urllib.request.urlopen(req, timeout=60).read())
     for _ in range(100):
         try:
             call('GET', '/health'); break
         except Exception:
             await asyncio.sleep(0.3)
-    body = {{'command': 'wc -c Cloud/video/big.bin && cat Cloud/notes/todo.txt && whoami && echo agent-wrote > Cloud/agent.txt', 'cwd': '/home/browser-worker'}}
-    await hydrate_for_request('POST', 'exec', {{}}, body, s)
+    body = {'command': 'wc -c Cloud/video/big.bin && cat Cloud/notes/todo.txt && whoami && echo agent-wrote > Cloud/agent.txt', 'cwd': '/home/browser-worker'}
+    await hydrate_for_request('POST', 'exec', {}, body, s)
     out = await run_exec(d, body, timeout=60)
     print('EXEC', json.dumps(out))
     req = urllib.request.Request(d.base_url + '/fs/read?path=/home/browser-worker/Cloud/agent.txt',
-        headers={{'x-matrx-agent-token': d.token}})
+        headers={'x-matrx-agent-token': d.token})
     print('READ', urllib.request.urlopen(req, timeout=30).read().decode()[:200])
     try:
         urllib.request.urlopen(d.base_url + '/fs/read?path=/etc/hostname', timeout=10)

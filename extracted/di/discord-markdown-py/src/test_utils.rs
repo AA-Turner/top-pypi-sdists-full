@@ -5,8 +5,8 @@ use crate::{
 	node::{Block, Blocks, Element, Elements, Ids, Inline, Inlines},
 	parse,
 	range::{Unmatched, resolve, resolve_inline},
-	rule::RuleSet,
 	span::{Span, Spanned},
+	syntax::SyntaxSet,
 };
 
 pub fn handle_nom_err<'data>(input: &'data str) -> impl Fn(VerboseError<Input<'data>>) -> String {
@@ -43,7 +43,7 @@ pub fn inline_content(s: &str) -> Inlines<'_, ()> {
 pub fn resolved_blocks<S: Span>(nodes: Elements<'_, S>) -> Blocks<'_, S> {
 	let value = resolve(
 		nodes.value,
-		RuleSet::all(),
+		SyntaxSet::all(),
 		Unmatched::Text,
 		&mut Ids::default(),
 	)
@@ -57,7 +57,7 @@ pub fn resolved_blocks<S: Span>(nodes: Elements<'_, S>) -> Blocks<'_, S> {
 /// [`resolved_blocks`] for inline content.
 pub fn resolved_inlines<S: Span>(nodes: Elements<'_, S>) -> Inlines<'_, S> {
 	Spanned {
-		value: resolve_inline(nodes.value, RuleSet::all(), &mut Ids::default()),
+		value: resolve_inline(nodes.value, SyntaxSet::all(), &mut Ids::default()),
 		span: nodes.span,
 	}
 }

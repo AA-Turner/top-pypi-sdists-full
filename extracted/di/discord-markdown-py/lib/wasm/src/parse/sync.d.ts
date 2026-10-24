@@ -1,4 +1,6 @@
-import type { Block, Rule } from "@discord/markdown-types";
+import type { Block, SyntaxFlags } from "@discord/markdown-types";
+
+export { Syntax, type SyntaxFlags } from "@discord/markdown-types";
 
 /**
  * Compile and instantiate the wasm.
@@ -18,8 +20,13 @@ export function init(): Promise<void>;
  */
 export function initSync(wasmModule: WebAssembly.Module | BufferSource): void;
 
-/** Throws if the wasm is not initialised. See {@link init}. */
-export function parse(content: string, allowedRules?: Rule[] | null): Block[];
+/**
+ * Parse markdown into an AST. `flags` picks the syntax to parse, as a bitwise OR of `Syntax`
+ * members, and defaults to `Syntax.ALL`, which `0` also means.
+ *
+ * Throws if the wasm is not initialised. See {@link init}.
+ */
+export function parse(content: string, flags?: SyntaxFlags | null): Block[];
 
 /**
  * Turn an AST back into markdown. Throws if the AST is malformed.

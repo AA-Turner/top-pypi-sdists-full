@@ -53,6 +53,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListWorkspaceInstancesRequestTypeDef,
     ListWorkspaceInstancesResponseTypeDef,
+    ModifyVolumeRequestTypeDef,
+    ModifyVolumeResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
 )
@@ -75,6 +77,7 @@ class Exceptions(BaseClientExceptions):
     ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
+    VolumeModificationRateExceededException: type[BotocoreClientError]
 
 
 class WorkspacesInstancesClient(AioBaseClient):
@@ -221,6 +224,17 @@ class WorkspacesInstancesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces-instances/client/list_workspace_instances.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_instances/client/#list_workspace_instances)
+        """
+
+    async def modify_volume(
+        self, **kwargs: Unpack[ModifyVolumeRequestTypeDef]
+    ) -> ModifyVolumeResponseTypeDef:
+        """
+        Modifies the size, volume type, IOPS (input/output operations per second), or
+        throughput of a volume.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces-instances/client/modify_volume.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_instances/client/#modify_volume)
         """
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:

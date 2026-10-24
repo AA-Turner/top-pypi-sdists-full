@@ -1,9 +1,168 @@
+use super::ses_tests::{parse_recording, RecordedEvent};
 use crate::config::RecordingConfig;
 use crate::multi::MultiFormatRecorder;
 use crate::ses::{RecordingDirection, RecordingError, SesPayload};
 use bytes::Bytes;
 use std::collections::HashMap;
 use tempfile::TempDir;
+
+#[test]
+fn test_terminal_geometry_precedes_output_and_tracks_resizes_once() {
+    let dir = TempDir::new().unwrap();
+    let params = HashMap::from([
+        ("recording-path".into(), dir.path().display().to_string()),
+        ("recording-name".into(), "geometry".into()),
+    ]);
+    let config = RecordingConfig::from_params(&params);
+    let mut recorder = MultiFormatRecorder::new_with_payload(
+        &config,
+        &params,
+        "ssh",
+        163,
+        51,
+        SesPayload::Terminal,
+    )
+    .unwrap();
+    recorder.record_resize(163, 51).unwrap();
+    recorder
+        .record_instruction(
+            RecordingDirection::ServerToClient,
+            &guacr_protocol::format_terminal_data_binary(b"first\xff\x00;screen"),
+        )
+        .unwrap();
+    recorder.record_resize(194, 58).unwrap();
+    recorder.record_resize(194, 58).unwrap();
+    recorder
+        .record_instruction(
+            RecordingDirection::ServerToClient,
+            &guacr_protocol::format_terminal_data_binary(b"second screen"),
+        )
+        .unwrap();
+    recorder.finalize().unwrap();
+
+    let bytes = std::fs::read(dir.path().join("geometry.ses")).unwrap();
+    let events = parse_recording(&bytes);
+    assert_eq!(events.len(), 7);
+    assert_eq!(
+        events[0],
+        RecordedEvent::Instruction("guacr".into(), vec!["terminal".into(), "1".into()])
+    );
+    assert_eq!(
+        events[1],
+        RecordedEvent::Instruction(
+            "guacr".into(),
+            vec![
+                "terminal-size".into(),
+                "163".into(),
+                "51".into(),
+                "0".into()
+            ]
+        )
+    );
+    assert_eq!(events[2], RecordedEvent::Output(b"first\xff\x00;screen"));
+    assert_eq!(events[5], RecordedEvent::Output(b"second screen"));
+    let timestamp = |event: &RecordedEvent<'_>, opcode: &str, index: usize| {
+        let RecordedEvent::Instruction(actual, args) = event else {
+            panic!("expected timestamp instruction")
+        };
+        assert_eq!(actual, opcode);
+        args[index].parse::<u64>().unwrap()
+    };
+    let first_time = timestamp(&events[3], "sync", 0);
+    let RecordedEvent::Instruction(opcode, size) = &events[4] else {
+        panic!("expected resize")
+    };
+    assert_eq!(opcode, "guacr");
+    assert_eq!(&size[..3], ["terminal-size", "194", "58"]);
+    let resized_time = timestamp(&events[4], "guacr", 3);
+    assert!(first_time <= resized_time);
+    assert!(resized_time <= timestamp(&events[6], "sync", 0));
+
+    let cast = std::fs::read_to_string(dir.path().join("geometry.cast")).unwrap();
+    let lines: Vec<serde_json::Value> = cast
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(
+        lines.len(),
+        2,
+        "unchanged sizes must not duplicate asciicast events"
+    );
+    assert_eq!(lines[0]["width"], 163);
+    assert_eq!(lines[0]["height"], 51);
+    assert_eq!(lines[1][1], "r");
+    assert_eq!(lines[1][2], "194x58");
+}
+
+#[test]
+fn test_graphical_ses_is_unchanged_by_terminal_geometry() {
+    let dir = TempDir::new().unwrap();
+    let params = HashMap::from([
+        ("recording-path".into(), dir.path().display().to_string()),
+        ("recording-name".into(), "graphical".into()),
+    ]);
+    let config = RecordingConfig::from_params(&params);
+    let mut recorder = MultiFormatRecorder::new(&config, &params, "vnc", 80, 24).unwrap();
+    recorder.record_resize(120, 40).unwrap();
+    let instruction = Bytes::from_static(b"4.size,1.0,4.1024,3.768;");
+    recorder
+        .record_instruction(RecordingDirection::ServerToClient, &instruction)
+        .unwrap();
+    recorder.record_resize(120, 40).unwrap();
+    recorder.finalize().unwrap();
+    assert_eq!(
+        std::fs::read(dir.path().join("graphical.ses")).unwrap(),
+        instruction.as_ref()
+    );
+}
+
+#[test]
+fn test_geometry_survives_output_exclusion_without_frames_or_keys() {
+    let dir = TempDir::new().unwrap();
+    let params = HashMap::from([
+        ("recording-path".into(), dir.path().display().to_string()),
+        ("recording-name".into(), "excluded".into()),
+        ("recording-exclude-output".into(), "true".into()),
+    ]);
+    let config = RecordingConfig::from_params(&params);
+    let mut recorder = MultiFormatRecorder::new_with_payload(
+        &config,
+        &params,
+        "mysql",
+        80,
+        24,
+        SesPayload::Terminal,
+    )
+    .unwrap();
+    recorder
+        .record_instruction(
+            RecordingDirection::ServerToClient,
+            &guacr_protocol::format_terminal_data_binary(b"secret output"),
+        )
+        .unwrap();
+    recorder
+        .record_instruction(
+            RecordingDirection::ClientToServer,
+            &Bytes::from_static(b"3.key,2.97,1.1;"),
+        )
+        .unwrap();
+    recorder.record_resize(120, 40).unwrap();
+    recorder.finalize().unwrap();
+    let bytes = std::fs::read(dir.path().join("excluded.ses")).unwrap();
+    let events = parse_recording(&bytes);
+    assert_eq!(
+        events.len(),
+        3,
+        "excluded frames must not retain their timing sync or keys"
+    );
+    for event in &events[1..] {
+        let RecordedEvent::Instruction(opcode, args) = event else {
+            panic!("output must be excluded")
+        };
+        assert_eq!(opcode, "guacr");
+        assert_eq!(args[0], "terminal-size");
+    }
+}
 
 #[test]
 fn test_multi_format_recorder_asciicast() {
@@ -589,6 +748,14 @@ fn test_ses_bytes_reach_the_zmq_endpoint_given_in_recording_path() {
         "the recorded keystroke must reach the endpoint; got {:?}",
         String::from_utf8_lossy(&received)
     );
+    let events = parse_recording(&received);
+    assert_eq!(
+        events[1],
+        RecordedEvent::Instruction(
+            "guacr".into(),
+            vec!["terminal-size".into(), "80".into(), "24".into(), "0".into()]
+        )
+    );
 }
 
 /// A strict session whose recording breaks mid-session must be endable.
@@ -665,10 +832,13 @@ fn test_strict_session_reports_a_mid_session_write_failure_as_unrecordable() {
     let mut failure = None;
     while std::time::Instant::now() < deadline {
         match recorder.record_instruction(RecordingDirection::ServerToClient, &frame) {
-            Ok(()) => std::thread::sleep(std::time::Duration::from_millis(10)),
+            Ok(()) => std::thread::yield_now(),
             Err(e) => {
-                failure = Some(e);
-                break;
+                // Keys are excluded here, so this probes sticky health without enqueueing.
+                if recorder.record_input(b"").is_err() {
+                    failure = Some(e);
+                    break;
+                }
             }
         }
     }
@@ -682,5 +852,12 @@ fn test_strict_session_reports_a_mid_session_write_failure_as_unrecordable() {
         "a strict session whose recording stopped working must report Unrecordable, or the \
          handler treats it as an ignorable I/O error and the session continues unrecorded; \
          got {failure:?}"
+    );
+    assert!(
+        matches!(
+            recorder.record_resize(80, 24),
+            Err(RecordingError::Unrecordable(_))
+        ),
+        "unchanged geometry must still observe required destination failure"
     );
 }

@@ -26,6 +26,7 @@ from vercel.sandbox._internal.async_runtime import (
     Snapshot,
     create_sandbox_operation as _create_sandbox_operation,
     delete_drive as _delete_drive,
+    fork_drive as _fork_drive,
     fork_sandbox_operation as _fork_sandbox_operation,
     get_drive as _get_drive,
     get_or_create_drive as _get_or_create_drive,
@@ -51,10 +52,12 @@ from vercel.sandbox._internal.errors import (
     SandboxInvalidHandleError,
     SandboxPathNotFoundError,
     SandboxResponseError,
+    SandboxStdinError,
     SandboxStreamError,
     SandboxTerminalStateError,
     SandboxTimeoutError as SandboxTimeoutError,
     SandboxUploadSizeMismatchError,
+    SandboxUserAlreadyExistsError,
 )
 from vercel.sandbox._internal.models import (
     CompletedProcess,
@@ -108,9 +111,17 @@ from vercel.sandbox._internal.options import (
     SandboxCredentialsFactory,
     SandboxServiceOptions,
 )
+from vercel.sandbox._internal.process_stdin import ProcessStdin
 from vercel.sandbox._internal.service import SandboxService, get_sandbox_service
 from vercel.sandbox._internal.state import SnapshotRetentionState
 from vercel.sandbox._internal.text_reader import TextReader
+from vercel.sandbox.protocols import (
+    SandboxExecution,
+    SandboxFilesystemOperations,
+    SyncSandboxExecution,
+    SyncSandboxFilesystemOperations,
+)
+from vercel.sandbox.user import SandboxUser
 
 from . import sync
 from .client import SandboxClient
@@ -427,6 +438,19 @@ def resume_sandbox(
     )
 
 
+async def fork_drive(*, source: str, name: str) -> Drive:
+    """Fork a Drive by project-local name without fetching it first.
+
+    The new Drive inherits the source's committed data, region, and maximum
+    size. API failures propagate as SandboxApiError (404 or 409).
+
+    Args:
+        source: Project-local source Drive name.
+        name: Project-local name for the new Drive.
+    """
+    return await _fork_drive(_service(), source=source, name=name)
+
+
 async def get_drive(*, name_or_id: str) -> Drive:
     """Look up a Drive by name or ID without creating it.
 
@@ -597,6 +621,11 @@ async def get_snapshot(*, snapshot_id: str) -> Snapshot:
 
 
 __all__ = [
+    "SandboxUser",
+    "SandboxExecution",
+    "SandboxFilesystemOperations",
+    "SyncSandboxExecution",
+    "SyncSandboxFilesystemOperations",
     "SandboxBinaryReader",
     "SandboxBinaryWriter",
     "SandboxClient",
@@ -622,6 +651,7 @@ __all__ = [
     "InteractiveSessionOperation",
     "InteractiveStream",
     "Process",
+    "ProcessStdin",
     "CompletedProcess",
     "SandboxCredentials",
     "SandboxCredentialsError",
@@ -636,6 +666,7 @@ __all__ = [
     "SandboxInvalidHandleError",
     "SandboxPathNotFoundError",
     "SandboxUploadSizeMismatchError",
+    "SandboxUserAlreadyExistsError",
     "NetworkPolicy",
     "NetworkPolicyForwardRuleSummary",
     "NetworkPolicyInjectionRuleSummary",
@@ -657,6 +688,7 @@ __all__ = [
     "SandboxResponseError",
     "ResumeSandboxOperation",
     "SandboxInteractiveError",
+    "SandboxStdinError",
     "SandboxStreamError",
     "SandboxRuntimeSession",
     "SandboxSessionOperation",
@@ -676,6 +708,7 @@ __all__ = [
     "TextReader",
     "create_sandbox",
     "delete_drive",
+    "fork_drive",
     "fork_sandbox",
     "get_or_create_sandbox",
     "get_sandbox",

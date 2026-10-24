@@ -20,7 +20,6 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from mixpeek.models.create_blob_request import CreateBlobRequest
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,10 +28,10 @@ class UpdateObjectRequest(BaseModel):
     Request model for updating an existing bucket object.
     """ # noqa: E501
     key_prefix: Optional[StrictStr] = Field(default=None, description="Updated storage key/path prefix of the object, this will be used to retrieve the object from the storage. It's at the root of the object.")
-    blobs: Optional[List[CreateBlobRequest]] = Field(default=None, description="List of new or updated blobs for this object")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Updated metadata for the object, this will be merged with existing metadata.")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Custom fields to change. A key the object holds inside its own `metadata` object (because it was created with one) is updated there; any other key is set at the root of the object, the same place PATCH writes it. Fields you leave out keep their values.")
     skip_duplicates: Optional[StrictBool] = Field(default=None, description="Skip duplicate blobs, if a blob with the same hash already exists, it will be skipped.")
-    __properties: ClassVar[List[str]] = ["key_prefix", "blobs", "metadata", "skip_duplicates"]
+    additional_properties: Dict[str, Any] = {}
+    __properties: ClassVar[List[str]] = ["key_prefix", "metadata", "skip_duplicates"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -64,8 +63,10 @@ class UpdateObjectRequest(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -73,13 +74,11 @@ class UpdateObjectRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in blobs (list)
-        _items = []
-        if self.blobs:
-            for _item_blobs in self.blobs:
-                if _item_blobs:
-                    _items.append(_item_blobs.to_dict())
-            _dict['blobs'] = _items
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -93,10 +92,14 @@ class UpdateObjectRequest(BaseModel):
 
         _obj = cls.model_validate({
             "key_prefix": obj.get("key_prefix"),
-            "blobs": [CreateBlobRequest.from_dict(_item) for _item in obj["blobs"]] if obj.get("blobs") is not None else None,
             "metadata": obj.get("metadata"),
             "skip_duplicates": obj.get("skip_duplicates")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

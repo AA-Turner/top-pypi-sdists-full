@@ -17,7 +17,10 @@
                        in the next service, which loads the newer tap)
     one at a time      the tap journal's live claim: a session whose own
                        `tap watch` still runs is never recorded twice (D39);
-                       its thread waits, and takes over once that one is gone
+                       its thread waits, and takes over once that one is gone.
+                       A `tap watch` that started because no service answered
+                       asks `session.record` itself once one does, then lets
+                       go of the claim (the tap's `tap/handback.py`)
     the guard          each session's thread restarts after a failure (5 s,
                        doubling to 5 min) while its agent runs: one bad
                        transcript stops one session's recording, never another's
@@ -25,11 +28,22 @@
                        resume when the next service starts -- each session's
                        arguments and the variables a recorder reads (the tap
                        client sends only those, `tap.record_client.TAP_ENV_*`),
-                       and the newer tap a session asked for, loaded first
+                       and the newer tap a session asked for, loaded first.
+                       A saved tap folder may be gone by then: Codex replaces
+                       a plugin's version folder when it updates it, and an
+                       update cycle does that just before it restarts this
+                       service. Such a session resumes from the version folder
+                       that replaced it (`_replacement`), and one session's
+                       missing folder never keeps it from the tap another's
+                       loaded; one that still cannot resume is said by sid
     an owner           only a session whose agent process is known: the
                        recorder keeps no heartbeat of its own, and ends with
                        that process (the tap's own owner check); one without
                        gets `tap watch` as before
+    its worker         each recording's controls carry a `workers.Link`: a tap
+                       that knows it hands the session's daemon worker to the
+                       service's own supervisor (`workers.py`); its loop's end
+                       releases it, and so does the recording's end here
 
 Stdlib only at import (the start path; plan S1). The tap is imported when the
 first session is recorded.
@@ -51,6 +65,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import paths, procid
+from .watch import Family
 
 RECORDERS_NAME = "recorders.json"
 RECORDERS_VERSION = 1
@@ -81,6 +96,8 @@ HEALTHY_RUN_S = 600.0
 RESUME_SPREAD_S = 20.0
 MAX_ENV = 200
 _VERSION = re.compile(r"^\d+(\.\d+)*$")
+#: A plugin cache's version folder name (the hooks' `[0-9]*.[0-9]*`, stricter).
+_SIBLING = re.compile(r"^\d+(\.\d+)+$")
 #: The tap's own floor (`tap.start.MIN_PYTHON`).
 MIN_PYTHON = (3, 11)
 
@@ -96,6 +113,40 @@ def _numbers(version: str) -> tuple:
     return tuple(int(p) for p in version.split(".")) if _VERSION.match(version or "") else ()
 
 
+def _has_tap(root: Path) -> bool:
+    """Does `root` hold a tap? False for a folder that cannot be read, or a
+    saved path no filesystem call accepts (a NUL byte): one session's bad root
+    must never stop another's resume."""
+    tap_dir = root / "tap"
+    try:
+        return (tap_dir / "hosted.py").is_file() and (tap_dir / "main.py").is_file()
+    except (OSError, ValueError):
+        return False
+
+
+def _replacement(root: str) -> tuple[str, str] | None:
+    """`(root, version)` of the tap folder that replaced `root`, when `root` is
+    a version folder that no longer carries a tap: Codex installs a plugin at
+    `<cache>/<marketplace>/<plugin>/<version>/` and REMOVES the old version
+    folder when it installs a new one (tests/test_codex_stale_plugin_root.py).
+    The highest-numbered version-shaped sibling that carries a tap. (The Codex
+    hooks re-resolve their own `$PLUGIN_ROOT` to the newest-modified sibling;
+    with the one version folder Codex keeps, both pick the same.) Only
+    version-shaped siblings, so a plugin folder beside other plugins is never
+    scanned. None otherwise."""
+    path = Path(root)
+    if not _SIBLING.match(path.name) or _has_tap(path):
+        return None
+    try:
+        found = [(_numbers(p.name), p) for p in path.parent.iterdir() if _SIBLING.match(p.name) and _has_tap(p)]
+    except (OSError, ValueError):
+        return None
+    if not found:
+        return None
+    best = max(found)[1]
+    return str(best), best.name
+
+
 @dataclass
 class Recording:
     sid: str
@@ -105,6 +156,11 @@ class Recording:
     started_at: float = field(default_factory=time.time)
     last: str = ""
     failures: int = 0
+    #: Inside `hosted.record` now (not waiting to try again), since this
+    #: (monotonic): a beat older than its start is a previous run's (the
+    #: watch's `stalled`, crash-report plan B2).
+    in_record: bool = False
+    record_since: float = 0.0
 
 
 class RecorderHost:
@@ -114,10 +170,17 @@ class RecorderHost:
         log: Callable[[str], None],
         loop_getter: Callable[[], Any],
         changed: Callable[[], None] = lambda: None,
+        workers: Any = None,
+        incident: Callable[..., None] = lambda *args, **kwargs: None,
     ) -> None:
         self.log = log
+        #: The service's watch (`watch.Watch.note`): a failing recorder, a tap
+        #: that will not load (crash-report plan B2).
+        self.incident = incident
         self._loop_getter = loop_getter
         self._changed = changed
+        #: The service's worker supervisor (`workers.WorkerHost`), or None.
+        self.workers = workers
         self.recordings: dict[str, Recording] = {}
         self.tap_root: str | None = None
         self.tap_version: str | None = None
@@ -137,8 +200,7 @@ class RecorderHost:
         """Import `tap` from `root` (once). False when it cannot be."""
         if self.hosted is not None:
             return True
-        tap_dir = Path(root) / "tap"
-        if not (tap_dir / "hosted.py").is_file() or not (tap_dir / "main.py").is_file():
+        if not _has_tap(Path(root)):
             return False
         if sys.version_info < MIN_PYTHON:
             # The tap needs 3.11 (StrEnum); the CLI, and so this service, runs on
@@ -156,6 +218,10 @@ class RecorderHost:
             loaded = getattr(sys.modules.get("tap"), "__version__", "")
         except Exception as exc:  # noqa: BLE001
             self.log(f"cannot load the tap from {root}: {exc!r}")
+            # A `tap_load` report, once per tap version (plan B2): its sessions
+            # are recorded by their own `tap watch` meanwhile.
+            self.incident(Family.TAP_LOAD, "import_failed", None, {"tap_version": version, "error": repr(exc)[:500]},
+                          once=f"tap_load:{version}")
             with contextlib.suppress(ValueError):
                 sys.path.remove(root)
             # What it imported before failing stays cached otherwise, and the
@@ -177,11 +243,11 @@ class RecorderHost:
             raise invalid_params("sid must be a session id")
         for key in ("cwd", "tap_root"):
             value = params.get(key)
-            if not isinstance(value, str) or not value.startswith("/") or len(value) > 4096:
+            if not isinstance(value, str) or not os.path.isabs(value) or len(value) > 4096:
                 raise invalid_params(f"{key} must be an absolute path")
         transcript, folder = params.get("transcript"), params.get("transcript_dir")
-        if not (isinstance(transcript, str) and transcript.startswith("/")) and not (
-            isinstance(folder, str) and folder.startswith("/")
+        if not (isinstance(transcript, str) and os.path.isabs(transcript)) and not (
+            isinstance(folder, str) and os.path.isabs(folder)
         ):
             raise invalid_params("transcript or transcript_dir must be an absolute path")
         env = params.get("env")
@@ -208,8 +274,6 @@ class RecorderHost:
         """Can `session.record` record this session here? None when it can,
         else its answer (the caller then registers nothing)."""
         session = self._valid(params)
-        if os.name != "posix":
-            return {"recording": False, "reason": "unsupported"}
         if not isinstance(session.get("owner"), dict):
             return {"recording": False, "reason": "no_owner"}
         if self.hosted is not None and _numbers(session["tap_version"]) > _numbers(self.tap_version or ""):
@@ -292,6 +356,11 @@ class RecorderHost:
 
     def _start(self, session: dict, *, delay: float = 0.0) -> None:
         controls = self.hosted.Controls()
+        if self.workers is not None:
+            # A tap that knows it hands its worker over (`workers.Link`); an
+            # older one never reads it and supervises its own.
+            with contextlib.suppress(Exception):
+                controls.workers = self.workers.link(session["sid"])
         rec = Recording(session["sid"], session, controls)
         rec.thread = threading.Thread(target=self._guard, args=(rec, delay), name=f"recorder-{session['sid'][:12]}",
                                       daemon=True)
@@ -318,7 +387,11 @@ class RecorderHost:
                 return  # the service stops before it began: the next one resumes it
         while True:
             began = time.monotonic()
-            outcome, detail = self.hosted.record(rec.params, rec.controls)
+            rec.record_since, rec.in_record = began, True
+            try:
+                outcome, detail = self.hosted.record(rec.params, rec.controls)
+            finally:
+                rec.in_record = False
             rec.last = f"{outcome}{': ' + detail if detail else ''}"
             if outcome in (self.hosted.ENDED, self.hosted.PAUSED) or rec.controls.pause.is_set():
                 break
@@ -339,6 +412,12 @@ class RecorderHost:
             if outcome == self.hosted.FAILED:
                 rec.failures += 1
                 self.log(f"recorder: session {rec.sid} failed ({detail}); again in {delay:.0f} s")
+                if self._owner_alive(rec) is not False:
+                    # While its agent runs: one event of `recorder` (3 in 15 min
+                    # are a report, plan B2), with its consent its own.
+                    self.incident(Family.RECORDER, "failing", rec.sid, {
+                        "detail": str(detail)[:300], "failures": rec.failures, "tap_version": self.tap_version,
+                    }, env=rec.params.get("env"))
                 wait = delay
                 delay = min(delay * 2, MAX_RETRY_S)
             else:
@@ -369,10 +448,28 @@ class RecorderHost:
             del self.recordings[rec.sid]
             self.log(f"recorder: session {rec.sid} done ({rec.last})")
             self._save()
+        if rec.controls.stop.is_set() or not rec.controls.pause.is_set():
+            # Its tap released the worker on the way out; this covers a loop
+            # that never got that far. A newer recording's claim is kept.
+            link = getattr(rec.controls, "workers", None)
+            if link is not None:
+                link.release()
         self._changed()
 
     def alive(self) -> bool:
         return any(r.thread is not None and r.thread.is_alive() for r in self.recordings.values())
+
+    def claims(self) -> dict:
+        """`{sid: journal folder}` for each session recorded here whose
+        recorder holds its live claim now: published by the tap's loop as it
+        takes and lets go of the claim (`tap.hosted.Controls.claim`, tap 0.10.6;
+        an older tap publishes nothing). Where `session.list` reads receipts."""
+        out = {}
+        for rec in list(self.recordings.values()):
+            folder = getattr(rec.controls, "claimed", None)
+            if isinstance(folder, str) and folder and rec.thread is not None and rec.thread.is_alive():
+                out[rec.sid] = folder
+        return out
 
     def _ending(self, rec: Recording) -> bool:
         """Did its SessionEnd come (the tap's own check: its shutdown sentinel,
@@ -428,11 +525,29 @@ class RecorderHost:
             self.log(f"recorder: {len(still)} session(s) still pausing at exit; resumed from saved progress")
 
     def public(self) -> list:
+        """`service.status`'s `recorders`. `alive`: the session's thread runs
+        (also while it waits to try again); `recording`: its loop holds the
+        session's journal claim now, so it is the one recording the session
+        (false in a retry wait, or while another recorder -- the session's own
+        `tap watch` -- holds it; None from a tap that cannot say, before 0.10.5)."""
         return [
-            {"sid": r.sid, "alive": bool(r.thread and r.thread.is_alive()), "started_at": r.started_at,
-             "last": r.last, "failures": r.failures}
+            {"sid": r.sid, "alive": bool(r.thread and r.thread.is_alive()),
+             "recording": self._holds(r), "started_at": r.started_at,
+             "last": r.last, "failures": r.failures,
+             # The agent its `session.record` named (`finish_harness` reads it
+             # first), so a reader can match a recorder whose registration went.
+             "harness": r.params.get("harness") if isinstance(r.params.get("harness"), str) else None}
             for r in self.recordings.values()
         ]
+
+    @staticmethod
+    def _holds(rec: Recording) -> bool | None:
+        """Whether this recorder holds the session's journal claim now: the
+        folder its loop published (`Controls.claim`), which a thread alive in
+        its retry wait does not. None from a tap that publishes none."""
+        if not hasattr(rec.controls, "claimed"):
+            return None
+        return rec.controls.claimed is not None
 
     # -- restarts -------------------------------------------------------------------
 
@@ -458,34 +573,77 @@ class RecorderHost:
     def resume(self, register: Callable[[dict], None]) -> int:
         """At start: record again every session a previous service recorded
         (each from its saved progress). One whose agent exited meanwhile gets
-        its last pass and FINALIZE (the tap's own owner check). Returns how many."""
+        its last pass and FINALIZE (the tap's own owner check). Returns how many.
+
+        One tap records them all (`_load` imports once), so the tap is chosen
+        first and every session then resumes on it: a session's own folder
+        decides nothing past that choice, and a folder the plugin's update
+        removed moves to the version folder that replaced it (`_replacement`).
+        One that cannot resume is said by sid and left out of `recorders.json`:
+        its agent's next prompt asks `session.record` again, with the folder its
+        hook resolved."""
         try:
             data = json.loads(self._path().read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return 0
         if not isinstance(data, dict) or data.get("v") != RECORDERS_VERSION:
             return 0
-        sessions = [s for s in data.get("sessions") or [] if isinstance(s, dict)]
+        sessions: list[tuple[dict, dict]] = []
+        for raw in data.get("sessions") or []:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                session = self._valid(raw)
+            except Exception as exc:  # noqa: BLE001 -- a record this version cannot read is dropped
+                self.log(f"recorder: session {str(raw.get('sid'))[:128]} not resumed: its saved record does not read "
+                         f"({getattr(exc, 'message', None) or type(exc).__name__})")
+                continue
+            if not isinstance(session.get("owner"), dict):
+                self.log(f"recorder: session {session['sid']} not resumed: its agent is not known")
+                continue
+            moved = _replacement(session["tap_root"])
+            if moved is not None:
+                self.log(f"recorder: session {session['sid']}'s tap folder {session['tap_root']} is gone; "
+                         f"resuming from {moved[0]}")
+                session = self._moved(session, *moved)
+            sessions.append((raw, session))
         wanted = data.get("tap")
         if isinstance(wanted, dict) and isinstance(wanted.get("root"), str) and isinstance(wanted.get("version"), str):
             # The newer tap a session asked for before the restart.
-            if not self._load(wanted["root"], wanted["version"]):
-                self.unloadable = wanted["version"]
-        # Else the newest tap any of them named.
-        sessions.sort(key=lambda s: _numbers(str(s.get("tap_version") or "")), reverse=True)
+            root, version = _replacement(wanted["root"]) or (wanted["root"], wanted["version"])
+            if not self._load(root, version):
+                self.unloadable = version
+        # Else the newest tap any of them named that loads.
+        sessions.sort(key=lambda pair: _numbers(pair[1]["tap_version"]), reverse=True)
+        for _raw, session in sessions:
+            if self._load(session["tap_root"], session["tap_version"]):
+                break
         resumed = 0
-        for raw in sessions:
-            try:
-                session = self._valid(raw)
-            except Exception:  # noqa: BLE001 -- a record this version cannot read is dropped
+        for raw, session in sessions:
+            if session["sid"] in self.recordings:
                 continue
-            if not isinstance(session.get("owner"), dict) or session["sid"] in self.recordings:
+            if self.hosted is None:
+                self.log(f"recorder: session {session['sid']} not resumed: no tap loads "
+                         f"(its own: {session['tap_root']})")
                 continue
-            if not self._load(session["tap_root"], session["tap_version"]):
-                continue
+            if _numbers(session["tap_version"]) > _numbers(self.tap_version or ""):
+                # Its own tap would not load: recorded on the older one rather
+                # than not at all (the journal reads older taps' writes).
+                self.log(f"recorder: session {session['sid']} resumed on tap {self.tap_version} "
+                         f"(its own {session['tap_version']} did not load)")
             with contextlib.suppress(Exception):
                 register(raw)
             self._start(session, delay=random.uniform(0.0, RESUME_SPREAD_S) if resumed else 0.0)
             resumed += 1
         self._save()
         return resumed
+
+    @staticmethod
+    def _moved(session: dict, root: str, version: str) -> dict:
+        """The session recorded from `root` instead: its saved folder and
+        version, and its `PLUGIN_ROOT` where that named the old folder (as the
+        hook's own fallback exports it)."""
+        env = dict(session["env"])
+        if env.get("PLUGIN_ROOT", "").rstrip("/") == session["tap_root"].rstrip("/"):
+            env["PLUGIN_ROOT"] = root
+        return {**session, "tap_root": root, "tap_version": version, "env": env}

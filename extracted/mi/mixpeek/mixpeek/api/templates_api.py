@@ -28,13 +28,11 @@ from mixpeek.models.instantiate_cluster_template_request import InstantiateClust
 from mixpeek.models.instantiate_collection_template_request import InstantiateCollectionTemplateRequest
 from mixpeek.models.instantiate_retriever_template_request import InstantiateRetrieverTemplateRequest
 from mixpeek.models.instantiate_taxonomy_template_request import InstantiateTaxonomyTemplateRequest
-from mixpeek.models.instantiate_template_request import InstantiateTemplateRequest
 from mixpeek.models.instantiated_bucket_template_response import InstantiatedBucketTemplateResponse
 from mixpeek.models.instantiated_cluster_template_response import InstantiatedClusterTemplateResponse
 from mixpeek.models.instantiated_collection_template_response import InstantiatedCollectionTemplateResponse
 from mixpeek.models.instantiated_retriever_template_response import InstantiatedRetrieverTemplateResponse
 from mixpeek.models.instantiated_taxonomy_template_response import InstantiatedTaxonomyTemplateResponse
-from mixpeek.models.instantiated_template_response import InstantiatedTemplateResponse
 from mixpeek.models.list_templates_request import ListTemplatesRequest
 from mixpeek.models.list_templates_response import ListTemplatesResponse
 from mixpeek.models.template_scope import TemplateScope
@@ -61,7 +59,7 @@ class TemplatesApi:
     def create_bucket_template_from(
         self,
         bucket_id: Annotated[StrictStr, Field(description="Bucket ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -81,7 +79,7 @@ class TemplatesApi:
 
         :param bucket_id: Bucket ID (required)
         :type bucket_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -115,13 +113,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -138,7 +138,7 @@ class TemplatesApi:
     def create_bucket_template_from_with_http_info(
         self,
         bucket_id: Annotated[StrictStr, Field(description="Bucket ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -158,7 +158,7 @@ class TemplatesApi:
 
         :param bucket_id: Bucket ID (required)
         :type bucket_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -192,13 +192,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -215,7 +217,7 @@ class TemplatesApi:
     def create_bucket_template_from_without_preload_content(
         self,
         bucket_id: Annotated[StrictStr, Field(description="Bucket ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -235,7 +237,7 @@ class TemplatesApi:
 
         :param bucket_id: Bucket ID (required)
         :type bucket_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -269,13 +271,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -369,7 +373,7 @@ class TemplatesApi:
     def create_cluster_template_from(
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -389,7 +393,7 @@ class TemplatesApi:
 
         :param cluster_id: Cluster ID (required)
         :type cluster_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -423,13 +427,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -446,7 +452,7 @@ class TemplatesApi:
     def create_cluster_template_from_with_http_info(
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -466,7 +472,7 @@ class TemplatesApi:
 
         :param cluster_id: Cluster ID (required)
         :type cluster_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -500,13 +506,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -523,7 +531,7 @@ class TemplatesApi:
     def create_cluster_template_from_without_preload_content(
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -543,7 +551,7 @@ class TemplatesApi:
 
         :param cluster_id: Cluster ID (required)
         :type cluster_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -577,13 +585,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -677,7 +687,7 @@ class TemplatesApi:
     def create_collection_template_from(
         self,
         collection_id: Annotated[StrictStr, Field(description="Collection ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -697,7 +707,7 @@ class TemplatesApi:
 
         :param collection_id: Collection ID (required)
         :type collection_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -731,13 +741,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -754,7 +766,7 @@ class TemplatesApi:
     def create_collection_template_from_with_http_info(
         self,
         collection_id: Annotated[StrictStr, Field(description="Collection ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -774,7 +786,7 @@ class TemplatesApi:
 
         :param collection_id: Collection ID (required)
         :type collection_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -808,13 +820,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -831,7 +845,7 @@ class TemplatesApi:
     def create_collection_template_from_without_preload_content(
         self,
         collection_id: Annotated[StrictStr, Field(description="Collection ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -851,7 +865,7 @@ class TemplatesApi:
 
         :param collection_id: Collection ID (required)
         :type collection_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -885,13 +899,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -985,7 +1001,7 @@ class TemplatesApi:
     def create_namespace_template_from(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1005,7 +1021,7 @@ class TemplatesApi:
 
         :param namespace_id: Namespace ID (required)
         :type namespace_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1039,13 +1055,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1062,7 +1080,7 @@ class TemplatesApi:
     def create_namespace_template_from_with_http_info(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1082,7 +1100,7 @@ class TemplatesApi:
 
         :param namespace_id: Namespace ID (required)
         :type namespace_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1116,13 +1134,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1139,7 +1159,7 @@ class TemplatesApi:
     def create_namespace_template_from_without_preload_content(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1159,7 +1179,7 @@ class TemplatesApi:
 
         :param namespace_id: Namespace ID (required)
         :type namespace_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1193,13 +1213,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1293,7 +1315,7 @@ class TemplatesApi:
     def create_retriever_template_from(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1313,7 +1335,7 @@ class TemplatesApi:
 
         :param retriever_id: Retriever ID (required)
         :type retriever_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1347,13 +1369,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1370,7 +1394,7 @@ class TemplatesApi:
     def create_retriever_template_from_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1390,7 +1414,7 @@ class TemplatesApi:
 
         :param retriever_id: Retriever ID (required)
         :type retriever_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1424,13 +1448,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1447,7 +1473,7 @@ class TemplatesApi:
     def create_retriever_template_from_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1467,7 +1493,7 @@ class TemplatesApi:
 
         :param retriever_id: Retriever ID (required)
         :type retriever_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1501,13 +1527,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1601,7 +1629,7 @@ class TemplatesApi:
     def create_taxonomy_template_taxonomies_from(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1621,7 +1649,7 @@ class TemplatesApi:
 
         :param taxonomy_id: Taxonomy ID (required)
         :type taxonomy_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1655,13 +1683,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1678,7 +1708,7 @@ class TemplatesApi:
     def create_taxonomy_template_taxonomies_from_with_http_info(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1698,7 +1728,7 @@ class TemplatesApi:
 
         :param taxonomy_id: Taxonomy ID (required)
         :type taxonomy_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1732,13 +1762,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1755,7 +1787,7 @@ class TemplatesApi:
     def create_taxonomy_template_taxonomies_from_without_preload_content(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1775,7 +1807,7 @@ class TemplatesApi:
 
         :param taxonomy_id: Taxonomy ID (required)
         :type taxonomy_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1809,13 +1841,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1964,8 +1998,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2037,8 +2073,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2110,8 +2148,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2244,8 +2284,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2317,8 +2359,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2390,8 +2434,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2524,8 +2570,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2597,8 +2645,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2670,8 +2720,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2804,8 +2856,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2877,8 +2931,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2950,8 +3006,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3084,8 +3142,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3157,8 +3217,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3230,8 +3292,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3364,8 +3428,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3437,8 +3503,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3510,8 +3578,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3589,7 +3659,7 @@ class TemplatesApi:
     def instantiate_bucket_template(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_bucket_template_request: InstantiateBucketTemplateRequest,
+        instantiate_bucket_template_request: Annotated[InstantiateBucketTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3609,7 +3679,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_bucket_template_request: (required)
+        :param instantiate_bucket_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_bucket_template_request: InstantiateBucketTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3643,13 +3713,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedBucketTemplateResponse",
+            '200': "InstantiatedBucketTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3666,7 +3738,7 @@ class TemplatesApi:
     def instantiate_bucket_template_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_bucket_template_request: InstantiateBucketTemplateRequest,
+        instantiate_bucket_template_request: Annotated[InstantiateBucketTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3686,7 +3758,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_bucket_template_request: (required)
+        :param instantiate_bucket_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_bucket_template_request: InstantiateBucketTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3720,13 +3792,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedBucketTemplateResponse",
+            '200': "InstantiatedBucketTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3743,7 +3817,7 @@ class TemplatesApi:
     def instantiate_bucket_template_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_bucket_template_request: InstantiateBucketTemplateRequest,
+        instantiate_bucket_template_request: Annotated[InstantiateBucketTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3763,7 +3837,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_bucket_template_request: (required)
+        :param instantiate_bucket_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_bucket_template_request: InstantiateBucketTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3797,13 +3871,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedBucketTemplateResponse",
+            '200': "InstantiatedBucketTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3897,7 +3973,7 @@ class TemplatesApi:
     def instantiate_cluster_template(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_cluster_template_request: InstantiateClusterTemplateRequest,
+        instantiate_cluster_template_request: Annotated[InstantiateClusterTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3917,7 +3993,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_cluster_template_request: (required)
+        :param instantiate_cluster_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_cluster_template_request: InstantiateClusterTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3951,13 +4027,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedClusterTemplateResponse",
+            '200': "InstantiatedClusterTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3974,7 +4052,7 @@ class TemplatesApi:
     def instantiate_cluster_template_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_cluster_template_request: InstantiateClusterTemplateRequest,
+        instantiate_cluster_template_request: Annotated[InstantiateClusterTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3994,7 +4072,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_cluster_template_request: (required)
+        :param instantiate_cluster_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_cluster_template_request: InstantiateClusterTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4028,13 +4106,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedClusterTemplateResponse",
+            '200': "InstantiatedClusterTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4051,7 +4131,7 @@ class TemplatesApi:
     def instantiate_cluster_template_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_cluster_template_request: InstantiateClusterTemplateRequest,
+        instantiate_cluster_template_request: Annotated[InstantiateClusterTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4071,7 +4151,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_cluster_template_request: (required)
+        :param instantiate_cluster_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_cluster_template_request: InstantiateClusterTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4105,13 +4185,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedClusterTemplateResponse",
+            '200': "InstantiatedClusterTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4205,7 +4287,7 @@ class TemplatesApi:
     def instantiate_collection_template(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_collection_template_request: InstantiateCollectionTemplateRequest,
+        instantiate_collection_template_request: Annotated[InstantiateCollectionTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4225,7 +4307,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_collection_template_request: (required)
+        :param instantiate_collection_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_collection_template_request: InstantiateCollectionTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4259,13 +4341,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedCollectionTemplateResponse",
+            '200': "InstantiatedCollectionTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4282,7 +4366,7 @@ class TemplatesApi:
     def instantiate_collection_template_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_collection_template_request: InstantiateCollectionTemplateRequest,
+        instantiate_collection_template_request: Annotated[InstantiateCollectionTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4302,7 +4386,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_collection_template_request: (required)
+        :param instantiate_collection_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_collection_template_request: InstantiateCollectionTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4336,13 +4420,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedCollectionTemplateResponse",
+            '200': "InstantiatedCollectionTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4359,7 +4445,7 @@ class TemplatesApi:
     def instantiate_collection_template_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_collection_template_request: InstantiateCollectionTemplateRequest,
+        instantiate_collection_template_request: Annotated[InstantiateCollectionTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4379,7 +4465,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_collection_template_request: (required)
+        :param instantiate_collection_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_collection_template_request: InstantiateCollectionTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4413,13 +4499,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedCollectionTemplateResponse",
+            '200': "InstantiatedCollectionTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4510,318 +4598,10 @@ class TemplatesApi:
 
 
     @validate_call
-    def instantiate_namespace_template(
-        self,
-        template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_template_request: InstantiateTemplateRequest,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> InstantiatedTemplateResponse:
-        """Instantiate Namespace Template
-
-        Instantiate namespace template.
-
-        :param template_id: Template ID (required)
-        :type template_id: str
-        :param instantiate_template_request: (required)
-        :type instantiate_template_request: InstantiateTemplateRequest
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._instantiate_namespace_template_serialize(
-            template_id=template_id,
-            instantiate_template_request=instantiate_template_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTemplateResponse",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def instantiate_namespace_template_with_http_info(
-        self,
-        template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_template_request: InstantiateTemplateRequest,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[InstantiatedTemplateResponse]:
-        """Instantiate Namespace Template
-
-        Instantiate namespace template.
-
-        :param template_id: Template ID (required)
-        :type template_id: str
-        :param instantiate_template_request: (required)
-        :type instantiate_template_request: InstantiateTemplateRequest
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._instantiate_namespace_template_serialize(
-            template_id=template_id,
-            instantiate_template_request=instantiate_template_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTemplateResponse",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def instantiate_namespace_template_without_preload_content(
-        self,
-        template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_template_request: InstantiateTemplateRequest,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Instantiate Namespace Template
-
-        Instantiate namespace template.
-
-        :param template_id: Template ID (required)
-        :type template_id: str
-        :param instantiate_template_request: (required)
-        :type instantiate_template_request: InstantiateTemplateRequest
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._instantiate_namespace_template_serialize(
-            template_id=template_id,
-            instantiate_template_request=instantiate_template_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTemplateResponse",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _instantiate_namespace_template_serialize(
-        self,
-        template_id,
-        instantiate_template_request,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if template_id is not None:
-            _path_params['template_id'] = template_id
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-        if instantiate_template_request is not None:
-            _body_params = instantiate_template_request
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-        # set the HTTP header `Content-Type`
-        if _content_type:
-            _header_params['Content-Type'] = _content_type
-        else:
-            _default_content_type = (
-                self.api_client.select_header_content_type(
-                    [
-                        'application/json'
-                    ]
-                )
-            )
-            if _default_content_type is not None:
-                _header_params['Content-Type'] = _default_content_type
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'NamespaceHeader', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/templates/namespaces/{template_id}/instantiate',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
     def instantiate_retriever_template(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_retriever_template_request: InstantiateRetrieverTemplateRequest,
+        instantiate_retriever_template_request: Annotated[InstantiateRetrieverTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4841,7 +4621,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_retriever_template_request: (required)
+        :param instantiate_retriever_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_retriever_template_request: InstantiateRetrieverTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4875,13 +4655,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedRetrieverTemplateResponse",
+            '200': "InstantiatedRetrieverTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4898,7 +4680,7 @@ class TemplatesApi:
     def instantiate_retriever_template_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_retriever_template_request: InstantiateRetrieverTemplateRequest,
+        instantiate_retriever_template_request: Annotated[InstantiateRetrieverTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4918,7 +4700,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_retriever_template_request: (required)
+        :param instantiate_retriever_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_retriever_template_request: InstantiateRetrieverTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4952,13 +4734,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedRetrieverTemplateResponse",
+            '200': "InstantiatedRetrieverTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4975,7 +4759,7 @@ class TemplatesApi:
     def instantiate_retriever_template_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_retriever_template_request: InstantiateRetrieverTemplateRequest,
+        instantiate_retriever_template_request: Annotated[InstantiateRetrieverTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4995,7 +4779,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_retriever_template_request: (required)
+        :param instantiate_retriever_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_retriever_template_request: InstantiateRetrieverTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5029,13 +4813,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedRetrieverTemplateResponse",
+            '200': "InstantiatedRetrieverTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5129,7 +4915,7 @@ class TemplatesApi:
     def instantiate_taxonomy_template_taxonomies(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest,
+        instantiate_taxonomy_template_request: Annotated[InstantiateTaxonomyTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5149,7 +4935,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_taxonomy_template_request: (required)
+        :param instantiate_taxonomy_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5183,13 +4969,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTaxonomyTemplateResponse",
+            '200': "InstantiatedTaxonomyTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5206,7 +4994,7 @@ class TemplatesApi:
     def instantiate_taxonomy_template_taxonomies_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest,
+        instantiate_taxonomy_template_request: Annotated[InstantiateTaxonomyTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5226,7 +5014,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_taxonomy_template_request: (required)
+        :param instantiate_taxonomy_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5260,13 +5048,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTaxonomyTemplateResponse",
+            '200': "InstantiatedTaxonomyTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5283,7 +5073,7 @@ class TemplatesApi:
     def instantiate_taxonomy_template_taxonomies_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest,
+        instantiate_taxonomy_template_request: Annotated[InstantiateTaxonomyTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5303,7 +5093,7 @@ class TemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_taxonomy_template_request: (required)
+        :param instantiate_taxonomy_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5337,13 +5127,15 @@ class TemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTaxonomyTemplateResponse",
+            '200': "InstantiatedTaxonomyTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5436,7 +5228,7 @@ class TemplatesApi:
     @validate_call
     def list_bucket_templates(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5454,7 +5246,7 @@ class TemplatesApi:
 
         List bucket templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5492,8 +5284,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5509,7 +5303,7 @@ class TemplatesApi:
     @validate_call
     def list_bucket_templates_with_http_info(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5527,7 +5321,7 @@ class TemplatesApi:
 
         List bucket templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5565,8 +5359,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5582,7 +5378,7 @@ class TemplatesApi:
     @validate_call
     def list_bucket_templates_without_preload_content(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5600,7 +5396,7 @@ class TemplatesApi:
 
         List bucket templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5638,8 +5434,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5729,7 +5527,7 @@ class TemplatesApi:
     @validate_call
     def list_cluster_templates(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5747,7 +5545,7 @@ class TemplatesApi:
 
         List cluster templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5785,8 +5583,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5802,7 +5602,7 @@ class TemplatesApi:
     @validate_call
     def list_cluster_templates_with_http_info(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5820,7 +5620,7 @@ class TemplatesApi:
 
         List cluster templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5858,8 +5658,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5875,7 +5677,7 @@ class TemplatesApi:
     @validate_call
     def list_cluster_templates_without_preload_content(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5893,7 +5695,7 @@ class TemplatesApi:
 
         List cluster templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5931,8 +5733,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6022,7 +5826,7 @@ class TemplatesApi:
     @validate_call
     def list_collection_templates(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6040,7 +5844,7 @@ class TemplatesApi:
 
         List collection templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6078,8 +5882,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6095,7 +5901,7 @@ class TemplatesApi:
     @validate_call
     def list_collection_templates_with_http_info(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6113,7 +5919,7 @@ class TemplatesApi:
 
         List collection templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6151,8 +5957,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6168,7 +5976,7 @@ class TemplatesApi:
     @validate_call
     def list_collection_templates_without_preload_content(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6186,7 +5994,7 @@ class TemplatesApi:
 
         List collection templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6224,8 +6032,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6379,8 +6189,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6460,8 +6272,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6541,8 +6355,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6631,7 +6447,7 @@ class TemplatesApi:
     @validate_call
     def list_retriever_templates(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6649,7 +6465,7 @@ class TemplatesApi:
 
         List retriever templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.  **Request Body (optional):** - `filters`: Attribute-based filters `{\"AND\": [{\"field\": \"category\", \"operator\": \"eq\", \"value\": \"semantic_search\"}]}` - `sort`: Sort options `{\"field\": \"name\", \"direction\": \"asc\"}` - `search`: Wildcard search across template_id, name, description, tags - `scope`: Filter by scope (system, organization, user) - `category`: Filter by category - `is_active`: Show only active templates (default: true) - `tags`: Filter by tags (templates must have ALL specified tags)
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6687,8 +6503,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6704,7 +6522,7 @@ class TemplatesApi:
     @validate_call
     def list_retriever_templates_with_http_info(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6722,7 +6540,7 @@ class TemplatesApi:
 
         List retriever templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.  **Request Body (optional):** - `filters`: Attribute-based filters `{\"AND\": [{\"field\": \"category\", \"operator\": \"eq\", \"value\": \"semantic_search\"}]}` - `sort`: Sort options `{\"field\": \"name\", \"direction\": \"asc\"}` - `search`: Wildcard search across template_id, name, description, tags - `scope`: Filter by scope (system, organization, user) - `category`: Filter by category - `is_active`: Show only active templates (default: true) - `tags`: Filter by tags (templates must have ALL specified tags)
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6760,8 +6578,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6777,7 +6597,7 @@ class TemplatesApi:
     @validate_call
     def list_retriever_templates_without_preload_content(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6795,7 +6615,7 @@ class TemplatesApi:
 
         List retriever templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.  **Request Body (optional):** - `filters`: Attribute-based filters `{\"AND\": [{\"field\": \"category\", \"operator\": \"eq\", \"value\": \"semantic_search\"}]}` - `sort`: Sort options `{\"field\": \"name\", \"direction\": \"asc\"}` - `search`: Wildcard search across template_id, name, description, tags - `scope`: Filter by scope (system, organization, user) - `category`: Filter by category - `is_active`: Show only active templates (default: true) - `tags`: Filter by tags (templates must have ALL specified tags)
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6833,8 +6653,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6924,7 +6746,7 @@ class TemplatesApi:
     @validate_call
     def list_taxonomy_templates_taxonomies(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6942,7 +6764,7 @@ class TemplatesApi:
 
         List taxonomy templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6980,8 +6802,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6997,7 +6821,7 @@ class TemplatesApi:
     @validate_call
     def list_taxonomy_templates_taxonomies_with_http_info(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7015,7 +6839,7 @@ class TemplatesApi:
 
         List taxonomy templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7053,8 +6877,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7070,7 +6896,7 @@ class TemplatesApi:
     @validate_call
     def list_taxonomy_templates_taxonomies_without_preload_content(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7088,7 +6914,7 @@ class TemplatesApi:
 
         List taxonomy templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7126,8 +6952,10 @@ class TemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

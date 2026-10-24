@@ -47,7 +47,8 @@ name: wheel-reproducibility
 #
 # CIBW_BUILD narrows it to one interpreter, and the reason is not the
 # one test.yml's build-cibuildwheel gives for narrowing a pull request:
-# that one turns on the merge afterwards building everything, and
+# that one turns on the push to main afterwards building every
+# interpreter on the images it runs, and a release on every image, and
 # nothing here ever does, the variable below being unconditional. The
 # reason is that rebuild has only ever measured one interpreter -- uv
 # build leaves one wheel, for the interpreter uv resolves for the
@@ -130,6 +131,14 @@ name: wheel-reproducibility
 # reports on every one that is not closed -- failing outright rather
 # than skipping while draft, since a skipped required check reads as
 # passing (btclib-org/.github#1327).
+#
+# The pull request builds every platform but x86_64 macOS. Those images,
+# macos-26-intel and macos-15-intel, build on the schedule and on a
+# dispatch only: a matrix excludes them when github.event_name is
+# pull_request, and across-images then finds no macos-x86-64 directory
+# rather than half of one. Section 10 of the organization standard in
+# btclib-org/.github says why, and CONTRIBUTING.md's *What gates a merge,
+# and what only reports* says how this tree applies it.
 
 on:
   schedule:
@@ -332,10 +341,6 @@ jobs:
             os: ubuntu-24.04-arm
           - platform: linux-aarch64
             os: ubuntu-22.04-arm
-          - platform: macos-x86-64
-            os: macos-26-intel
-          - platform: macos-x86-64
-            os: macos-15-intel
           - platform: macos-arm64
             os: macos-latest
           - platform: macos-arm64
@@ -348,6 +353,16 @@ jobs:
             os: windows-11-arm
           - platform: windows-arm64
             os: windows-11-vs2026-arm
+        # the pair of macos-x86-64 is the matrix's own axes and not two
+        # include rows, because exclude removes only what the axes make:
+        # a pull request builds no x86_64 macOS (see the header). The
+        # include rows above share no value of these axes, so each stays
+        # a cell of its own
+        platform: [macos-x86-64]
+        os: [macos-26-intel, macos-15-intel]
+        exclude: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '[{"platform": "macos-x86-64"}]' || '[]') }}
 
     steps:
       - name: Checkout code
@@ -358,7 +373,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -378,8 +393,8 @@ jobs:
       # without it the macOS version in the wheel's platform tag, and in
       # the extension's own minimum, is the runner's, so two images of
       # one platform tag the wheel apart (#992). The values are the ones
-      # cibuildwheel gives the static release wheels, which build-dynamic
-      # in test.yml exports too, and its comment has the reasoning
+      # build-dynamic in test.yml exports, and its comment has the
+      # reasoning
       - name: Set the macOS deployment target
         if: runner.os == 'macOS'
         env:
@@ -466,14 +481,18 @@ jobs:
             os: ubuntu-24.04-arm
           - platform: linux-aarch64
             os: ubuntu-22.04-arm
-          - platform: macos-x86-64
-            os: macos-26-intel
           - platform: macos-arm64
             os: macos-latest
           - platform: windows-x86-64
             os: windows-latest
           - platform: windows-arm64
             os: windows-11-arm
+        # macos-x86-64 as the axes, for rebuild's reason
+        platform: [macos-x86-64]
+        os: [macos-26-intel]
+        exclude: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '[{"platform": "macos-x86-64"}]' || '[]') }}
 
     steps:
       - name: Checkout code
@@ -494,7 +513,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -588,6 +607,10 @@ jobs:
           - ubuntu-24.04-arm
           - macos-26-intel
           - macos-latest
+        # see rebuild: a pull request builds no x86_64 macOS
+        exclude: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '[{"os": "macos-26-intel"}]' || '[]') }}
 
     steps:
       - name: Checkout code
@@ -604,7 +627,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -663,7 +686,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -720,7 +743,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 

@@ -133,7 +133,8 @@ async def test_the_conversation_gets_its_tools_back_after_the_decision_turn(monk
     config = _chat_config(with_questions=True)
     seen: dict[str, object] = {}
 
-    async def _dispatch(_self, request):
+    async def _dispatch(_self, request, *, transient_retries: int = 0):
+        _ = transient_retries
         from matrx_ai.providers import unified_client as mod
 
         cfg = request.config

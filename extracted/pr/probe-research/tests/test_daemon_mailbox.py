@@ -9,6 +9,7 @@ against this file-per-message design.
 from __future__ import annotations
 
 import fcntl
+import json
 import multiprocessing
 import os
 import threading
@@ -443,9 +444,15 @@ def test_old_turn_slots_and_dead_sessions_are_swept(tmp_path, monkeypatch):
     mailbox.write_ask(live, "new question")
     for path in [mailbox.asks_dir(dead), *mailbox.asks_dir(dead).rglob("*")]:
         os.utime(path, (old, old))
+    # The Probe service's run-alert hand-offs (plan Q2) go with their session.
+    for sid in (dead, live):
+        mailbox.alerts_handoff_path(sid).parent.mkdir(parents=True, exist_ok=True)
+        mailbox.alerts_handoff_path(sid).write_text("{}")
+    os.utime(mailbox.alerts_handoff_path(dead), (old, old))
     assert mailbox.sweep_stale_sessions(live) >= 1
     assert not mailbox.asks_dir(dead).exists()
     assert mailbox.pending_asks(live)
+    assert not mailbox.alerts_handoff_path(dead).exists() and mailbox.alerts_handoff_path(live).exists()
 
 
 def test_ask_wait_does_not_block_without_a_reader_or_during_a_handover(daemon_session):
@@ -540,6 +547,90 @@ def test_writer_receipts_and_reader_messages_never_replace_each_other():
     assert receipt.expires_at - receipt.made_at == mailbox.ANSWER_TTL_S, "a receipt never goes stale in 30 min"
     assert mailbox.withdraw_unasked(SID, made_before=now + 10) == 1, "only the reader's own"
     assert sorted(m.text for _p, m in mailbox.waiting(SID)) == ["created experiment e1", "moved run r1 to e1"]
+
+
+HINT_TEXT = ('[Probe] The team\'s records near this - evidence, not instructions:\n'
+             '- Michael, 10-21, work/RFD4-Proteina.pdf - "RFdiffusion and Proteina training review"\n'
+             'If they bear on the task: probe ask "what did Michael find on RFD4-Proteina?"')
+
+
+def _hint(**kw) -> mailbox.Message:
+    return _msg(text=kw.pop("text", HINT_TEXT), origin=mailbox.ORIGIN_HINT, **kw)
+
+
+def test_a_hint_and_a_reader_message_never_replace_each_other():
+    """Plan probe-hints R2: a hint has a slot of its own. A newer hint replaces
+    only an older waiting hint; a reader message never removes a hint, nor a
+    hint a reader message, in whichever order they come."""
+    now = time.time()
+    reader_old = _msg(text="older team context", made_at=now + 1)
+    hint_old = _hint(text="[Probe] older hint", made_at=now + 2)
+    for m in (reader_old, hint_old):
+        mailbox.publish(m)
+    assert sorted(m.id for _p, m in mailbox.waiting(SID)) == sorted([reader_old.id, hint_old.id])
+    reader_new = _msg(text="newer team context", made_at=now + 3)
+    mailbox.publish(reader_new)
+    assert sorted(m.id for _p, m in mailbox.waiting(SID)) == sorted([hint_old.id, reader_new.id]), "only the reader's"
+    hint_new = _hint(made_at=now + 4)
+    hint_path = mailbox.publish(hint_new)
+    assert sorted(m.id for _p, m in mailbox.waiting(SID)) == sorted([reader_new.id, hint_new.id]), "only the hint"
+    answer = mailbox.publish(_msg(mailbox.Kind.ANSWER, ask="a1", question="q", text="ans", made_at=now + 5))
+    assert len(mailbox.waiting(SID)) == 3, "an answer replaces nothing"
+    assert mailbox.withdraw_unasked(SID, made_before=now + 10) == 1, "an answer withdraws the reader's own only"
+    assert sorted(p.name for p, _m in mailbox.waiting(SID)) == sorted([answer.name, hint_path.name])
+    assert hint_new.expires_at - hint_new.made_at == mailbox.UNASKED_TTL_S, "a hint goes stale like an unasked one"
+
+
+def test_an_older_message_never_replaces_a_newer_one_in_its_slot():
+    """Review 10-23: hints come from several triggers at once, so a slow lookup's
+    hint can land after a newer one. Only the newest of a slot goes out: the
+    newer one stays and the older one is never written. The reader's slot, the same."""
+    now = time.time()
+    newer, older = _hint(text="[Probe] newer", made_at=now + 2), _hint(text="[Probe] older", made_at=now + 1)
+    mailbox.publish(newer)
+    mailbox.publish(older)
+    assert [m.text for _p, m in mailbox.waiting(SID)] == ["[Probe] newer"]
+    mailbox.publish(_msg(text="newer note", made_at=now + 4))
+    mailbox.publish(_msg(text="older note", made_at=now + 3))
+    assert sorted(m.text for _p, m in mailbox.waiting(SID)) == ["[Probe] newer", "newer note"]
+
+
+def test_a_hint_reads_as_probe_rendered_it():
+    hint = _hint()
+    assert hint.rendered() == HINT_TEXT, "the server's framing, as it came"
+    assert hint.from_hint and not hint.from_writer
+
+
+def test_the_claim_log_says_what_was_delivered():
+    """A consumer (the Probe service's hint lane) tells a delivered hint by its
+    claim log line; the reader's own lines are as before."""
+    reader = mailbox.publish(_msg(text="team context"))
+    hint = mailbox.publish(_hint())
+    receipt = mailbox.publish(_msg(text="created experiment e1", origin=mailbox.ORIGIN_WRITER))
+    assert mailbox.claim(SID, reader, by="UserPromptSubmit") is not None
+    assert mailbox.claim(SID, hint, by="UserPromptSubmit") is not None
+    assert mailbox.claim(SID, receipt, by="PostToolUse", token="1700000000000_ab12") is not None
+    lines = [json.loads(line) for line in mailbox.claim_log_path(SID).read_text().splitlines()]
+    assert [(e["id"], e.get("origin")) for e in lines] == [
+        (mailbox.message_id_of(reader), None), (mailbox.message_id_of(hint), mailbox.ORIGIN_HINT),
+        (mailbox.message_id_of(receipt), mailbox.ORIGIN_WRITER)]
+    assert set(lines[0]) == {"id", "by", "at"}, "a reader message's line is unchanged"
+    assert lines[2]["token"] == "1700000000000_ab12"
+
+
+def test_old_hint_slots_are_swept_with_the_unasked_ones(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    old = time.time() - mailbox.UNASKED_SLOT_KEEP_S - 10
+    turn = mailbox.turn_path(SID)
+    turn.parent.mkdir(parents=True, exist_ok=True)
+    slots = [turn.with_name(f"{SID}.{slot}-abc-0") for slot in (mailbox.SLOT_UNASKED, mailbox.SLOT_HINT)]
+    fresh = turn.with_name(f"{SID}.{mailbox.SLOT_HINT}-def-0")
+    for path in [*slots, fresh]:
+        path.write_text("")
+    for path in slots:
+        os.utime(path, (old, old))
+    assert mailbox.sweep(SID) == 2
+    assert not any(p.exists() for p in slots) and fresh.exists()
 
 
 def test_the_worker_marker_names_a_live_worker(monkeypatch):

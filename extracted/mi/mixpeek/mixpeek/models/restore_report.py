@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.restore_collection_outcome import RestoreCollectionOutcome
+from mixpeek.models.retriever_parity_result import RetrieverParityResult
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -37,7 +38,12 @@ class RestoreReport(BaseModel):
     vector_source: Optional[StrictStr] = None
     vector_status: Optional[StrictStr] = Field(default='none', description="'restored', 'partial', 'failed', or 'none' (snapshot carried no vectors)")
     skipped_summary: Optional[List[StrictStr]] = Field(default=None, description="Human-readable list of everything not fully restored (empty when complete)")
-    __properties: ClassVar[List[str]] = ["snapshot_id", "target_namespace_id", "complete", "collections", "vector_expected", "vector_restored", "vector_source", "vector_status", "skipped_summary"]
+    retriever_parity: Optional[List[RetrieverParityResult]] = Field(default=None, description="Top-k parity per retriever between the source and the restored namespace; filled for a restore into a different namespace")
+    restore_point: Optional[StrictStr] = Field(default=None, description="The restore_point the vectors were restored to")
+    resolved_seq: Optional[StrictInt] = Field(default=None, description="The WAL seq the shard's replica actually reached (frontier_seq)")
+    fork_id: Optional[StrictStr] = Field(default=None, description="The point-in-time replica the vectors were read from")
+    write_gap: Optional[Dict[str, Any]] = Field(default=None, description="For a restore beside the source: objects the source gained or changed after the snapshot's capture began, copied into the copy and re-queued for extraction (cutoff, new_since_snapshot, changed_since_snapshot, requeued, batches, refused with reasons)")
+    __properties: ClassVar[List[str]] = ["snapshot_id", "target_namespace_id", "complete", "collections", "vector_expected", "vector_restored", "vector_source", "vector_status", "skipped_summary", "retriever_parity", "restore_point", "resolved_seq", "fork_id", "write_gap"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +91,13 @@ class RestoreReport(BaseModel):
                 if _item_collections:
                     _items.append(_item_collections.to_dict())
             _dict['collections'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in retriever_parity (list)
+        _items = []
+        if self.retriever_parity:
+            for _item_retriever_parity in self.retriever_parity:
+                if _item_retriever_parity:
+                    _items.append(_item_retriever_parity.to_dict())
+            _dict['retriever_parity'] = _items
         return _dict
 
     @classmethod
@@ -105,7 +118,12 @@ class RestoreReport(BaseModel):
             "vector_restored": obj.get("vector_restored") if obj.get("vector_restored") is not None else 0,
             "vector_source": obj.get("vector_source"),
             "vector_status": obj.get("vector_status") if obj.get("vector_status") is not None else 'none',
-            "skipped_summary": obj.get("skipped_summary")
+            "skipped_summary": obj.get("skipped_summary"),
+            "retriever_parity": [RetrieverParityResult.from_dict(_item) for _item in obj["retriever_parity"]] if obj.get("retriever_parity") is not None else None,
+            "restore_point": obj.get("restore_point"),
+            "resolved_seq": obj.get("resolved_seq"),
+            "fork_id": obj.get("fork_id"),
+            "write_gap": obj.get("write_gap")
         })
         return _obj
 

@@ -34,6 +34,8 @@ __all__ = (
     "ListDataCellsFilterPaginatorName",
     "ListLFTagExpressionsPaginatorName",
     "ListLFTagsPaginatorName",
+    "ListRLSPoliciesPaginatorName",
+    "ListRLSPolicyAttachmentsPaginatorName",
     "OptimizerTypeType",
     "PaginatorName",
     "PermissionType",
@@ -76,6 +78,8 @@ GetWorkUnitsPaginatorName = Literal["get_work_units"]
 ListDataCellsFilterPaginatorName = Literal["list_data_cells_filter"]
 ListLFTagExpressionsPaginatorName = Literal["list_lf_tag_expressions"]
 ListLFTagsPaginatorName = Literal["list_lf_tags"]
+ListRLSPoliciesPaginatorName = Literal["list_rls_policies"]
+ListRLSPolicyAttachmentsPaginatorName = Literal["list_rls_policy_attachments"]
 OptimizerTypeType = Literal["ALL", "COMPACTION", "GARBAGE_COLLECTION"]
 PermissionType = Literal[
     "ALL",
@@ -262,13 +266,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -336,6 +339,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -470,6 +474,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -520,7 +525,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -552,6 +556,8 @@ PaginatorName = Literal[
     "list_data_cells_filter",
     "list_lf_tag_expressions",
     "list_lf_tags",
+    "list_rls_policies",
+    "list_rls_policy_attachments",
     "search_databases_by_lf_tags",
     "search_tables_by_lf_tags",
 ]

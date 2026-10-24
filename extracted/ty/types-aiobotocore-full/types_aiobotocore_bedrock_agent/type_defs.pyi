@@ -78,6 +78,10 @@ from .literals import (
     RelayConversationHistoryType,
     RequireConfirmationType,
     RerankingMetadataSelectionModeType,
+    RetrievalInstructionFailureReasonCodeType,
+    RetrievalInstructionFieldNameType,
+    RetrievalInstructionLastTransitionStatusType,
+    RetrievalInstructionStatusType,
     SharePointAuthTypeType,
     SortOrderType,
     TypeType,
@@ -162,6 +166,10 @@ __all__ = (
     "CreatePromptResponseTypeDef",
     "CreatePromptVersionRequestTypeDef",
     "CreatePromptVersionResponseTypeDef",
+    "CreateRetrievalInstructionRequestTypeDef",
+    "CreateRetrievalInstructionResponseTypeDef",
+    "CreateRetrievalInstructionVersionRequestTypeDef",
+    "CreateRetrievalInstructionVersionResponseTypeDef",
     "CreateVpcConfigurationRequestTypeDef",
     "CreateVpcConfigurationResponseTypeDef",
     "CuratedQueryTypeDef",
@@ -202,6 +210,8 @@ __all__ = (
     "DeletePromptResponseTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteResourcePolicyResponseTypeDef",
+    "DeleteRetrievalInstructionRequestTypeDef",
+    "DeleteRetrievalInstructionResponseTypeDef",
     "DeleteVpcConfigurationRequestTypeDef",
     "DeleteVpcConfigurationResponseTypeDef",
     "DeletionProtectionConfigurationTypeDef",
@@ -274,6 +284,8 @@ __all__ = (
     "GetPromptResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
+    "GetRetrievalInstructionRequestTypeDef",
+    "GetRetrievalInstructionResponseTypeDef",
     "GetVpcConfigurationRequestTypeDef",
     "GetVpcConfigurationResponseTypeDef",
     "GuardrailConfigurationTypeDef",
@@ -352,6 +364,12 @@ __all__ = (
     "ListPromptsRequestPaginateTypeDef",
     "ListPromptsRequestTypeDef",
     "ListPromptsResponseTypeDef",
+    "ListRetrievalInstructionVersionsRequestPaginateTypeDef",
+    "ListRetrievalInstructionVersionsRequestTypeDef",
+    "ListRetrievalInstructionVersionsResponseTypeDef",
+    "ListRetrievalInstructionsRequestPaginateTypeDef",
+    "ListRetrievalInstructionsRequestTypeDef",
+    "ListRetrievalInstructionsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListVpcConfigurationsRequestPaginateTypeDef",
@@ -476,6 +494,10 @@ __all__ = (
     "RetrievalFlowNodeConfigurationTypeDef",
     "RetrievalFlowNodeS3ConfigurationTypeDef",
     "RetrievalFlowNodeServiceConfigurationTypeDef",
+    "RetrievalInstructionContentTypeDef",
+    "RetrievalInstructionFailureReasonTypeDef",
+    "RetrievalInstructionSummaryTypeDef",
+    "RetrievalInstructionVersionSummaryTypeDef",
     "S3ContentTypeDef",
     "S3DataSourceConfigurationOutputTypeDef",
     "S3DataSourceConfigurationTypeDef",
@@ -568,6 +590,8 @@ __all__ = (
     "UpdateKnowledgeBaseResponseTypeDef",
     "UpdatePromptRequestTypeDef",
     "UpdatePromptResponseTypeDef",
+    "UpdateRetrievalInstructionRequestTypeDef",
+    "UpdateRetrievalInstructionResponseTypeDef",
     "UrlConfigurationOutputTypeDef",
     "UrlConfigurationTypeDef",
     "ValidateFlowDefinitionRequestTypeDef",
@@ -730,6 +754,17 @@ class CreatePromptVersionRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
+class RetrievalInstructionContentTypeDef(TypedDict):
+    retrievalGuidance: NotRequired[str]
+    persona: NotRequired[str]
+    answerFormat: NotRequired[str]
+    answerPolicy: NotRequired[str]
+
+class CreateRetrievalInstructionVersionRequestTypeDef(TypedDict):
+    retrievalInstructionId: str
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+
 class CreateVpcConfigurationRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     vpcId: str
@@ -841,6 +876,10 @@ class DeletePromptRequestTypeDef(TypedDict):
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
     expectedRevisionId: NotRequired[str]
+
+class DeleteRetrievalInstructionRequestTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionVersion: NotRequired[str]
 
 class DeleteVpcConfigurationRequestTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -1136,6 +1175,15 @@ class GetPromptRequestTypeDef(TypedDict):
 class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
 
+class GetRetrievalInstructionRequestTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionVersion: NotRequired[str]
+
+class RetrievalInstructionFailureReasonTypeDef(TypedDict):
+    code: RetrievalInstructionFailureReasonCodeType
+    message: str
+    fieldName: NotRequired[RetrievalInstructionFieldNameType]
+
 class GetVpcConfigurationRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     vpcConfigurationId: str
@@ -1302,6 +1350,30 @@ PromptSummaryTypeDef = TypedDict(
         "description": NotRequired[str],
     },
 )
+
+class ListRetrievalInstructionVersionsRequestTypeDef(TypedDict):
+    retrievalInstructionId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class RetrievalInstructionVersionSummaryTypeDef(TypedDict):
+    version: str
+    createdAt: datetime
+
+class ListRetrievalInstructionsRequestTypeDef(TypedDict):
+    status: NotRequired[RetrievalInstructionStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class RetrievalInstructionSummaryTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionArn: str
+    name: str
+    status: RetrievalInstructionStatusType
+    lastTransitionStatus: RetrievalInstructionLastTransitionStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -1642,6 +1714,24 @@ class AssociateAgentKnowledgeBaseResponseTypeDef(TypedDict):
     agentKnowledgeBase: AgentKnowledgeBaseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateRetrievalInstructionResponseTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionArn: str
+    name: str
+    status: RetrievalInstructionStatusType
+    lastTransitionStatus: RetrievalInstructionLastTransitionStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateRetrievalInstructionVersionResponseTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionArn: str
+    version: str
+    createdAt: datetime
+    description: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateVpcConfigurationResponseTypeDef(TypedDict):
     vpcConfigurationId: str
     status: VpcConfigurationStatusType
@@ -1713,6 +1803,12 @@ class DeleteResourcePolicyResponseTypeDef(TypedDict):
     revisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteRetrievalInstructionResponseTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionArn: str
+    version: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteVpcConfigurationResponseTypeDef(TypedDict):
     vpcConfigurationId: str
     status: VpcConfigurationStatusType
@@ -1765,6 +1861,16 @@ class PutResourcePolicyResponseTypeDef(TypedDict):
 
 class UpdateAgentKnowledgeBaseResponseTypeDef(TypedDict):
     agentKnowledgeBase: AgentKnowledgeBaseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateRetrievalInstructionResponseTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionArn: str
+    name: str
+    status: RetrievalInstructionStatusType
+    lastTransitionStatus: RetrievalInstructionLastTransitionStatusType
+    createdAt: datetime
+    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AudioConfigurationTypeDef(TypedDict):
@@ -1889,6 +1995,19 @@ UpdateFlowAliasResponseTypeDef = TypedDict(
     },
 )
 
+class CreateRetrievalInstructionRequestTypeDef(TypedDict):
+    name: str
+    instruction: RetrievalInstructionContentTypeDef
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    customerEncryptionKeyArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateRetrievalInstructionRequestTypeDef(TypedDict):
+    retrievalInstructionId: str
+    instruction: RetrievalInstructionContentTypeDef
+    description: NotRequired[str]
+
 class CustomOrchestrationTypeDef(TypedDict):
     executor: NotRequired[OrchestrationExecutorTypeDef]
 
@@ -2011,6 +2130,22 @@ class FunctionTypeDef(TypedDict):
     parameters: NotRequired[Mapping[str, ParameterDetailTypeDef]]
     requireConfirmation: NotRequired[RequireConfirmationType]
 
+class GetRetrievalInstructionResponseTypeDef(TypedDict):
+    retrievalInstructionId: str
+    retrievalInstructionArn: str
+    name: str
+    status: RetrievalInstructionStatusType
+    lastTransitionStatus: RetrievalInstructionLastTransitionStatusType
+    instruction: RetrievalInstructionContentTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    description: str
+    customerEncryptionKeyArn: str
+    lastTransitionStatusReasons: list[RetrievalInstructionFailureReasonTypeDef]
+    version: str
+    latestVersion: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetVpcConfigurationResponseTypeDef(TypedDict):
     vpcConfiguration: VpcConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2059,6 +2194,7 @@ class IngestionJobSummaryTypeDef(TypedDict):
     startedAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
+    textReadyAt: NotRequired[datetime]
     statistics: NotRequired[IngestionJobStatisticsTypeDef]
 
 class IngestionJobTypeDef(TypedDict):
@@ -2071,6 +2207,7 @@ class IngestionJobTypeDef(TypedDict):
     description: NotRequired[str]
     statistics: NotRequired[IngestionJobStatisticsTypeDef]
     failureReasons: NotRequired[list[str]]
+    textReadyAt: NotRequired[datetime]
 
 class ListKnowledgeBasesResponseTypeDef(TypedDict):
     knowledgeBaseSummaries: list[KnowledgeBaseSummaryTypeDef]
@@ -2137,6 +2274,14 @@ class ListPromptsRequestPaginateTypeDef(TypedDict):
     promptIdentifier: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListRetrievalInstructionVersionsRequestPaginateTypeDef(TypedDict):
+    retrievalInstructionId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListRetrievalInstructionsRequestPaginateTypeDef(TypedDict):
+    status: NotRequired[RetrievalInstructionStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListVpcConfigurationsRequestPaginateTypeDef(TypedDict):
     knowledgeBaseId: str
     statusFilter: NotRequired[VpcConfigurationStatusType]
@@ -2144,6 +2289,16 @@ class ListVpcConfigurationsRequestPaginateTypeDef(TypedDict):
 
 class ListPromptsResponseTypeDef(TypedDict):
     promptSummaries: list[PromptSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListRetrievalInstructionVersionsResponseTypeDef(TypedDict):
+    retrievalInstructionVersionSummaries: list[RetrievalInstructionVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListRetrievalInstructionsResponseTypeDef(TypedDict):
+    retrievalInstructionSummaries: list[RetrievalInstructionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

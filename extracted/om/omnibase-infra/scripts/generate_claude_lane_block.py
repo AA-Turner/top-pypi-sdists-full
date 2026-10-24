@@ -96,7 +96,10 @@ _LANE_PORT_MAP: dict[str, dict[str, str]] = {
     # the lane manifest's pool comment, which is where a reader who meets them
     # will be. This is the lab compose lane only; production is the AWS
     # `onex-prod` namespace and has no row here in the first place.
-    "judge": _PORTS_NONE,
+    # The `judge` row left on 2026-10-21 for the same reason: its compose
+    # project was retired and removed from the private lane census,
+    # so a row here is an orphan the census guard
+    # refuses.
     # OMN-17143 — collaborator lane for Lakshman Patel. This block was verified free
     # on .201 by read-only `ss -ltn` on 2026-08-30 and is BOUND by that lane as of
     # 2026-09-02 (OMN-17532 — the lane is built and running). Note the near-miss: the
@@ -152,6 +155,11 @@ _LANE_PORT_MAP: dict[str, dict[str, str]] = {
     # not a runtime lane: it has no runtime main/effects pair. It publishes no
     # port and serves a Unix socket reached only by the host's tailscale serve.
     "principal-issuer": _PORTS_NONE,
+    # OMN-17292 — the dashboard owner's collaborator lane on the second lab
+    # host, declared in the private lane census on 2026-10-22 (operator RULING
+    # 2026-10-22T07:02:21Z, OMN-17427). No port block for it has been recorded
+    # in this repository, so the honest value is UNDECLARED, as for dogfood.
+    "dashboard-owner": _PORTS_UNDECLARED,
 }
 
 _LANE_BOUNDARY: dict[str, str] = {
@@ -164,7 +172,6 @@ _LANE_BOUNDARY: dict[str, str] = {
         "that breaks delegation here is a defect"
     ),
     "stability-test": "preferred proof lane for synthetic integration evidence",
-    "judge": "NOT authorized for mutation — read-only",
     "lakshman": (
         "collaborator lane — owned by Lakshman; mutable by him; NOT a proof "
         "lane; never sourced for stability/prod grants"
@@ -232,6 +239,13 @@ _LANE_BOUNDARY: dict[str, str] = {
         "developer principal issuer — a credential service on the .201 dev lane "
         "network, unix socket only, no published port; NOT a runtime lane, "
         "never a proof lane, and never sourced for stability/prod grants"
+    ),
+    # OMN-17292. Collaborator-class, like the collaborator lane above: brought
+    # up on the second lab host for the dashboard owner (operator RULING
+    # 2026-10-22T07:02:21Z), so it carries the same boundary as that lane.
+    "dashboard-owner": (
+        "collaborator lane for the dashboard owner — mutable by its owner; "
+        "NOT a proof lane; never sourced for stability/prod grants"
     ),
 }
 

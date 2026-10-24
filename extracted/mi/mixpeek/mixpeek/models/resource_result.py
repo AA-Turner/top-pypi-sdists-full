@@ -31,12 +31,14 @@ class ResourceResult(BaseModel):
     resource_type: StrictStr = Field(description="Type of resource (namespace, bucket, etc.)")
     name: StrictStr = Field(description="Resource name from manifest")
     resource_id: Optional[StrictStr] = Field(default=None, description="Created resource ID")
-    status: ResourceResultStatus = Field(description="What apply did to this resource. `created` and `skipped` are what they sound like. `exists` means it was already what the manifest declares. `drifted` means it differs and still does. `updated` means apply patched it. READ `updated` WITH `refused`: a resource can be `updated` AND carry refused fields, because apply patches what the update surface accepts and reports the rest. `updated` on its own does not mean every declared field was applied, and a caller that treats it as reconciled will report a partly-applied manifest as complete.")
+    status: ResourceResultStatus = Field(description="What apply did to this resource. `created` and `skipped` are what they sound like. `would_create` appears only on a dry run, for a resource the real apply would create. `exists` means it was already what the manifest declares. `drifted` means it differs and still does. `updated` means apply patched it. `pending` means the resource exists but waits on something apply cannot do itself, named in `pending_reason`. READ `updated` WITH `refused`: a resource can be `updated` AND carry refused fields, because apply patches what the update surface accepts and reports the rest. `updated` on its own does not mean every declared field was applied, and a caller that treats it as reconciled will report a partly-applied manifest as complete.")
     error: Optional[StrictStr] = Field(default=None, description="Error message if failed")
+    generated_for: Optional[StrictStr] = Field(default=None, description="Present when the manifest did not declare this resource itself: the name of the taxonomy whose inline labels generated it (its label bucket, collection, retriever or seed). Edit the taxonomy's labels to change it.")
+    pending_reason: Optional[StrictStr] = Field(default=None, description="Present when status is `pending`: what the resource waits for and what happens when it arrives.")
     drift: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest DECLARES that differ from the live resource. Present when status is `drifted`, and ALSO on an `updated` resource, where it is HISTORICAL: the record of what apply changed, not a difference that is still there. A caller that renders any non-empty value as 'differs' will announce the opposite of what happened on every patched row. Named rather than counted: 'collection c1 differs: schedule' is actionable, 'exists' is not. Only fields the manifest explicitly set are compared — an omitted field asserts nothing, and treating an omission as drift would make every apply drift on server-set defaults.")
     refused: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest declares, and that DIFFER, which apply would not change. Present under `upsert` when the resource's own update surface does not accept a field or refuses the value. A refusal is reported per field rather than as a failed apply: the rest of the manifest still applies, and the caller learns exactly which resource and which field to take up by hand. A bucket's schema is the standing example — it is patchable through the API and a destructive change is refused, so upsert does not route around that guard.")
     drift_not_compared: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest declares that could NOT be compared, because the live resource has no corresponding key. Reported rather than dropped: a field silently excluded from the comparison is indistinguishable from one that matched, and that is the exact ambiguity `drifted` exists to remove.")
-    __properties: ClassVar[List[str]] = ["resource_type", "name", "resource_id", "status", "error", "drift", "refused", "drift_not_compared"]
+    __properties: ClassVar[List[str]] = ["resource_type", "name", "resource_id", "status", "error", "generated_for", "pending_reason", "drift", "refused", "drift_not_compared"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,6 +96,8 @@ class ResourceResult(BaseModel):
             "resource_id": obj.get("resource_id"),
             "status": obj.get("status"),
             "error": obj.get("error"),
+            "generated_for": obj.get("generated_for"),
+            "pending_reason": obj.get("pending_reason"),
             "drift": obj.get("drift"),
             "refused": obj.get("refused"),
             "drift_not_compared": obj.get("drift_not_compared")

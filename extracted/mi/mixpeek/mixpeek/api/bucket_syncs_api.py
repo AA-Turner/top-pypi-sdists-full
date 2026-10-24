@@ -59,7 +59,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        bulk_mark_dlq_request: BulkMarkDLQRequest,
+        bulk_mark_dlq_request: Annotated[BulkMarkDLQRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -81,7 +81,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param bulk_mark_dlq_request: (required)
+        :param bulk_mark_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_mark_dlq_request: BulkMarkDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -121,8 +121,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -140,7 +142,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        bulk_mark_dlq_request: BulkMarkDLQRequest,
+        bulk_mark_dlq_request: Annotated[BulkMarkDLQRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -162,7 +164,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param bulk_mark_dlq_request: (required)
+        :param bulk_mark_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_mark_dlq_request: BulkMarkDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -202,8 +204,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -221,7 +225,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        bulk_mark_dlq_request: BulkMarkDLQRequest,
+        bulk_mark_dlq_request: Annotated[BulkMarkDLQRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -243,7 +247,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param bulk_mark_dlq_request: (required)
+        :param bulk_mark_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_mark_dlq_request: BulkMarkDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -283,8 +287,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -381,7 +387,7 @@ class BucketSyncsApi:
     def create_sync_configuration_buckets(
         self,
         bucket_id: StrictStr,
-        sync_create_request: SyncCreateRequest,
+        sync_create_request: Annotated[SyncCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -401,7 +407,7 @@ class BucketSyncsApi:
 
         :param bucket_id: (required)
         :type bucket_id: str
-        :param sync_create_request: (required)
+        :param sync_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type sync_create_request: SyncCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -440,8 +446,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -458,7 +466,7 @@ class BucketSyncsApi:
     def create_sync_configuration_buckets_with_http_info(
         self,
         bucket_id: StrictStr,
-        sync_create_request: SyncCreateRequest,
+        sync_create_request: Annotated[SyncCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -478,7 +486,7 @@ class BucketSyncsApi:
 
         :param bucket_id: (required)
         :type bucket_id: str
-        :param sync_create_request: (required)
+        :param sync_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type sync_create_request: SyncCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -517,8 +525,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -535,7 +545,7 @@ class BucketSyncsApi:
     def create_sync_configuration_buckets_without_preload_content(
         self,
         bucket_id: StrictStr,
-        sync_create_request: SyncCreateRequest,
+        sync_create_request: Annotated[SyncCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -555,7 +565,7 @@ class BucketSyncsApi:
 
         :param bucket_id: (required)
         :type bucket_id: str
-        :param sync_create_request: (required)
+        :param sync_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type sync_create_request: SyncCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -594,8 +604,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -748,8 +760,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -825,8 +839,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -902,8 +918,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1043,8 +1061,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1120,8 +1140,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1197,8 +1219,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1338,8 +1362,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1415,8 +1441,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1492,8 +1520,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1637,8 +1667,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1718,8 +1750,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1799,8 +1833,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1943,8 +1979,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2020,8 +2058,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2097,8 +2137,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2180,7 +2222,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        list_dlq_request: Optional[ListDLQRequest] = None,
+        list_dlq_request: Annotated[Optional[ListDLQRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2202,7 +2244,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param list_dlq_request:
+        :param list_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_dlq_request: ListDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2242,8 +2284,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2261,7 +2305,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        list_dlq_request: Optional[ListDLQRequest] = None,
+        list_dlq_request: Annotated[Optional[ListDLQRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2283,7 +2327,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param list_dlq_request:
+        :param list_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_dlq_request: ListDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2323,8 +2367,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2342,7 +2388,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        list_dlq_request: Optional[ListDLQRequest] = None,
+        list_dlq_request: Annotated[Optional[ListDLQRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2364,7 +2410,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param list_dlq_request:
+        :param list_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_dlq_request: ListDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2404,8 +2450,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2510,7 +2558,7 @@ class BucketSyncsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sync_configurations_request: Optional[ListSyncConfigurationsRequest] = None,
+        list_sync_configurations_request: Annotated[Optional[ListSyncConfigurationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2546,7 +2594,7 @@ class BucketSyncsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sync_configurations_request:
+        :param list_sync_configurations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sync_configurations_request: ListSyncConfigurationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2593,8 +2641,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2619,7 +2669,7 @@ class BucketSyncsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sync_configurations_request: Optional[ListSyncConfigurationsRequest] = None,
+        list_sync_configurations_request: Annotated[Optional[ListSyncConfigurationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2655,7 +2705,7 @@ class BucketSyncsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sync_configurations_request:
+        :param list_sync_configurations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sync_configurations_request: ListSyncConfigurationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2702,8 +2752,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2728,7 +2780,7 @@ class BucketSyncsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sync_configurations_request: Optional[ListSyncConfigurationsRequest] = None,
+        list_sync_configurations_request: Annotated[Optional[ListSyncConfigurationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2764,7 +2816,7 @@ class BucketSyncsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sync_configurations_request:
+        :param list_sync_configurations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sync_configurations_request: ListSyncConfigurationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2811,8 +2863,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2955,7 +3009,7 @@ class BucketSyncsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sync_jobs_request: Optional[ListSyncJobsRequest] = None,
+        list_sync_jobs_request: Annotated[Optional[ListSyncJobsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2993,7 +3047,7 @@ class BucketSyncsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sync_jobs_request:
+        :param list_sync_jobs_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sync_jobs_request: ListSyncJobsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3041,8 +3095,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3068,7 +3124,7 @@ class BucketSyncsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sync_jobs_request: Optional[ListSyncJobsRequest] = None,
+        list_sync_jobs_request: Annotated[Optional[ListSyncJobsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3106,7 +3162,7 @@ class BucketSyncsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sync_jobs_request:
+        :param list_sync_jobs_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sync_jobs_request: ListSyncJobsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3154,8 +3210,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3181,7 +3239,7 @@ class BucketSyncsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sync_jobs_request: Optional[ListSyncJobsRequest] = None,
+        list_sync_jobs_request: Annotated[Optional[ListSyncJobsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3219,7 +3277,7 @@ class BucketSyncsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sync_jobs_request:
+        :param list_sync_jobs_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sync_jobs_request: ListSyncJobsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3267,8 +3325,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3464,8 +3524,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3541,8 +3603,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3618,8 +3682,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3701,7 +3767,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        bulk_requeue_dlq_request: Optional[BulkRequeueDLQRequest] = None,
+        bulk_requeue_dlq_request: Annotated[Optional[BulkRequeueDLQRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3723,7 +3789,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param bulk_requeue_dlq_request:
+        :param bulk_requeue_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type bulk_requeue_dlq_request: BulkRequeueDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3763,8 +3829,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3782,7 +3850,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        bulk_requeue_dlq_request: Optional[BulkRequeueDLQRequest] = None,
+        bulk_requeue_dlq_request: Annotated[Optional[BulkRequeueDLQRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3804,7 +3872,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param bulk_requeue_dlq_request:
+        :param bulk_requeue_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type bulk_requeue_dlq_request: BulkRequeueDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3844,8 +3912,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3863,7 +3933,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        bulk_requeue_dlq_request: Optional[BulkRequeueDLQRequest] = None,
+        bulk_requeue_dlq_request: Annotated[Optional[BulkRequeueDLQRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3885,7 +3955,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param bulk_requeue_dlq_request:
+        :param bulk_requeue_dlq_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type bulk_requeue_dlq_request: BulkRequeueDLQRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3925,8 +3995,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4082,8 +4154,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4159,8 +4233,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4236,8 +4312,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4335,7 +4413,7 @@ class BucketSyncsApi:
     ) -> object:
         """Trigger Sync Configuration
 
-        Manually trigger a sync execution.  Creates a sync job and immediately dispatches it for async execution via Celery. The sync job processes files from the storage provider and creates objects in the bucket.  **Execution Flow:** 1. Acquires distributed lock (prevents concurrent runs) 2. Iterates files from storage provider with configured filters 3. Creates objects idempotently (skips duplicates) 4. Failed objects go to Dead Letter Queue (3 retries) 5. Creates batches for collection processing (100 objects/batch) 6. Emits metrics and releases lock  **Use Cases:** - Test sync configuration after creation - Force sync outside of scheduled intervals - Re-sync after updating connection credentials - Trigger incremental sync (only modified files)  **Returns:** `sync_job_id` to track progress via GET /syncs/{id}
+        Manually trigger a sync execution.  Creates a sync job and immediately dispatches it for async execution. The sync job processes files from the storage provider and creates objects in the bucket.  **Execution Flow:** 1. Acquires distributed lock (prevents concurrent runs) 2. Iterates files from storage provider with configured filters 3. Creates objects idempotently (skips duplicates) 4. Failed objects go to Dead Letter Queue (3 retries) 5. Creates batches for collection processing (100 objects/batch) 6. Emits metrics and releases lock  **Use Cases:** - Test sync configuration after creation - Force sync outside of scheduled intervals - Re-sync after updating connection credentials - Trigger incremental sync (only modified files)  **Returns:** `sync_job_id` to track progress via GET /syncs/{id}
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -4381,8 +4459,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4416,7 +4496,7 @@ class BucketSyncsApi:
     ) -> ApiResponse[object]:
         """Trigger Sync Configuration
 
-        Manually trigger a sync execution.  Creates a sync job and immediately dispatches it for async execution via Celery. The sync job processes files from the storage provider and creates objects in the bucket.  **Execution Flow:** 1. Acquires distributed lock (prevents concurrent runs) 2. Iterates files from storage provider with configured filters 3. Creates objects idempotently (skips duplicates) 4. Failed objects go to Dead Letter Queue (3 retries) 5. Creates batches for collection processing (100 objects/batch) 6. Emits metrics and releases lock  **Use Cases:** - Test sync configuration after creation - Force sync outside of scheduled intervals - Re-sync after updating connection credentials - Trigger incremental sync (only modified files)  **Returns:** `sync_job_id` to track progress via GET /syncs/{id}
+        Manually trigger a sync execution.  Creates a sync job and immediately dispatches it for async execution. The sync job processes files from the storage provider and creates objects in the bucket.  **Execution Flow:** 1. Acquires distributed lock (prevents concurrent runs) 2. Iterates files from storage provider with configured filters 3. Creates objects idempotently (skips duplicates) 4. Failed objects go to Dead Letter Queue (3 retries) 5. Creates batches for collection processing (100 objects/batch) 6. Emits metrics and releases lock  **Use Cases:** - Test sync configuration after creation - Force sync outside of scheduled intervals - Re-sync after updating connection credentials - Trigger incremental sync (only modified files)  **Returns:** `sync_job_id` to track progress via GET /syncs/{id}
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -4462,8 +4542,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4497,7 +4579,7 @@ class BucketSyncsApi:
     ) -> RESTResponseType:
         """Trigger Sync Configuration
 
-        Manually trigger a sync execution.  Creates a sync job and immediately dispatches it for async execution via Celery. The sync job processes files from the storage provider and creates objects in the bucket.  **Execution Flow:** 1. Acquires distributed lock (prevents concurrent runs) 2. Iterates files from storage provider with configured filters 3. Creates objects idempotently (skips duplicates) 4. Failed objects go to Dead Letter Queue (3 retries) 5. Creates batches for collection processing (100 objects/batch) 6. Emits metrics and releases lock  **Use Cases:** - Test sync configuration after creation - Force sync outside of scheduled intervals - Re-sync after updating connection credentials - Trigger incremental sync (only modified files)  **Returns:** `sync_job_id` to track progress via GET /syncs/{id}
+        Manually trigger a sync execution.  Creates a sync job and immediately dispatches it for async execution. The sync job processes files from the storage provider and creates objects in the bucket.  **Execution Flow:** 1. Acquires distributed lock (prevents concurrent runs) 2. Iterates files from storage provider with configured filters 3. Creates objects idempotently (skips duplicates) 4. Failed objects go to Dead Letter Queue (3 retries) 5. Creates batches for collection processing (100 objects/batch) 6. Emits metrics and releases lock  **Use Cases:** - Test sync configuration after creation - Force sync outside of scheduled intervals - Re-sync after updating connection credentials - Trigger incremental sync (only modified files)  **Returns:** `sync_job_id` to track progress via GET /syncs/{id}
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -4543,8 +4625,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4631,7 +4715,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        sync_update_request: SyncUpdateRequest,
+        sync_update_request: Annotated[SyncUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4653,7 +4737,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param sync_update_request: (required)
+        :param sync_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type sync_update_request: SyncUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4693,8 +4777,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4712,7 +4798,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        sync_update_request: SyncUpdateRequest,
+        sync_update_request: Annotated[SyncUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4734,7 +4820,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param sync_update_request: (required)
+        :param sync_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type sync_update_request: SyncUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4774,8 +4860,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4793,7 +4881,7 @@ class BucketSyncsApi:
         self,
         bucket_id: StrictStr,
         sync_config_id: StrictStr,
-        sync_update_request: SyncUpdateRequest,
+        sync_update_request: Annotated[SyncUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4815,7 +4903,7 @@ class BucketSyncsApi:
         :type bucket_id: str
         :param sync_config_id: (required)
         :type sync_config_id: str
-        :param sync_update_request: (required)
+        :param sync_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type sync_update_request: SyncUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4855,8 +4943,10 @@ class BucketSyncsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

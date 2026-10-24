@@ -174,6 +174,9 @@ def configure(
             The host owns the native search engine; this package only maps its
             result into the tool's established output contract.
         **ext_kwargs: External deps (settings, get_async_supabase_client, etc.).
+            ``agent_definition_freshness`` — optional async no-arg callable awaited
+            before every ORM-backed ``agx.load_for_execution``; the host bounds the
+            cached agent rows' staleness there (``db/_agx_manager_impl.py``).
     """
     # A normal import — NOT a file-path load. matrx_ai/db/__init__.py resolves
     # its names lazily (PEP 562 __getattr__), so importing _registry through the

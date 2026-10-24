@@ -9,7 +9,6 @@ const red = "#d9534f";
 const green = "#5cb85c";
 const blue = "#428bca";
 export class TrendIndicatorView extends HTMLBoxView {
-    static __name__ = "TrendIndicatorView";
     containerDiv;
     textDiv;
     titleDiv;
@@ -196,7 +195,6 @@ export class TrendIndicatorView extends HTMLBoxView {
     }
 }
 export class TrendIndicator extends HTMLBox {
-    static __name__ = "TrendIndicator";
     constructor(attrs) {
         super(attrs);
     }

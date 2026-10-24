@@ -162,17 +162,17 @@ repair-wheel-command = [
 [[tool.cibuildwheel.overrides]]
 select = "*linux*"
 inherit.environment = "append"
-environment = {NETCDF_PLUGIN_DIR="/usr/local/hdf5/lib/plugin/"}
+environment = {NETCDF_PLUGIN_DIR="/usr/local/lib/hdf5/plugin/"}
 
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_x86_64"
 inherit.environment = "append"
-environment = {MACOSX_DEPLOYMENT_TARGET="15.0",HDF5_DIR="/Users/runner/micromamba/envs/build",netCDF4_DIR="/Users/runner/micromamba/envs/build",PATH="${PATH}:/Users/runner/micromamba/envs/build/bin",NETCDF_PLUGIN_DIR="/Users/runner/micromamba/envs/build/hdf5/lib/plugin"}
+environment = {MACOSX_DEPLOYMENT_TARGET="15.0",HDF5_DIR="/Users/runner/micromamba/envs/build",netCDF4_DIR="/Users/runner/micromamba/envs/build",PATH="${PATH}:/Users/runner/micromamba/envs/build/bin",NETCDF_PLUGIN_DIR="/Users/runner/micromamba/envs/build/lib/hdf5/plugin"}
 
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_arm64"
 inherit.environment = "append"
-environment = {MACOSX_DEPLOYMENT_TARGET="15.0",HDF5_DIR="/Users/runner/micromambe/envs/build",netCDF4_DIR="/Users/runner/micromambe/envs/build",PATH="${PATH}:/Users/runner/micromamba/envs/build/bin",NETCDF_PLUGIN_DIR="/Users/runner/micromamba/envs/build/hdf5/lib/plugin"}
+environment = {MACOSX_DEPLOYMENT_TARGET="15.0",HDF5_DIR="/Users/runner/micromambe/envs/build",netCDF4_DIR="/Users/runner/micromambe/envs/build",PATH="${PATH}:/Users/runner/micromamba/envs/build/bin",NETCDF_PLUGIN_DIR="/Users/runner/micromamba/envs/build/lib/hdf5/plugin"}
 
 [[tool.cibuildwheel.overrides]]
 select = "*-win_*"
@@ -182,7 +182,8 @@ environment = {HDF5_DIR='C:\\\\Users\\runneradmin\\micromamba\\envs\\build\\Libr
 [[tool.cibuildwheel.overrides]]
 select = "*-win_arm64"
 inherit.environment = "append"
-environment = { HDF5_DIR = 'C:\\\\vcpkg\\\\installed\\\\arm64-windows', netCDF4_DIR = 'C:\\\\vcpkg\\\\installed\\\\arm64-windows', PATH = 'C:\\\\vcpkg\\\\installed\\\\arm64-windows\\\\bin;${PATH}', NO_CDL = '1' }
+# no filter plugins on windows arm64
+environment = { SKIP_FILTER_TEST=1, HDF5_DIR = 'C:\\\\vcpkg\\\\installed\\\\arm64-windows', netCDF4_DIR = 'C:\\\\vcpkg\\\\installed\\\\arm64-windows', PATH = 'C:\\\\vcpkg\\\\installed\\\\arm64-windows\\\\bin;${PATH}', NO_CDL = '1' }
 repair-wheel-command = [
   "delvewheel show {wheel}",
   "delvewheel repair -w {dest_dir} {wheel}",

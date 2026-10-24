@@ -16,6 +16,8 @@ Usage::
         ListDataCellsFilterPaginator,
         ListLFTagExpressionsPaginator,
         ListLFTagsPaginator,
+        ListRLSPoliciesPaginator,
+        ListRLSPolicyAttachmentsPaginator,
         SearchDatabasesByLFTagsPaginator,
         SearchTablesByLFTagsPaginator,
     )
@@ -30,6 +32,8 @@ Usage::
     list_data_cells_filter_paginator: ListDataCellsFilterPaginator = client.get_paginator("list_data_cells_filter")
     list_lf_tag_expressions_paginator: ListLFTagExpressionsPaginator = client.get_paginator("list_lf_tag_expressions")
     list_lf_tags_paginator: ListLFTagsPaginator = client.get_paginator("list_lf_tags")
+    list_rls_policies_paginator: ListRLSPoliciesPaginator = client.get_paginator("list_rls_policies")
+    list_rls_policy_attachments_paginator: ListRLSPolicyAttachmentsPaginator = client.get_paginator("list_rls_policy_attachments")
     search_databases_by_lf_tags_paginator: SearchDatabasesByLFTagsPaginator = client.get_paginator("search_databases_by_lf_tags")
     search_tables_by_lf_tags_paginator: SearchTablesByLFTagsPaginator = client.get_paginator("search_tables_by_lf_tags")
     ```
@@ -41,6 +45,8 @@ from .paginator import (
     ListDataCellsFilterPaginator,
     ListLFTagExpressionsPaginator,
     ListLFTagsPaginator,
+    ListRLSPoliciesPaginator,
+    ListRLSPolicyAttachmentsPaginator,
     SearchDatabasesByLFTagsPaginator,
     SearchTablesByLFTagsPaginator,
 )
@@ -55,6 +61,8 @@ __all__ = (
     "ListDataCellsFilterPaginator",
     "ListLFTagExpressionsPaginator",
     "ListLFTagsPaginator",
+    "ListRLSPoliciesPaginator",
+    "ListRLSPolicyAttachmentsPaginator",
     "SearchDatabasesByLFTagsPaginator",
     "SearchTablesByLFTagsPaginator",
 )

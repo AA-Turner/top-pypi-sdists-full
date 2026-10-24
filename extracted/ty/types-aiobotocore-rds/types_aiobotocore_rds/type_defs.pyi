@@ -32,10 +32,12 @@ from .literals import (
     ClusterScalabilityTypeType,
     CustomEngineVersionStatusType,
     DatabaseInsightsModeType,
+    DBCapacityReservationStateType,
     DBProxyEndpointStatusType,
     DBProxyEndpointTargetRoleType,
     DBProxyStatusType,
     DefaultAuthSchemeType,
+    EndDateTypeType,
     EndpointNetworkTypeType,
     EngineFamilyType,
     ExportSourceTypeType,
@@ -80,10 +82,13 @@ __all__ = (
     "AuthorizeDBSecurityGroupIngressResultTypeDef",
     "AvailabilityZoneTypeDef",
     "AvailableAdditionalStorageVolumesOptionTypeDef",
+    "AvailableCapacityPerAvailabilityZoneTypeDef",
     "AvailableProcessorFeatureTypeDef",
     "BacktrackDBClusterMessageTypeDef",
     "BlueGreenDeploymentTaskTypeDef",
     "BlueGreenDeploymentTypeDef",
+    "CancelDBCapacityReservationRequestTypeDef",
+    "CancelDBCapacityReservationResponseTypeDef",
     "CancelExportTaskMessageTypeDef",
     "CertificateDetailsTypeDef",
     "CertificateMessageTypeDef",
@@ -108,6 +113,8 @@ __all__ = (
     "CreateBlueGreenDeploymentRequestTypeDef",
     "CreateBlueGreenDeploymentResponseTypeDef",
     "CreateCustomDBEngineVersionMessageTypeDef",
+    "CreateDBCapacityReservationRequestTypeDef",
+    "CreateDBCapacityReservationResponseTypeDef",
     "CreateDBClusterEndpointMessageTypeDef",
     "CreateDBClusterMessageTypeDef",
     "CreateDBClusterParameterGroupMessageTypeDef",
@@ -142,6 +149,8 @@ __all__ = (
     "CreateTenantDatabaseMessageTypeDef",
     "CreateTenantDatabaseResultTypeDef",
     "CustomDBEngineVersionAMITypeDef",
+    "DBCapacityReservationCommitmentInfoTypeDef",
+    "DBCapacityReservationTypeDef",
     "DBClusterAssociatedRoleTypeDef",
     "DBClusterAutomatedBackupMessageTypeDef",
     "DBClusterAutomatedBackupTypeDef",
@@ -241,6 +250,9 @@ __all__ = (
     "DescribeBlueGreenDeploymentsResponseTypeDef",
     "DescribeCertificatesMessagePaginateTypeDef",
     "DescribeCertificatesMessageTypeDef",
+    "DescribeDBCapacityReservationsRequestPaginateTypeDef",
+    "DescribeDBCapacityReservationsRequestTypeDef",
+    "DescribeDBCapacityReservationsResponseTypeDef",
     "DescribeDBClusterAutomatedBackupsMessagePaginateTypeDef",
     "DescribeDBClusterAutomatedBackupsMessageTypeDef",
     "DescribeDBClusterBacktracksMessagePaginateTypeDef",
@@ -400,6 +412,8 @@ __all__ = (
     "ModifyCertificatesResultTypeDef",
     "ModifyCurrentDBClusterCapacityMessageTypeDef",
     "ModifyCustomDBEngineVersionMessageTypeDef",
+    "ModifyDBCapacityReservationRequestTypeDef",
+    "ModifyDBCapacityReservationResponseTypeDef",
     "ModifyDBClusterEndpointMessageTypeDef",
     "ModifyDBClusterMessageTypeDef",
     "ModifyDBClusterParameterGroupMessageTypeDef",
@@ -654,6 +668,10 @@ class AvailableAdditionalStorageVolumesOptionTypeDef(TypedDict):
     MinStorageThroughput: NotRequired[int]
     MaxStorageThroughput: NotRequired[int]
 
+class AvailableCapacityPerAvailabilityZoneTypeDef(TypedDict):
+    AvailabilityZone: NotRequired[str]
+    AvailableCapacity: NotRequired[int]
+
 class AvailableProcessorFeatureTypeDef(TypedDict):
     Name: NotRequired[str]
     DefaultValue: NotRequired[str]
@@ -669,6 +687,9 @@ class SwitchoverDetailTypeDef(TypedDict):
     SourceMember: NotRequired[str]
     TargetMember: NotRequired[str]
     Status: NotRequired[str]
+
+class CancelDBCapacityReservationRequestTypeDef(TypedDict):
+    DBCapacityReservationIdentifier: str
 
 class CancelExportTaskMessageTypeDef(TypedDict):
     ExportTaskIdentifier: str
@@ -790,6 +811,10 @@ class UserAuthConfigTypeDef(TypedDict):
 class CustomDBEngineVersionAMITypeDef(TypedDict):
     ImageId: NotRequired[str]
     Status: NotRequired[str]
+
+class DBCapacityReservationCommitmentInfoTypeDef(TypedDict):
+    CommittedCapacityPerAvailabilityZone: NotRequired[int]
+    CommitmentEndDate: NotRequired[datetime]
 
 class RestoreWindowTypeDef(TypedDict):
     EarliestTime: NotRequired[datetime]
@@ -1402,6 +1427,7 @@ class StartDBClusterMessageTypeDef(TypedDict):
 
 class StartDBInstanceMessageTypeDef(TypedDict):
     DBInstanceIdentifier: str
+    DBCapacityReservationIdentifier: NotRequired[str]
 
 class StartExportTaskMessageTypeDef(TypedDict):
     ExportTaskIdentifier: str
@@ -1425,6 +1451,7 @@ class StopDBInstanceAutomatedBackupsReplicationMessageTypeDef(TypedDict):
 class StopDBInstanceMessageTypeDef(TypedDict):
     DBInstanceIdentifier: str
     DBSnapshotIdentifier: NotRequired[str]
+    DetachFromDBCapacityReservation: NotRequired[bool]
 
 class SwitchoverBlueGreenDeploymentRequestTypeDef(TypedDict):
     BlueGreenDeploymentIdentifier: str
@@ -1880,6 +1907,24 @@ class BacktrackDBClusterMessageTypeDef(TypedDict):
     Force: NotRequired[bool]
     UseEarliestTimeOnPointInTimeUnavailable: NotRequired[bool]
 
+class CreateDBCapacityReservationRequestTypeDef(TypedDict):
+    DBCapacityReservationName: str
+    DBInstanceClass: str
+    Engine: str
+    CapacityPerAvailabilityZone: int
+    AvailabilityZones: Sequence[str]
+    EndDate: NotRequired[TimestampTypeDef]
+    StartDate: NotRequired[TimestampTypeDef]
+    CommitmentDuration: NotRequired[int]
+    LicenseModel: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class ModifyDBCapacityReservationRequestTypeDef(TypedDict):
+    DBCapacityReservationIdentifier: str
+    CapacityPerAvailabilityZone: NotRequired[int]
+    EndDateType: NotRequired[EndDateTypeType]
+    EndDate: NotRequired[TimestampTypeDef]
+
 class BlueGreenDeploymentTypeDef(TypedDict):
     BlueGreenDeploymentIdentifier: NotRequired[str]
     BlueGreenDeploymentName: NotRequired[str]
@@ -2091,6 +2136,7 @@ class PendingModifiedValuesTypeDef(TypedDict):
     DedicatedLogVolume: NotRequired[bool]
     Engine: NotRequired[str]
     AdditionalStorageVolumes: NotRequired[list[AdditionalStorageVolumeTypeDef]]
+    DBCapacityReservationIdentifier: NotRequired[str]
 
 class CreateDBProxyEndpointResponseTypeDef(TypedDict):
     DBProxyEndpoint: DBProxyEndpointTypeDef
@@ -2134,6 +2180,24 @@ class ModifyDBProxyRequestTypeDef(TypedDict):
     DebugLogging: NotRequired[bool]
     RoleArn: NotRequired[str]
     SecurityGroups: NotRequired[Sequence[str]]
+
+class DBCapacityReservationTypeDef(TypedDict):
+    DBCapacityReservationName: NotRequired[str]
+    DBInstanceClass: NotRequired[str]
+    Engine: NotRequired[str]
+    LicenseModel: NotRequired[str]
+    ReservedCapacityPerAvailabilityZone: NotRequired[int]
+    AvailableCapacityPerAvailabilityZoneList: NotRequired[
+        list[AvailableCapacityPerAvailabilityZoneTypeDef]
+    ]
+    EndDate: NotRequired[datetime]
+    CreateDate: NotRequired[datetime]
+    StartDate: NotRequired[datetime]
+    CommitmentInfo: NotRequired[DBCapacityReservationCommitmentInfoTypeDef]
+    State: NotRequired[DBCapacityReservationStateType]
+    DBCapacityReservationArn: NotRequired[str]
+    DBCapacityReservationIdentifier: NotRequired[str]
+    TagList: NotRequired[list[TagTypeDef]]
 
 class DBClusterAutomatedBackupTypeDef(TypedDict):
     Engine: NotRequired[str]
@@ -2383,6 +2447,12 @@ class DescribeCertificatesMessageTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     MaxRecords: NotRequired[int]
     Marker: NotRequired[str]
+
+class DescribeDBCapacityReservationsRequestTypeDef(TypedDict):
+    DBCapacityReservationIdentifier: NotRequired[str]
+    Marker: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
 
 class DescribeDBClusterAutomatedBackupsMessageTypeDef(TypedDict):
     DbClusterResourceId: NotRequired[str]
@@ -2703,6 +2773,11 @@ class DescribeBlueGreenDeploymentsRequestPaginateTypeDef(TypedDict):
 
 class DescribeCertificatesMessagePaginateTypeDef(TypedDict):
     CertificateIdentifier: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeDBCapacityReservationsRequestPaginateTypeDef(TypedDict):
+    DBCapacityReservationIdentifier: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -3420,6 +3495,7 @@ class CreateDBInstanceMessageTypeDef(TypedDict):
     EngineLifecycleSupport: NotRequired[str]
     AdditionalStorageVolumes: NotRequired[Sequence[AdditionalStorageVolumeTypeDef]]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
+    DBCapacityReservationIdentifier: NotRequired[str]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
 
 class CreateDBInstanceReadReplicaMessageTypeDef(TypedDict):
@@ -3472,6 +3548,7 @@ class CreateDBInstanceReadReplicaMessageTypeDef(TypedDict):
     CACertificateIdentifier: NotRequired[str]
     AdditionalStorageVolumes: NotRequired[Sequence[AdditionalStorageVolumeTypeDef]]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
+    DBCapacityReservationIdentifier: NotRequired[str]
     SourceRegion: NotRequired[str]
 
 class ModifyDBInstanceMessageTypeDef(TypedDict):
@@ -3537,6 +3614,7 @@ class ModifyDBInstanceMessageTypeDef(TypedDict):
     DedicatedLogVolume: NotRequired[bool]
     Engine: NotRequired[str]
     AdditionalStorageVolumes: NotRequired[Sequence[ModifyAdditionalStorageVolumeTypeDef]]
+    DBCapacityReservationIdentifier: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
     EngineLifecycleSupport: NotRequired[str]
@@ -3716,6 +3794,7 @@ class RestoreDBInstanceFromDBSnapshotMessageTypeDef(TypedDict):
     DBClusterSnapshotIdentifier: NotRequired[str]
     BackupRetentionPeriod: NotRequired[int]
     PreferredBackupWindow: NotRequired[str]
+    DBCapacityReservationIdentifier: NotRequired[str]
     DedicatedLogVolume: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
@@ -3774,6 +3853,7 @@ class RestoreDBInstanceFromS3MessageTypeDef(TypedDict):
     NetworkType: NotRequired[str]
     ManageMasterUserPassword: NotRequired[bool]
     MasterUserSecretKmsKeyId: NotRequired[str]
+    DBCapacityReservationIdentifier: NotRequired[str]
     DedicatedLogVolume: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
@@ -3826,6 +3906,7 @@ class RestoreDBInstanceToPointInTimeMessageTypeDef(TypedDict):
     AllocatedStorage: NotRequired[int]
     BackupRetentionPeriod: NotRequired[int]
     PreferredBackupWindow: NotRequired[str]
+    DBCapacityReservationIdentifier: NotRequired[str]
     DedicatedLogVolume: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
@@ -3974,6 +4055,23 @@ class DeleteDBSnapshotResultTypeDef(TypedDict):
 
 class ModifyDBSnapshotResultTypeDef(TypedDict):
     DBSnapshot: DBSnapshotTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CancelDBCapacityReservationResponseTypeDef(TypedDict):
+    DBCapacityReservation: DBCapacityReservationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateDBCapacityReservationResponseTypeDef(TypedDict):
+    DBCapacityReservation: DBCapacityReservationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeDBCapacityReservationsResponseTypeDef(TypedDict):
+    DBCapacityReservations: list[DBCapacityReservationTypeDef]
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyDBCapacityReservationResponseTypeDef(TypedDict):
+    DBCapacityReservation: DBCapacityReservationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DBClusterAutomatedBackupMessageTypeDef(TypedDict):
@@ -4405,6 +4503,7 @@ class DBInstanceTypeDef(TypedDict):
     StorageVolumeStatus: NotRequired[str]
     StorageOperationStatus: NotRequired[str]
     StorageOperationPercentProgress: NotRequired[int]
+    DBCapacityReservationIdentifier: NotRequired[str]
 
 class DBSubnetGroupMessageTypeDef(TypedDict):
     Marker: str

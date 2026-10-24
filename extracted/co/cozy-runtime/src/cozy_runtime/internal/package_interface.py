@@ -30,6 +30,7 @@ from cozy_runtime.author._markers import (
 from cozy_runtime.author._media import KIND_MEDIA
 from cozy_runtime.author._model import ENCODED_LEAVES, Model, component_use
 from cozy_runtime.author._model_defaults import model_default
+from cozy_runtime.author._recipes import DeclaredRecipe
 from cozy_runtime.author._signature import AssetInputValue, AssetsBinding
 from cozy_runtime.internal import canonical, invocable_interface, schema
 from cozy_runtime.internal.canonical import Json
@@ -78,6 +79,8 @@ class ModelSlot(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     min_bits: Literal[16, 8, 4] = 8
     phase: Literal["compute", "decode"] = "compute"
     sequence_parallel: SequenceParallel | msgspec.UnsetType = msgspec.UNSET
+    #: the components (`@placeable`) the machine may keep on another GPU of a group
+    placeable: tuple[str, ...] = ()
     #: the components this callable runs; unset means all of them
     components: tuple[str, ...] | msgspec.UnsetType = msgspec.UNSET
     #: a `Weights[M]` argument: raw checkpoint data, never constructed
@@ -176,6 +179,8 @@ class PackageInterface(msgspec.Struct, frozen=True, kw_only=True):
     format: str
     application: Annotated[str, msgspec.Meta(min_length=1)]
     entrypoints: tuple[CallableDoc, ...]
+    #: its declared quantize recipes, which its `quantize` entrypoint runs
+    recipes: tuple[DeclaredRecipe, ...] = ()
 
     def function(self, name: str) -> CallableDoc | None:
         return next((entry for entry in self.entrypoints if entry.name == name), None)
@@ -187,11 +192,16 @@ class PackageInterface(msgspec.Struct, frozen=True, kw_only=True):
 def build(found: Discovered, *, installed: bool = False) -> dict[str, Json]:
     """Derive one package interface from the frozen (imported) application."""
     docs = [_callable(surface) for surface in found.surfaces if not surface.hidden]
-    return assemble(found.application, docs, installed=installed)
+    recipes = [msgspec.to_builtins(recipe) for recipe in found.recipes]
+    return assemble(found.application, docs, installed=installed, recipes=recipes)
 
 
 def assemble(
-    application: str, docs: Sequence[dict[str, Json]], *, installed: bool = False
+    application: str,
+    docs: Sequence[dict[str, Json]],
+    *,
+    installed: bool = False,
+    recipes: Sequence[dict[str, Json]] = (),
 ) -> dict[str, Json]:
     """One package interface from its callable documents, whichever reader produced them.
 
@@ -212,6 +222,9 @@ def assemble(
     }
     assert set(body) == TOP_LEVEL_KEYS, sorted(set(body) ^ TOP_LEVEL_KEYS)
     _fixed_point(body)
+    if recipes:
+        # Declared data, folded from source: its lanes, models and digests are source-stable.
+        body["recipes"] = sorted(recipes, key=_by_name)
     return body
 
 
@@ -325,6 +338,7 @@ class ModelSpec:
     phase: str = "compute"
     sequence_parallel: tuple[int, ...] = ()
     components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    placeable: tuple[str, ...] = ()
 
     @classmethod
     def of(cls, model: type[Model[Any]]) -> ModelSpec:
@@ -335,6 +349,7 @@ class ModelSpec:
             model.__phase__,
             tuple(model.__sequence_parallel__),
             component_use(model),
+            tuple(model.__placeable__),
         )
 
 
@@ -384,6 +399,9 @@ def model_slot(
         # The author's opt-in to a group lane (cr-068): the degrees the class's attention
         # shards at. Closed and optional; a slot without it is never sharded.
         doc["sequence_parallel"] = {"degrees": list(spec.sequence_parallel)}
+    if spec.placeable:
+        # TensorD names each one's GPU in a group's Load (`Binding.homes`).
+        doc["placeable"] = sorted(spec.placeable)
     if weights:
         doc["weights"] = True
     if on_demand:
@@ -636,6 +654,9 @@ def _validate(interface: PackageInterface, source: str) -> None:
         output_ids = [output.output_id for output in outputs]
         if len(set(output_ids)) != len(output_ids):
             _invalid(source, f"{path}.weights_outputs", "output ids must be unique")
+    recipes = [recipe.name for recipe in interface.recipes]
+    if len(set(recipes)) != len(recipes):
+        _invalid(source, "recipes", "names must be unique")
 
 
 def _model_slot(slot: ModelSlot, name: str, source: str, path: str) -> None:
@@ -648,6 +669,8 @@ def _model_slot(slot: ModelSlot, name: str, source: str, path: str) -> None:
         _invalid(source, f"{path}.sequence_parallel.degrees", "must be non-empty, sorted, unique")
     if slot.default is not msgspec.UNSET:
         model_default(slot.default)
+    if list(slot.placeable) != sorted(set(slot.placeable)) or not all(slot.placeable):
+        _invalid(source, f"{path}.placeable", "must be sorted, unique component names")
     if slot.components is not msgspec.UNSET and (
         not slot.components
         or len(set(slot.components)) != len(slot.components)

@@ -30,7 +30,7 @@ class NamespaceErrorsResponse(BaseModel):
     """ # noqa: E501
     namespace_id: StrictStr = Field(description="Namespace ID analyzed")
     hours: StrictInt = Field(description="Hours of history analyzed")
-    collections: Optional[List[ResourceErrorCount]] = Field(default=None, description="Collections with extraction errors (ClickHouse extraction_events)")
+    collections: Optional[List[ResourceErrorCount]] = Field(default=None, description="Collections with extraction errors (the extraction_events analytics collection)")
     clusters: Optional[List[ResourceErrorCount]] = Field(default=None, description="Clusters with execution failures (Mongo clustering_results)")
     total_errors: StrictInt = Field(description="Total errors + failures across all resources in the window")
     __properties: ClassVar[List[str]] = ["namespace_id", "hours", "collections", "clusters", "total_errors"]

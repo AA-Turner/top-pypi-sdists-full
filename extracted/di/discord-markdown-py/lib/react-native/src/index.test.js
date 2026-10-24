@@ -12,7 +12,7 @@ vi.mock("./NativeDiscordMarkdown", () => ({
 	},
 }));
 
-const { parse, unparse } = await import("./index.js");
+const { Syntax, parse, unparse } = await import("./index.js");
 
 beforeEach(() => {
 	parseToAstString.mockClear();
@@ -28,13 +28,23 @@ test("forwards content alone when nothing else is given", () => {
 	);
 });
 
-test("serialises allowed rules and forwards fuel", () => {
-	parse("**foo**", ["bold"], 1000);
-	expect(parseToAstString).toHaveBeenCalledWith("**foo**", '["bold"]', 1000);
+test("forwards flags and fuel", () => {
+	parse("**foo**", Syntax.BOLD | Syntax.ITALIC, 1000);
+	expect(parseToAstString).toHaveBeenCalledWith(
+		"**foo**",
+		Syntax.BOLD | Syntax.ITALIC,
+		1000,
+	);
+});
+
+test("forwards flags of zero as they are", () => {
+	// the native parser reads zero as everything itself
+	parse("**foo**", 0);
+	expect(parseToAstString).toHaveBeenCalledWith("**foo**", 0, undefined);
 });
 
 // Codegen turns an argument into `std::nullopt` only for `undefined`; a `null` would reach
-// `asNumber()`/`asString()` and throw from JSI. Both have to be normalised here.
+// `asNumber()` and throw from JSI. Both have to be normalised here.
 test("normalises null to undefined", () => {
 	parse("**foo**", null, null);
 	expect(parseToAstString).toHaveBeenCalledWith(
@@ -44,7 +54,7 @@ test("normalises null to undefined", () => {
 	);
 });
 
-test("forwards fuel without allowed rules", () => {
+test("forwards fuel without flags", () => {
 	parse("**foo**", null, 1);
 	expect(parseToAstString).toHaveBeenCalledWith("**foo**", undefined, 1);
 });

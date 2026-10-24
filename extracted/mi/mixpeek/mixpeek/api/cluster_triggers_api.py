@@ -48,7 +48,7 @@ class ClusterTriggersApi:
     @validate_call
     def create_trigger_clusters(
         self,
-        shared_clusters_triggers_models_create_trigger_request: SharedClustersTriggersModelsCreateTriggerRequest,
+        shared_clusters_triggers_models_create_trigger_request: Annotated[SharedClustersTriggersModelsCreateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,7 +66,7 @@ class ClusterTriggersApi:
 
         Create a new trigger for automated cluster execution.      Supports multiple trigger types:     - **cron**: Execute at specific times using cron expressions     - **interval**: Execute at fixed intervals     - **event**: Execute when specific events occur (e.g., documents added)     - **conditional**: Execute when conditions are met (e.g., drift threshold)
 
-        :param shared_clusters_triggers_models_create_trigger_request: (required)
+        :param shared_clusters_triggers_models_create_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_create_trigger_request: SharedClustersTriggersModelsCreateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -99,13 +99,15 @@ class ClusterTriggersApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SharedClustersTriggersModelsTriggerModel",
+            '200': "SharedClustersTriggersModelsTriggerModel",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -121,7 +123,7 @@ class ClusterTriggersApi:
     @validate_call
     def create_trigger_clusters_with_http_info(
         self,
-        shared_clusters_triggers_models_create_trigger_request: SharedClustersTriggersModelsCreateTriggerRequest,
+        shared_clusters_triggers_models_create_trigger_request: Annotated[SharedClustersTriggersModelsCreateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,7 +141,7 @@ class ClusterTriggersApi:
 
         Create a new trigger for automated cluster execution.      Supports multiple trigger types:     - **cron**: Execute at specific times using cron expressions     - **interval**: Execute at fixed intervals     - **event**: Execute when specific events occur (e.g., documents added)     - **conditional**: Execute when conditions are met (e.g., drift threshold)
 
-        :param shared_clusters_triggers_models_create_trigger_request: (required)
+        :param shared_clusters_triggers_models_create_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_create_trigger_request: SharedClustersTriggersModelsCreateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -172,13 +174,15 @@ class ClusterTriggersApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SharedClustersTriggersModelsTriggerModel",
+            '200': "SharedClustersTriggersModelsTriggerModel",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -194,7 +198,7 @@ class ClusterTriggersApi:
     @validate_call
     def create_trigger_clusters_without_preload_content(
         self,
-        shared_clusters_triggers_models_create_trigger_request: SharedClustersTriggersModelsCreateTriggerRequest,
+        shared_clusters_triggers_models_create_trigger_request: Annotated[SharedClustersTriggersModelsCreateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -212,7 +216,7 @@ class ClusterTriggersApi:
 
         Create a new trigger for automated cluster execution.      Supports multiple trigger types:     - **cron**: Execute at specific times using cron expressions     - **interval**: Execute at fixed intervals     - **event**: Execute when specific events occur (e.g., documents added)     - **conditional**: Execute when conditions are met (e.g., drift threshold)
 
-        :param shared_clusters_triggers_models_create_trigger_request: (required)
+        :param shared_clusters_triggers_models_create_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_create_trigger_request: SharedClustersTriggersModelsCreateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -245,13 +249,15 @@ class ClusterTriggersApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SharedClustersTriggersModelsTriggerModel",
+            '200': "SharedClustersTriggersModelsTriggerModel",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -397,8 +403,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -470,8 +478,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -543,8 +553,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -677,8 +689,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -750,8 +764,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -823,8 +839,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -902,7 +920,7 @@ class ClusterTriggersApi:
     def get_trigger_history_clusters(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        trigger_history_request: TriggerHistoryRequest,
+        trigger_history_request: Annotated[TriggerHistoryRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -922,7 +940,7 @@ class ClusterTriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param trigger_history_request: (required)
+        :param trigger_history_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type trigger_history_request: TriggerHistoryRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -961,8 +979,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -979,7 +999,7 @@ class ClusterTriggersApi:
     def get_trigger_history_clusters_with_http_info(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        trigger_history_request: TriggerHistoryRequest,
+        trigger_history_request: Annotated[TriggerHistoryRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -999,7 +1019,7 @@ class ClusterTriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param trigger_history_request: (required)
+        :param trigger_history_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type trigger_history_request: TriggerHistoryRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1038,8 +1058,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1056,7 +1078,7 @@ class ClusterTriggersApi:
     def get_trigger_history_clusters_without_preload_content(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        trigger_history_request: TriggerHistoryRequest,
+        trigger_history_request: Annotated[TriggerHistoryRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1076,7 +1098,7 @@ class ClusterTriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param trigger_history_request: (required)
+        :param trigger_history_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type trigger_history_request: TriggerHistoryRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1115,8 +1137,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1209,7 +1233,7 @@ class ClusterTriggersApi:
     @validate_call
     def list_triggers_clusters(
         self,
-        shared_clusters_triggers_models_list_triggers_request: SharedClustersTriggersModelsListTriggersRequest,
+        shared_clusters_triggers_models_list_triggers_request: Annotated[SharedClustersTriggersModelsListTriggersRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1227,7 +1251,7 @@ class ClusterTriggersApi:
 
         List cluster triggers with filters and pagination.
 
-        :param shared_clusters_triggers_models_list_triggers_request: (required)
+        :param shared_clusters_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_list_triggers_request: SharedClustersTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1265,8 +1289,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1282,7 +1308,7 @@ class ClusterTriggersApi:
     @validate_call
     def list_triggers_clusters_with_http_info(
         self,
-        shared_clusters_triggers_models_list_triggers_request: SharedClustersTriggersModelsListTriggersRequest,
+        shared_clusters_triggers_models_list_triggers_request: Annotated[SharedClustersTriggersModelsListTriggersRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1300,7 +1326,7 @@ class ClusterTriggersApi:
 
         List cluster triggers with filters and pagination.
 
-        :param shared_clusters_triggers_models_list_triggers_request: (required)
+        :param shared_clusters_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_list_triggers_request: SharedClustersTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1338,8 +1364,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1355,7 +1383,7 @@ class ClusterTriggersApi:
     @validate_call
     def list_triggers_clusters_without_preload_content(
         self,
-        shared_clusters_triggers_models_list_triggers_request: SharedClustersTriggersModelsListTriggersRequest,
+        shared_clusters_triggers_models_list_triggers_request: Annotated[SharedClustersTriggersModelsListTriggersRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1373,7 +1401,7 @@ class ClusterTriggersApi:
 
         List cluster triggers with filters and pagination.
 
-        :param shared_clusters_triggers_models_list_triggers_request: (required)
+        :param shared_clusters_triggers_models_list_triggers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_list_triggers_request: SharedClustersTriggersModelsListTriggersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1411,8 +1439,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1558,8 +1588,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1631,8 +1663,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1704,8 +1738,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1838,8 +1874,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1911,8 +1949,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1984,8 +2024,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2063,7 +2105,7 @@ class ClusterTriggersApi:
     def update_trigger_clusters(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        shared_clusters_triggers_models_update_trigger_request: SharedClustersTriggersModelsUpdateTriggerRequest,
+        shared_clusters_triggers_models_update_trigger_request: Annotated[SharedClustersTriggersModelsUpdateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2083,7 +2125,7 @@ class ClusterTriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param shared_clusters_triggers_models_update_trigger_request: (required)
+        :param shared_clusters_triggers_models_update_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_update_trigger_request: SharedClustersTriggersModelsUpdateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2122,8 +2164,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2140,7 +2184,7 @@ class ClusterTriggersApi:
     def update_trigger_clusters_with_http_info(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        shared_clusters_triggers_models_update_trigger_request: SharedClustersTriggersModelsUpdateTriggerRequest,
+        shared_clusters_triggers_models_update_trigger_request: Annotated[SharedClustersTriggersModelsUpdateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2160,7 +2204,7 @@ class ClusterTriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param shared_clusters_triggers_models_update_trigger_request: (required)
+        :param shared_clusters_triggers_models_update_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_update_trigger_request: SharedClustersTriggersModelsUpdateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2199,8 +2243,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2217,7 +2263,7 @@ class ClusterTriggersApi:
     def update_trigger_clusters_without_preload_content(
         self,
         trigger_id: Annotated[StrictStr, Field(description="Trigger ID")],
-        shared_clusters_triggers_models_update_trigger_request: SharedClustersTriggersModelsUpdateTriggerRequest,
+        shared_clusters_triggers_models_update_trigger_request: Annotated[SharedClustersTriggersModelsUpdateTriggerRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2237,7 +2283,7 @@ class ClusterTriggersApi:
 
         :param trigger_id: Trigger ID (required)
         :type trigger_id: str
-        :param shared_clusters_triggers_models_update_trigger_request: (required)
+        :param shared_clusters_triggers_models_update_trigger_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type shared_clusters_triggers_models_update_trigger_request: SharedClustersTriggersModelsUpdateTriggerRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2276,8 +2322,10 @@ class ClusterTriggersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

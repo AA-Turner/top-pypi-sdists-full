@@ -152,13 +152,15 @@ def test_a_refusal_says_what_the_service_said(monkeypatch):
     assert result["serviceState"] == d.ServiceState.REFUSED and "(unsupported_api)" in result["reason"]
 
 
-def test_off_posix_there_is_no_service_to_ask(monkeypatch):
+def test_windows_asks_the_service_too(monkeypatch):
+    """R3: the service runs on Windows (its named pipe), so the app's live
+    counts come from it there as everywhere."""
     import os
-    asked = _service(monkeypatch, listing=AssertionError("asked"), status=AssertionError("asked"))
+    asked = _service(monkeypatch, listing={"sessions": []}, status={"state": "running"})
     with monkeypatch.context() as windows:
         windows.setattr(os, "name", "nt")
         result = d.snapshot_delivery()
-    assert (result["serviceState"], result["available"], asked) == (d.ServiceState.UNSUPPORTED, False, [])
+    assert result["serviceState"] != d.ServiceState.UNSUPPORTED and asked
 
 
 def test_cli_envelope_is_versioned_and_contains_no_traceback():
@@ -474,14 +476,33 @@ def test_desktop_admission_stamps_origin_without_passing_marker_to_worker(review
     assert records[0]["event"] == telemetry.EVENT_IMPORT_JOB_ENQUEUED
 
 
-def test_last_received_and_pending_are_the_recorders_own(monkeypatch, tmp_path):
-    """D29: the tap's state (its last upload, its outbox) per agent."""
+def _journal_session(tmp_path, monkeypatch, lines=3):
+    """A session its recorder delivered (a real journal under this HOME's
+    default folder), plus one line the server has not taken yet."""
+    from probe.tap_core.session_journal import Journal
+    from tests.test_transcript_protocol3 import CUSTOMER, DoorWire, _drain, _session, _start, _user, _write
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    door = DoorWire(offers=True)
+    sid, path = _session(tmp_path, [_user("x", f"turn {i}", i) for i in range(lines)])
+    journal = Journal(door.base_url, CUSTOMER, door.source, directory=tmp_path / ".probe" / "transcripts-v2")
+    assert journal.claim_live(sid)  # its recorder runs: the journal it holds is the one read
+    _start(journal, door, sid, path)
+    _drain(journal, door, sid)
+    _write(path, [_user(sid, "waiting", 99)])
+    return sid, journal
+
+
+def test_last_received_and_pending_are_the_live_sessions_journal(monkeypatch, tmp_path):
+    """D29: what the service lists per session, from the recorder's journal --
+    never the protocol-1 `state.db`, whose outbox stopped moving at #1415."""
     import sqlite3
 
     from probe.harness import get_registry
     from probe.service import client
 
-    monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": []})
+    sid, journal = _journal_session(tmp_path, monkeypatch)
+    # An old protocol-1 store with an outbox and a last post: never read again.
     claude = next(row for row in get_registry().captured() if row.id == "claude_code")
     state = claude.capture.state_dir()
     state.mkdir(parents=True, exist_ok=True)
@@ -493,8 +514,71 @@ def test_last_received_and_pending_are_the_recorders_own(monkeypatch, tmp_path):
     )
     conn.commit()
     conn.close()
-    rows = {row["source"]: row for row in d.snapshot_delivery()["agents"]}
-    assert rows["claude_code"]["pending"] == 2
-    assert rows["claude_code"]["lastReceived"] == "2025-10-22T02:26:40Z"
+    # A service from before receipts: the CLI reads the journal itself.
+    monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": [
+        {"sid": sid, "harness": "claude_code", "alive": True}]})
+    result = d.snapshot_delivery()
+    rows = {row["source"]: row for row in result["agents"]}
+    assert rows["claude_code"]["pending"] == 1
+    assert rows["claude_code"]["lastReceived"] is not None and rows["claude_code"]["lastReceived"] != "2025-10-22T02:26:40Z"
     assert rows["codex"]["pending"] is None and rows["codex"]["lastReceived"] is None
-    assert "recorder's own" in d.snapshot_delivery()["reason"]
+    assert "recorder's own" in result["reason"]
+    journal.close()
+
+
+def test_receipts_the_service_lists_are_used_as_they_are(monkeypatch, tmp_path):
+    from probe.service import client, receipts
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(receipts, "read", lambda *a: (_ for _ in ()).throw(AssertionError("read again")))
+
+    def found(at, lines):
+        return {"last_line": 4, "received_bytes": 10, "received_at": at, "pending_bytes": 5, "pending_lines": lines,
+                "pending_batch": False, "finalized": False, "retrying": False}
+
+    monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": [
+        {"sid": "a", "harness": "codex", "alive": True, "receipts": found(1761100000.0, 2)},
+        {"sid": "b", "harness": "codex", "alive": False, "receipts": found(1761100060.0, 3)},
+        {"sid": "c", "harness": "pi", "alive": True, "receipts": None},
+    ]})
+    result = d.snapshot_delivery()
+    rows = {row["source"]: row for row in result["agents"]}
+    assert (rows["codex"]["lastReceived"], rows["codex"]["pending"], rows["codex"]["activeAgents"]) == (
+        "2025-10-22T02:27:40Z", 5, 1)
+    assert (rows["pi"]["lastReceived"], rows["pi"]["pending"], rows["pi"]["activeAgents"]) == (None, None, 1)
+    # No service, no sessions: nothing is known, and the reason says so.
+    monkeypatch.setattr(client, "call", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
+    unknown = d.snapshot_delivery()
+    assert all((a["lastReceived"], a["pending"]) == (None, None) for a in unknown["agents"])
+    assert "receipts are unavailable" in unknown["reason"]
+
+
+def test_the_cli_command_and_the_service_child_share_one_responder():
+    text, code = d.respond(b'{"op":"shell"}')
+    assert (json.loads(text), code) == ({"v": 1, "ok": False, "error": "Unknown desktop operation."}, 1)
+    result = CliRunner().invoke(d.app, ["--json"], input='{"op":"shell"}')
+    assert (result.stdout.strip(), result.exit_code) == (text, code)
+    assert d.respond(b"x" * (d.MAX_INPUT + 1))[0] == json.dumps(
+        {"v": 1, "ok": False, "error": "Desktop request exceeds 1 MiB."})
+
+
+def test_delivery_counts_only_the_signed_in_accounts_receipts(monkeypatch, tmp_path):
+    """Each receipt carries its journal's scope; the delivery op overlays only
+    the ones of the account it answers for (`identity`)."""
+    from probe.service import client
+
+    def found(customer, lines):
+        return {"last_line": 4, "received_bytes": 10, "received_at": 1761100000.0, "pending_bytes": 5,
+                "pending_lines": lines, "pending_batch": False, "finalized": False, "retrying": False,
+                "scope": {"backend": "api.example.invalid", "customer": customer}}
+
+    monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": [
+        {"sid": "a", "harness": "codex", "alive": True, "receipts": found("mine", 2)},
+        {"sid": "b", "harness": "codex", "alive": True, "receipts": found("someone-else", 900)},
+    ]})
+    identity = {"customer_id": "mine", "user_id": "u", "base_url": "https://API.example.invalid/", "context": "x"}
+    rows = {row["source"]: row for row in d.snapshot_delivery(identity)["agents"]}
+    assert rows["codex"]["pending"] == 2
+    other = {**identity, "customer_id": "nobody"}
+    rows = {row["source"]: row for row in d.snapshot_delivery(other)["agents"]}
+    assert (rows["codex"]["pending"], rows["codex"]["lastReceived"]) == (None, None)

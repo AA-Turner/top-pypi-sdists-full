@@ -6,7 +6,7 @@ splitters and diffs the structured results field by field:
   * Python : ``matrx_ai.processing.blocks.block_detector.split_content_into_blocks``
   * TS     : ``splitContentIntoBlocksV2`` (matrx-frontend content-splitter-v2.ts),
              reached through the committed bridge script
-             ``matrx_ai/processing/blocks/tests/ts_bridge/parse_blocks.ts``.
+             ``matrx_ai/processing/blocks/tests/ts_bridge/parse_blocks.mts``.
 
 The frontend is the richer, currently-live implementation: a difference is a
 Python defect until proven otherwise. Run it directly for a human report::
@@ -78,14 +78,14 @@ def frontend_root() -> Path | None:
     if env:
         p = Path(env)
         return p if (p / "tsconfig.json").is_file() else None
-    p = _repo_root().parent / "matrx-frontend"
+    p = _repo_root() / "apps/matrx-frontend"
     return p if (p / "tsconfig.json").is_file() else None
 
 
 def bridge_script() -> Path:
     return (
         _repo_root()
-        / "packages/matrx-ai/matrx_ai/processing/blocks/tests/ts_bridge/parse_blocks.ts"
+        / "packages/matrx-ai/matrx_ai/processing/blocks/tests/ts_bridge/parse_blocks.mts"
     )
 
 

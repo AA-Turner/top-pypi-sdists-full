@@ -106,14 +106,12 @@ class KeyUpdateParameters(object):
             self.branch = branch
         if name is not None:
             self.name = name
-        if description is not None:
-            self.description = description
+        self.description = description
         if plural is not None:
             self.plural = plural
         if use_ordinal_rules is not None:
             self.use_ordinal_rules = use_ordinal_rules
-        if name_plural is not None:
-            self.name_plural = name_plural
+        self.name_plural = name_plural
         if data_type is not None:
             self.data_type = data_type
         if tags is not None:
@@ -128,12 +126,9 @@ class KeyUpdateParameters(object):
             self.unformatted = unformatted
         if xml_space_preserve is not None:
             self.xml_space_preserve = xml_space_preserve
-        if original_file is not None:
-            self.original_file = original_file
-        if localized_format_string is not None:
-            self.localized_format_string = localized_format_string
-        if localized_format_key is not None:
-            self.localized_format_key = localized_format_key
+        self.original_file = original_file
+        self.localized_format_string = localized_format_string
+        self.localized_format_key = localized_format_key
         if custom_metadata is not None:
             self.custom_metadata = custom_metadata
         if excluded_in_locales is not None:
@@ -191,7 +186,7 @@ class KeyUpdateParameters(object):
     def description(self):
         """Gets the description of this KeyUpdateParameters.  # noqa: E501
 
-        Key description (usually includes contextual information for translators)  # noqa: E501
+        Key description (usually includes contextual information for translators). Send an empty string or `null` to clear the description; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :return: The description of this KeyUpdateParameters.  # noqa: E501
         :rtype: str
@@ -202,7 +197,7 @@ class KeyUpdateParameters(object):
     def description(self, description):
         """Sets the description of this KeyUpdateParameters.
 
-        Key description (usually includes contextual information for translators)  # noqa: E501
+        Key description (usually includes contextual information for translators). Send an empty string or `null` to clear the description; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :param description: The description of this KeyUpdateParameters.  # noqa: E501
         :type: str
@@ -260,7 +255,7 @@ class KeyUpdateParameters(object):
     def name_plural(self):
         """Gets the name_plural of this KeyUpdateParameters.  # noqa: E501
 
-        Plural name for the key (used in some file formats, e.g. Gettext)  # noqa: E501
+        Plural name for the key (used in some file formats, e.g. Gettext) Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :return: The name_plural of this KeyUpdateParameters.  # noqa: E501
         :rtype: str
@@ -271,7 +266,7 @@ class KeyUpdateParameters(object):
     def name_plural(self, name_plural):
         """Sets the name_plural of this KeyUpdateParameters.
 
-        Plural name for the key (used in some file formats, e.g. Gettext)  # noqa: E501
+        Plural name for the key (used in some file formats, e.g. Gettext) Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :param name_plural: The name_plural of this KeyUpdateParameters.  # noqa: E501
         :type: str
@@ -444,7 +439,7 @@ class KeyUpdateParameters(object):
     def original_file(self):
         """Gets the original_file of this KeyUpdateParameters.  # noqa: E501
 
-        Original file attribute. Used in some formats, e.g. XLIFF.  # noqa: E501
+        Original file attribute. Used in some formats, e.g. XLIFF. Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :return: The original_file of this KeyUpdateParameters.  # noqa: E501
         :rtype: str
@@ -455,7 +450,7 @@ class KeyUpdateParameters(object):
     def original_file(self, original_file):
         """Sets the original_file of this KeyUpdateParameters.
 
-        Original file attribute. Used in some formats, e.g. XLIFF.  # noqa: E501
+        Original file attribute. Used in some formats, e.g. XLIFF. Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :param original_file: The original_file of this KeyUpdateParameters.  # noqa: E501
         :type: str
@@ -467,7 +462,7 @@ class KeyUpdateParameters(object):
     def localized_format_string(self):
         """Gets the localized_format_string of this KeyUpdateParameters.  # noqa: E501
 
-        NSStringLocalizedFormatKey attribute. Used in .stringsdict format.  # noqa: E501
+        NSStringLocalizedFormatKey attribute. Used in .stringsdict format. Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :return: The localized_format_string of this KeyUpdateParameters.  # noqa: E501
         :rtype: str
@@ -478,7 +473,7 @@ class KeyUpdateParameters(object):
     def localized_format_string(self, localized_format_string):
         """Sets the localized_format_string of this KeyUpdateParameters.
 
-        NSStringLocalizedFormatKey attribute. Used in .stringsdict format.  # noqa: E501
+        NSStringLocalizedFormatKey attribute. Used in .stringsdict format. Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :param localized_format_string: The localized_format_string of this KeyUpdateParameters.  # noqa: E501
         :type: str
@@ -490,7 +485,7 @@ class KeyUpdateParameters(object):
     def localized_format_key(self):
         """Gets the localized_format_key of this KeyUpdateParameters.  # noqa: E501
 
-        NSStringLocalizedFormatKey attribute. Used in .stringsdict format.  # noqa: E501
+        NSStringLocalizedFormatKey attribute. Used in .stringsdict format. Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :return: The localized_format_key of this KeyUpdateParameters.  # noqa: E501
         :rtype: str
@@ -501,7 +496,7 @@ class KeyUpdateParameters(object):
     def localized_format_key(self, localized_format_key):
         """Sets the localized_format_key of this KeyUpdateParameters.
 
-        NSStringLocalizedFormatKey attribute. Used in .stringsdict format.  # noqa: E501
+        NSStringLocalizedFormatKey attribute. Used in .stringsdict format. Send an empty string or `null` to clear the value; omit the field to leave it unchanged. The Phrase CLI drops `null` values before sending, so use an empty string there.  # noqa: E501
 
         :param localized_format_key: The localized_format_key of this KeyUpdateParameters.  # noqa: E501
         :type: str

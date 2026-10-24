@@ -6,12 +6,12 @@ use tracing::Level;
 use crate::{
 	Input,
 	error::ParseError,
-	grammar::{Grammar, GrammarSet},
 	span::{TraceOk, TraceParse},
+	syntax::{Syntax, SyntaxSet},
 	util::iter_alt,
 };
 
-pub struct StartSequence<E>(pub GrammarSet, pub PhantomData<E>);
+pub struct StartSequence<E>(pub SyntaxSet, pub PhantomData<E>);
 
 impl<E> Debug for StartSequence<E> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -34,7 +34,7 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		iter_alt(|| self.0.iter().map(Grammar::start_sequence))
+		iter_alt(|| self.0.iter().map(Syntax::start_sequence))
 			.trace_parse()
 			.process::<OM>(input)
 			.trace_ok()

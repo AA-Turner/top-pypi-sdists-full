@@ -2363,6 +2363,7 @@ class Publisher(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PUBLISH_GIT_TASK_NAME")
+    @builtins.classmethod
     def PUBLISH_GIT_TASK_NAME(cls) -> builtins.str:
         '''
         :stability: experimental
@@ -3105,6 +3106,7 @@ class Release(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTI_TAMPER_CMD")
+    @builtins.classmethod
     def ANTI_TAMPER_CMD(cls) -> builtins.str:
         '''
         :stability: experimental

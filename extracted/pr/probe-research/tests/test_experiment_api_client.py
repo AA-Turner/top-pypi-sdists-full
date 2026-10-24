@@ -476,10 +476,16 @@ def test_move_experiment_patches_the_project_id():
 
 def test_delete_experiment_moves_it_to_the_trash():
     receipt = {"trashed": True, "type": "experiment", "id": E, "restorable_until": "2026-10-26T00:00:00Z"}
-    client, rec = _client({("DELETE", f"/v1/projects/{P}/experiments/{E}"): receipt})
+    client, rec = _client(
+        {
+            ("DELETE", f"/v1/projects/{P}/experiments/{E}"): receipt,
+            # A dry run asks first whether the server has the trash.
+            ("GET", "/v1/server/features"): {"features": ["trash"]},
+        }
+    )
     assert client.delete_experiment(E, project_id=P)["trashed"] is True
     client.delete_experiment(E, project_id=P, dry_run=True, reason="cleanup")
-    assert rec.params(1) == {"dry_run": "true", "reason": "cleanup"}
+    assert rec.params(-1) == {"dry_run": "true", "reason": "cleanup"}
 
 
 # -- create-or-get: the 409 names the holder -------------------------------------

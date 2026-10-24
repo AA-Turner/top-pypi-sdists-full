@@ -102,6 +102,13 @@ class HolderBackedRunner:
         raise _mandates.MandateRunnerUnavailable("HolderBackedRunner serves held calls only")
 
     async def prepare(self, key: str, offer: Any, *, who: Any, opts: Any) -> Any:
+        from matrx_ai.graph_nodes.agent_action import StepOffer
+
+        if isinstance(offer, StepOffer):
+            # A workflow AI step (runner plan 25 step 9a): the step's resolution, over the installed resolver.
+            return _Prepared(
+                await _mandates.resolve_mandate_by_key(key, consumer=opts.consumer or f"mandate_runner:{opts.door}")
+            )
         # Values in hand arrive as plain values (the by-name lane); a builder still reaches the real
         # ``hold_code_call``, which applies the compute rule. Looked up on the module at call time, so a
         # test that doubles ``hold_code_call`` / ``run_held_*`` still sees its double.
@@ -121,7 +128,7 @@ class HolderBackedRunner:
             output, parsed = _mandates.engine_output(result)
             await prepared.held.finish(output, parsed=parsed)
 
-    async def resolve(self, key: str, *, who: Any) -> Any:
+    async def resolve(self, key: str, *, who: Any, holder: Any = None) -> Any:
         raise _mandates.MandateRunnerUnavailable("HolderBackedRunner does not describe mandates")
 
 

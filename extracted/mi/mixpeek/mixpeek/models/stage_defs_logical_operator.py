@@ -27,9 +27,9 @@ class StageDefsLogicalOperator(BaseModel):
     """
     Represents a logical operation (AND, OR, NOT) on filter conditions.  Allows nesting with a defined depth limit.  Also supports shorthand syntax where field names can be passed directly as key-value pairs for equality filtering (e.g., {\"metadata.title\": \"value\"}).
     """ # noqa: E501
-    var_and: Optional[List[AndInner]] = Field(default=None, description="Logical AND operation - all conditions must be true", alias="AND")
-    var_or: Optional[List[AndInner]] = Field(default=None, description="Logical OR operation - at least one condition must be true", alias="OR")
-    var_not: Optional[List[AndInner]] = Field(default=None, description="Logical NOT operation - all conditions must be false", alias="NOT")
+    var_and: Optional[List[AndInner1]] = Field(default=None, description="Logical AND operation - all conditions must be true", alias="AND")
+    var_or: Optional[List[AndInner1]] = Field(default=None, description="Logical OR operation - at least one condition must be true", alias="OR")
+    var_not: Optional[List[AndInner1]] = Field(default=None, description="Logical NOT operation - all conditions must be false", alias="NOT")
     case_sensitive: Optional[StrictBool] = Field(default=False, description="Whether to perform case-sensitive matching")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["AND", "OR", "NOT", "case_sensitive"]
@@ -113,9 +113,9 @@ class StageDefsLogicalOperator(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "AND": [AndInner.from_dict(_item) for _item in obj["AND"]] if obj.get("AND") is not None else None,
-            "OR": [AndInner.from_dict(_item) for _item in obj["OR"]] if obj.get("OR") is not None else None,
-            "NOT": [AndInner.from_dict(_item) for _item in obj["NOT"]] if obj.get("NOT") is not None else None,
+            "AND": [AndInner1.from_dict(_item) for _item in obj["AND"]] if obj.get("AND") is not None else None,
+            "OR": [AndInner1.from_dict(_item) for _item in obj["OR"]] if obj.get("OR") is not None else None,
+            "NOT": [AndInner1.from_dict(_item) for _item in obj["NOT"]] if obj.get("NOT") is not None else None,
             "case_sensitive": obj.get("case_sensitive") if obj.get("case_sensitive") is not None else False
         })
         # store additional fields in additional_properties
@@ -125,7 +125,7 @@ class StageDefsLogicalOperator(BaseModel):
 
         return _obj
 
-from mixpeek.models.and_inner import AndInner
+from mixpeek.models.and_inner1 import AndInner1
 # TODO: Rewrite to not use raise_errors
 StageDefsLogicalOperator.model_rebuild(raise_errors=False)
 

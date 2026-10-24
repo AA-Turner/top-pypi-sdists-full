@@ -413,6 +413,7 @@ class MemoryStorage(BaseStorage):
 
     def pop_data(self, key):
         self._expire(key)
+        self._expires.pop(key, None)
         return self._results.pop(key, EmptyData)
 
     def has_data_for_key(self, key):
@@ -446,6 +447,7 @@ class MemoryStorage(BaseStorage):
 
     def flush_results(self):
         self._results = {}
+        self._expires = {}
 
     def flush_counters(self):
         self._counters = {}
@@ -884,6 +886,7 @@ class BaseSqlStorage(BaseStorage):
 class SqliteStorage(BaseSqlStorage):
     begin_sql = 'begin exclusive'
     integrity_error = getattr(sqlite3, 'IntegrityError', None)
+    operational_error = getattr(sqlite3, 'OperationalError', None)
     sqlite_version_info = getattr(sqlite3, 'sqlite_version_info', None)
     table_kv = ('create table if not exists kv ('
                 'queue text not null, key text not null, value blob not null, '
@@ -938,12 +941,29 @@ class SqliteStorage(BaseSqlStorage):
                                check_same_thread=False,
                                **self._conn_kwargs)
         conn.isolation_level = None  # Autocommit mode.
-        conn.execute('pragma journal_mode="%s"' % self._journal_mode)
+        self._set_journal_mode(conn)
         if self._cache_mb:
             conn.execute('pragma cache_size=%s' % (-1000 * self._cache_mb))
         if self._fsync is not None:
             conn.execute('pragma synchronous=%s' % (2 if self._fsync else 0))
         return conn
+
+    def _set_journal_mode(self, conn):
+        if self._journal_mode is None:
+            return
+        # Switching a new database to WAL upgrades a read lock to a write
+        # lock, which can fail under concurrency.
+        deadline = time.monotonic() + self._timeout
+        while True:
+            try:
+                conn.execute('pragma journal_mode="%s"' % self._journal_mode)
+                return
+            except self.operational_error as exc:
+                if 'database is locked' not in str(exc):
+                    raise
+                elif time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
 
     def enqueue(self, data, priority=None):
         self.sql('insert into task (queue, data, priority) values (?, ?, ?)',
@@ -1124,17 +1144,18 @@ class CySqliteStorage(SqliteStorage):
             raise ConfigurationError('"cysqlite" not found. Run "pip install '
                                      'cysqlite" to install.')
         self.integrity_error = cysqlite.IntegrityError
+        self.operational_error = cysqlite.OperationalError
         self.sqlite_version_info = cysqlite.sqlite_version_info
 
         # Normalize hard-coded params to generic pragmas.
         pragmas = dict(pragmas or {})
-        pragmas.setdefault('journal_mode', 'wal')
-        if 'journal_mode' in kwargs:
-            pragmas['journal_mode'] = kwargs.pop('journal_mode') or 'wal'
         if 'cache_mb' in kwargs:
             pragmas['cache_size'] = kwargs.pop('cache_mb') * -1000
         if 'fsync' in kwargs:
             pragmas['synchronous'] = 2 if kwargs.pop('fsync') else 0
+
+        # Handle journal_mode through the normal path.
+        kwargs.setdefault('journal_mode', pragmas.pop('journal_mode', 'wal'))
 
         super(CySqliteStorage, self).__init__(
             name,
@@ -1146,8 +1167,12 @@ class CySqliteStorage(SqliteStorage):
             **kwargs)
 
     def _create_connection(self):
-        return cysqlite.connect(self.filename, timeout=self._timeout,
-                                **self._conn_kwargs)
+        conn = cysqlite.connect(
+            self.filename,
+            timeout=self._timeout,
+            **self._conn_kwargs)
+        self._set_journal_mode(conn)
+        return conn
 
 
 class PostgresStorage(BaseSqlStorage):
@@ -1203,10 +1228,6 @@ class PostgresStorage(BaseSqlStorage):
             'queue text not null, key text not null, '
             'value bigint not null default 0, primary key(queue, key))')]
 
-        # Do not reuse conns across fork!
-        self._inherited = []
-        self._conn_pid = None
-
         # Each worker thread gets its own LISTEN connection on first
         # dequeue. A dead thread's connection is released by GC: psycopg
         # only sends the protocol Terminate from the creating process, so
@@ -1226,17 +1247,10 @@ class PostgresStorage(BaseSqlStorage):
 
     @property
     def conn(self):
-        if self._conn is not None:
-            if self._conn_pid != os.getpid():
-                self._inherited.append(self._conn)
-                self._conn = None
-            elif self._conn.closed or self._conn.broken:
-                self._close_quiet(self._conn)
-                self._conn = None
-        if self._conn is None:
-            self._conn = self._connect()
-            self._conn_pid = os.getpid()
-        return self._conn
+        if self._conn is not None and (self._conn.closed or self._conn.broken):
+            self._close_quiet(self._conn)
+            self._conn = None
+        return super(PostgresStorage, self).conn
 
     def _close_quiet(self, conn):
         try:
@@ -1248,27 +1262,20 @@ class PostgresStorage(BaseSqlStorage):
         local = self._listen_local
         conn = getattr(local, 'conn', None)
         if conn is not None:
-            if local.pid == os.getpid():
-                self._close_quiet(conn)
-            else:
-                self._inherited.append(conn)
+            self._close_quiet(conn)
             local.conn = None
         return super(PostgresStorage, self).close()
 
     def _listen_conn(self):
         local = self._listen_local
         conn = getattr(local, 'conn', None)
-        if conn is not None and (local.pid != os.getpid() or conn.closed or
-                                 conn.broken):
-            if local.pid != os.getpid():
-                self._inherited.append(conn)
-            else:
-                self._close_quiet(conn)
-            conn = local.conn = None
+        if conn is not None and (conn.closed or conn.broken):
+            self._close_quiet(conn)
+            conn = None
         if conn is None:
             conn = self._connect()
             conn.execute('listen "%s"' % self.channel.replace('"', '""'))
-            local.conn, local.pid = conn, os.getpid()
+            local.conn = conn
         return conn
 
     def enqueue(self, data, priority=None):
@@ -1608,11 +1615,13 @@ class FileStorage(BaseStorage):
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        with open(filename, 'wb') as fh:
+        tmp = filename + '.tmp'
+        with open(tmp, 'wb') as fh:
             key_len = len(key)
             fh.write(struct.pack('>I', key_len))
             fh.write(key)
             fh.write(value)
+        os.replace(tmp, filename)
 
     def put_if_empty(self, key, value, ttl=None):
         if ttl is not None:
@@ -1685,19 +1694,22 @@ class FileStorage(BaseStorage):
             if os.path.exists(filename):
                 os.unlink(filename)
 
+    def _result_files(self):
+        for root, _, filenames in os.walk(self.result_path):
+            for filename in filenames:
+                if not filename.endswith('.tmp'):
+                    yield os.path.join(root, filename)
+
     def result_store_size(self):
-        return sum(len(filenames) for _, _, filenames
-                   in os.walk(self.result_path))
+        return sum(1 for _ in self._result_files())
 
     def result_items(self):
         accum = {}
-        for root, _, filenames in os.walk(self.result_path):
-            for filename in filenames:
-                path = os.path.join(root, filename)
-                with open(path, 'rb') as fh:
-                    key, value = self._unpack_result(fh.read())
-                if key is not None:
-                    accum[key.decode('utf8')] = value
+        for path in self._result_files():
+            with open(path, 'rb') as fh:
+                key, value = self._unpack_result(fh.read())
+            if key is not None:
+                accum[key.decode('utf8')] = value
         return accum
 
     def flush_results(self):

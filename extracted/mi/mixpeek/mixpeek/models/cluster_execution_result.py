@@ -22,6 +22,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.cluster_composite_source import ClusterCompositeSource
 from mixpeek.models.cluster_execution_centroid import ClusterExecutionCentroid
 from mixpeek.models.cluster_execution_metrics import ClusterExecutionMetrics
 from mixpeek.models.cluster_generation_reap import ClusterGenerationReap
@@ -34,10 +35,11 @@ class ClusterExecutionResult(BaseModel):
     """ # noqa: E501
     run_id: Annotated[str, Field(strict=True)] = Field(description="REQUIRED. Unique identifier for this specific clustering execution. Format: 'run_' prefix followed by random alphanumeric string. Used to retrieve specific execution artifacts and results. Each re-execution of the same cluster creates a new run_id. References execution artifacts in S3 and MongoDB.")
     cluster_id: Annotated[str, Field(strict=True)] = Field(description="REQUIRED. Parent cluster configuration that was executed. Format: 'clust_' prefix followed by random alphanumeric string. Links this execution back to the cluster definition. Multiple executions can share the same cluster_id.")
-    status: StrictStr = Field(description="REQUIRED. Current status of the clustering execution. Values:   'pending' = Job queued, waiting to start.   'processing' = Clustering algorithm running (may take minutes for large datasets).   'completed' = Clustering finished successfully, results available.   'failed' = Clustering failed, check error_message for details. Status changes: pending → processing → (completed OR failed). Poll this field to track job progress.")
+    status: StrictStr = Field(description="REQUIRED. Current status of the clustering execution. Values:   'pending' = Job queued, waiting to start.   'processing' = Clustering algorithm running (may take minutes for large datasets).   'completed' = Clustering finished successfully, results available.   'failed' = Clustering failed or passed its deadline, check error_message for details.   'canceled' = Canceled through the cancel route. Status changes: pending → processing → (completed OR failed), or pending/processing → canceled. Poll this field to track job progress.")
     num_clusters: Annotated[int, Field(strict=True, ge=0)] = Field(description="REQUIRED. Number of clusters found by the clustering algorithm. Range: 1 to num_points (though typically much lower). Interpretation:   Too few clusters = overgeneralization, may need lower n_clusters param.   Too many clusters = overfitting, may need higher n_clusters param.   Optimal value depends on dataset and use case. Available immediately upon completion, even if metrics fail.")
     num_points: Annotated[int, Field(strict=True, ge=0)] = Field(description="REQUIRED. Total number of documents/points that were clustered. Equals the count of documents in the collection at execution time. Note: This may differ across executions if documents were added/removed. Used to calculate metrics and validate clustering quality. Minimum 2 points required for clustering (1 cluster per point otherwise).")
     metrics: Optional[ClusterExecutionMetrics] = Field(default=None, description="OPTIONAL. Quality metrics evaluating clustering performance. NOT REQUIRED - only present for successful executions. null if:   - Execution is still pending/processing.   - Execution failed.   - Too few points to calculate metrics (need 2+ points). Contains silhouette_score, davies_bouldin_index, calinski_harabasz_score. Use to compare quality across multiple executions.")
+    member_counts_stale: Optional[StrictBool] = Field(default=False, description="True when member documents were deleted after this run completed, so each centroid's num_members (and member_count on the centroid documents) counts some documents that no longer exist. Re-run the cluster for current counts.")
     centroids: Optional[List[ClusterExecutionCentroid]] = Field(default=None, description="OPTIONAL. List of cluster centroids with semantic labels. NOT REQUIRED - only present for completed executions with LLM labeling enabled. Length: equals num_clusters. Each centroid contains:   - cluster_id: Identifier for the cluster (e.g., 'cl_0').   - num_members: Count of documents in this cluster.   - label: Human-readable cluster name (e.g., 'Product Reviews').   - summary: Brief description of cluster content.   - keywords: Array of representative terms. null if:   - Execution pending/processing/failed.   - LLM labeling not configured. Use for: Displaying cluster summaries in UI, filtering by cluster.")
     created_at: datetime = Field(description="REQUIRED. Timestamp when the clustering execution started. ISO 8601 format with timezone (UTC). Used to:   - Sort executions chronologically.   - Calculate execution duration (completed_at - created_at).   - Filter execution history by date range. Always present, even for failed executions.")
     completed_at: Optional[datetime] = Field(default=None, description="OPTIONAL. Timestamp when the clustering execution finished. ISO 8601 format with timezone (UTC). NOT REQUIRED - only present for completed or failed executions. null if: status is 'pending' or 'processing'. Use to:   - Calculate execution duration (completed_at - created_at).   - Show when results became available. Present for both successful and failed executions.")
@@ -57,7 +59,10 @@ class ClusterExecutionResult(BaseModel):
     layout_stability_applied: Optional[StrictStr] = Field(default=None, description="OPTIONAL. What layout stabilization actually happened on this execution. 'transform' = coordinates were projected through the previous run's saved reducer (existing documents pixel-stable). 'aligned' = the fresh layout was registered onto the previous run's coordinates via a least-squares similarity transform over shared documents. 'none' = raw independent layout (stability disabled, first run, or a documented skip — see layout_stability_reason). Omitted for executions that predate (schema-additive).")
     layout_stability_reason: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Human-readable explanation of layout_stability_applied — e.g. 'aligned to previous run on 412 shared documents' or 'only 3 shared documents with previous run (minimum 20)'. Omitted when absent (schema-additive).")
     generation_reap: Optional[List[ClusterGenerationReap]] = Field(default=None, description="OPTIONAL. One record per output collection saying what this run did with the previous generation: deleted it, found nothing stale, or kept it (and why). Omitted for executions that predate the record (schema-additive).")
-    __properties: ClassVar[List[str]] = ["run_id", "cluster_id", "status", "num_clusters", "num_points", "metrics", "centroids", "created_at", "completed_at", "error_message", "error_traceback", "llm_labeling_errors", "source_documents", "vectors_retrieved", "vectors_clustered", "index_gap", "pipeline_drop", "input_reconciliation_ok", "input_reconciliation_reasons", "pipeline_drop_expected_as_noise", "label_overrides", "run_name", "layout_stability_applied", "layout_stability_reason", "generation_reap"]
+    mode: Optional[StrictStr] = Field(default=None, description="OPTIONAL. How this execution ran: full, assign, or composite (a clustering of the centroids of earlier executions). Omitted for executions that predate the field.")
+    source_execution_ids: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. For a composite execution, the source executions (run_id) whose centroids it grouped. Omitted otherwise.")
+    composite_mapping: Optional[Dict[str, List[ClusterCompositeSource]]] = Field(default=None, description="OPTIONAL. For a composite execution, each meta-cluster id mapped to the source centroids it holds. A meta-cluster's centroid is the unweighted mean of those source centroids. Omitted otherwise, and for composite executions that predate the field.")
+    __properties: ClassVar[List[str]] = ["run_id", "cluster_id", "status", "num_clusters", "num_points", "metrics", "member_counts_stale", "centroids", "created_at", "completed_at", "error_message", "error_traceback", "llm_labeling_errors", "source_documents", "vectors_retrieved", "vectors_clustered", "index_gap", "pipeline_drop", "input_reconciliation_ok", "input_reconciliation_reasons", "pipeline_drop_expected_as_noise", "label_overrides", "run_name", "layout_stability_applied", "layout_stability_reason", "generation_reap", "mode", "source_execution_ids", "composite_mapping"]
 
     @field_validator('run_id')
     def run_id_validate_regular_expression(cls, value):
@@ -76,8 +81,8 @@ class ClusterExecutionResult(BaseModel):
     @field_validator('status')
     def status_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['pending', 'processing', 'completed', 'failed']):
-            raise ValueError("must be one of enum values ('pending', 'processing', 'completed', 'failed')")
+        if value not in set(['pending', 'processing', 'completed', 'failed', 'canceled']):
+            raise ValueError("must be one of enum values ('pending', 'processing', 'completed', 'failed', 'canceled')")
         return value
 
     @field_validator('layout_stability_applied')
@@ -88,6 +93,16 @@ class ClusterExecutionResult(BaseModel):
 
         if value not in set(['transform', 'aligned', 'none']):
             raise ValueError("must be one of enum values ('transform', 'aligned', 'none')")
+        return value
+
+    @field_validator('mode')
+    def mode_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['full', 'assign', 'composite']):
+            raise ValueError("must be one of enum values ('full', 'assign', 'composite')")
         return value
 
     model_config = ConfigDict(
@@ -146,6 +161,15 @@ class ClusterExecutionResult(BaseModel):
                 if _item_generation_reap:
                     _items.append(_item_generation_reap.to_dict())
             _dict['generation_reap'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each value in composite_mapping (dict of array)
+        _field_dict_of_array = {}
+        if self.composite_mapping:
+            for _key_composite_mapping in self.composite_mapping:
+                if self.composite_mapping[_key_composite_mapping] is not None:
+                    _field_dict_of_array[_key_composite_mapping] = [
+                        _item.to_dict() for _item in self.composite_mapping[_key_composite_mapping]
+                    ]
+            _dict['composite_mapping'] = _field_dict_of_array
         return _dict
 
     @classmethod
@@ -164,6 +188,7 @@ class ClusterExecutionResult(BaseModel):
             "num_clusters": obj.get("num_clusters"),
             "num_points": obj.get("num_points"),
             "metrics": ClusterExecutionMetrics.from_dict(obj["metrics"]) if obj.get("metrics") is not None else None,
+            "member_counts_stale": obj.get("member_counts_stale") if obj.get("member_counts_stale") is not None else False,
             "centroids": [ClusterExecutionCentroid.from_dict(_item) for _item in obj["centroids"]] if obj.get("centroids") is not None else None,
             "created_at": obj.get("created_at"),
             "completed_at": obj.get("completed_at"),
@@ -182,7 +207,17 @@ class ClusterExecutionResult(BaseModel):
             "run_name": obj.get("run_name"),
             "layout_stability_applied": obj.get("layout_stability_applied"),
             "layout_stability_reason": obj.get("layout_stability_reason"),
-            "generation_reap": [ClusterGenerationReap.from_dict(_item) for _item in obj["generation_reap"]] if obj.get("generation_reap") is not None else None
+            "generation_reap": [ClusterGenerationReap.from_dict(_item) for _item in obj["generation_reap"]] if obj.get("generation_reap") is not None else None,
+            "mode": obj.get("mode"),
+            "source_execution_ids": obj.get("source_execution_ids"),
+            "composite_mapping": dict(
+                (_k,
+                        [ClusterCompositeSource.from_dict(_item) for _item in _v]
+                        if _v is not None
+                        else None
+                )
+                for _k, _v in obj.get("composite_mapping", {}).items()
+            )
         })
         return _obj
 

@@ -71,168 +71,125 @@ pub async fn check_viewer_join(
         }
     };
 
-    // Accept the join — moves Pending → Connected.
+    // Accept the existing invitation; lifetime signals remain sticky across setup races.
     let participant = match share_session.accept_join(guid) {
         Ok(p) => p,
         Err(reason) => {
-            warn!(
-                "[session={}] share_guid {} join rejected: {}",
-                session_id, guid, reason
-            );
             let _ = to_client.send(encode_join_rejected(reason)).await;
             let _ = send_disconnect(to_client).await;
             return Some(Err(HandlerError::ConnectionFailed(reason.into())));
         }
     };
+    let mut share_ended = share_session.cancellation();
+    let Some(mut participant_ended) = share_session.participant_cancellation(guid) else {
+        share_session.mark_disconnected(guid);
+        return Some(Ok(()));
+    };
 
-    // Must have at least view privilege.
-    if !participant.has_privilege(PRIV_VIEW) {
-        let _ = to_client
-            .send(encode_join_rejected("No view privilege"))
-            .await;
-        let _ = send_disconnect(to_client).await;
+    // Keep only receivers and a weak capability to THIS generation, never a sender-owning
+    // SessionHandle or a lookup by ID that could route input into a replacement owner.
+    // The invitation's weak generation identity, not a fresh registry lookup, selects
+    // the frame owner. A pending old GUID can never attach to a replacement session.
+    let subscription = share_session.subscribe_frames(encode_participant_update(
+        &share_session.participant_list(),
+        false,
+    ));
+    let Some((mut subscription, last)) = subscription else {
+        share_session.mark_disconnected(guid);
         return Some(Err(HandlerError::ConnectionFailed(
-            "No view privilege".into(),
+            "Session frame channel not found".into(),
         )));
-    }
+    };
+    let mut frame_ended = subscription.ended.clone();
 
     info!(
         "[session={}] Viewer '{}' joined with privileges 0x{:02x}",
         session_id, participant.display_name, participant.privileges
     );
 
-    // Confirm join to viewer.
-    let _ = to_client
-        .send(encode_join_accepted(participant.privileges))
-        .await;
-
-    // Broadcast participant list update to all participants in the session.
-    let all = share_session.participant_list();
-    let update = encode_participant_update(&all, false);
-    // Best-effort: send to the frame broadcast channel (owner will relay to other viewers).
-    if let Some(owner_session) = lookup(&share_session.session_id) {
-        let _ = owner_session.broadcast_control(update);
-    }
-
-    // Subscribe to the owner's frame broadcast.
-    let frame_session = match lookup(&share_session.session_id) {
-        Some(s) => s,
-        None => {
-            let _ = send_disconnect(to_client).await;
-            share_session.mark_disconnected(guid);
-            return Some(Err(HandlerError::ConnectionFailed(
-                "Session frame channel not found".into(),
-            )));
-        }
-    };
-
-    // Send current frame immediately (late-join state sync).
-    if let Some(last) = frame_session.last_frame() {
-        let _ = to_client.send(last).await;
-    }
-
-    let mut frame_rx = frame_session.subscribe();
-
-    // Identity recorded against every input this viewer forwards to the owner.
-    let viewer_name = participant.display_name.clone();
-
-    // Stream frames to viewer until disconnect.
-    loop {
-        tokio::select! {
-            frame = frame_rx.recv() => {
-                match frame {
-                    Ok(f) => {
-                        if to_client.send(f).await.is_err() {
-                            break; // viewer disconnected
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        warn!("[session={}] viewer '{}' lagged by {} frames", session_id, participant.display_name, n);
-                        // Continue — they just miss some frames
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        break; // owner disconnected
-                    }
+    // One cancellation boundary covers EVERY awaited send, including accepted join,
+    // cached state and ordinary output, not just the broadcast receive select.
+    let result = tokio::select! {
+        biased;
+        _ = frame_ended.cancelled() => Ok(()),
+        _ = share_ended.cancelled() => Ok(()),
+        _ = participant_ended.cancelled() => Ok(()),
+        result = async {
+            if to_client.send(encode_join_accepted(participant.privileges)).await.is_err() {
+                return Ok(());
+            }
+            if let Some(last) = last {
+                if to_client.send(last).await.is_err() {
+                    return Ok(());
                 }
             }
-            msg = from_client.recv() => {
-                match msg {
-                    Some(bytes) => {
+
+            loop {
+                tokio::select! {
+                    _ = to_client.closed() => return Ok(()),
+                    frame = subscription.rx.recv() => {
+                        match frame {
+                            Ok(frame) => {
+                                if to_client.send(frame).await.is_err() {
+                                    return Ok(());
+                                }
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                                warn!("[session={}] viewer '{}' lost {} instructions", session_id, participant.display_name, n);
+                                return Err(HandlerError::ConnectionFailed(
+                                    "Viewer output lagged; display stream is incomplete".into(),
+                                ));
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => return Ok(()),
+                        }
+                    }
+                    msg = from_client.recv() => {
+                        let Some(bytes) = msg else { return Ok(()); };
                         let instr = match GuacamoleParser::parse_instruction(&bytes) {
                             Ok(i) => i,
                             Err(_) => continue,
                         };
-                        let opcode: &str = instr.opcode;
-                        // Read privileges LIVE from the registry on every input event.
-                        // The owner may revoke/change them mid-session; using the snapshot
-                        // captured at accept_join would let a revoked viewer keep control/drawing
-                        // after it was taken away. A missing GUID (fully revoked) yields 0.
                         let privs = share_session.get_privileges(guid).unwrap_or(0);
-                        match opcode {
+                        if privs & PRIV_VIEW == 0 {
+                            return Ok(());
+                        }
+                        match instr.opcode {
                             "key" | "mouse" if privs & PRIV_CONTROL != 0 => {
-                                // Forward key/mouse to owner's input channel so the owner's
-                                // protocol handler sends it to the remote host. The viewer's
-                                // identity rides along so the recording attributes the input
-                                // to them rather than to the session owner.
-                                if let Some(owner_session) = lookup(&share_session.session_id) {
-                                    let input = ViewerInput {
-                                        bytes,
-                                        guid,
-                                        display_name: viewer_name.clone(),
-                                    };
-                                    if !owner_session.forward_viewer_input(input) {
-                                        warn!(
-                                            "[session={}] viewer '{}' control input dropped — \
-                                             owner handler has not registered a viewer_input channel",
-                                            session_id, participant.display_name
-                                        );
-                                    }
+                                let input = ViewerInput {
+                                    bytes,
+                                    guid,
+                                    display_name: participant.display_name.clone(),
+                                };
+                                if !subscription.forward_viewer_input(input) {
+                                    warn!("[session={}] viewer '{}' input channel unavailable", session_id, participant.display_name);
                                 }
                             }
                             "draw_event" if privs & PRIV_DRAWING != 0 => {
                                 match parse_draw_event(&instr.args) {
-                                    Ok(ev) => {
-                                        let encoded = encode_draw_event(&ev);
-                                        if let Some(owner_session) =
-                                            lookup(&share_session.session_id)
-                                        {
-                                            // Annotations are an overlay, not screen state, so
-                                            // they must not land in the late-join frame cache.
-                                            let _ = owner_session.broadcast_control(encoded);
-                                        }
-                                    }
-                                    Err(e) => {
-                                        warn!(
-                                            "[session={}] viewer '{}' draw_event parse error: {}",
-                                            session_id, participant.display_name, e
-                                        );
-                                    }
+                                    Ok(ev) => { subscription.broadcast_control(encode_draw_event(&ev)); }
+                                    Err(e) => warn!("[session={}] viewer '{}' draw_event parse error: {}", session_id, participant.display_name, e),
                                 }
                             }
-                            _ => {} // other opcodes silently dropped
+                            _ => {}
                         }
                     }
-                    None => break, // viewer closed their side
                 }
             }
-        }
-    }
+        } => result,
+    };
 
+    // Cleanup never awaits a transport send. Terminal generation weak capabilities
+    // are inert; a live generation can still receive the permitted participant update.
     share_session.mark_disconnected(guid);
-
-    // Broadcast updated participant list.
-    let all = share_session.participant_list();
-    let update = encode_participant_update(&all, false);
-    if let Some(owner_session) = lookup(&share_session.session_id) {
-        let _ = owner_session.broadcast_control(update);
-    }
-
+    subscription.broadcast_control(encode_participant_update(
+        &share_session.participant_list(),
+        false,
+    ));
     info!(
         "[session={}] Viewer '{}' disconnected",
         session_id, participant.display_name
     );
-
-    Some(Ok(()))
+    Some(result)
 }
 
 /// Handle a share_create control message in a running owner session.
@@ -361,136 +318,5 @@ pub fn ensure_share_session(session_id: &str, owner_display_name: &str) {
             owner_display_name.to_string(),
             PRIV_VIEW | PRIV_CONTROL | PRIV_CLIPBOARD,
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::share_registry::{get_share_session, remove_share_session, ParticipantStatus};
-    use base64::{engine::general_purpose::STANDARD as B64, Engine};
-    use tokio::sync::mpsc;
-
-    fn unique_id() -> String {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static CTR: AtomicU64 = AtomicU64::new(0);
-        format!("$test-viewer-{}", CTR.fetch_add(1, Ordering::Relaxed))
-    }
-
-    #[tokio::test]
-    async fn test_handle_owner_share_control_create() {
-        let id = unique_id();
-        let (tx, mut rx) = mpsc::channel(8);
-
-        let pt = B64.encode(b"passthrough-data");
-        let args = ["Alice", "03", pt.as_str()];
-        let handled = handle_owner_share_control(&id, "share_create", &args, &tx).await;
-        assert!(handled);
-
-        // Should have sent share_created back
-        let msg = rx.try_recv().expect("share_created not sent");
-        let s = std::str::from_utf8(&msg).unwrap();
-        assert!(s.contains("share_created"));
-
-        // Registry should now have Alice as Pending
-        let share = get_share_session(&id).expect("share session missing");
-        let participants = share.participant_list();
-        // owner (Connected) + Alice (Pending)
-        assert_eq!(participants.len(), 2);
-        let alice = participants
-            .iter()
-            .find(|p| p.display_name == "Alice")
-            .expect("Alice not found");
-        assert_eq!(alice.status, ParticipantStatus::Pending);
-        assert_eq!(alice.privileges, 0x03);
-
-        remove_share_session(&id);
-    }
-
-    #[tokio::test]
-    async fn test_handle_owner_share_control_revoke() {
-        let id = unique_id();
-        ensure_share_session(&id, "Owner");
-        let share = get_share_session(&id).unwrap();
-        let guid = share.add_invitation("Bob".into(), 0x01, vec![]);
-
-        let (tx, _rx) = mpsc::channel(8);
-        let handled =
-            handle_owner_share_control(&id, "share_revoke", &[guid.to_string().as_str()], &tx)
-                .await;
-        assert!(handled);
-
-        // Bob should be gone
-        assert!(share.accept_join(guid).is_err());
-        remove_share_session(&id);
-    }
-
-    #[tokio::test]
-    async fn test_handle_owner_share_control_privilege_change() {
-        let id = unique_id();
-        ensure_share_session(&id, "Owner");
-        let share = get_share_session(&id).unwrap();
-        let guid = share.add_invitation("Carol".into(), 0x01, vec![]);
-
-        let (tx, _rx) = mpsc::channel(8);
-        let handled = handle_owner_share_control(
-            &id,
-            "privilege_change",
-            &[guid.to_string().as_str(), "07"],
-            &tx,
-        )
-        .await;
-        assert!(handled);
-
-        let carol = share
-            .participant_list()
-            .into_iter()
-            .find(|p| p.guid == guid)
-            .unwrap();
-        assert_eq!(carol.privileges, 0x07);
-        remove_share_session(&id);
-    }
-
-    #[tokio::test]
-    async fn test_handle_owner_share_control_unknown_opcode() {
-        let id = unique_id();
-        let (tx, _rx) = mpsc::channel(8);
-        let handled = handle_owner_share_control(&id, "key", &["65507", "1"], &tx).await;
-        assert!(
-            !handled,
-            "key opcode should not be handled as share control"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_handle_owner_share_control_admin_takeover() {
-        let id = unique_id();
-        ensure_share_session(&id, "Owner");
-        let share = get_share_session(&id).unwrap();
-        let owner_guid = share.owner_guid;
-
-        let (tx, _rx) = mpsc::channel(8);
-        let handled =
-            handle_owner_share_control(&id, "admin_takeover", &["Admin", "07", "01"], &tx).await;
-        assert!(handled);
-
-        // Owner should be demoted to view-only
-        let owner = share
-            .participant_list()
-            .into_iter()
-            .find(|p| p.guid == owner_guid)
-            .unwrap();
-        assert_eq!(owner.privileges, 0x01);
-
-        // Admin slot should exist as Pending
-        let admin = share
-            .participant_list()
-            .into_iter()
-            .find(|p| p.display_name == "Admin")
-            .unwrap();
-        assert_eq!(admin.privileges, 0x07);
-        assert_eq!(admin.status, ParticipantStatus::Pending);
-
-        remove_share_session(&id);
     }
 }

@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.list_partition import ListPartition
 from mixpeek.models.logical_operator_input import LogicalOperatorInput
 from mixpeek.models.return_vector_names import ReturnVectorNames
 from mixpeek.models.sort_option import SortOption
@@ -35,17 +36,18 @@ class NamespaceListDocumentsRequest(BaseModel):
     sort: Optional[SortOption] = Field(default=None, description="Sort options.")
     search: Optional[StrictStr] = Field(default=None, description="Search term.")
     cursor: Optional[StrictStr] = Field(default=None, description="OPTIONAL cursor for efficient deep pagination. Pass the 'pagination.next_cursor' value from a previous response to fetch the next page. When cursor is provided, the page/offset query params are ignored. Use cursor-based pagination when: (1) paginating beyond page ~100, (2) sorting large datasets, or (3) you need consistent iteration. Use offset-based pagination (default) for: simple use cases, random page access, or when page numbers are needed in the UI.")
-    include_total: Optional[StrictBool] = Field(default=None, description="Populate pagination.total/total_pages (runs a COUNT query, adds ~50-200ms). Accepted here in the BODY as well as the ?include_total=true query param — previously only the query-param form worked and a body include_total was silently swallowed (placement-sensitivity class). Body value wins when both are set.")
+    partition: Optional[ListPartition] = Field(default=None, description="OPTIONAL. Read one of `count` disjoint partitions of the matching documents, so several workers can page through a large collection in parallel, each with its own cursor and with no offset cap. The documents are split on their document id and every document falls in exactly one partition. Page each partition with its `pagination.next_cursor` until that is null; the cursor carries its partition, so sending the cursor alone stays inside it. Example: four workers send {\"index\": 0, \"count\": 4} through {\"index\": 3, \"count\": 4}.")
+    include_total: Optional[StrictBool] = Field(default=None, description="Set true to count the documents that match this request. pagination.total and total_documents then hold the number of matching documents across all pages, filters included (0 when nothing matches); without it both are null. Runs a COUNT query that adds about 50-200ms. To get only the count, send limit 1. Accepted in the body or as the ?include_total=true query parameter; the body value wins when both are set.")
     return_presigned_urls: Optional[StrictBool] = Field(default=False, description="Whether to return presigned URLs for object keys.")
     return_vectors: Optional[StrictBool] = Field(default=False, description="Whether to return vector embeddings in the document results.")
     return_vector_names: Optional[ReturnVectorNames] = None
     group_by: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Field to group documents by. Supports dot notation for nested fields (e.g., 'metadata.category', 'source_type'). Accepts either a bare string (``'metadata.category'``) or an object form (``{'field': 'metadata.category'}``) for consistency with other API parameters. When specified, documents are grouped by the field value and returned as grouped results. Requires a payload index on the field in the vector store for optimal performance. If no index exists, the operation will fail with a validation error. Common groupable fields: 'source_object_id', 'root_object_id', 'collection_id', 'metadata.category'.")
-    select: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. List of fields to include in the response. Supports dot notation for nested fields (e.g., 'metadata.title', 'content'). When specified, only the selected fields will be returned in the document results, reducing response size. System fields like '_id' and 'document_id' are always included. Use this to optimize response size when working with large documents.")
+    select: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. List of fields to include in the response. Supports dot notation for nested fields (e.g., 'metadata.title', 'content'). When specified, only the selected fields will be returned in the document results, reducing response size. System fields like '_id' and 'document_id' are always included. Vectors requested with return_vectors or return_vector_names are returned whether or not select names them, along with '_vectors'. Use this to optimize response size when working with large documents.")
     expand: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. List of fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request. Depth is limited to 1 (no recursive expansion).")
     limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=10, description="Number of documents to return per page. Capped at 1000. Accepts ``page_size`` as an alias (POST body only).")
     offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of documents to skip (offset-based pagination).")
-    collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Optional list of collection IDs to filter by. When omitted, returns documents from all collections in the namespace.")
-    __properties: ClassVar[List[str]] = ["filters", "sort", "search", "cursor", "include_total", "return_presigned_urls", "return_vectors", "return_vector_names", "group_by", "select", "expand", "limit", "offset", "collection_ids"]
+    collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Optional list of collection IDs (or collection names) to filter by. When omitted, returns documents from all collections in the namespace. Also accepted as collection_id or collections. An unrecognised top-level key in this body is rejected with 422 naming the accepted keys.")
+    __properties: ClassVar[List[str]] = ["filters", "sort", "search", "cursor", "partition", "include_total", "return_presigned_urls", "return_vectors", "return_vector_names", "group_by", "select", "expand", "limit", "offset", "collection_ids"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +94,9 @@ class NamespaceListDocumentsRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of sort
         if self.sort:
             _dict['sort'] = self.sort.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of partition
+        if self.partition:
+            _dict['partition'] = self.partition.to_dict()
         # override the default output from pydantic by calling `to_dict()` of return_vector_names
         if self.return_vector_names:
             _dict['return_vector_names'] = self.return_vector_names.to_dict()
@@ -111,6 +116,7 @@ class NamespaceListDocumentsRequest(BaseModel):
             "sort": SortOption.from_dict(obj["sort"]) if obj.get("sort") is not None else None,
             "search": obj.get("search"),
             "cursor": obj.get("cursor"),
+            "partition": ListPartition.from_dict(obj["partition"]) if obj.get("partition") is not None else None,
             "include_total": obj.get("include_total"),
             "return_presigned_urls": obj.get("return_presigned_urls") if obj.get("return_presigned_urls") is not None else False,
             "return_vectors": obj.get("return_vectors") if obj.get("return_vectors") is not None else False,

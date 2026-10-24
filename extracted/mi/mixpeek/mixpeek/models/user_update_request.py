@@ -33,7 +33,7 @@ class UserUpdateRequest(BaseModel):
     user_name: Optional[Annotated[str, Field(min_length=2, strict=True, max_length=100)]] = Field(default=None, description="Updated display name.")
     avatar_url: Optional[StrictStr] = Field(default=None, description="Updated profile image URL (e.g., custom avatar to override Gravatar).")
     role: Optional[UserRole] = Field(default=None, description="Updated organization role.")
-    status: Optional[UserStatus] = Field(default=None, description="Lifecycle status update (active, suspended, pending).")
+    status: Optional[UserStatus] = Field(default=None, description="Lifecycle status update (active, suspended, pending). Any status other than active revokes every API key the user owns. Setting active again does not restore them: the user creates new keys.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Replaces metadata with the provided dictionary when set.")
     __properties: ClassVar[List[str]] = ["user_name", "avatar_url", "role", "status", "metadata"]
 

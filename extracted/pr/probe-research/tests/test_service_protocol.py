@@ -141,27 +141,50 @@ def test_response_shapes(service_home):
     service_home.start()
     with service_home.connect() as conn:
         hello = conn.hello("app", "1.2.3")
-        assert set(hello) == {"service_version", "api", "pid", "started_at", "state"}
+        assert set(hello) == {"service_version", "api", "pid", "started_at", "state", "caps"}
+        assert hello["caps"] == sorted(protocol.CAPS) and protocol.Cap.ACTION_SANDBOX in hello["caps"]
         assert hello["api"] == 1 and isinstance(hello["pid"], int) and isinstance(hello["started_at"], float)
         assert hello["state"] in ("discovering", "running", "grace")
         status = conn.call(Method.STATUS)
         assert set(status) == {
             "service_version", "pid", "started_at", "state", "sessions", "app_clients", "update",
-            "actions", "discovering_until", "hook_hosts", "hook_queue", "recorders", "runs",
+            "actions", "discovering_until", "hook_hosts", "hook_queue", "recorders", "workers", "runs",
+            "watched", "background", "imports", "statusline", "notes", "watch",
         }
-        assert status["runs"] == []
+        assert status["runs"] == [] and status["workers"] == [] and status["imports"] == []
+        # What fails here and what was reported (crash-report plan B2): the
+        # debug log and `probe doctor` read it.
+        assert set(status["watch"]) == {"enabled", "last_scan", "waiting", "reports"}
+        assert status["background"] == {
+            "drains": [], "box_watchers": [], "started": 0, "telemetry": {"queued": 0, "sent": 0, "dropped": 0},
+        }
+        assert set(status["statusline"]) == {"folders", "waiting", "running", "children", "last"}
+        assert set(status["notes"]) == {"running", "waiting", "runs", "last"}
         assert set(status["update"]) == {
             "enabled", "last_check", "last_result", "next_check", "in_progress", "cycle_id", "step", "deferred",
-            "deferred_since", "guard",
+            "deferred_since", "guard", "app",
         }
+        # The desktop app's update check, which the service decides (#3321): the
+        # app reads this to know whether a check is due and why.
+        assert set(status["update"]["app"]) == {"due", "reason", "last_check", "listening", "last"}
         assert status["actions"] == {"running": None}
         assert status["app_clients"] == 1
         assert conn.call(
             Method.SESSION_REGISTER,
             {"sid": "s-shape", "harness": "test", "mode": Mode.DAEMON, "owner": None, "generation": 1},
         ) == {"alive": True}
-        (listed,) = conn.call(Method.SESSION_LIST)["sessions"]
-        assert set(listed) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at"}
+        listing = conn.call(Method.SESSION_LIST)
+        assert set(listing) == {"sessions", "harnesses"}
+        (listed,) = listing["sessions"]
+        assert set(listed) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at", "receipts"}
+        assert listed["receipts"] is None  # no journal in this HOME
+        assert listing["harnesses"] == [{
+            "harness": "test", "scope": None, "sessions": 1, "alive": 1, "received_at": None, "pending_bytes": None,
+            "pending_lines": None, "pending_batches": 0,
+        }]
+        # A caller that only counts asks for none: the listing as it always was.
+        (bare,) = conn.call(Method.SESSION_LIST, {"receipts": False})["sessions"]
+        assert set(bare) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at"}
         assert conn.call(Method.EVENTS_SUBSCRIBE, {"topics": sorted(protocol.TOPICS)}) == {}
         assert conn.call(Method.SESSION_END, {"sid": "s-shape", "generation": 1}) == {}
         ended = conn.next_event(2.0)

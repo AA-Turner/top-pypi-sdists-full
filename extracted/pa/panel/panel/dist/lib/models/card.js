@@ -2,8 +2,10 @@ import * as DOM from "@bokehjs/core/dom";
 import { Container } from "@bokehjs/core/layout/grid";
 import { GridAlignmentLayout } from "@bokehjs/models/layouts/alignments";
 import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
+import { Markup } from "@bokehjs/models/widgets/markup";
+import { Widget } from "@bokehjs/models/widgets/widget";
 import { Column, ColumnView } from "./column";
-import card_css from "../styles/models/card.css";
+import card_css from "styles/models/card.css";
 const CHEVRON_RIGHT = `
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-right"><path stroke="none" d="M0 0h12v12H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
 `;
@@ -11,7 +13,6 @@ const CHEVRON_DOWN = `
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-down"><path stroke="none" d="M0 0h12v12H0z" fill="none"/><path d="M6 9l6 6l6 -6" /></svg>
 `;
 export class CardView extends ColumnView {
-    static __name__ = "CardView";
     button_el;
     header_el;
     visible_child_views = new Map();
@@ -190,11 +191,22 @@ export class CardView extends ColumnView {
         }
     }
     _toggle_button(e) {
-        const is_panel_widget = (el) => el instanceof HTMLInputElement || (el instanceof HTMLElement &&
-            Array.from(el.classList).some((c) => c.startsWith("bk-panel-models-widgets-")));
+        const widget_els = new Set();
+        const collect = (view) => {
+            // A Markup widget is the header text, e.g. the title of an Accordion.
+            if (view.model instanceof Widget && !(view.model instanceof Markup)) {
+                widget_els.add(view.el);
+            }
+            for (const child of view.child_views ?? []) {
+                collect(child);
+            }
+        };
+        collect(this.child_views[0]);
+        const is_widget = (el) => el instanceof HTMLInputElement || (el instanceof HTMLElement && (widget_els.has(el) ||
+            Array.from(el.classList).some((c) => c.startsWith("bk-panel-models-widgets-"))));
         for (const el of e.composedPath()) {
-            // If the click came from any Panel widget in the header, don't toggle.
-            if (is_panel_widget(el)) {
+            // A click on a widget in the header operates the widget, not the card.
+            if (is_widget(el)) {
                 return;
             }
         }
@@ -231,7 +243,8 @@ export class CardView extends ColumnView {
         }
         this._updating_child_visibility.add(child_view);
         try {
-            child_view.model.visible = visible;
+            // Collapsing is client side state, syncing it echoes stale values back.
+            child_view.model.setv({ visible }, { sync: false });
         }
         finally {
             this._updating_child_visibility.delete(child_view);
@@ -275,7 +288,6 @@ export class CardView extends ColumnView {
     }
 }
 export class Card extends Column {
-    static __name__ = "Card";
     constructor(attrs) {
         super(attrs);
     }

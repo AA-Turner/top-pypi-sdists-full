@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.blob_url_ref import BlobURLRef
 from mixpeek.models.internal_payload_model import InternalPayloadModel
@@ -31,10 +31,12 @@ class DocumentResponse(BaseModel):
     """ # noqa: E501
     document_id: StrictStr = Field(description="REQUIRED. Unique identifier for the document. Format: 'doc_' prefix + alphanumeric characters. Use for: API queries, references, filtering.")
     collection_id: StrictStr = Field(description="REQUIRED. ID of the collection this document belongs to. Format: 'col_' prefix + alphanumeric characters. Use for: Collection-scoped queries, filtering.")
+    vector_hydration_incomplete: Optional[StrictBool] = Field(default=None, description="OPTIONAL. Present only when return_vectors/return_vector_names was requested on this read. True means this read did not return a vector the store holds: fetching errored or timed out, its partition was not paged in, or the store keeps it only as quantized codes. An empty or absent vector on THIS response is UNCERTAIN, not a confirmed absence, and should not be treated as proof the vector does not exist. False means hydration ran to completion (present or genuinely absent). On a large/BYO collection with evicted partitions, hydration can time out on most reads before a background page-in warms the index; retrying the same read later, once warm, is the correct response to True here, not re-deriving the vector from source.")
+    searchable_at: Optional[StrictStr] = Field(default=None, description="When the document's latest write became searchable on the shard that served this read (ISO 8601, UTC, to the write batch). Null means stored and not searchable yet: the write is acknowledged but this shard has not applied it, or a recovery replay still covers the namespace. A read after the apply returns the time. Computed when the document is read from the shard that serves it, and not stored on the document, so it cannot be used in filters, sorts or facets.")
     document_blobs: Optional[List[BlobURLRef]] = Field(default=None, description="Document blobs with presigned URLs when requested")
     internal: Optional[InternalPayloadModel] = Field(default=None, description="System-managed internal fields. Contains all Mixpeek-managed metadata including lineage, processing info, timestamps, and blob references. User-defined fields appear at root level alongside document_id and collection_id.", alias="_internal")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["document_id", "collection_id", "document_blobs", "_internal"]
+    __properties: ClassVar[List[str]] = ["document_id", "collection_id", "vector_hydration_incomplete", "searchable_at", "document_blobs", "_internal"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -106,6 +108,8 @@ class DocumentResponse(BaseModel):
         _obj = cls.model_validate({
             "document_id": obj.get("document_id"),
             "collection_id": obj.get("collection_id"),
+            "vector_hydration_incomplete": obj.get("vector_hydration_incomplete"),
+            "searchable_at": obj.get("searchable_at"),
             "document_blobs": [BlobURLRef.from_dict(_item) for _item in obj["document_blobs"]] if obj.get("document_blobs") is not None else None,
             "_internal": InternalPayloadModel.from_dict(obj["_internal"]) if obj.get("_internal") is not None else None
         })

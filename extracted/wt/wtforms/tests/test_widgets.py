@@ -1,6 +1,7 @@
 import pytest
 from markupsafe import Markup
 
+from wtforms.fields.choices import Choice
 from wtforms.widgets.core import CheckboxInput
 from wtforms.widgets.core import ColorInput
 from wtforms.widgets.core import FileInput
@@ -42,6 +43,14 @@ def test_aria_prefix():
 
 def test_quoting():
     assert html_params(foo='hi&bye"quot') == 'foo="hi&amp;bye&#34;quot"'
+
+
+def test_quoting_markup_value():
+    """Double quotes in a Markup value must still be escaped in the attribute."""
+    assert (
+        html_params(data_render=Markup('<a href="#"></a>'))
+        == 'data-render="<a href=&quot;#&quot;></a>"'
+    )
 
 
 def test_listwidget(dummy_field_class):
@@ -122,12 +131,28 @@ def test_checkbox_input(basic_widget_dummy_field):
     assert "checked" not in CheckboxInput()(basic_widget_dummy_field)
 
 
+def test_checkbox_input_kwarg_overrides_data(basic_widget_dummy_field):
+    """Render-time ``checked`` kwargs must take precedence over ``field.data``."""
+    basic_widget_dummy_field.data = True
+    assert "checked" not in CheckboxInput()(basic_widget_dummy_field, checked=False)
+    basic_widget_dummy_field.data = False
+    assert "checked" in CheckboxInput()(basic_widget_dummy_field, checked=True)
+
+
 def test_radio_input(basic_widget_dummy_field):
     basic_widget_dummy_field.checked = True
     expected = '<input checked id="id" name="bar" type="radio" value="foo">'
     assert RadioInput()(basic_widget_dummy_field) == expected
     basic_widget_dummy_field.checked = False
     assert RadioInput()(basic_widget_dummy_field) == expected.replace(" checked", "")
+
+
+def test_radio_input_kwarg_overrides_checked(basic_widget_dummy_field):
+    """Render-time ``checked`` kwargs must take precedence over ``field.checked``."""
+    basic_widget_dummy_field.checked = True
+    assert "checked" not in RadioInput()(basic_widget_dummy_field, checked=False)
+    basic_widget_dummy_field.checked = False
+    assert "checked" in RadioInput()(basic_widget_dummy_field, checked=True)
 
 
 def test_textarea(basic_widget_dummy_field):
@@ -175,24 +200,115 @@ def test_select(select_dummy_field):
     )
 
 
+def test_select_mixed_grouped_and_ungrouped_choices(dummy_field_class):
+    """Choices with and without ``optgroup`` render in order: consecutive
+    choices sharing the same ``optgroup`` form one ``<optgroup>``, non-
+    consecutive ones yield separate ``<optgroup>`` wrappers
+    (``itertools.groupby`` semantics)."""
+    field = dummy_field_class(
+        groups=[
+            ("g1", [Choice("foo", "lfoo", selected=True, render_kw={})]),
+            ("g2", [Choice("baz", "lbaz", selected=False, render_kw={})]),
+            (None, [Choice("abc", "labc", selected=False, render_kw={})]),
+            ("g1", [Choice("bar", "lbar", selected=False, render_kw={})]),
+            (None, [Choice("xyz", "lxyz", selected=False, render_kw={})]),
+        ]
+    )
+    field.name = "f"
+
+    assert Select()(field) == (
+        '<select id="" name="f">'
+        '<optgroup label="g1">'
+        '<option selected value="foo">lfoo</option>'
+        "</optgroup>"
+        '<optgroup label="g2">'
+        '<option value="baz">lbaz</option>'
+        "</optgroup>"
+        '<option value="abc">labc</option>'
+        '<optgroup label="g1">'
+        '<option value="bar">lbar</option>'
+        "</optgroup>"
+        '<option value="xyz">lxyz</option>'
+        "</select>"
+    )
+
+
+def test_select_dispatches_to_legacy_render_option_signature(dummy_field_class):
+    """A subclass overriding ``Select.render_option`` with the WTForms 3.2
+    signature ``(cls, value, label, selected, **kwargs)`` keeps working,
+    emitting a ``DeprecationWarning``."""
+
+    captured = {}
+
+    class LegacySelect(Select):
+        @classmethod
+        def render_option(cls, value, label, selected, **kwargs):
+            captured["args"] = (value, label, selected, kwargs)
+            return Markup(f"<option value={value!r}>{label}</option>")
+
+    field = dummy_field_class(
+        [Choice("foo", "lfoo", selected=True, render_kw={})],
+    )
+    field.name = "f"
+
+    with pytest.warns(DeprecationWarning, match="pre-3.3 signature"):
+        html = LegacySelect()(field)
+    assert "<option value='foo'>lfoo</option>" in html
+    assert captured["args"] == ("foo", "lfoo", True, {})
+
+
+def test_select_dispatches_to_legacy_no_kwargs_signature(dummy_field_class):
+    """Strict 3-positional signature without ``**kwargs`` is supported:
+    render_kw is dropped on the floor rather than crashing."""
+
+    captured = {}
+
+    class StrictLegacySelect(Select):
+        @classmethod
+        def render_option(cls, value, label, mixed):
+            captured["args"] = (value, label, mixed)
+            return Markup(f"<option value={value!r}>{label}</option>")
+
+    field = dummy_field_class(
+        [Choice("foo", "lfoo", selected=True, render_kw={"class_": "x"})],
+    )
+    field.name = "f"
+
+    with pytest.warns(DeprecationWarning, match="pre-3.3 signature"):
+        html = StrictLegacySelect()(field)
+    assert "<option value='foo'>lfoo</option>" in html
+    assert captured["args"] == ("foo", "lfoo", True)
+
+
 def test_render_option():
-    # value, label, selected
     assert (
-        Select.render_option("bar", "foo", False) == '<option value="bar">foo</option>'
+        Select.render_option(Choice("bar", "foo", selected=False, render_kw={}))
+        == '<option value="bar">foo</option>'
     )
 
     assert (
-        Select.render_option(True, "foo", True)
+        Select.render_option(Choice(True, "foo", selected=True, render_kw={}))
         == '<option selected value="True">foo</option>'
     )
 
     assert (
-        Select.render_option("bar", '<i class="bar"></i>foo', False)
+        Select.render_option(Choice(False, "foo", selected=False, render_kw={}))
+        == '<option value="False">foo</option>'
+    )
+
+    assert (
+        Select.render_option(
+            Choice("bar", '<i class="bar"></i>foo', selected=False, render_kw={})
+        )
         == '<option value="bar">&lt;i class=&#34;bar&#34;&gt;&lt;/i&gt;foo</option>'
     )
 
     assert (
-        Select.render_option("bar", Markup('<i class="bar"></i>foo'), False)
+        Select.render_option(
+            Choice(
+                "bar", Markup('<i class="bar"></i>foo'), selected=False, render_kw={}
+            )
+        )
         == '<option value="bar"><i class="bar"></i>foo</option>'
     )
 
@@ -242,4 +358,24 @@ def test_range(html5_dummy_field):
     assert (
         i2(html5_dummy_field, step=3)
         == '<input id="id" name="bar" step="3" type="range" value="42">'
+    )
+
+    i3 = RangeInput(min=10)
+    assert (
+        i3(html5_dummy_field)
+        == '<input id="id" min="10" name="bar" type="range" value="42">'
+    )
+    assert (
+        i3(html5_dummy_field, min=5)
+        == '<input id="id" min="5" name="bar" type="range" value="42">'
+    )
+
+    i4 = RangeInput(max=100)
+    assert (
+        i4(html5_dummy_field)
+        == '<input id="id" max="100" name="bar" type="range" value="42">'
+    )
+    assert (
+        i4(html5_dummy_field, max=50)
+        == '<input id="id" max="50" name="bar" type="range" value="42">'
     )

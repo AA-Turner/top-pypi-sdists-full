@@ -3,7 +3,6 @@ import { isString } from "@bokehjs/core/util/types";
 import { InputWidget, InputWidgetView } from "@bokehjs/models/widgets/input_widget";
 import * as inputs from "@bokehjs/styles/widgets/inputs.css";
 export class SingleSelectView extends InputWidgetView {
-    static __name__ = "SingleSelectView";
     connect_signals() {
         super.connect_signals();
         const { value, options, disabled_options, size, disabled } = this.model.properties;
@@ -81,7 +80,6 @@ export class SingleSelectView extends InputWidgetView {
     }
 }
 export class SingleSelect extends InputWidget {
-    static __name__ = "SingleSelect";
     constructor(attrs) {
         super(attrs);
     }

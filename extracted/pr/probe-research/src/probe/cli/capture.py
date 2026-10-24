@@ -512,9 +512,11 @@ def _stop_daemon() -> tuple[bool, list[str]]:
             continue
         # Wait for it, rather than assuming. An uploader mid-flush can take a
         # moment, and reporting "off" while it is still draining is the lie.
+        from probe._shared import oscompat  # os.kill(pid, 0) answers nothing on Windows
+
         for _ in range(20):
             try:
-                os.kill(pid, 0)
+                oscompat.probe_pid(pid)
             except ProcessLookupError:
                 break
             except OSError:
@@ -639,6 +641,26 @@ def turn_off(mode: OffMode = OffMode.DISABLE) -> TurnOffResult:
             f"could not confirm the Probe service stopped its recordings of this agent: {hosted.error}; "
             "run this again, or check `probe doctor`"
         )
+    elif hosted is not None and hosted.refused:
+        # The service takes no work from inside a sandbox (it cannot rule a
+        # sandbox out here), so it would not stop them on this one's say, and
+        # running this again from here never would. What it still records of
+        # this agent, said plainly; none and there is nothing to stop.
+        if hosted.still_recording:
+            result.daemon_stopped = False
+            result.hosted_unfinished = hosted.still_recording
+            settles = (
+                "With the killswitch set they upload nothing more and stop on their own at their next "
+                "check, within seconds; to stop them at once"
+                if result.killswitch_set
+                else "The killswitch could not be set either, so they go on; to stop them"
+            )
+            result.warnings.append(
+                f"the Probe service still records {len(hosted.still_recording)} session(s) of this agent "
+                f"({', '.join(hosted.still_recording[:3])}) and takes no requests from inside a sandbox, so "
+                f"it was not asked to stop them. {settles}, run `probe capture off` in a terminal outside "
+                "this sandbox"
+            )
     elif hosted is not None:
         result.hosted_finished = hosted.finished
         result.hosted_unfinished = hosted.unfinished

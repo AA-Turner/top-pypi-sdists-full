@@ -78,7 +78,7 @@ def agents(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     from matrx_ai.tools.implementations.agent_call import agent_call
     from matrx_ai.tools.models import ToolContext
 
-    bag: dict[str, Any] = {"row_ids": {}}
+    bag: dict[str, Any] = {"row_ids": {}, "parent_call_ids": {}}
 
     async def load_agent(agent_id: str, _ctx: Any) -> Any:
         return SimpleNamespace(id=agent_id, is_active=True, is_archived=False)
@@ -101,6 +101,9 @@ def agents(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     async def run_agent(agent: _Agent, **_kw: Any) -> AgentRunResult:
         # The child runs in its own conversation, as run_agent's fork does.
         parent_ctx = get_app_context()
+        from matrx_ai.tools.logger import PARENT_TOOL_CALL_ID_KEY
+
+        bag["parent_call_ids"][agent.name] = parent_ctx.metadata.get(PARENT_TOOL_CALL_ID_KEY)
         child_conv = f"{agent.id[:-2]}cc"
         set_app_context(parent_ctx.with_overrides(conversation_id=child_conv))
         try:
@@ -163,6 +166,36 @@ async def test_nested_child_rows_name_the_agent_call_that_ran_them(stored, agent
         "the parent's own later call must not inherit the child's binding"
     )
     assert result.output["child_conversation_id"].endswith("cc")
+
+
+@pytest.mark.asyncio
+async def test_each_child_run_carries_the_call_id_that_started_it(stored, agents):
+    """The host copies it onto the child's execution record: how crash recovery
+    finds the helper an interrupted call started (aidream runtime/helper_reattach)."""
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+
+    from matrx_ai.tools.implementations.agent_call import agent_call
+    from matrx_ai.tools.logger import PARENT_TOOL_CALL_ID_KEY
+    from matrx_ai.tools.models import ToolContext
+
+    token = set_app_context(AppContext(emitter=None, user_id=USER, conversation_id=PARENT_CONV))
+    try:
+        await _log_call("agent_call", "call-dispatch-to-lane")
+        await agent_call(
+            {"agent_id": LANE_PLANNER, "user_input": "Hub and weather code for Mexico City"},
+            ToolContext(call_id="call-dispatch-to-lane", tool_name="agent_call"),
+        )
+        from matrx_connect.context.app_context import get_app_context
+
+        leaked = get_app_context().metadata.get(PARENT_TOOL_CALL_ID_KEY)
+    finally:
+        clear_app_context(token)
+
+    assert agents["parent_call_ids"] == {
+        "Lane Planner": "call-dispatch-to-lane",
+        "Weather Desk": "call-lane-to-weather",
+    }
+    assert leaked is None, "the parent's own context must not inherit the child's binding"
 
 
 def test_every_tool_call_insert_path_stamps_its_parent():

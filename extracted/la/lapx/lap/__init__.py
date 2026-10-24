@@ -11,6 +11,8 @@ Single-matrix solvers
 - lapjvc uses Christoph Heindl's classic JV variant. It returns (rows, cols).
 - lapjvs extends Vadim Markovtsev's lapjv. It supports mapping arrays and aligned index arrays.
 - lapjvsa wraps lapjvs. It returns assignment pairs with shape (K, 2).
+- lapjvr uses a Rust JV core; lapjvh uses C++ square completion in the same core.
+  Both return aligned int64 indices, or pairs with output='pairs'.
 
 Batch solvers
 -------------
@@ -19,6 +21,7 @@ Batch solvers
 - lapjvs_batch runs lapjvs. It returns (totals, rows_list, cols_list) or (rows_list, cols_list).
 - lapjvsa_batch runs lapjvsa. It returns (totals, pairs_list) or pairs_list, with pair arrays of shape (K_b, 2).
 - lapmod_batch runs lapmod. It returns (totals, x_list, y_list) or (x_list, y_list).
+- lapjvr_batch and lapjvh_batch share reusable native workers and output options.
 
 Notes
 -----
@@ -35,14 +38,16 @@ import importlib
 if TYPE_CHECKING:
     # Single-matrix solvers
     from ._lapmod_wp import lapmod
-    from ._lapjv_wp import lapjv
-    from ._lapjvx_wp import lapjvx, lapjvxa
-    from ._lapjvc_wp import lapjvc
+    from ._lapjv import lapjv  # type: ignore
+    from ._lapjvx import lapjvx, lapjvxa  # type: ignore
+    from ._lapjvc import lapjvc  # type: ignore
     from ._lapjvs_wp import lapjvs, lapjvsa
+    from ._lapjv_rh import lapjvr, lapjvh  # type: ignore
     # Batch solvers
     from ._lapjvx_batch_wp import lapjvx_batch, lapjvxa_batch
     from ._lapjvs_batch_wp import lapjvs_batch, lapjvsa_batch
     from ._lapmod_batch_wp import lapmod_batch
+    from ._lapjv_rh import lapjvr_batch, lapjvh_batch  # type: ignore
     # Constants
     from ._lapjv import (  # type: ignore
         LARGE_ as LARGE,
@@ -54,18 +59,22 @@ if TYPE_CHECKING:
 _exports = {
     # Single-matrix solvers
     'lapmod': ("lap._lapmod_wp", "lapmod"),
-    'lapjv': ("lap._lapjv_wp", "lapjv"),
-    'lapjvx': ("lap._lapjvx_wp", "lapjvx"),
-    'lapjvxa': ("lap._lapjvx_wp", "lapjvxa"),
-    'lapjvc': ("lap._lapjvc_wp", "lapjvc"),
+    'lapjv': ("lap._lapjv", "lapjv"),
+    'lapjvx': ("lap._lapjvx", "lapjvx"),
+    'lapjvxa': ("lap._lapjvx", "lapjvxa"),
+    'lapjvc': ("lap._lapjvc", "lapjvc"),
     'lapjvs': ("lap._lapjvs_wp", "lapjvs"),
     'lapjvsa': ("lap._lapjvs_wp", "lapjvsa"),
+    'lapjvr': ("lap._lapjv_rh", "lapjvr"),
+    'lapjvh': ("lap._lapjv_rh", "lapjvh"),
     # Batch solvers
     'lapjvx_batch': ("lap._lapjvx_batch_wp", "lapjvx_batch"),
     'lapjvxa_batch': ("lap._lapjvx_batch_wp", "lapjvxa_batch"),
     'lapjvs_batch': ("lap._lapjvs_batch_wp", "lapjvs_batch"),
     'lapjvsa_batch': ("lap._lapjvs_batch_wp", "lapjvsa_batch"),
     'lapmod_batch': ("lap._lapmod_batch_wp", "lapmod_batch"),
+    'lapjvr_batch': ("lap._lapjv_rh", "lapjvr_batch"),
+    'lapjvh_batch': ("lap._lapjv_rh", "lapjvh_batch"),
     # Constants
     'LARGE': ("lap._lapjv", "LARGE_"),
     'FP_1': ("lap._lapjv", "FP_1_"),
@@ -82,15 +91,20 @@ def __getattr__(name):
         return obj
     raise AttributeError(f"LAPX could not find attribute '{name}'.")
 
-__version__ = '0.10.0'
+__version__ = '0.11.1'
 __author__ = 'Ratha SIV'
 __description__ = 'Linear assignment problem solvers, including single and batch solvers.'
 __homepage__ = 'https://github.com/rathaROG/lapx'
 __all__ = [
     # Single-matrix solvers
     'lapmod', 'lapjv', 'lapjvx', 'lapjvxa', 'lapjvc', 'lapjvs', 'lapjvsa',
+    'lapjvr', 'lapjvh',
     # Batch solvers
     'lapjvx_batch', 'lapjvxa_batch', 'lapjvs_batch', 'lapjvsa_batch', 'lapmod_batch',
+    'lapjvr_batch', 'lapjvh_batch',
     # Constants
     'FP_1', 'FP_2', 'FP_DYNAMIC', 'LARGE',
 ]
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))

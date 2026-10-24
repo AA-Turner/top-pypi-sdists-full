@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import asdict, dataclass
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict, cast
 from urllib.parse import urlparse
 
 from matrx_scraper._ext import get_ext, has_ext
@@ -77,6 +77,21 @@ _SPEED_RANK = {"fast": 0, "research": 1, "batch": 2}
 _SERVICE_RANK = {SOCIAL: 0, UNLOCKER: 1, STRUCTURED: 2}
 
 
+class CoverageValue(TypedDict):
+    """JSON mapping emitted by ``Coverage.to_dict`` (including nullable source-specific keys)."""
+
+    service: str
+    label: str
+    speed: str
+    typical_seconds: float | None
+    unit: str
+    points_per_unit: int | None
+    returns: str
+    source_key: str | None
+    source_label: str | None
+    platform: str | None
+
+
 @dataclass(frozen=True)
 class Coverage:
     """One service that could read a URL our scraper could not."""
@@ -94,8 +109,8 @@ class Coverage:
     #: ``social`` only: the platform.
     platform: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    def to_dict(self) -> CoverageValue:
+        return cast(CoverageValue, asdict(self))
 
 
 def speed_class(seconds: float | None, service: str) -> str:

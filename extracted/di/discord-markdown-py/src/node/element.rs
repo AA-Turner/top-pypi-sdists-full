@@ -4,7 +4,6 @@ use derive_where::derive_where;
 
 use crate::{
 	range::{Content, delim::Delim},
-	rule::Rule,
 	span::{Span, Spanned},
 };
 
@@ -49,25 +48,6 @@ pub type SpannedElement<'data, S> = Spanned<Element<'data, S>, S>;
 pub type Elements<'data, S> = Sequence<S, Element<'data, S>>;
 
 impl<S: Span> Element<'_, S> {
-	/// The [`Rule`] that this element corresponds to. Returns [`None`] if this is a base rule or a
-	/// delimiter.
-	#[must_use]
-	pub fn rule(&self) -> Option<Rule> {
-		Some(match self {
-			Self::Delim(_) | Self::Text(_) | Self::Paragraph(_) | Self::Empty => return None,
-			Self::Code(_) => Rule::Code,
-			Self::CodeBlock(_) => Rule::CodeBlock,
-			Self::Emoji(_) => Rule::Emoji,
-			Self::Link(_) => Rule::Link,
-			Self::Mention(_) => Rule::Mention,
-			Self::Timestamp(_) => Rule::Timestamp,
-			Self::Heading(_) => Rule::Heading,
-			Self::List(_) => Rule::List,
-			Self::Quote(_) => Rule::Quote,
-			Self::Small(_) => Rule::Small,
-		})
-	}
-
 	/// Text content of this element (does not include children). Returns [`None`] if it has no
 	/// text content.
 	#[must_use]

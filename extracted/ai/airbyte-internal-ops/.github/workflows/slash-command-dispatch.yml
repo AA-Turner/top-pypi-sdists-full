@@ -36,6 +36,7 @@ jobs:
             deploy-airmux
             deploy-mcp
             deploy-ops-webapp
+            lighthouse-run
             lock
             poe
             pulumi-apply

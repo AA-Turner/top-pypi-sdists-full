@@ -59,7 +59,7 @@ class AnalyticsExtractorsApi:
     ) -> List[Dict[str, object]]:
         """Get Extractor Performance
 
-        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` ClickHouse table over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
+        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` analytics collection over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
 
         :param extractor_name: Filter by extractor
         :type extractor_name: str
@@ -102,8 +102,10 @@ class AnalyticsExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -136,7 +138,7 @@ class AnalyticsExtractorsApi:
     ) -> ApiResponse[List[Dict[str, object]]]:
         """Get Extractor Performance
 
-        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` ClickHouse table over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
+        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` analytics collection over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
 
         :param extractor_name: Filter by extractor
         :type extractor_name: str
@@ -179,8 +181,10 @@ class AnalyticsExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -213,7 +217,7 @@ class AnalyticsExtractorsApi:
     ) -> RESTResponseType:
         """Get Extractor Performance
 
-        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` ClickHouse table over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
+        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` analytics collection over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
 
         :param extractor_name: Filter by extractor
         :type extractor_name: str
@@ -256,8 +260,10 @@ class AnalyticsExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

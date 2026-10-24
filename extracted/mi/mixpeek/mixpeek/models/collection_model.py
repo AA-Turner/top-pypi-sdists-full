@@ -25,6 +25,7 @@ from typing_extensions import Annotated
 from mixpeek.models.alert_application_config_output import AlertApplicationConfigOutput
 from mixpeek.models.bucket_schema_output import BucketSchemaOutput
 from mixpeek.models.cluster_application_config import ClusterApplicationConfig
+from mixpeek.models.collection_disabled_reason import CollectionDisabledReason
 from mixpeek.models.collection_schedule_config import CollectionScheduleConfig
 from mixpeek.models.collection_vector_index import CollectionVectorIndex
 from mixpeek.models.retriever_enrichment_config_output import RetrieverEnrichmentConfigOutput
@@ -33,6 +34,7 @@ from mixpeek.models.shared_collection_features_extractors_models_feature_extract
 from mixpeek.models.single_lineage_entry import SingleLineageEntry
 from mixpeek.models.source_config_output import SourceConfigOutput
 from mixpeek.models.taxonomy_application_config_output import TaxonomyApplicationConfigOutput
+from mixpeek.models.tiering_override import TieringOverride
 from mixpeek.models.tiering_rule import TieringRule
 from typing import Optional, Set
 from typing_extensions import Self
@@ -50,10 +52,12 @@ class CollectionModel(BaseModel):
     source: SourceConfigOutput = Field(description="REQUIRED. Source configuration defining where data comes from. Type 'bucket': Process objects from one or more buckets (tier 1). Type 'collection': Process documents from upstream collection(s) (tier 2+). For multi-bucket sources, all buckets must have compatible schemas. For multi-collection sources, all collections must have compatible schemas. Determines input_schema and enables decomposition trees.")
     source_bucket_schemas: Optional[Dict[str, BucketSchemaOutput]] = Field(default=None, description="NOT REQUIRED (auto-computed). Snapshot of bucket schemas at collection creation. Only populated for multi-bucket collections (source.type='bucket' with multiple bucket_ids). Key: bucket_id, Value: BucketSchema at time of collection creation. Used for: Schema compatibility validation, document lineage, debugging. Schema snapshot is immutable - bucket schema changes after collection creation do not affect this. Single-bucket collections may omit this field (schema in input_schema is sufficient).")
     source_lineage: Optional[List[SingleLineageEntry]] = Field(default=None, description="NOT REQUIRED (auto-computed). Lineage chain showing complete processing history. Each entry contains: source_config, feature_extractor, output_schema for one tier. Length indicates processing depth (1 = tier 1, 2 = tier 2, etc.). Use for: Understanding multi-tier pipelines, visualizing decomposition trees.")
+    index_map: Optional[Dict[str, StrictStr]] = Field(default=None, description="Which feature URI answers each URI a search names, for a collection that opted into feature URIs as its version contract. Null (the default) means not opted in: a search uses the URI it names. Each key is one of the collection's own feature URIs; each value is a URI the collection holds vectors for, listed in `vector_indexes` (its own, or one a completed `reembed.target_feature_uri` added). Switching to a new embedding model and rolling back are both PATCH /v1/collections/{collection_id} with a new map; neither rewrites a vector. Every search result reports the URI that scored it in `feature_uri`.")
     vector_indexes: Optional[List[CollectionVectorIndex]] = Field(default=None, description="NOT REQUIRED (auto-computed). Vector indexes for semantic search. Populated from feature_extractor.required_vector_indexes on extractor-backed collections, and from the namespace vector config on promoted or direct-upsert (BYO) collections, where each entry carries source='namespace_vector_config'. Defines which embeddings are indexed, their dimensions and distance metric. Use for understanding search capabilities and debugging vector queries. An entry's `source` distinguishes a namespace-declared index from an extractor-derived one; extractor-derived entries omit it. The nested `index` object carries the storage name, dimensions, distance and inference_name.")
     payload_indexes: Optional[List[Any]] = Field(default=None, description="NOT REQUIRED (auto-computed from extractor + namespace). Payload indexes for filtering. Enables efficient filtering on metadata fields, timestamps, IDs. Populated from: extractor requirements + namespace defaults. Use for: Understanding which fields support fast filtering.")
     embedding_task: Optional[StrictStr] = Field(default=None, description="Override the embedding task hint for instruction-aware models (E5, Gemini). Defaults to 'retrieval_document' for indexing pipelines. Values: retrieval_document, retrieval_query, semantic_similarity, classification, clustering. Applied to all task-aware embedding models in this collection's extractor pipeline.")
     enabled: Optional[StrictBool] = Field(default=True, description="NOT REQUIRED (defaults to True). Whether the collection accepts new documents. False: Collection exists but won't process new objects. True: Active and processing. Use for: Temporarily disabling collections without deletion.")
+    disabled_reason: Optional[CollectionDisabledReason] = Field(default=None, description="Set when the platform disabled this collection, saying why; null when it is enabled or was disabled by a caller. A collection whose source collection was deleted reads code 'source_collection_deleted' with the deleted collection's id and name. Cleared when the collection is enabled again.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="NOT REQUIRED. Additional user-defined metadata for the collection. Arbitrary key-value pairs for custom organization, tracking, configuration. Not used by the platform - purely for user purposes. Common uses: team ownership, project tags, deployment environment.")
     schedule: Optional[CollectionScheduleConfig] = Field(default=None, description="NOT REQUIRED. Schedule configuration for automatic re-processing. When set, a COLLECTION_TRIGGER trigger is created and linked to this collection.")
     trigger_id: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED. ID of the linked trigger for scheduled re-processing. Automatically set when a schedule is configured.")
@@ -62,7 +66,8 @@ class CollectionModel(BaseModel):
     lifecycle_state: Optional[StrictStr] = Field(default='active', description="Storage lifecycle state: 'active' (vector store + S3), 'cold' (S3 only), 'archived' (metadata only). Managed via lifecycle API.")
     s3_vector_index: Optional[StrictStr] = Field(default=None, description="S3 Vectors index name for this collection (e.g. 'col_{collection_id}').")
     last_lifecycle_transition: Optional[datetime] = Field(default=None, description="Timestamp of the most recent lifecycle state change.")
-    tiering_rules: Optional[List[TieringRule]] = Field(default=None, description="Automatic storage tiering rules (not enforced in V1).")
+    tiering_rules: Optional[List[TieringRule]] = Field(default=None, description="Retired: stored and never enforced. Writes are refused; set `tiering` instead. Kept on reads so existing records still parse.")
+    tiering: Optional[TieringOverride] = Field(default=None, description="This collection's override of the platform's collection tiering: `enabled`, `idle_days` ({cold, frozen}) and `exempt` with the reason. Unset parts inherit from the namespace, then from the platform default.")
     document_count: Optional[StrictInt] = Field(default=0, description="APPROXIMATE number of documents in the collection. This is NOT a stored counter maintained on every write — read endpoints DERIVE it from a live MVS count that is cached (~45s) and approximate (exact=False), so it can differ by a few from an exact documents/list enumeration and can lag very recent writes by the cache window. Use it for sorting/filtering and rough display; for an authoritative count, enumerate via documents/list. Do NOT treat a small document_count-vs-documents gap as row loss.")
     schema_version: Optional[StrictInt] = Field(default=1, description="Version number for the output_schema. Increments automatically when schema is updated via document sampling. Used to track schema evolution and trigger downstream collection schema updates.")
     last_schema_sync: Optional[datetime] = Field(default=None, description="Timestamp of last automatic schema sync from document sampling. Used to debounce schema updates (prevents thrashing).")
@@ -74,7 +79,7 @@ class CollectionModel(BaseModel):
     alert_applications: Optional[List[AlertApplicationConfigOutput]] = Field(default=None, description="NOT REQUIRED. List of alerts to automatically execute when documents are ingested. Each entry specifies: alert_id, execution_mode, input_mappings, execution_phase, priority. Alerts run retrievers on ingested documents and send notifications when matches are found. Empty/null if no alerts attached. Use for: Content monitoring, safety detection, compliance alerts.")
     retriever_enrichments: Optional[List[RetrieverEnrichmentConfigOutput]] = Field(default=None, description="NOT REQUIRED. List of retriever enrichments to run on documents during post-processing. Each entry specifies: retriever_id, input_mappings, write_back_fields, execution_phase, priority. Retriever enrichments execute a retriever pipeline and write selected result fields back to documents. Empty/null if no enrichments attached. Use for: LLM classification, cross-collection joins, enrichment.")
     retriever_transform: Optional[RetrieverTransformConfigOutput] = Field(default=None, description="NOT REQUIRED. Set for a transform-based collection: the inline retriever pipeline (over an upstream collection) that defines this collection's documents. Mutually exclusive with feature_extractor. None for extractor-based collections.")
-    __properties: ClassVar[List[str]] = ["collection_id", "collection_name", "description", "input_schema", "output_schema", "feature_extractor", "source", "source_bucket_schemas", "source_lineage", "vector_indexes", "payload_indexes", "embedding_task", "enabled", "metadata", "schedule", "trigger_id", "created_at", "updated_at", "lifecycle_state", "s3_vector_index", "last_lifecycle_transition", "tiering_rules", "document_count", "schema_version", "last_schema_sync", "schema_sync_enabled", "document_schema", "schema_validation", "taxonomy_applications", "cluster_applications", "alert_applications", "retriever_enrichments", "retriever_transform"]
+    __properties: ClassVar[List[str]] = ["collection_id", "collection_name", "description", "input_schema", "output_schema", "feature_extractor", "source", "source_bucket_schemas", "source_lineage", "index_map", "vector_indexes", "payload_indexes", "embedding_task", "enabled", "disabled_reason", "metadata", "schedule", "trigger_id", "created_at", "updated_at", "lifecycle_state", "s3_vector_index", "last_lifecycle_transition", "tiering_rules", "tiering", "document_count", "schema_version", "last_schema_sync", "schema_sync_enabled", "document_schema", "schema_validation", "taxonomy_applications", "cluster_applications", "alert_applications", "retriever_enrichments", "retriever_transform"]
 
     @field_validator('schema_validation')
     def schema_validation_validate_enum(cls, value):
@@ -158,6 +163,9 @@ class CollectionModel(BaseModel):
                 if _item_vector_indexes:
                     _items.append(_item_vector_indexes.to_dict())
             _dict['vector_indexes'] = _items
+        # override the default output from pydantic by calling `to_dict()` of disabled_reason
+        if self.disabled_reason:
+            _dict['disabled_reason'] = self.disabled_reason.to_dict()
         # override the default output from pydantic by calling `to_dict()` of schedule
         if self.schedule:
             _dict['schedule'] = self.schedule.to_dict()
@@ -168,6 +176,9 @@ class CollectionModel(BaseModel):
                 if _item_tiering_rules:
                     _items.append(_item_tiering_rules.to_dict())
             _dict['tiering_rules'] = _items
+        # override the default output from pydantic by calling `to_dict()` of tiering
+        if self.tiering:
+            _dict['tiering'] = self.tiering.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in taxonomy_applications (list)
         _items = []
         if self.taxonomy_applications:
@@ -225,10 +236,12 @@ class CollectionModel(BaseModel):
             if obj.get("source_bucket_schemas") is not None
             else None,
             "source_lineage": [SingleLineageEntry.from_dict(_item) for _item in obj["source_lineage"]] if obj.get("source_lineage") is not None else None,
+            "index_map": obj.get("index_map"),
             "vector_indexes": [CollectionVectorIndex.from_dict(_item) for _item in obj["vector_indexes"]] if obj.get("vector_indexes") is not None else None,
             "payload_indexes": obj.get("payload_indexes"),
             "embedding_task": obj.get("embedding_task"),
             "enabled": obj.get("enabled") if obj.get("enabled") is not None else True,
+            "disabled_reason": CollectionDisabledReason.from_dict(obj["disabled_reason"]) if obj.get("disabled_reason") is not None else None,
             "metadata": obj.get("metadata"),
             "schedule": CollectionScheduleConfig.from_dict(obj["schedule"]) if obj.get("schedule") is not None else None,
             "trigger_id": obj.get("trigger_id"),
@@ -238,6 +251,7 @@ class CollectionModel(BaseModel):
             "s3_vector_index": obj.get("s3_vector_index"),
             "last_lifecycle_transition": obj.get("last_lifecycle_transition"),
             "tiering_rules": [TieringRule.from_dict(_item) for _item in obj["tiering_rules"]] if obj.get("tiering_rules") is not None else None,
+            "tiering": TieringOverride.from_dict(obj["tiering"]) if obj.get("tiering") is not None else None,
             "document_count": obj.get("document_count") if obj.get("document_count") is not None else 0,
             "schema_version": obj.get("schema_version") if obj.get("schema_version") is not None else 1,
             "last_schema_sync": obj.get("last_schema_sync"),

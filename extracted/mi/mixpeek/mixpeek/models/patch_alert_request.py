@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.alert_notification_config import AlertNotificationConfig
+from mixpeek.models.alert_threshold import AlertThreshold
 from mixpeek.models.namespace_selector import NamespaceSelector
 from mixpeek.models.system_condition import SystemCondition
 from mixpeek.models.trigger_on import TriggerOn
@@ -36,12 +37,17 @@ class PatchAlertRequest(BaseModel):
     description: Optional[Annotated[str, Field(strict=True, max_length=1000)]] = Field(default=None, description="Updated description for the alert")
     retriever_id: Optional[StrictStr] = Field(default=None, description="Updated retriever ID (source=retriever only)")
     trigger_on: Optional[TriggerOn] = Field(default=None, description="Updated trigger condition: 'results' or 'no_results'")
+    min_count: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Updated min_count (trigger_on='results')")
+    threshold: Optional[AlertThreshold] = Field(default=None, description="Updated threshold (trigger_on='results')")
+    inputs: Optional[Dict[str, Any]] = Field(default=None, description="Updated retriever inputs (replaces the whole set)")
+    cooldown_seconds: Optional[Annotated[int, Field(le=2592000, strict=True, ge=0)]] = Field(default=None, description="Updated cooldown in seconds. 0 removes the cooldown.")
+    renotify_interval_seconds: Optional[Annotated[int, Field(le=2592000, strict=True, ge=60)]] = Field(default=None, description="Updated re-notify interval in seconds")
     system_condition: Optional[SystemCondition] = Field(default=None, description="Updated system condition (source=system only)")
     namespace_selector: Optional[NamespaceSelector] = Field(default=None, description="Updated org-level namespace scoping")
     notification_config: Optional[AlertNotificationConfig] = Field(default=None, description="Updated notification configuration")
     enabled: Optional[StrictBool] = Field(default=None, description="Updated enabled status")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Updated metadata")
-    __properties: ClassVar[List[str]] = ["name", "description", "retriever_id", "trigger_on", "system_condition", "namespace_selector", "notification_config", "enabled", "metadata"]
+    __properties: ClassVar[List[str]] = ["name", "description", "retriever_id", "trigger_on", "min_count", "threshold", "inputs", "cooldown_seconds", "renotify_interval_seconds", "system_condition", "namespace_selector", "notification_config", "enabled", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,6 +88,9 @@ class PatchAlertRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of threshold
+        if self.threshold:
+            _dict['threshold'] = self.threshold.to_dict()
         # override the default output from pydantic by calling `to_dict()` of system_condition
         if self.system_condition:
             _dict['system_condition'] = self.system_condition.to_dict()
@@ -107,6 +116,11 @@ class PatchAlertRequest(BaseModel):
             "description": obj.get("description"),
             "retriever_id": obj.get("retriever_id"),
             "trigger_on": obj.get("trigger_on"),
+            "min_count": obj.get("min_count"),
+            "threshold": AlertThreshold.from_dict(obj["threshold"]) if obj.get("threshold") is not None else None,
+            "inputs": obj.get("inputs"),
+            "cooldown_seconds": obj.get("cooldown_seconds"),
+            "renotify_interval_seconds": obj.get("renotify_interval_seconds"),
             "system_condition": SystemCondition.from_dict(obj["system_condition"]) if obj.get("system_condition") is not None else None,
             "namespace_selector": NamespaceSelector.from_dict(obj["namespace_selector"]) if obj.get("namespace_selector") is not None else None,
             "notification_config": AlertNotificationConfig.from_dict(obj["notification_config"]) if obj.get("notification_config") is not None else None,

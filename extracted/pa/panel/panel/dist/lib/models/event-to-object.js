@@ -102,7 +102,6 @@ Object.keys(elementTagCategories).forEach((category) => {
     });
 });
 class EventTransformCategories {
-    static __name__ = "EventTransformCategories";
     clipboard(event) {
         return {
             clipboardData: event.clipboardData,

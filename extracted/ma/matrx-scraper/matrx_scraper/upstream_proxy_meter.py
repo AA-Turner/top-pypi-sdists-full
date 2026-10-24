@@ -81,8 +81,9 @@ class MeteredUpstreamProxy:
         if not sockets:
             await proxy.close()
             raise RuntimeError("the metered proxy could not bind a local port")
-        proxy._port = int(sockets[0].getsockname()[1])
-        logger.info("metered upstream proxy listening on 127.0.0.1:%s", proxy._port)
+        listening_port = int(sockets[0].getsockname()[1])
+        proxy._port = listening_port
+        logger.info("metered upstream proxy listening on 127.0.0.1:%s", listening_port)
         return proxy
 
     @property

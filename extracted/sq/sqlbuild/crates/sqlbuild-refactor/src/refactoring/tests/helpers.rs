@@ -147,7 +147,7 @@ pub(super) fn analysis_lines(sql: &str) -> (String, Vec<String>) {
     (analysis.sql, tables)
 }
 
-/// A body at offset 10 whose one expansion turns `@m(x)` into a five-character call.
+/// A body at offset 10 whose one expansion turns `@py.m(x)` into a five-character call.
 pub(super) fn expansion_body() -> ModelBody {
     ModelBody {
         body_start: 10,
@@ -777,4 +777,30 @@ pub(super) fn planned_batch(
             .map(|change| format!("{} -> {}", change.original_path, change.path))
             .collect(),
     ))
+}
+
+/// A change that moves `original_path` to `path` without edits.
+pub(super) fn moved(original_path: &str, path: &str) -> FileChange {
+    FileChange {
+        path: path.to_owned(),
+        original_path: original_path.to_owned(),
+        edits: Vec::new(),
+    }
+}
+
+/// Each of `paths` that is a file below `root`, with its contents, sorted by path.
+pub(super) fn tree(root: &Path, paths: &[&str]) -> Vec<(String, String)> {
+    let mut files: Vec<(String, String)> = paths
+        .iter()
+        .filter(|path| root.join(path).is_file())
+        .map(|path| {
+            (
+                (*path).to_owned(),
+                fs::read_to_string(root.join(path)).unwrap_or_default(),
+            )
+        })
+        .collect();
+    files.sort();
+    files.dedup();
+    files
 }

@@ -1,6 +1,11 @@
 from wtforms import validators
 from wtforms import widgets
+from wtforms.datalist import DataList
+from wtforms.datalist import DataListChoice
+from wtforms.datalist import enum_datalist
+from wtforms.fields.choices import Choice
 from wtforms.fields.choices import RadioField
+from wtforms.fields.choices import SelectChoice
 from wtforms.fields.choices import SelectField
 from wtforms.fields.choices import SelectFieldBase
 from wtforms.fields.choices import SelectMultipleField
@@ -21,6 +26,7 @@ from wtforms.fields.numeric import FloatField
 from wtforms.fields.numeric import IntegerField
 from wtforms.fields.numeric import IntegerRangeField
 from wtforms.fields.simple import BooleanField
+from wtforms.fields.simple import ButtonField
 from wtforms.fields.simple import ColorField
 from wtforms.fields.simple import EmailField
 from wtforms.fields.simple import FileField
@@ -36,7 +42,7 @@ from wtforms.fields.simple import URLField
 from wtforms.form import Form
 from wtforms.validators import ValidationError
 
-__version__ = "3.2.2"
+__version__ = "3.3.0"
 
 __all__ = [
     "validators",
@@ -63,7 +69,9 @@ __all__ = [
     "FloatField",
     "IntegerRangeField",
     "DecimalRangeField",
+    "ButtonField",
     "BooleanField",
+    "DataList",
     "TextAreaField",
     "PasswordField",
     "FileField",
@@ -76,4 +84,8 @@ __all__ = [
     "URLField",
     "EmailField",
     "ColorField",
+    "Choice",
+    "SelectChoice",
+    "DataListChoice",
+    "enum_datalist",
 ]

@@ -19,7 +19,10 @@ hazard needs:
     also its whole danger, so it gates on a TTY, on a denylist of the run-scoped
     commands a training loop makes, and on the run lock -- and records every
     refusal, because a box correctly deferring all week must not look like a
-    dead updater.
+    dead updater. Where the Probe service is the updater (POSIX), neither
+    trigger applies anything itself: both ask the service, which records its
+    own deferrals here, and the CLI's gates and their records stay with the
+    fallback updater (`main._version_notice`).
 
 Both are spawned DETACHED, and `perform_update` re-checks the run lock for both
 (see upgrading.py -- that check is unconditional precisely because the hook does
@@ -212,29 +215,33 @@ lock_path = version_policy.lock_path
 _read = version_policy.read_state
 
 
+def _attempt_from(attempt_raw: object) -> Attempt | None:
+    """The `last_attempt` record as an `Attempt`, or None (absent or unreadable)."""
+    if not isinstance(attempt_raw, dict):
+        return None
+    try:
+        return Attempt(
+            at=int(attempt_raw["at"]),
+            ok=bool(attempt_raw["ok"]),
+            detail=str(attempt_raw.get("detail", "")),
+            from_version=attempt_raw.get("from_version"),
+            to_version=attempt_raw.get("to_version"),
+            # Absent on records written before the plugin half was tracked.
+            # Defaulting to True keeps an old success reading as a success.
+            plugin_ok=bool(attempt_raw.get("plugin_ok", True)),
+            plugin_detail=str(attempt_raw.get("plugin_detail", "")),
+            plugin_version=attempt_raw.get("plugin_version"),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def load() -> Settings:
     """Current settings. Fail-soft: unreadable or corrupt state reads as OFF,
     because defaulting a data-egress-adjacent background process to ON when we
     cannot tell what the user chose is the wrong direction to guess."""
     raw = _read()
-    attempt_raw = raw.get("last_attempt")
-    attempt = None
-    if isinstance(attempt_raw, dict):
-        try:
-            attempt = Attempt(
-                at=int(attempt_raw["at"]),
-                ok=bool(attempt_raw["ok"]),
-                detail=str(attempt_raw.get("detail", "")),
-                from_version=attempt_raw.get("from_version"),
-                to_version=attempt_raw.get("to_version"),
-                # Absent on records written before the plugin half was tracked.
-                # Defaulting to True keeps an old success reading as a success.
-                plugin_ok=bool(attempt_raw.get("plugin_ok", True)),
-                plugin_detail=str(attempt_raw.get("plugin_detail", "")),
-                plugin_version=attempt_raw.get("plugin_version"),
-            )
-        except (KeyError, TypeError, ValueError):
-            attempt = None
+    attempt = _attempt_from(raw.get("last_attempt"))
     skip_raw = raw.get("last_skip")
     skip = None
     if isinstance(skip_raw, dict):
@@ -272,7 +279,7 @@ def _write(payload: dict) -> None:
 
 
 @contextmanager
-def _state_write_lock():
+def _state_write_lock(*, wait: bool = True):
     """Serialize read-modify-write over the state file.
 
     Atomic replacement makes each WRITE whole; it does nothing for the read that
@@ -282,22 +289,31 @@ def _state_write_lock():
     with the stale `true` -- silently undoing the user's opt-out.
 
     Advisory and best-effort: if the lock cannot be taken the write still
-    happens, because losing a diagnostic is better than dropping one.
+    happens, because losing a diagnostic is better than dropping one. Yields
+    whether the block may write: always, except with `wait=False` while another
+    writer holds the lock (a caller that must never wait on it: the Probe
+    service, `amend_attempt`).
     """
     handle = None
+    free = True
     try:
         import fcntl
 
         path = state_dir() / "state.lock"
         path.parent.mkdir(parents=True, exist_ok=True)
         handle = open(path, "a+")  # noqa: SIM115 -- released in the finally
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX if wait else fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:  # wait=False, and another writer holds it
+        free = False
+        if handle is not None:
+            handle.close()
+            handle = None
     except Exception:  # noqa: BLE001 -- no fcntl, or an unwritable dir
         if handle is not None:
             handle.close()
             handle = None
     try:
-        yield
+        yield free
     finally:
         if handle is not None:
             try:
@@ -420,20 +436,39 @@ def record_attempt(attempt: Attempt, *, agent: str | None = None) -> None:
 def _write_attempt(attempt: Attempt) -> None:
     with _state_write_lock():
         raw = _read()
-        raw["last_attempt"] = {
-            "at": attempt.at,
-            "ok": attempt.ok,
-            "detail": attempt.detail,
-            "from_version": attempt.from_version,
-            "to_version": attempt.to_version,
-            "plugin_ok": attempt.plugin_ok,
-            "plugin_detail": attempt.plugin_detail,
-            "plugin_version": attempt.plugin_version,
-        }
-        # A real attempt CLEARS the skip record. Leaving a week-old "skipped, run
-        # in flight" beside a fresh success would read as though we were blocked.
-        raw.pop("last_skip", None)
+        _put_attempt(raw, attempt)
         _write(raw)
+
+
+def _put_attempt(raw: dict, attempt: Attempt) -> None:
+    raw["last_attempt"] = {
+        "at": attempt.at,
+        "ok": attempt.ok,
+        "detail": attempt.detail,
+        "from_version": attempt.from_version,
+        "to_version": attempt.to_version,
+        "plugin_ok": attempt.plugin_ok,
+        "plugin_detail": attempt.plugin_detail,
+        "plugin_version": attempt.plugin_version,
+    }
+    # A real attempt CLEARS the skip record. Leaving a week-old "skipped, run
+    # in flight" beside a fresh success would read as though we were blocked.
+    raw.pop("last_skip", None)
+
+
+def amend_attempt(change, *, wait: bool = True) -> bool:
+    """`last_attempt` replaced by `change(the current one, or None)`, read and
+    written under one hold of the state lock. `wait=False`: never waits for
+    it, and writes nothing (False) while another writer holds it -- the Probe
+    service recording an update it stopped, which a process that would not
+    stop may still hold the lock for. Whether it was written."""
+    with _state_write_lock(wait=wait) as free:
+        if not free:
+            return False
+        raw = _read()
+        _put_attempt(raw, change(_attempt_from(raw.get("last_attempt"))))
+        _write(raw)
+    return True
 
 
 def record_skip(
@@ -546,9 +581,14 @@ WAIT_FOR_PID_TIMEOUT = 1800
 
 
 def pid_is_alive(pid: int) -> bool:
-    """Signal 0 probes for existence without delivering anything."""
+    """Signal 0 probes for existence without delivering anything. On Windows
+    `os.kill(pid, 0)` answers nothing (a dead pid included), so a spawned update
+    waited out its whole WAIT_FOR_PID_TIMEOUT there: `oscompat.probe_pid` asks
+    the process table instead."""
+    from probe._shared import oscompat
+
     try:
-        os.kill(pid, 0)
+        oscompat.probe_pid(pid)
     except ProcessLookupError:
         return False
     except PermissionError:

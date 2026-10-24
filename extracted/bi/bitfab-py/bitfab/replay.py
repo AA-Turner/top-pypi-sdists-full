@@ -51,6 +51,7 @@ from bitfab.selective_replay import (
 )
 from bitfab.serialize import deserialize_value
 from bitfab.simulation_plan import plan_wait_slice
+from bitfab.span_meta import restore_inputs, restore_output
 from bitfab.warn_once import warn_once
 
 if TYPE_CHECKING:
@@ -112,7 +113,7 @@ class ReplayConcurrency:
         None
     )
     memory_throttle: bool | _ConcurrencyUnset = _CONCURRENCY_UNSET
-    child_delivery_timeout: float | None | _ConcurrencyUnset = _CONCURRENCY_UNSET
+    child_delivery_timeout: float | _ConcurrencyUnset | None = _CONCURRENCY_UNSET
 
     def __post_init__(self) -> None:
         _validate_attempts(self.attempts)
@@ -2707,6 +2708,7 @@ def _extract_span_data(span: dict[str, Any]) -> dict[str, Any]:
     return {
         "input": span_data.get("input"),
         "output": span_data.get("output"),
+        "inputMeta": span_data.get("input_meta"),
         "inputSerialized": span_data.get("input_serialized"),
         "outputSerialized": span_data.get("output_serialized"),
         "integrationFixtures": extract_integration_fixtures(span_data),
@@ -2724,14 +2726,15 @@ def _deserialize_span_output(span: dict[str, Any]) -> Any:
     """
     raw_data = span.get("rawData") or {}
     span_data = raw_data.get("span_data") or {}
+    output_meta = span_data.get("output_meta")
+    if output_meta is not None:
+        return restore_output(span_data.get("output"), output_meta)
     output_serialized = span_data.get("output_serialized")
     if (
         output_serialized
         and isinstance(output_serialized, dict)
         and "meta" in output_serialized
     ):
-        # Fail open like the inline base path: a deserialization error falls
-        # back to the raw JSON-safe output rather than aborting the replay.
         with contextlib.suppress(Exception):
             return deserialize_value(output_serialized)
     return span_data.get("output")
@@ -2948,22 +2951,12 @@ async def _execute_item_async(
 def _deserialize_inputs(
     item: dict[str, Any], *, dict_input_as_positional: bool = False
 ) -> tuple[list[Any], dict[str, Any]]:
-    """Deserialize inputs from a replay item into (args, kwargs).
-
-    ``inputSerialized`` is preferred whenever present, with or without type
-    metadata: it is the only faithful record of the args/kwargs split, since
-    the flat ``input`` appends kwargs as a trailing positional dict.
-
-    A raw dict input with no serialization metadata is ambiguous: it's a
-    kwargs mapping for decorator-recorded traces, but a single positional
-    value for handler-recorded traces (the framework input, e.g. a LangGraph
-    state). ``dict_input_as_positional`` (set when replay auto-wrapped a
-    plain callable under an explicit key) resolves it as one positional
-    argument, matching the TypeScript SDK; decorated functions always keep
-    the kwargs splat.
-    """
     input_serialized = item.get("inputSerialized")
     raw_input = item.get("input")
+
+    restored = restore_inputs(raw_input, item.get("inputMeta"))
+    if restored is not None:
+        return restored
 
     if (
         input_serialized

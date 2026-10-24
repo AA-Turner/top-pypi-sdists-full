@@ -15,6 +15,8 @@ class BaseForm:
     validation, and data and error proxying.
     """
 
+    _parent_form = None
+
     def __init__(self, fields, prefix="", meta=_default_meta):
         """
         :param fields:
@@ -30,6 +32,7 @@ class BaseForm:
             prefix += "-"
 
         self.meta = meta
+        self._parent_form = getattr(meta, "_parent_form", None)
         self._form_error_key = ""
         self._prefix = prefix
         self._fields = OrderedDict()
@@ -127,6 +130,37 @@ class BaseForm:
 
             field.process(formdata, data, extra_filters=field_extra_filters)
 
+        if self._parent_form is None:
+            self.post_process(formdata)
+
+    def post_process(self, formdata=None):
+        """Hook called at the end of :meth:`process` on the root form.
+
+        Runs the :meth:`~wtforms.fields.Field.post_process` hook on every
+        field, after all fields have been processed. Override this on a form
+        subclass to add cross-field finalization logic; call
+        ``super().post_process(formdata)`` to keep per-field hooks running.
+
+        :param formdata: The resolved formdata the form was bound with (already
+            passed through :meth:`~wtforms.meta.DefaultMeta.wrap_formdata`), or
+            ``None`` for non-formdata cycles. Forwarded to every nested
+            ``post_process``.
+
+        :meth:`process` only triggers ``post_process`` on the root form. Forms
+        nested inside a :class:`~wtforms.fields.FormField` (or via
+        :class:`~wtforms.fields.FieldList` entries) propagate the call through
+        ``FormField.post_process`` and ``FieldList.post_process``, so
+        :meth:`process` runs every nested field's ``post_process`` once.
+
+        After changing field data, call ``post_process(formdata)`` again with
+        the same ``formdata``, so that derived state such as ``choices``
+        callables reflects the new data. Overrides must therefore be
+        idempotent: derive state from ``data``, do not reload ``data`` from
+        ``formdata``.
+        """
+        for field in self._fields.values():
+            field.post_process(formdata)
+
     def validate(self, extra_validators=None):
         """
         Validates the form by calling `validate` on each field.
@@ -206,6 +240,7 @@ class FormMeta(type):
                 if "Meta" in mro_class.__dict__:
                     bases.append(mro_class.Meta)
             cls._wtforms_meta = type("Meta", tuple(bases), {})
+
         return type.__call__(cls, *args, **kwargs)
 
     def __setattr__(cls, name, value):
@@ -278,7 +313,11 @@ class Form(BaseForm, metaclass=FormMeta):
         meta_obj = self._wtforms_meta()
         if meta is not None and isinstance(meta, dict):
             meta_obj.update_values(meta)
-        super().__init__(self._unbound_fields, meta=meta_obj, prefix=prefix)
+        super().__init__(
+            self._unbound_fields,
+            meta=meta_obj,
+            prefix=prefix,
+        )
 
         for name, field in self._fields.items():
             # Set all the fields to attributes so that they obscure the class

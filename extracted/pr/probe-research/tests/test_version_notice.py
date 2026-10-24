@@ -44,8 +44,12 @@ def isolate(tmp_path, monkeypatch):
 
 @pytest.fixture
 def spawns(monkeypatch):
-    """Record spawns instead of performing them."""
+    """Record spawns instead of performing them, on the CLI's own updater (the
+    fallback: Windows, or no service interpreter). A machine with a Probe CLI
+    installed would otherwise make the service the updater here, and these
+    gates are the fallback's; the service's path has its own section below."""
     calls: list[list[str]] = []
+    monkeypatch.setattr(cli_main, "_service_owns_updates", lambda: False)
     monkeypatch.setattr(cli_main, "_spawn_version_refresh", lambda: calls.append(["refresh"]))
     monkeypatch.setattr(cli_main, "_spawn_autoupdate", lambda: calls.append(["apply"]))
     return calls
@@ -965,3 +969,194 @@ def test_windows_never_applies_from_pis_session_start(spawns, no_network, monkey
     cli_main._version_notice()
 
     assert ["apply"] not in spawns
+
+
+# ---------------------------------------------------------------------------
+# Where the Probe service is the updater (POSIX): the CLI only asks it.
+#
+# Bucket's laptop (2026-10-23) recorded "not an interactive terminal" 293 times
+# in three hours -- its hooks and daemon run `probe` off a terminal, the
+# SessionStart hook's own `probe service check-now` included -- and each record
+# overwrote the service's own deferral in `last_skip`, which is the skip the
+# server's update report carries. Nothing was refused: these commands could
+# only have asked the service, which decides for itself.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def service_asks(monkeypatch):
+    """The service owns updates; record each ask instead of spawning one."""
+    asks: list[str] = []
+    monkeypatch.setattr(cli_main, "_service_owns_updates", lambda: True)
+    monkeypatch.setattr(cli_main, "_ask_service_to_update", asks.append)
+    monkeypatch.setattr(cli_main, "_spawn_version_refresh", lambda: None)
+    return asks
+
+
+def test_with_the_service_a_command_off_a_terminal_asks_it_and_records_no_skip(
+    service_asks, no_network, monkeypatch, capsys
+):
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, False)
+    _argv(monkeypatch, "ls")
+
+    cli_main._version_notice()
+
+    assert service_asks == ["cli"]
+    assert autoupdate.load().last_skip is None, "nothing was refused: the service decides"
+    assert "99.9.9" in capsys.readouterr().err, "the nudge still prints"
+
+
+def test_with_the_service_a_live_run_does_not_stop_the_ask(service_asks, no_network, monkeypatch):
+    """The service updates beside a live run (D6), or waits for it and records
+    that itself; the CLI's run-lock gate only stood in its way."""
+    from probe.cli import run_lock
+
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, True)
+    _argv(monkeypatch, "ls")
+    lock = run_lock.acquire("training-run")
+    try:
+        cli_main._version_notice()
+    finally:
+        lock.release()
+
+    assert service_asks == ["cli"]
+    assert autoupdate.load().last_skip is None
+
+
+def test_with_the_service_a_command_never_overwrites_the_services_own_deferral(
+    service_asks, no_network, monkeypatch
+):
+    autoupdate.record_skip(
+        autoupdate.SKIP_DAEMON_RECORDING, available="99.9.9", trigger=autoupdate.Trigger.SESSION_START
+    )
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, False)
+    _argv(monkeypatch, "notes")
+
+    cli_main._version_notice()
+
+    skip = autoupdate.load().last_skip
+    assert (skip.reason, skip.count, skip.trigger) == (
+        autoupdate.SKIP_DAEMON_RECORDING,
+        1,
+        autoupdate.Trigger.SESSION_START.value,
+    )
+
+
+def test_with_the_service_one_ask_per_window_however_many_commands(
+    service_asks, no_network, monkeypatch
+):
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, True)
+    _argv(monkeypatch, "ls")
+
+    for _ in range(5):
+        cli_main._version_notice()
+    assert service_asks == ["cli"]
+
+    stamp = autoupdate.state_dir() / cli_main._SERVICE_ASK_STAMP
+    then = time.time() - cli_main._SERVICE_ASK_EVERY_S - 1
+    import os
+
+    os.utime(stamp, (then, then))
+    cli_main._version_notice()
+    assert service_asks == ["cli", "cli"]
+
+
+@pytest.mark.parametrize("command", ["service", *sorted(cli_main._UPDATE_HOT_PATH_COMMANDS)])
+def test_with_the_service_probe_service_and_run_commands_start_nothing_and_record_nothing(
+    service_asks, no_network, monkeypatch, command
+):
+    """`probe service check-now` is the hook's ask itself; a run-scoped command
+    starts no process from inside a training loop."""
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, False)
+    _argv(monkeypatch, command)
+
+    cli_main._version_notice()
+
+    assert service_asks == []
+    assert autoupdate.load().last_skip is None
+
+
+def test_with_the_service_pis_session_start_asks_it_although_a_run_is_live(
+    service_asks, no_network, monkeypatch
+):
+    from probe.cli import run_lock
+
+    started: list[str] = []
+    _pi_session_start(monkeypatch, started)
+    _cache("99.9.9", age=10)
+    monkeypatch.setattr(run_lock, "any_live", lambda: True)
+
+    cli_main._version_notice()
+
+    assert started == [["session-start"]]
+    assert autoupdate.load().last_skip is None
+
+
+def test_with_the_service_a_command_it_runs_itself_never_asks(service_asks, no_network, monkeypatch):
+    """The service's team-note sync runs `probe agent-rules refresh`, then
+    `notes sync`, then `feedback flush` (`notesync.py`, marked
+    `SERVICE_CHILD_ENV`): an ask from the first would land while the rest
+    still run from the CLI's files, which its quiet check does not see."""
+    from probe.service.paths import SERVICE_CHILD_ENV
+
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, False)
+    _argv(monkeypatch, "agent-rules")
+    monkeypatch.setenv(SERVICE_CHILD_ENV, "1")
+
+    cli_main._version_notice()
+
+    assert service_asks == []
+    assert autoupdate.load().last_skip is None
+
+
+def test_with_the_service_a_command_finding_the_window_being_claimed_leaves_the_ask_to_it(
+    service_asks, no_network, monkeypatch
+):
+    """The stamp is read and written under one exclusive lock: commands that
+    start together ask once, whoever claims it first."""
+    from probe._shared import oscompat
+
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, True)
+    _argv(monkeypatch, "ls")
+    stamp = autoupdate.state_dir() / cli_main._SERVICE_ASK_STAMP
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(stamp, "a+b") as other:
+        oscompat.flock(other.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        cli_main._version_notice()
+        assert service_asks == [], "asked while another command held the window's claim"
+    cli_main._version_notice()
+    assert service_asks == ["cli"]
+
+
+def test_with_the_service_a_burst_of_commands_asks_once(service_asks, no_network, monkeypatch):
+    import threading
+
+    _enable()
+    _cache("99.9.9")
+    start = threading.Barrier(8)
+
+    def command() -> None:
+        start.wait()
+        cli_main._hand_update_to_service("ls")
+
+    threads = [threading.Thread(target=command) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert service_asks == ["cli"]

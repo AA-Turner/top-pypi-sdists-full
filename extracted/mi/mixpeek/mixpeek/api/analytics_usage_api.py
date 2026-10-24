@@ -60,7 +60,7 @@ class AnalyticsUsageApi:
     ) -> Dict[str, object]:
         """Get Usage Summary
 
-        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations.  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
+        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations. - ``multi_vector_tokens``: tokens of multi-vectors stored by writes, as   carried by the ``mvs_write`` usage records in the window (``recorded``),   plus tokens written since the last record (``pending``).  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
 
         :param start_date: Start date (UTC)
         :type start_date: datetime
@@ -103,8 +103,10 @@ class AnalyticsUsageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -137,7 +139,7 @@ class AnalyticsUsageApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Get Usage Summary
 
-        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations.  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
+        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations. - ``multi_vector_tokens``: tokens of multi-vectors stored by writes, as   carried by the ``mvs_write`` usage records in the window (``recorded``),   plus tokens written since the last record (``pending``).  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
 
         :param start_date: Start date (UTC)
         :type start_date: datetime
@@ -180,8 +182,10 @@ class AnalyticsUsageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -214,7 +218,7 @@ class AnalyticsUsageApi:
     ) -> RESTResponseType:
         """Get Usage Summary
 
-        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations.  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
+        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations. - ``multi_vector_tokens``: tokens of multi-vectors stored by writes, as   carried by the ``mvs_write`` usage records in the window (``recorded``),   plus tokens written since the last record (``pending``).  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
 
         :param start_date: Start date (UTC)
         :type start_date: datetime
@@ -257,8 +261,10 @@ class AnalyticsUsageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

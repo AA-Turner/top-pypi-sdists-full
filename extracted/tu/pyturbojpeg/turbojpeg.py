@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 __author__ = 'Lilo Huang <kuso.cc@gmail.com>'
-__version__ = '2.5.0'
+__version__ = '2.6.1'
 
 from ctypes import (
     CFUNCTYPE,
@@ -48,6 +48,7 @@ import platform
 import numpy as np
 import warnings
 import os
+import re
 from struct import unpack
 
 # default libTurboJPEG library path
@@ -82,6 +83,31 @@ DEFAULT_LIB_PATHS = {
 TJERR_WARNING = 0
 TJERR_FATAL = 1
 
+# In libjpeg-turbo 3.0--3.2, a fatal error following a warning can still
+# report TJERR_WARNING.  The fatal error overwrites the message, however.
+# Only accept the known JWRN_* messages from jerror.h; fail closed for
+# unknown messages rather than returning an unfinished native output.
+# https://github.com/libjpeg-turbo/libjpeg-turbo/blob/3.2.0/src/jerror.h
+_RECOVERABLE_WARNING = re.compile(
+    r'Unknown Adobe color transform code [0-9]+|'
+    r'Corrupt JPEG data: bad arithmetic code|'
+    r'Inconsistent progression sequence for component [0-9]+ coefficient [0-9]+|'
+    r'Corrupt JPEG data: [0-9]+ extraneous bytes before marker 0x[0-9a-f]{2}|'
+    r'Corrupt JPEG data: premature end of data segment|'
+    r'Corrupt JPEG data: bad Huffman code|'
+    r'Warning: unknown JFIF revision number [0-9]+\.[0-9]+|'
+    r'Premature end of JPEG file|'
+    r'Corrupt JPEG data: found marker 0x[0-9a-f]{2} instead of RST[0-9]+|'
+    r'Invalid SOS parameters for sequential JPEG|'
+    r'Application transferred too many scanlines|'
+    r'Corrupt JPEG data: bad ICC marker')
+
+# APP2 payload: 65535-byte marker length minus its 2-byte length field and
+# the 14-byte ICC header.  Each chunk also needs a 2-byte marker prefix.
+_ICC_CHUNK_SIZE = 65519
+_ICC_MARKER_OVERHEAD = 18
+_MAX_ICC_PROFILE_SIZE = 255 * _ICC_CHUNK_SIZE
+
 # color spaces
 # see details in https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/turbojpeg.h
 TJCS_RGB = 0
@@ -89,6 +115,7 @@ TJCS_YCbCr = 1
 TJCS_GRAY = 2
 TJCS_CMYK = 3
 TJCS_YCCK = 4
+TJCS_DEFAULT = -1
 
 # pixel formats
 # see details in https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/turbojpeg.h
@@ -114,6 +141,7 @@ TJSAMP_GRAY = 3
 TJSAMP_440 = 4
 TJSAMP_411 = 5
 TJSAMP_441 = 6
+TJSAMP_UNKNOWN = -1
 
 # Precision constants for TurboJPEG 3.0+
 # see details in https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/turbojpeg.h
@@ -274,16 +302,26 @@ class BackgroundStruct(Structure):
     Parameters
     ----------
     w: c_int
-        Width of the input image.
+        Width of the source region remaining after cropping.
     h: c_int
-        Height of the input image.
-    lum: c_int
-        Luminance value to use as background when extending the image.
+        Height of the source region remaining after cropping.
+    components: c_int
+        Number of component planes to fill (one for Y/gray, three for RGB).
+    dc: c_int * 3
+        Quantized background DC coefficient for each component plane.
+    x, y: c_int
+        Origin of the retained source rectangle in the output canvas.
+    subsample: c_int
+        JPEG subsampling mode, used to locate source pixels in RGB G/B planes.
     """
     _fields_ = [
         ("w", c_int),
         ("h", c_int),
-        ("lum", c_int)
+        ("components", c_int),
+        ("dc", c_int * 3),
+        ("x", c_int),
+        ("y", c_int),
+        ("subsample", c_int)
     ]
 
 class TransformStruct(Structure):
@@ -295,7 +333,7 @@ class TransformStruct(Structure):
         ("customFilter", CUSTOMFILTER)
     ]
 
-# MCU for luminance is always 8
+# Each component uses 8x8 DCT blocks in its own sampling resolution.
 MCU_WIDTH = 8
 MCU_HEIGHT = 8
 MCU_SIZE = 64
@@ -330,61 +368,36 @@ def _fill_background(
         CFUNCTYPE function must return an int.
     """
 
-    # Only modify luminance data, so we dont need to worry about subsampling
-    if componentID == 0:
-        coeff_array_size = arrayRegion.w * arrayRegion.h
-        # Read the coefficients in the pointer as a np array (no copy)
-        ArrayType = c_short*coeff_array_size
-        array_pointer = cast(coeffs_ptr, POINTER(ArrayType))
-        coeffs = np.frombuffer(array_pointer.contents, dtype=np.int16)
-        coeffs.shape = (
-            arrayRegion.h//MCU_WIDTH,
-            arrayRegion.w//MCU_HEIGHT,
-            MCU_SIZE
-        )
+    transform = cast(transform_ptr, POINTER(TransformStruct)).contents
+    background_data = transform.data.contents
+    if not 0 <= componentID < background_data.components:
+        return
 
-        # Cast the content of the transform pointer into a transform structure
-        transform = cast(transform_ptr, POINTER(TransformStruct)).contents
-        # Cast the content of the callback data pointer in the transform
-        # structure to a background structure
-        background_data = cast(
-            transform.data, POINTER(BackgroundStruct)
-        ).contents
+    ArrayType = c_short * (arrayRegion.w * arrayRegion.h)
+    array_pointer = cast(coeffs_ptr, POINTER(ArrayType))
+    coeffs = np.frombuffer(array_pointer.contents, dtype=np.int16).reshape(
+        arrayRegion.h // MCU_HEIGHT, arrayRegion.w // MCU_WIDTH, MCU_SIZE)
+    dc = background_data.dc[componentID]
 
-        # The coeff array is typically just one MCU heigh, but it is up to the
-        # libjpeg implementation how to do it. The part of the coeff array that
-        # is 'left' of 'non-background' data should thus be handled separately
-        # from the part 'under'. (Most of the time, the coeff array will be
-        # either 'left' or 'under', but both could happen). Note that start
-        # and end rows defined below can be outside the arrayRegion, but that
-        # the range they then define is of 0 length.
+    # R/Y/gray are full resolution. In subsampled RGB, each G/B block covers
+    # a larger source rectangle, while callback coordinates remain in samples
+    # of that component plane.
+    block_width = MCU_WIDTH if componentID == 0 else tjMCUWidth[background_data.subsample]
+    block_height = MCU_HEIGHT if componentID == 0 else tjMCUHeight[background_data.subsample]
 
-        # fill mcus left of image
-        left_start_row = min(arrayRegion.y, background_data.h) - arrayRegion.y
-        left_end_row = (
-            min(arrayRegion.y+arrayRegion.h, background_data.h)
-            - arrayRegion.y
-        )
-        y_start = left_start_row // MCU_HEIGHT
-        y_end = left_end_row // MCU_HEIGHT
-        x_start = background_data.w // MCU_WIDTH
-        x_end = planeRegion.w // MCU_WIDTH
-        if y_end > y_start and x_end > x_start:
-            coeffs[y_start:y_end, x_start:x_end, 0] = background_data.lum
-
-        # fill mcus under image
-        bottom_start_row = (
-            max(arrayRegion.y, background_data.h) - arrayRegion.y
-        )
-        bottom_end_row = (
-            max(arrayRegion.y+arrayRegion.h, background_data.h)
-            - arrayRegion.y
-        )
-        y_start = bottom_start_row // MCU_HEIGHT
-        y_end = bottom_end_row // MCU_HEIGHT
-        x_end = planeRegion.w // MCU_WIDTH
-        if y_end > y_start and x_end > 0:
-            coeffs[y_start:y_end, 0:x_end, 0] = background_data.lum
+    # Fill complete blocks outside the source, including across a partial
+    # edge on the other axis. Account for callbacks covering only part of a
+    # component plane, and never modify a block containing source pixels.
+    left = max(0, background_data.x // block_width - arrayRegion.x // MCU_WIDTH)
+    top = max(0, background_data.y // block_height - arrayRegion.y // MCU_HEIGHT)
+    right = max(0, (background_data.x + background_data.w + block_width - 1) // block_width -
+                arrayRegion.x // MCU_WIDTH)
+    bottom = max(0, (background_data.y + background_data.h + block_height - 1) // block_height -
+                 arrayRegion.y // MCU_HEIGHT)
+    coeffs[:, :left, 0] = dc
+    coeffs[:top, :, 0] = dc
+    coeffs[:, right:, 0] = dc
+    coeffs[bottom:, :, 0] = dc
 
     return None
 
@@ -678,7 +691,8 @@ class TurboJPEG(object):
             
             - width: image width in pixels
             - height: image height in pixels
-            - jpeg_subsample: chroma subsampling (TJSAMP_*)
+            - jpeg_subsample: chroma subsampling (TJSAMP_*), or
+              TJSAMP_UNKNOWN for an unusual sampling pattern
             - jpeg_colorspace: colorspace (TJCS_*)
             - precision: bit precision (8, 12, or 16) - only when return_precision=True
         
@@ -710,8 +724,8 @@ class TurboJPEG(object):
             height = self.__get(handle, TJPARAM_JPEGHEIGHT)
             jpeg_subsample = self.__get(handle, TJPARAM_SUBSAMP)
             jpeg_colorspace = self.__get(handle, TJPARAM_COLORSPACE)
-            # Check for errors (tj3Get returns -1 on error)
-            if width < 0 or height < 0 or jpeg_subsample < 0 or jpeg_colorspace < 0:
+            # TJSAMP_UNKNOWN (-1) is valid header metadata, not a get error.
+            if width < 0 or height < 0 or jpeg_colorspace < 0:
                 self.__report_error(handle)
             if self.__max_pixels:
                 self.__enforce_max_pixels(handle, width, height)
@@ -779,18 +793,24 @@ class TurboJPEG(object):
                 self.__enforce_max_pixels(handle)
             icc_buf = c_void_p()
             icc_size = c_size_t()
-            status = self.__get_icc_profile(handle, byref(icc_buf), byref(icc_size))
-            if status != 0:
-                # A non-fatal return (e.g. no profile present) should return None
-                err_code = self.__get_error_code(handle)
-                if err_code == TJERR_WARNING:
+            try:
+                status = self.__get_icc_profile(
+                    handle, byref(icc_buf), byref(icc_size))
+                if status != 0:
+                    # This API reports the absence of a profile as a warning.
+                    # Other failures must not be mistaken for an absent profile.
+                    if self.__get_error_code(handle) == TJERR_WARNING and \
+                            self.__get_error_string(handle) == (
+                                'tj3GetICCProfile(): No ICC profile data has '
+                                'been extracted'):
+                        return None
+                    self.__report_error(handle)
+                if icc_buf.value is None or icc_size.value == 0:
                     return None
-                self.__report_error(handle)
-            if icc_buf.value is None or icc_size.value == 0:
-                return None
-            result = self.__copy_from_buffer(icc_buf.value, icc_size.value)
-            self.__free(icc_buf)
-            return result
+                return self.__copy_from_buffer(icc_buf.value, icc_size.value)
+            finally:
+                if icc_buf.value is not None:
+                    self.__free(icc_buf)
         finally:
             self.__destroy(handle)
 
@@ -806,7 +826,7 @@ class TurboJPEG(object):
         handle : ctypes void pointer
             An active TurboJPEG compressor handle (TJINIT_COMPRESS).
         icc_buf : bytes
-            Raw ICC profile data to embed.
+            Raw ICC profile data to embed (at most 16,707,345 bytes).
 
         Raises
         ------
@@ -819,8 +839,7 @@ class TurboJPEG(object):
             raise NotImplementedError(
                 'tj3SetICCProfile is not available in the loaded libturbojpeg. '
                 'Please upgrade to libjpeg-turbo 3.1 or later.')
-        icc_view = self.__get_buffer_view(
-            icc_buf, "'icc_buf' argument", writable=False)
+        icc_view = self.__get_icc_buffer_view(icc_buf, "'icc_buf' argument")
         icc_array = np.frombuffer(icc_view, dtype=np.uint8)
         icc_addr = self.__getaddr(icc_array)
         status = self.__set_icc_profile(handle, icc_addr, icc_view.nbytes)
@@ -843,6 +862,7 @@ class TurboJPEG(object):
         dst : ndarray or None
             Destination array (optional). It must have the exact output shape,
             dtype uint8, C-contiguous storage, and writable memory.
+            Its memory must not overlap jpeg_buf.
             
         Returns
         -------
@@ -881,6 +901,10 @@ class TurboJPEG(object):
                     raise ValueError("'dst' array must be C-contiguous")
                 if not dst.flags.writeable:
                     raise ValueError("'dst' array must be writable")
+                if np.shares_memory(jpeg_array, dst):
+                    raise ValueError(
+                        "'dst' must not overlap 'jpeg_buf'; use a separate "
+                        "destination array or copy the input with bytes(jpeg_buf)")
                 img_array = dst
             dest_addr = self.__getaddr(img_array)
             pitch = img_array.strides[0]
@@ -918,6 +942,7 @@ class TurboJPEG(object):
             src_addr = self.__getaddr(jpeg_array)
             scaled_width, scaled_height, jpeg_subsample, _ = \
                 self.__get_header_and_dimensions(handle, jpeg_array.size, src_addr, scaling_factor)
+            self.__require_yuv_subsampling(jpeg_subsample)
             buffer_size = self.__buffer_size_YUV(scaled_width, pad, scaled_height, jpeg_subsample)
             if buffer_size == 0:
                 self.__report_error(handle)
@@ -962,6 +987,7 @@ class TurboJPEG(object):
             src_addr = self.__getaddr(jpeg_array)
             scaled_width, scaled_height, jpeg_subsample, _ = \
                 self.__get_header_and_dimensions(handle, jpeg_array.size, src_addr, scaling_factor)
+            self.__require_yuv_subsampling(jpeg_subsample)
             num_planes = 1 if jpeg_subsample == TJSAMP_GRAY else 3
             try:
                 strides = tuple(strides)
@@ -999,7 +1025,7 @@ class TurboJPEG(object):
         finally:
             self.__destroy(handle)
 
-    def encode(self, img_array, quality=85, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_422, flags=0, dst=None, lossless=False, icc_profile=None):
+    def encode(self, img_array, quality=85, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_422, flags=0, dst=None, lossless=False, icc_profile=None, jpeg_colorspace=None):
         """encodes numpy array to JPEG memory buffer.
         
         Parameters
@@ -1011,13 +1037,14 @@ class TurboJPEG(object):
         pixel_format : int
             Pixel format (TJPF_RGB, TJPF_BGR, etc.)
         jpeg_subsample : int
-            Chroma subsampling (TJSAMP_444, TJSAMP_422, etc.) - ignored if lossless=True
+            JPEG component subsampling (TJSAMP_444, TJSAMP_422, etc.) - ignored if lossless=True
         flags : int
             Compression flags
         dst : writable contiguous buffer or None
             Destination buffer (optional). The buffer must be large enough for
             the worst-case JPEG size. If provided, TurboJPEG is not allowed to
-            reallocate it.
+            reallocate it. Its memory must not overlap the source image.
+            Use buffer_size(..., icc_profile=icc_profile) to include ICC markers.
         lossless : bool
             Enable lossless JPEG compression (default: False)
             When True, provides perfect reconstruction with larger file sizes.
@@ -1025,7 +1052,22 @@ class TurboJPEG(object):
             subsampling is automatically set to 4:4:4 by the library.
         icc_profile : bytes or None
             Raw ICC profile data to embed in the JPEG (optional).
+            At most 16,707,345 bytes, split across up to 255 APP2 markers.
             Requires TurboJPEG 3.1 or later with tj3SetICCProfile support.
+        jpeg_colorspace : int or None
+            JPEG storage colorspace (TJCS_*), independent of the input
+            pixel_format. None and TJCS_DEFAULT preserve the library's
+            automatic selection, including with libjpeg-turbo versions
+            older than 3.2.
+            For lossy encoding, CMYK requires TJSAMP_444, GRAY requires
+            TJSAMP_GRAY, and RGB/YCbCr/YCCK require non-grayscale subsampling.
+            RGB uses the requested subsampling, including the default 4:2:2.
+            Use TJSAMP_444 to retain full resolution in all three channels;
+            other modes reduce G/B resolution without mixing channels.
+            RGB inputs support RGB, YCbCr, or GRAY output; grayscale inputs
+            support only GRAY; CMYK inputs support CMYK or YCCK.
+            Lossless encoding accepts only the input's native colorspace
+            (RGB, GRAY, or CMYK) and still ignores jpeg_subsample.
             
         Returns
         -------
@@ -1071,6 +1113,10 @@ class TurboJPEG(object):
             img_array, height, width, pixel_format = self.__prepare_image(
                 img_array, np.uint8, pixel_format, 'encode()')
 
+        if jpeg_colorspace is not None:
+            jpeg_colorspace = self.__validate_encoding_colorspace(
+                jpeg_colorspace, pixel_format, jpeg_subsample, lossless)
+
         handle = self.__init(TJINIT_COMPRESS)
         try:
             if flags:
@@ -1084,11 +1130,15 @@ class TurboJPEG(object):
                     handle, TJPARAM_SUBSAMP, jpeg_subsample)
                 self.__set_parameter(handle, TJPARAM_QUALITY, quality)
 
-            icc_size = 0
+                if jpeg_colorspace is not None:
+                    self.__set_parameter(
+                        handle, TJPARAM_COLORSPACE, jpeg_colorspace)
+
+            icc_storage_size = 0
             if icc_profile is not None:
-                icc_view = self.__get_buffer_view(
-                    icc_profile, "'icc_profile' argument", writable=False)
-                icc_size = icc_view.nbytes
+                icc_view = self.__get_icc_buffer_view(
+                    icc_profile, "'icc_profile' argument")
+                icc_storage_size = self.__icc_storage_size(icc_view.nbytes)
                 self.set_icc_profile(handle, icc_view)
 
             if dst is not None:
@@ -1096,7 +1146,7 @@ class TurboJPEG(object):
                     dst, "'dst' argument", writable=True)
                 buffer_subsample = TJSAMP_444 if lossless else jpeg_subsample
                 required_size = self.__buffer_size(
-                    width, height, buffer_subsample) + icc_size
+                    width, height, buffer_subsample) + icc_storage_size
                 if dst_view.nbytes < required_size:
                     raise ValueError(
                         "'dst' buffer is too small: requires at least {} bytes, "
@@ -1104,6 +1154,10 @@ class TurboJPEG(object):
                 if self.__set(handle, TJPARAM_NOREALLOC, 1) != 0:
                     self.__report_error(handle)
                 dst_array = np.frombuffer(dst_view, dtype=np.uint8)
+                if np.shares_memory(img_array, dst_array):
+                    raise ValueError(
+                        "'dst' must not overlap the source image; use a "
+                        "separate destination buffer or pass img_array.copy()")
                 jpeg_buf = dst_array.ctypes.data_as(c_void_p)
                 jpeg_size = c_size_t(dst_view.nbytes)
             else:
@@ -1240,6 +1294,7 @@ class TurboJPEG(object):
             src_addr = self.__getaddr(jpeg_array)
             scaled_width, scaled_height, jpeg_subsample, _ = self.__get_header_and_dimensions(
                 decompress_handle, jpeg_array.size, src_addr, scaling_factor)
+            self.__require_yuv_subsampling(jpeg_subsample)
             buffer_YUV_size = self.__buffer_size_YUV(
                 scaled_width, 4, scaled_height, jpeg_subsample)
             if buffer_YUV_size == 0:
@@ -1277,7 +1332,7 @@ class TurboJPEG(object):
         finally:
             self.__destroy(compress_handle)
     
-    def encode_12bit(self, img_array, quality=85, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_422, flags=0, lossless=False):
+    def encode_12bit(self, img_array, quality=85, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_422, flags=0, lossless=False, jpeg_colorspace=None):
         """Encodes 12-bit numpy array (uint16) to JPEG memory buffer.
         
         Parameters
@@ -1289,12 +1344,17 @@ class TurboJPEG(object):
         pixel_format : int
             Pixel format (TJPF_RGB, TJPF_BGR, etc.)
         jpeg_subsample : int
-            Chroma subsampling (TJSAMP_444, TJSAMP_422, etc.) - ignored if lossless=True
+            JPEG component subsampling (TJSAMP_444, TJSAMP_422, etc.) - ignored if lossless=True
         flags : int
             Compression flags
         lossless : bool
             Enable lossless JPEG compression (default: False)
             When True, provides perfect reconstruction with larger file sizes
+        jpeg_colorspace : int or None
+            JPEG storage colorspace (TJCS_*). Uses the same input format,
+            subsampling, and lossless rules as encode(). None and
+            TJCS_DEFAULT preserve the library's automatic selection on all
+            supported libjpeg-turbo versions.
             
         Returns
         -------
@@ -1313,6 +1373,9 @@ class TurboJPEG(object):
         img_array, height, width, pixel_format = self.__prepare_image(
             img_array, np.uint16, pixel_format, 'encode_12bit()',
             maximum_value=4095)
+        if jpeg_colorspace is not None:
+            jpeg_colorspace = self.__validate_encoding_colorspace(
+                jpeg_colorspace, pixel_format, jpeg_subsample, lossless)
 
         handle = self.__init(TJINIT_COMPRESS)
         try:
@@ -1326,6 +1389,10 @@ class TurboJPEG(object):
                 self.__set_parameter(
                     handle, TJPARAM_SUBSAMP, jpeg_subsample)
                 self.__set_parameter(handle, TJPARAM_QUALITY, quality)
+
+                if jpeg_colorspace is not None:
+                    self.__set_parameter(
+                        handle, TJPARAM_COLORSPACE, jpeg_colorspace)
             
             jpeg_buf = c_void_p()
             jpeg_size = c_size_t()
@@ -1346,7 +1413,7 @@ class TurboJPEG(object):
         finally:
             self.__destroy(handle)
     
-    def encode_16bit(self, img_array, pixel_format=TJPF_BGR, flags=0):
+    def encode_16bit(self, img_array, pixel_format=TJPF_BGR, flags=0, jpeg_colorspace=None):
         """Encodes 16-bit numpy array (uint16) to lossless JPEG memory buffer.
         
         **Note:** 16-bit precision requires lossless JPEG compression per the JPEG standard.
@@ -1360,6 +1427,11 @@ class TurboJPEG(object):
             Pixel format (TJPF_RGB, TJPF_BGR, etc.)
         flags : int
             Compression flags
+        jpeg_colorspace : int or None
+            JPEG storage colorspace (TJCS_*). Only the input's native
+            colorspace (RGB, GRAY, or CMYK) is supported because 16-bit JPEG
+            is always lossless. None and TJCS_DEFAULT preserve automatic
+            selection on all supported libjpeg-turbo versions.
             
         Returns
         -------
@@ -1374,6 +1446,9 @@ class TurboJPEG(object):
                 'JPEG')
         img_array, height, width, pixel_format = self.__prepare_image(
             img_array, np.uint16, pixel_format, 'encode_16bit()')
+        if jpeg_colorspace is not None:
+            self.__validate_encoding_colorspace(
+                jpeg_colorspace, pixel_format, TJSAMP_444, lossless=True)
 
         handle = self.__init(TJINIT_COMPRESS)
         try:
@@ -1552,18 +1627,30 @@ class TurboJPEG(object):
         finally:
             self.__destroy(handle)
 
-    def crop_multiple(self, jpeg_buf, crop_parameters, background_luminance=1.0, gray=False, copynone=False):
-        """Lossless crop and/or extension operations on jpeg image.
-        Crop origin(s) needs be divisable by the MCU block size and inside
-        the input image, or OSError: Invalid crop request is raised.
+    def crop_multiple(self, jpeg_buf, crop_parameters, background_luminance=1.0,
+                      gray=False, copynone=False, *, align='strict'):
+        """Losslessly crop and/or extend a JPEG in one batch.
+        Crop origins must be inside the source image. With align='strict',
+        origins must also be aligned to the JPEG iMCU grid. For pure crops,
+        'expand' and 'shrink' match crop(preserve=False/True), respectively.
+
+        Background extension supports grayscale, YCbCr, and RGB JPEGs.
+        CMYK/YCCK images can be cropped without extension.
+        On an extended axis, x/y place the source in the output canvas;
+        the entire source must fit along that axis. Operations extending
+        either axis always require aligned x/y, regardless of align.
+        Extension also requires a complete source iMCU on the extended axis
+        (8x8 blocks for grayscale output), so no source pixels are discarded.
 
         Parameters
         ----------
         jpeg_buf: bytes
             Input jpeg image.
-        crop_parameters: List[Tuple[int, int, int, int]]
-            List of crop parameters defining start x and y origin and width
-            and height of each crop operation.
+        crop_parameters: iterable of (x, y, w, h)
+            Non-negative integer coordinates and output dimensions, in order.
+            w=0 or h=0 keeps the remaining source extent from x or y.
+            A dimension larger than the source requests extension on that
+            axis; x/y then specify placement rather than a crop origin.
         background_luminance: float
             Luminance level (0 -1 ) to fill background when extending image.
             Default to 1, resulting in white background.
@@ -1571,12 +1658,27 @@ class TurboJPEG(object):
             Produce greyscale output
         copynone: bool
             True = do not copy EXIF data (False by default)
+        align: {'strict', 'expand', 'shrink'}
+            Pure-crop alignment policy; default 'strict' rejects unaligned
+            origins and out-of-bounds rectangles. 'expand' rounds origins down;
+            'shrink' rounds them up. Both keep the requested right/bottom edges,
+            clipped to the source. Empty results raise ValueError.
+
+        Region validation errors identify the zero-based crop_parameters
+        index, parameter, source dimensions, and iMCU alignment requirements.
+        Geometry errors suggest explicit remedies and their tradeoffs; no
+        source trimming, placement changes, or recompression is automatic.
+        All regions are validated before the native batch transform runs.
 
         Returns
         ----------
         List[bytes]
             Cropped and/or extended jpeg images.
         """
+        if not isinstance(align, str):
+            raise TypeError("'align' argument must be a string: 'strict', 'expand', or 'shrink'")
+        if align not in ('strict', 'expand', 'shrink'):
+            raise ValueError("'align' argument must be 'strict', 'expand', or 'shrink'")
         handle = self.__init(TJINIT_TRANSFORM)
         try:
             if self.__source_limits_enabled:
@@ -1597,6 +1699,7 @@ class TurboJPEG(object):
             image_width = self.__get(handle, TJPARAM_JPEGWIDTH)
             image_height = self.__get(handle, TJPARAM_JPEGHEIGHT)
             jpeg_subsample = self.__get(handle, TJPARAM_SUBSAMP)
+            jpeg_colorspace = self.__get(handle, TJPARAM_COLORSPACE)
             if self.__max_pixels:
                 self.__enforce_max_pixels(
                     handle, image_width, image_height)
@@ -1614,43 +1717,43 @@ class TurboJPEG(object):
                 raise ValueError(
                     "'background_luminance' argument must be between 0 and 1")
 
-            # Define cropping regions from input parameters and image size
-            crop_regions = self.__define_cropping_regions(crop_parameters)
+            # Resolve and validate every region before building native transforms.
+            crop_regions = self.__prepare_cropping_regions(
+                crop_parameters, (image_width, image_height),
+                jpeg_subsample, jpeg_colorspace, gray, align)
             number_of_operations = len(crop_regions)
-            if number_of_operations == 0:
-                raise ValueError("'crop_parameters' argument must not be empty")
 
             # Define crop transforms from cropping_regions
             crop_transforms = (TransformStruct * number_of_operations)()
-            # Pre-compute luminance coefficient once for all crops
-            lum_coefficient = None
+            # Pre-compute background coefficients once for all crops.
+            background_coefficients = None
             callback_data_refs = []
             callback_refs = []
             for i, crop_region in enumerate(crop_regions):
-                if crop_region.x >= image_width or \
-                        crop_region.y >= image_height:
-                    raise ValueError(
-                        'Crop origin must be inside the source image')
-                if crop_region.x % tjMCUWidth[jpeg_subsample] or \
-                        crop_region.y % tjMCUHeight[jpeg_subsample]:
-                    raise ValueError(
-                        'Crop origin must be aligned to the JPEG iMCU size')
+                extends_width = crop_region.w > image_width
+                extends_height = crop_region.h > image_height
                 # The fill_background callback is slow, only use it if needed
                 if self.__need_fill_background(
                     crop_region,
                     (image_width, image_height),
                     background_luminance
                 ):
-                    if lum_coefficient is None:
-                        lum_coefficient = self.__map_luminance_to_dc_dct_coefficient(
-                            bytearray(jpeg_buf),
-                            background_luminance
-                        )
+                    if background_coefficients is None:
+                        components = 3 if jpeg_colorspace == TJCS_RGB else 1
+                        jpeg_data = bytes(jpeg_buf)
+                        background_coefficients = tuple(
+                            self.__map_luminance_to_dc_dct_coefficient(
+                                jpeg_data, background_luminance, component)
+                            for component in range(components))
                     # Use callback to fill in background post-transform
                     callback_data = BackgroundStruct(
-                        image_width,
-                        image_height,
-                        lum_coefficient
+                        image_width if extends_width else image_width - crop_region.x,
+                        image_height if extends_height else image_height - crop_region.y,
+                        len(background_coefficients),
+                        (c_int * 3)(*background_coefficients),
+                        crop_region.x if extends_width else 0,
+                        crop_region.y if extends_height else 0,
+                        jpeg_subsample,
                     )
                     callback = CUSTOMFILTER(fill_background)
                     callback_data_refs.append(callback_data)
@@ -1716,15 +1819,26 @@ class TurboJPEG(object):
         finally:
             self.__destroy(handle)
 
-    def buffer_size(self, img_array, jpeg_subsample=TJSAMP_422):
-        """Get maximum number of bytes of compressed jpeg data"""
+    def buffer_size(self, img_array, jpeg_subsample=TJSAMP_422, icc_profile=None):
+        """Get the maximum JPEG size, including optional ICC data and markers.
+
+        Use the same jpeg_subsample and icc_profile as encode(). For lossless
+        encoding, use jpeg_subsample=TJSAMP_444 regardless of encode()'s
+        jpeg_subsample argument. ICC profiles must fit in 255 APP2 markers
+        (at most 16,707,345 bytes).
+        """
         jpeg_subsample = self.__validate_subsampling(jpeg_subsample)
         image = np.asarray(img_array)
         if image.ndim < 2:
             raise ValueError('Invalid shape for image data')
         height = self.__validate_positive_integer('height', image.shape[0])
         width = self.__validate_positive_integer('width', image.shape[1])
-        return self.__buffer_size(width, height, jpeg_subsample)
+        size = self.__buffer_size(width, height, jpeg_subsample)
+        if icc_profile is not None:
+            icc_view = self.__get_icc_buffer_view(
+                icc_profile, "'icc_profile' argument")
+            size += self.__icc_storage_size(icc_view.nbytes)
+        return size
 
     def __do_transform(self, handle, src_buf, src_size, number_of_transforms, transforms):
         """Do transform.
@@ -1777,6 +1891,12 @@ class TurboJPEG(object):
     def __copy_from_buffer(buffer, size):
         """Copy bytes from buffer to python bytes."""
         return string_at(buffer, size)
+
+    @staticmethod
+    def __require_yuv_subsampling(jpeg_subsample):
+        if jpeg_subsample == TJSAMP_UNKNOWN:
+            raise ValueError(
+                'Planar YUV operations do not support unknown JPEG subsampling')
 
     @staticmethod
     def __get_yuv_plane_sizes(width, height, jpeg_subsample):
@@ -1932,8 +2052,8 @@ class TurboJPEG(object):
         jpeg_subsample = self.__get(handle, TJPARAM_SUBSAMP)
         jpeg_colorspace = self.__get(handle, TJPARAM_COLORSPACE)
         
-        # Check for errors (tj3Get returns -1 on error)
-        if width < 0 or height < 0 or jpeg_subsample < 0 or jpeg_colorspace < 0:
+        # TJSAMP_UNKNOWN (-1) is valid for packed-pixel decompression.
+        if width < 0 or height < 0 or jpeg_colorspace < 0:
             self.__report_error(handle)
         if self.__max_pixels:
             self.__enforce_max_pixels(handle, width, height)
@@ -1986,47 +2106,163 @@ class TurboJPEG(object):
                 'Crop region contains no pixels after iMCU alignment')
         return a, b
 
-    @classmethod
-    def __define_cropping_regions(cls, crop_parameters):
-        """Return list of crop regions from crop parameters
-
-        Parameters
-        ----------
-        crop_parameters: List[Tuple[int, int, int, int]]
-            List of crop parameters defining start x and y origin and width
-            and height of each crop operation.
-
-        Returns
-        ----------
-        List[CroppingRegion]
-            List of crop operations, size is equal to the product of number of
-            crop operations to perform in x and y direction.
-        """
+    def __prepare_cropping_regions(self, crop_parameters, image_size,
+                                   jpeg_subsample, jpeg_colorspace, gray, align):
+        """Normalize crops and validate placement without changing crop()."""
+        image_width, image_height = image_size
+        mcu_width, mcu_height = tjMCUWidth[jpeg_subsample], tjMCUHeight[jpeg_subsample]
+        sampling = ('4:4:4', '4:2:2', '4:2:0', 'grayscale',
+                    '4:4:0', '4:1:1', '4:4:1')[jpeg_subsample]
+        source_info = 'source={}x{}, subsampling={}, iMCU={}x{}'.format(
+            image_width, image_height, sampling, mcu_width, mcu_height)
+        grayscale_output = jpeg_colorspace == TJCS_GRAY or (
+            gray and jpeg_colorspace == TJCS_YCbCr)
+        extension_mcu = (MCU_WIDTH, MCU_HEIGHT) if grayscale_output else (mcu_width, mcu_height)
+        if grayscale_output and extension_mcu != (mcu_width, mcu_height):
+            source_info += ', grayscale output iMCU=8x8'
         try:
             crop_parameters = list(crop_parameters)
         except TypeError as exc:
             raise TypeError(
-                "'crop_parameters' argument must be an iterable") from exc
+                "'crop_parameters' argument must be an iterable; " + source_info) from exc
+        if not crop_parameters:
+            raise ValueError("'crop_parameters' argument must not be empty; " + source_info)
         regions = []
         for index, crop in enumerate(crop_parameters):
             try:
-                if len(crop) != 4:
-                    raise ValueError
-                x, y, w, h = crop
+                try:
+                    if len(crop) != 4:
+                        raise ValueError
+                    x, y, w, h = crop
+                except (TypeError, ValueError):
+                    raise ValueError('expected a region containing (x, y, w, h)') from None
+                values = []
+                for name, value in zip(('x', 'y', 'w', 'h'), (x, y, w, h)):
+                    try:
+                        values.append(self.__validate_resource_limit(name, value))
+                    except (TypeError, ValueError) as exc:
+                        raise type(exc)('{}={!r}: {}'.format(name, value, exc)) from None
+                x, y, w, h = values
+                extending = w > image_width or h > image_height
+                auto_align = align != 'strict' and not extending
+                normalized = []
+                axes = (
+                    ('x', 'w', 'width', x, w, image_width, mcu_width, extension_mcu[0]),
+                    ('y', 'h', 'height', y, h, image_height, mcu_height, extension_mcu[1]),
+                )
+                for origin_name, size_name, dimension, origin, size, boundary, mcu, ext_mcu in axes:
+                    extends = size > boundary
+                    if extends:
+                        if origin + boundary > size:
+                            last_aligned = ((size - boundary) // mcu) * mcu
+                            remedy = 'use {}={} (moves the source within the canvas)'.format(
+                                origin_name, last_aligned)
+                            if origin % mcu == 0:
+                                remedy += ', or increase {} to at least {} (larger output canvas)'.format(
+                                    size_name, origin + boundary)
+                            else:
+                                remedy += ('; for a larger canvas, choose an aligned {} first and '
+                                           'set {} >= {} + {}').format(
+                                               origin_name, size_name, origin_name, boundary)
+                            raise ValueError(
+                                '{}={} cannot place the full source {}={} in output {}={}; '
+                                '{} must be at most {}; {}'.format(
+                                    origin_name, origin, dimension, boundary, size_name,
+                                    size, origin_name, size - boundary, remedy))
+                    elif origin >= boundary:
+                        last_aligned = ((boundary - 1) // mcu) * mcu
+                        raise ValueError(
+                            '{}={} must be inside the source {} (0 <= {} < {}); '
+                            'for example, use {}={}, {}=0 for the remaining extent '
+                            '(selects a different source region)'.format(
+                                origin_name, origin, dimension, origin_name, boundary,
+                                origin_name, last_aligned, size_name))
+                    if auto_align:
+                        try:
+                            adjusted = self.__axis_to_image_boundaries(
+                                origin, size or boundary - origin, boundary,
+                                align == 'shrink', mcu)
+                        except ValueError as exc:
+                            next_aligned = ((origin + mcu - 1) // mcu) * mcu
+                            if next_aligned < boundary:
+                                remedy = ('increase {} to at least {} to include pixels starting '
+                                          'at {}={} (selects a larger requested area)').format(
+                                              size_name, next_aligned - origin + 1,
+                                              origin_name, next_aligned)
+                            else:
+                                remedy = ('no aligned {} exists inside the source at or after {}; '
+                                          'use {}={}, {}=0 to include earlier source pixels').format(
+                                              origin_name, origin, origin_name,
+                                              ((boundary - 1) // mcu) * mcu, size_name)
+                            raise ValueError(
+                                '{}={}, {}={}: {} with align={!r}; {}; '
+                                "or use align='expand' (may include extra source area). "
+                                'Exact pixel bounds require decoding, cropping, and re-encoding '
+                                '(additional lossy compression)'.format(
+                                    origin_name, origin, size_name, size, exc, align, remedy)) from None
+                        normalized.append(adjusted)
+                        continue
+                    if origin % mcu:
+                        message = '{}={} is not aligned; {} must be a multiple of {}'.format(
+                            origin_name, origin, origin_name, mcu)
+                        if extending:
+                            if extends:
+                                message += '; use {}={} (moves the source placement)'.format(
+                                    origin_name, (origin // mcu) * mcu)
+                            else:
+                                adjusted_origin, adjusted_size = self.__axis_to_image_boundaries(
+                                    origin, size or boundary - origin, boundary, False, mcu)
+                                message += ('; use {}={}, {}={} to retain the requested in-bounds '
+                                            'area on this axis (includes extra source pixels and '
+                                            'changes output {})').format(
+                                                origin_name, adjusted_origin, size_name,
+                                                adjusted_size, dimension)
+                            message += '; automatic alignment applies only to pure crops'
+                        else:
+                            message += ("; use align='expand' (keeps the requested in-bounds pixels "
+                                        "but may include extra area), or align='shrink' "
+                                        '(discards unaligned edges of the requested area and may be empty)')
+                        raise ValueError(message)
+                    size = size or boundary - origin
+                    if extends:
+                        # Older native releases ignore PERFECT for extension and
+                        # discard a partial source iMCU on the extended axis.
+                        if boundary % ext_mcu:
+                            trimmed = (boundary // ext_mcu) * ext_mcu
+                            if trimmed:
+                                edge = 'right-edge columns' if dimension == 'width' else 'bottom-edge rows'
+                                remedy = 'crop source {} to {} first (discards {} {}), or '.format(
+                                    dimension, trimmed, boundary - trimmed, edge)
+                            else:
+                                remedy = ('no non-empty source {} aligned to {} can be obtained '
+                                          'by cropping; ').format(dimension, ext_mcu)
+                            remedy += 'decode, pad, and re-encode (additional lossy compression)'
+                            raise ValueError(
+                                '{}={} cannot extend source {}={} with a partial iMCU; '
+                                'source {} must be a multiple of {}. Changing output {} or align '
+                                'does not fix the source dimension; {}'.format(
+                                    size_name, size, dimension, boundary, dimension, ext_mcu,
+                                    size_name, remedy))
+                    elif origin + size > boundary:
+                        raise ValueError(
+                            '{}={} with {}={} exceeds source {}={}; use {} <= {} '
+                            'or {}=0 for the remaining source extent '
+                            '(reduces output {} to the available source pixels)'.format(
+                                size_name, size, origin_name, origin, dimension, boundary,
+                                size_name, boundary - origin, size_name, dimension))
+                    normalized.append((origin, size))
+                if extending and jpeg_colorspace not in (TJCS_GRAY, TJCS_YCbCr, TJCS_RGB):
+                    colorspace = 'CMYK' if jpeg_colorspace == TJCS_CMYK else 'YCCK'
+                    raise ValueError(
+                        'w={}, h={} request extension of a {} JPEG; background extension '
+                        'supports only grayscale, YCbCr, and RGB JPEG images. Use a pixel-padding '
+                        'workflow that supports this colorspace, then re-encode (additional lossy '
+                        'compression); preserve color profiles explicitly'.format(w, h, colorspace))
+                (x, w), (y, h) = normalized
+                regions.append(CroppingRegion(x, y, w, h))
             except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    'Crop parameter {} must contain (x, y, w, h)'.format(
-                        index)) from exc
-            regions.append(CroppingRegion(
-                x=cls.__validate_resource_limit(
-                    'crop_parameters[{}].x'.format(index), x),
-                y=cls.__validate_resource_limit(
-                    'crop_parameters[{}].y'.format(index), y),
-                w=cls.__validate_resource_limit(
-                    'crop_parameters[{}].w'.format(index), w),
-                h=cls.__validate_resource_limit(
-                    'crop_parameters[{}].h'.format(index), h),
-            ))
+                raise type(exc)('crop_parameters[{}]: {}; {}'.format(
+                    index, exc, source_info)) from None
         return regions
 
     @staticmethod
@@ -2049,9 +2285,9 @@ class TurboJPEG(object):
         """
         return (
             (
-                (crop_region.x + crop_region.w > image_size[0])
+                (crop_region.w > image_size[0])
                 or
-                (crop_region.y + crop_region.h > image_size[1])
+                (crop_region.h > image_size[1])
             )
             and (background_luminance != 0.5)
         )
@@ -2135,8 +2371,9 @@ class TurboJPEG(object):
         return matching_offset
 
     @classmethod
-    def __get_frame_precision_and_luminance_table(cls, jpeg_data):
-        """Return sample precision and first component's DQT selector."""
+    def __get_frame_precision_and_quantization_table(
+            cls, jpeg_data, component=0):
+        """Return sample precision and the selected component's DQT selector."""
         jpeg_data = bytes(jpeg_data)
         sof_markers = {
             0xC0, 0xC1, 0xC2, 0xC3,
@@ -2155,11 +2392,13 @@ class TurboJPEG(object):
             if component_count == 0 or \
                     segment_start + expected_size > segment_end:
                 raise ValueError('Truncated JPEG frame components')
+            if not 0 <= component < component_count:
+                raise ValueError('Invalid JPEG component index')
             precision = jpeg_data[segment_start]
-            table_index = jpeg_data[segment_start + 8]
+            table_index = jpeg_data[segment_start + 8 + 3 * component]
             if table_index > 3:
                 raise ValueError(
-                    'Invalid luminance quantization table selector')
+                    'Invalid component quantization table selector')
             return precision, table_index
         raise ValueError('JPEG frame header not found')
 
@@ -2202,11 +2441,12 @@ class TurboJPEG(object):
         return dc_value
 
     @classmethod
-    def __map_luminance_to_dc_dct_coefficient(cls, jpeg_data, luminance):
+    def __map_luminance_to_dc_dct_coefficient(
+            cls, jpeg_data, luminance, component=0):
         """Map a luminance level (0 - 1) to quantified dc dct coefficient.
         The unquantized coefficient range depends on the JPEG sample precision.
         This function maps the input luminance level to that range, then applies
-        the quantization factor selected by the first image component.
+        the quantization factor selected by the requested image component.
 
         Parameters
         ----------
@@ -2214,6 +2454,8 @@ class TurboJPEG(object):
             Jpeg data containing quantification table(s).
         luminance: float
             Luminance level (0 - black, 1 - white).
+        component: int
+            JPEG component whose quantization table is used (default: first).
 
         Returns
         ----------
@@ -2222,7 +2464,8 @@ class TurboJPEG(object):
         """
         luminance = min(max(luminance, 0), 1)
         precision, table_index = \
-            cls.__get_frame_precision_and_luminance_table(jpeg_data)
+            cls.__get_frame_precision_and_quantization_table(
+                jpeg_data, component)
         if precision < 2 or precision > 12:
             raise ValueError(
                 'Background fill requires a lossy JPEG image with no more '
@@ -2238,13 +2481,18 @@ class TurboJPEG(object):
         return int(round(unquantized_dc / dc_dqt_coefficient))
 
     def __report_error(self, handle):
-        """reports error while error occurred"""
-        # tj3GetErrorCode always returns the error code
-        if self.__get_error_code(handle) == TJERR_WARNING:
-            warnings.warn(self.__get_error_string(handle))
+        """Raise for fatal errors and warnings that aborted the operation."""
+        error_code = self.__get_error_code(handle)
+        error_message = self.__get_error_string(handle)
+        # STOPONWARNING can leave output buffers only partially initialized.
+        # A previous warning can also mask a subsequent fatal error in the
+        # native severity code.  Its message must identify a known warning.
+        if error_code == TJERR_WARNING and \
+                self.__get(handle, TJPARAM_STOPONWARNING) == 0 and \
+                _RECOVERABLE_WARNING.fullmatch(error_message) is not None:
+            warnings.warn(error_message)
             return
-        # fatal error occurred
-        raise IOError(self.__get_error_string(handle))
+        raise IOError(error_message)
 
     def __get_error_string(self, handle):
         """returns error string"""
@@ -2350,6 +2598,52 @@ class TurboJPEG(object):
         return cls.__validate_bounded_integer('quality', quality, 1, 100)
 
     @classmethod
+    def __validate_encoding_colorspace(
+            cls, jpeg_colorspace, pixel_format, jpeg_subsample, lossless):
+        """Validate the selection and normalize automatic mode to None."""
+        jpeg_colorspace = cls.__validate_bounded_integer(
+            'jpeg_colorspace', jpeg_colorspace, TJCS_DEFAULT, TJCS_YCCK)
+        if jpeg_colorspace == TJCS_DEFAULT:
+            # Each encode call creates a fresh native handle, already in
+            # automatic mode. Skipping the setter also supports versions
+            # older than 3.2, which reject an explicit TJCS_DEFAULT value.
+            return None
+        if pixel_format == TJPF_GRAY:
+            native_colorspace = TJCS_GRAY
+            supported = (TJCS_GRAY,)
+        elif pixel_format == TJPF_CMYK:
+            native_colorspace = TJCS_CMYK
+            supported = (TJCS_CMYK, TJCS_YCCK)
+        else:
+            native_colorspace = TJCS_RGB
+            supported = (TJCS_RGB, TJCS_YCbCr, TJCS_GRAY)
+
+        # TJPARAM_COLORSPACE only controls lossy compression. In lossless
+        # mode, the native codec preserves the input colorspace regardless
+        # of that parameter, so reject requests it would silently ignore.
+        if lossless:
+            if jpeg_colorspace != native_colorspace:
+                raise ValueError(
+                    'Lossless JPEG requires jpeg_colorspace={} for '
+                    'pixel_format={}'.format(native_colorspace, pixel_format))
+        elif jpeg_colorspace not in supported:
+            raise ValueError(
+                'jpeg_colorspace={} is incompatible with pixel_format={}'
+                .format(jpeg_colorspace, pixel_format))
+        elif jpeg_colorspace == TJCS_CMYK:
+            if jpeg_subsample != TJSAMP_444:
+                raise ValueError(
+                    'CMYK JPEG requires jpeg_subsample=TJSAMP_444')
+        elif jpeg_colorspace == TJCS_GRAY:
+            if jpeg_subsample != TJSAMP_GRAY:
+                raise ValueError(
+                    'Grayscale JPEG requires jpeg_subsample=TJSAMP_GRAY')
+        elif jpeg_subsample == TJSAMP_GRAY:
+            raise ValueError(
+                'RGB, YCbCr, and YCCK JPEG require non-grayscale jpeg_subsample')
+        return jpeg_colorspace
+
+    @classmethod
     def __prepare_image(
             cls, img_array, dtype, pixel_format, operation,
             maximum_value=None):
@@ -2414,6 +2708,22 @@ class TurboJPEG(object):
                 "'{}' argument must be a positive power of two".format(
                     argument_name))
         return value
+
+    @staticmethod
+    def __icc_storage_size(size):
+        chunks = (size + _ICC_CHUNK_SIZE - 1) // _ICC_CHUNK_SIZE
+        return size + chunks * _ICC_MARKER_OVERHEAD
+
+    @classmethod
+    def __get_icc_buffer_view(cls, value, argument_name):
+        view = cls.__get_buffer_view(value, argument_name, writable=False)
+        if view.nbytes > _MAX_ICC_PROFILE_SIZE:
+            raise ValueError(
+                '{} is too large: {} bytes; JPEG supports at most {} bytes '
+                'in 255 ICC APP2 markers. Use a smaller profile or omit '
+                'icc_profile (the JPEG will not contain the color profile).'
+                .format(argument_name, view.nbytes, _MAX_ICC_PROFILE_SIZE))
+        return view
 
     @staticmethod
     def __get_buffer_view(value, argument_name, writable):

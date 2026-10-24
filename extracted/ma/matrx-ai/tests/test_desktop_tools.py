@@ -142,9 +142,18 @@ async def test_a_relative_path_is_the_computers_home_and_the_transcript_comes_ba
         "task": "transcribe",
         "model": "tiny",
     }
-    assert r.output["text"] == "The quick brown fox."
-    assert r.output["language"] == "en"
-    assert r.output["segments_total"] == 1
+    assert r.output_kind == "desktop_transcribe_result"
+    assert r.output == {
+        "__kind": "desktop_transcribe_result",
+        "text": "The quick brown fox.",
+        "language": "en",
+        "duration_s": 5.3,
+        "model": "tiny",
+        "elapsed_ms": 812,
+        "segments": [{"start_s": 0.0, "end_s": 5.3, "text": "The quick brown fox."}],
+        "segments_total": 1,
+        "path": "/Users/person/Downloads/memo.m4a",
+    }
 
 
 async def test_a_device_error_reaches_the_model_with_its_code(
@@ -989,3 +998,48 @@ async def test_scrape_engine_and_browser_wait_reach_their_ops() -> None:
         DesktopWebArgs(action="browser_fetch", url="https://example.com", wait_timeout_ms=5000)
     )
     assert (op, params["wait_timeout_ms"]) == ("web.fetch_with_browser", 5000)
+
+
+@pytest.mark.parametrize(
+    ("operation", "args", "body", "slug", "legacy"),
+    [
+        (
+            "process",
+            {"action": "list"},
+            {"processes": [{"pid": 42, "ppid": None, "name": "python", "command": "python", "cpu_percent": 0.0, "memory_bytes": 0, "user": None}], "total": 1, "truncated": False},
+            "desktop_process_list_result",
+            {"action": "list", "processes": [{"pid": 42, "ppid": None, "name": "python", "command": "python", "cpu_percent": 0.0, "memory_bytes": 0, "user": None}], "total": 1, "truncated": False},
+        ),
+        (
+            "process",
+            {"action": "ports"},
+            {"ports": [{"port": 443, "protocol": "tcp", "address": "127.0.0.1", "pid": 42, "process": "python"}]},
+            "desktop_process_ports_result",
+            {"action": "ports", "ports": [{"port": 443, "protocol": "tcp", "address": "127.0.0.1", "pid": 42, "process": "python"}]},
+        ),
+        (
+            "process",
+            {"action": "kill", "pid": 42},
+            {"pid": 42, "signal": "SIGTERM", "exited": False},
+            "desktop_process_kill_result",
+            {"action": "kill", "pid": 42, "signal": "SIGTERM", "exited": False},
+        ),
+        ("clipboard", {"action": "read"}, {"text": "", "truncated": False}, "desktop_clipboard_read_result", {"action": "read", "text": "", "truncated": False}),
+        ("clipboard", {"action": "write", "text": ""}, {"bytes": 0}, "desktop_clipboard_write_result", {"action": "write", "bytes": 0}),
+    ],
+)
+async def test_process_and_clipboard_success_results_use_the_exact_action_kind(
+    monkeypatch: pytest.MonkeyPatch, operation: str, args: dict[str, Any], body: dict[str, Any], slug: str, legacy: dict[str, Any]
+) -> None:
+    seen = _aidream(monkeypatch, 200, body)
+    _bind(DESKTOP)
+    ctx = ToolContext(call_id="kind-check", tool_name=f"desktop_{operation}")
+    result = (
+        await desktop.desktop_process(args, ctx)
+        if operation == "process"
+        else await desktop.desktop_clipboard(args, ctx)
+    )
+    assert result.success, result.error
+    assert len(seen) == 1
+    assert result.output_kind == slug
+    assert result.output == {"__kind": slug, **legacy}

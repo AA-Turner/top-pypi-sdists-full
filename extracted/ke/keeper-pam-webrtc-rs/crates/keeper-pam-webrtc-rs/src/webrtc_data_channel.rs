@@ -1,4 +1,4 @@
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 #[cfg(test)]
 use futures::future::BoxFuture;
 use log::{debug, warn};
@@ -63,6 +63,11 @@ pub struct WebRTCDataChannel {
     /// that was constructed with the same slot reference.
     /// See [`crate::webrtc_data_tap`] for the public surface.
     pub(crate) outbound_tap: Arc<TapSlot>,
+    pub(crate) send_limit: Arc<AtomicUsize>,
+    send_lock: Arc<tokio::sync::Mutex<()>>,
+    pub(crate) failed_connections: Arc<dashmap::DashSet<u32>>,
+    pub(crate) notified_connections: Arc<dashmap::DashSet<u32>>,
+    pub(crate) local_input: Arc<parking_lot::Mutex<Option<mpsc::UnboundedSender<Bytes>>>>,
 
     #[cfg(test)]
     pub(crate) test_send_hook: TestSendHook,
@@ -79,6 +84,11 @@ impl Clone for WebRTCDataChannel {
             early_message_count: Arc::clone(&self.early_message_count),
             early_buffering_active: Arc::clone(&self.early_buffering_active),
             outbound_tap: Arc::clone(&self.outbound_tap),
+            send_limit: Arc::clone(&self.send_limit),
+            send_lock: Arc::clone(&self.send_lock),
+            failed_connections: Arc::clone(&self.failed_connections),
+            notified_connections: Arc::clone(&self.notified_connections),
+            local_input: Arc::clone(&self.local_input),
 
             #[cfg(test)]
             test_send_hook: Arc::clone(&self.test_send_hook),
@@ -89,11 +99,9 @@ impl Clone for WebRTCDataChannel {
 impl WebRTCDataChannel {
     /// Construct with a private, empty tap slot.
     ///
-    /// Both production call sites now use
-    /// [`Self::new_with_outbound_tap_slot`] so channels share their tube's
-    /// slot, leaving this constructor used only by tests — hence the
-    /// `dead_code` allowance rather than a `#[cfg(test)]` gate, which would
-    /// make the two constructors diverge between build profiles.
+    /// Production uses `new_with_send_limit` with the tube's observer slot and
+    /// shared negotiated receive limit. This convenience constructor keeps the
+    /// native default for standalone consumers and tests.
     #[allow(dead_code)]
     pub fn new(data_channel: Arc<RTCDataChannel>) -> Self {
         Self::new_with_outbound_tap_slot(data_channel, webrtc_data_tap::empty_slot())
@@ -110,6 +118,20 @@ impl WebRTCDataChannel {
     pub fn new_with_outbound_tap_slot(
         data_channel: Arc<RTCDataChannel>,
         outbound_tap: Arc<TapSlot>,
+    ) -> Self {
+        Self::new_with_send_limit(
+            data_channel,
+            outbound_tap,
+            Arc::new(AtomicUsize::new(
+                crate::webrtc_core::NATIVE_MAX_MESSAGE_SIZE,
+            )),
+        )
+    }
+
+    pub(crate) fn new_with_send_limit(
+        data_channel: Arc<RTCDataChannel>,
+        outbound_tap: Arc<TapSlot>,
+        send_limit: Arc<AtomicUsize>,
     ) -> Self {
         let open_notify = Arc::new(tokio::sync::Notify::new());
         let is_open = Arc::new(AtomicBool::new(false));
@@ -175,6 +197,11 @@ impl WebRTCDataChannel {
             early_message_count,
             early_buffering_active,
             outbound_tap,
+            send_limit,
+            send_lock: Arc::new(tokio::sync::Mutex::new(())),
+            failed_connections: Arc::new(dashmap::DashSet::new()),
+            notified_connections: Arc::new(dashmap::DashSet::new()),
+            local_input: Arc::new(parking_lot::Mutex::new(None)),
 
             #[cfg(test)]
             test_send_hook: Arc::new(std::sync::Mutex::new(None)),
@@ -193,6 +220,71 @@ impl WebRTCDataChannel {
     }
 
     pub async fn send(&self, data: Bytes) -> Result<(), String> {
+        // One logical send owns its sequence of independently framed chunks.
+        let _guard = self.send_lock.lock().await;
+        let native_limit = self
+            .send_limit
+            .load(Ordering::Acquire)
+            .min(crate::webrtc_core::NATIVE_MAX_MESSAGE_SIZE);
+        // Existing Vault admission is stricter for complete tube frames.
+        let limit = native_limit.min(guacr_protocol::MAX_SAFE_PAYLOAD_SIZE + 17);
+        if data.len() <= limit {
+            return self.send_message(data).await;
+        }
+
+        // Existing browser consumers require a complete outer frame per message.
+        // Split only its stream payload, never the header or a control message.
+        const HEADER: usize = 16;
+        const OVERHEAD: usize = HEADER + 1;
+        if limit <= OVERHEAD || data.len() < OVERHEAD {
+            return Err("DataChannel message exceeds peer capacity".into());
+        }
+        let conn_no = u32::from_be_bytes(data[..4].try_into().unwrap());
+        let payload_len = u32::from_be_bytes(data[12..16].try_into().unwrap()) as usize;
+        if payload_len + OVERHEAD != data.len() || data[data.len() - 1] != b';' {
+            // Raw message/assembler callers retain message boundaries unchanged.
+            return if data.len() <= native_limit {
+                self.send_message(data).await
+            } else {
+                Err("DataChannel message exceeds peer capacity".into())
+            };
+        }
+        if conn_no == 0 || payload_len > crate::tube_protocol::MAX_FRAME_LEN {
+            return Err("DataChannel message cannot be split into data frames".into());
+        }
+
+        let mut buffer = BytesMut::with_capacity(limit);
+        let payload = &data[HEADER..HEADER + payload_len];
+        let chunk_capacity = limit - OVERHEAD;
+        let mut offset = 0;
+        while offset < payload.len() {
+            let mut end = (offset + chunk_capacity).min(payload.len());
+            while end > offset && end < payload.len() && (payload[end] & 0b1100_0000) == 0b1000_0000
+            {
+                end -= 1;
+            }
+            // Invalid UTF-8 and binary payloads retain their byte chunking. UTF-8
+            // streams move an end cut back over continuation bytes only.
+            if end == offset {
+                end = (offset + chunk_capacity).min(payload.len());
+            }
+            let chunk = &payload[offset..end];
+            buffer.extend_from_slice(&data[..12]);
+            buffer.put_u32(chunk.len() as u32);
+            buffer.extend_from_slice(chunk);
+            buffer.put_u8(b';');
+            let message = buffer.freeze();
+            self.send_message(message.clone()).await?;
+            buffer = message
+                .try_into_mut()
+                .unwrap_or_else(|_| BytesMut::with_capacity(limit));
+            buffer.clear();
+            offset = end;
+        }
+        Ok(())
+    }
+
+    async fn send_message(&self, data: Bytes) -> Result<(), String> {
         // Check if closing
         if self.is_closing.load(Ordering::Acquire) {
             return Err("Channel is closing".to_string());

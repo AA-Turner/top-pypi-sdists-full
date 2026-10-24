@@ -10,21 +10,29 @@ appends what it was given (argv, stdin, environment, pid) to a log the test
 reads. The real `probe.core.run` children are covered by `test_core_run.py`;
 these tests are about the service around them.
 
-`fake_open` is macOS's `open` for the desktop app's update: it records its
-argv and, like the app's `--background-update` run, writes `app-update.json`.
-`fake_app` builds a `Probe.app` bundle under `~/Applications`.
+`fake_open` is macOS's `open`: it records its argv (the service must never
+call it: it does not launch the desktop app) and writes `app-update.json` as
+the app's old `--background-update` run did. `fake_app` builds a `Probe.app`
+bundle under `~/Applications`.
+
+`FakeWorker` plays the daemon worker the service's own supervisor starts
+(`<python> -I -c <probe's entry> daemon worker ...`, `workers.py`) through the
+same fake python: each start's exit from a plan, else a live worker holding its
+session's lock until SIGTERM. A start that finds the lock held says so (a
+second worker of one session) and exits.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import plistlib
 import stat
 import sys
 import time
 from pathlib import Path
 
-from probe.service import client, paths
+from probe.service import barrier, client, paths
 
 _FAKE_PYTHON = r'''#!{real}
 import json, os, signal, sys, time
@@ -32,13 +40,58 @@ import json, os, signal, sys, time
 REAL = {real!r}
 SCRIPT = {script!r}
 BARRIER = {barrier!r}
+WORKER = os.path.expanduser("~/fake-worker.py")
+
+
+
+def run_real(argv):
+    # Windows has no exec (its os.execv starts a new process and ends this
+    # one, so whoever waits on this one would see it end at once): run it and
+    # pass on its exit status.
+    if os.name == "nt":
+        import subprocess
+        sys.exit(subprocess.call(argv))
+    os.execv(argv[0], argv)
+
 
 args = sys.argv[1:]
+if "-c" in args and args[args.index("-c") + 2:args.index("-c") + 4] == ["daemon", "worker"] and os.path.exists(WORKER):
+    run_real([REAL, WORKER, *args[args.index("-c") + 2:]])
 flags = []
 while args and args[0].startswith("-") and args[0] != "-m":
     flags.append(args.pop(0))
+
+# `probe <args>` (`-m probe.cli`: the service's notes.sync) and an import's
+# worker (`-m probe.cli.import_jobs <job>`, never its `--launch-failed` report,
+# which runs for real): played from the "cli" / "import_worker" plans when the
+# test wrote one, else the real thing.
+STAND_IN = {{"probe.cli": "cli", "probe.cli.import_jobs": "import_worker"}}
+if args[:1] == ["-m"] and len(args) > 1 and args[1] in STAND_IN and "--launch-failed" not in args:
+    try:
+        plan = json.load(open(SCRIPT)).get(STAND_IN[args[1]])
+    except (OSError, ValueError):
+        plan = None
+    if plan is not None:
+        WATCH = ("PROBE_AGENT", "PROBE_CONFIG_PATH", "CLAUDE_CONFIG_DIR", "XDG_STATE_HOME", "PROBE_TOKEN",
+                 "PROBE_DESKTOP_HUMAN", "PATH", "HOME", "MARKER")
+        record = {{"module": args[1], "args": args[2:], "flags": flags, "pid": os.getpid(), "ppid": os.getppid(),
+                  "cwd": os.getcwd(), "at": time.time(), "env": {{k: os.environ.get(k) for k in WATCH}}}}
+        with open(os.path.expanduser("~/fake-" + STAND_IN[args[1]] + ".log"), "a") as handle:
+            handle.write(json.dumps(record) + "\n")
+        print("stand-in " + STAND_IN[args[1]] + " " + " ".join(args[2:]), flush=True)
+        for step in plan.get("before", []):
+            if "sleep" in step:
+                time.sleep(step["sleep"])
+            elif "wait" in step:
+                while not os.path.exists(step["wait"]):
+                    if not os.path.isdir(os.path.expanduser("~")):
+                        sys.exit(1)
+                    time.sleep(0.02)
+        sys.exit(plan.get("exit", 0))
+    run_real([REAL, *flags, *args])
+
 if args[:2] != ["-m", "probe.core.run"]:
-    os.execv(REAL, [REAL, *flags, *args])
+    run_real([REAL, *flags, *args])
 
 action = args[2]
 try:
@@ -80,6 +133,7 @@ def on_sigint(*_):
         os._exit(130)
 signal.signal(signal.SIGINT, on_sigint)
 
+held = []  # `lock` steps' files, held (flock) until this process ends
 for step in plan.get("steps", []):
     if "event" in step:
         # `interruptible` on an event: the wait it opens starts BEFORE it is
@@ -97,6 +151,23 @@ for step in plan.get("steps", []):
         interruptible["on"] = False
     elif "touch" in step:
         open(step["touch"], "a").close()
+    elif "lock" in step:  # as `probe.cli.wizard_lock.held` takes wizard.lock
+        import fcntl
+        os.makedirs(os.path.dirname(step["lock"]), exist_ok=True)
+        held.append(open(step["lock"], "a"))
+        fcntl.flock(held[-1].fileno(), fcntl.LOCK_EX)
+    elif "ignore" in step:  # a signal this run will not answer (`SIGTERM`)
+        signal.signal(getattr(signal, step["ignore"]), signal.SIG_IGN)
+    elif "default" in step:  # ... and answers again (what it started since keeps ignoring it)
+        signal.signal(getattr(signal, step["default"]), signal.SIG_DFL)
+    elif "spawn" in step:  # a command it runs (in this run's process group); its pid to `pidfile`
+        import subprocess
+        spawned = subprocess.Popen(step["spawn"], stdin=subprocess.DEVNULL)
+        with open(step["pidfile"], "w") as handle:
+            handle.write(str(spawned.pid))
+    elif "say" in step:  # the run's own text: its stderr, the action's log
+        sys.stderr.write(step["say"] + "\n")
+        sys.stderr.flush()
     elif "exit" in step:
         sys.exit(step["exit"])
 emit({{"event": "done", "ok": True, "complete": True, "exit_code": 0, "steps": []}})
@@ -127,16 +198,23 @@ def _executable(path: Path, text: str) -> Path:
 
 
 class FakeCore:
-    """`runtime.json` -> a python that plays `probe.core.run` from `script`."""
+    """`runtime.json` -> a python that plays `probe.core.run` from `script`.
+
+    Windows starts no `#!` script: there it is a `.cmd` that runs this
+    interpreter on the same script (CreateProcess runs a `.cmd` through cmd.exe)."""
 
     def __init__(self, home: Path) -> None:
         self.home = home
         self.script = home / "fake-core.json"
         self.log = home / "fake-core.log"
-        self.python = _executable(
-            home / "fake-python",
-            _FAKE_PYTHON.format(real=sys.executable, script=str(self.script), barrier=str(paths.barrier_path())),
-        )
+        text = _FAKE_PYTHON.format(real=sys.executable, script=str(self.script), barrier=str(paths.barrier_path()))
+        if os.name == "nt":
+            played = home / "fake-python.py"
+            played.write_text(text, encoding="utf-8")
+            self.python = home / "fake-python.cmd"
+            self.python.write_text(f'@"{sys.executable}" "{played}" %*\n@exit /b %ERRORLEVEL%\n', encoding="utf-8")
+        else:
+            self.python = _executable(home / "fake-python", text)
         self.plans: dict = {}
         self.write()
         client.write_runtime(str(self.python), "test")
@@ -155,6 +233,117 @@ class FakeCore:
             return []
         found = [json.loads(line) for line in lines if line.strip()]
         return [c for c in found if action is None or c["action"] == action]
+
+    def stand_in_calls(self, plan: str) -> list[dict]:
+        """What the `cli` / `import_worker` stand-ins were run with, in order."""
+        try:
+            lines = (self.home / f"fake-{plan}.log").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        return [json.loads(line) for line in lines if line.strip()]
+
+
+_FAKE_WORKER = r'''
+import fcntl, json, os, signal, sys, time
+
+args = sys.argv[1:]  # daemon worker --session-id S --transcript T --cwd C --source X
+HOME = os.path.expanduser("~")
+LOG = os.path.join(HOME, "fake-worker.log")
+HOLD = {hold!r}
+BARRIER = {barrier!r}
+WATCH = ("PROBE_TAP_FOLLOWS_INLINE", "PROBE_TAP_READ_ONLY_INLINE", "PROBE_TAP_RETRIES_LIBS", "PROBE_TEST_MARK",
+         "XDG_STATE_HOME", "PYTHONPATH", "PROBE_DAEMON_SUPERVISOR")
+sid = args[args.index("--session-id") + 1]
+try:
+    plan = json.load(open(os.path.join(HOME, "fake-worker.json")))
+except (OSError, ValueError):
+    plan = {{}}
+try:
+    n = sum(1 for line in open(LOG) if json.loads(line)["event"] == "start")
+except OSError:
+    n = 0
+
+
+def note(event, **extra):
+    with open(LOG, "a") as handle:
+        handle.write(json.dumps({{"event": event, "sid": sid, "pid": os.getpid(), "ppid": os.getppid(),
+                                  "at": time.time(), **extra}}) + "\n")
+
+
+note("start", n=n, argv=args, cwd=os.getcwd(), held=os.path.exists(HOLD), barrier=os.path.exists(BARRIER),
+     env={{k: os.environ.get(k) for k in WATCH}})
+exits = plan.get("exits", [])
+code = exits[n] if n < len(exits) else plan.get("then")
+if code is not None:
+    note("exit", code=code)
+    sys.exit(code)
+state = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "probe")
+os.makedirs(os.path.join(state, "daemon"), exist_ok=True)
+lock = open(os.path.join(state, "daemon", sid + ".lock"), "a")
+try:
+    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    note("lock_busy")
+    sys.exit(5)
+marker = os.path.join(state, "reads", "requests", sid)
+os.makedirs(marker, exist_ok=True)
+with open(os.path.join(marker, ".worker.json"), "w") as handle:
+    json.dump({{"pid": os.getpid(), "requests": 1}}, handle)
+stopping = {{"on": False}}
+signal.signal(signal.SIGTERM, lambda *_: stopping.__setitem__("on", True))
+note("running")
+deadline = time.time() + 120
+while time.time() < deadline and os.path.isdir(HOME):
+    if stopping["on"]:
+        try:
+            fresh = time.time() - os.stat(os.path.join(state, "daemon", sid + ".handover")).st_mtime < 10
+        except OSError:
+            fresh = False
+        note("sigterm", handover=fresh)
+        sys.exit(0)
+    time.sleep(0.02)
+note("timeout")
+'''
+
+
+class FakeWorker:
+    """The service's daemon worker starts (needs `FakeCore`'s python in runtime.json).
+
+    `plan(exits=[4, 3], then=None)`: the n-th start exits `exits[n]`, later
+    ones `then` (None: a live worker until SIGTERM, then exit 0)."""
+
+    def __init__(self, home: Path) -> None:
+        self.home = home
+        self.log = home / "fake-worker.log"
+        (home / "fake-worker.py").write_text(
+            _FAKE_WORKER.format(hold=str(barrier.hold_path()), barrier=str(paths.barrier_path())),
+            encoding="utf-8",
+        )
+        self.plan()
+
+    def plan(self, *, exits: list | None = None, then: int | None = None) -> None:
+        (self.home / "fake-worker.json").write_text(json.dumps({"exits": exits or [], "then": then}), encoding="utf-8")
+
+    def events(self, event: str | None = None, sid: str | None = None) -> list[dict]:
+        try:
+            lines = self.log.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        found = [json.loads(line) for line in lines if line.strip()]
+        return [e for e in found if (event is None or e["event"] == event) and (sid is None or e["sid"] == sid)]
+
+    def starts(self, sid: str | None = None) -> list[dict]:
+        return self.events("start", sid)
+
+    def live_pids(self) -> list[int]:
+        pids = []
+        for e in self.events("running"):
+            try:
+                os.kill(e["pid"], 0)
+            except OSError:
+                continue
+            pids.append(e["pid"])
+        return pids
 
 
 _DEFAULT_ERROR = object()
@@ -269,6 +458,7 @@ def events_until(conn, predicate, timeout: float) -> list[dict]:
 
 __all__ = [
     "FakeCore",
+    "FakeWorker",
     "autoupdate_state",
     "enable_auto_update",
     "events_until",

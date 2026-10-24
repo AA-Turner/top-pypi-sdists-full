@@ -7,7 +7,7 @@
 //! Messages borrow the [`MessageIterator`] that yields them and are valid only
 //! until it advances or is dropped.
 
-use crate::{ffi, Message};
+use crate::{Message, ffi};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -100,7 +100,7 @@ impl Event {
     /// This is used internally by other xbbg-core types that need to call
     /// Bloomberg C API functions.
     #[inline(always)]
-    #[allow(dead_code)] // Used in integration, not unit tests
+    #[cfg(feature = "test-support")]
     pub(crate) fn as_ptr(&self) -> *mut ffi::blpapi_Event_t {
         self.ptr
     }

@@ -82,4 +82,4 @@ chroma-js/chroma.js:
       @preserve
    *)
 */
-//# sourceMappingURL=perspective-viewer-datagrid.js.map
+//# sourceMappingURL=https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid@3.8.0/dist/cdn/perspective-viewer-datagrid.js.map

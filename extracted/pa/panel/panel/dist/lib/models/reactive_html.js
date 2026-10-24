@@ -84,7 +84,6 @@ function element_lookup(root, el_id) {
     return el;
 }
 export class ReactiveHTMLView extends HTMLBoxView {
-    static __name__ = "ReactiveHTMLView";
     html;
     container;
     _changing = false;
@@ -502,7 +501,6 @@ export class ReactiveHTMLView extends HTMLBoxView {
     }
 }
 export class ReactiveHTML extends HTMLBox {
-    static __name__ = "ReactiveHTML";
     constructor(attrs) {
         super(attrs);
     }

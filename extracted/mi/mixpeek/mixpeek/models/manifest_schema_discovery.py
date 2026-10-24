@@ -32,7 +32,11 @@ class ManifestSchemaDiscovery(BaseModel):
     schemas: Dict[str, Any] = Field(description="JSON Schema for each resource type")
     dependency_graph: Dict[str, List[StrictStr]] = Field(description="Resource dependencies (key depends on values)")
     examples: Optional[Dict[str, StrictStr]] = Field(default=None, description="YAML example for each resource type")
-    __properties: ClassVar[List[str]] = ["manifest_version", "resource_types", "schemas", "dependency_graph", "examples"]
+    example_manifest: Optional[StrictStr] = Field(default=None, description="One complete manifest in YAML that uses parameters, a storage connection with a bucket sync, a seed, collections, a retriever, a taxonomy, a cluster and an acceptance block. It validates as written once its parameters are supplied.")
+    authoring_loop: Optional[List[StrictStr]] = Field(default=None, description="The steps to write, check and apply a manifest, in order")
+    extractor_catalog: Optional[List[Dict[str, Any]]] = Field(default=None, description="Extractors this plane serves: name, version, input types, the feature URIs they write and their parameters with defaults. Use GET /v1/discovery/extractors for the full schemas.")
+    stage_catalog: Optional[List[Dict[str, Any]]] = Field(default=None, description="Retriever stage ids with category and parameter names. Use GET /v1/discovery/stages for example configurations.")
+    __properties: ClassVar[List[str]] = ["manifest_version", "resource_types", "schemas", "dependency_graph", "examples", "example_manifest", "authoring_loop", "extractor_catalog", "stage_catalog"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +93,11 @@ class ManifestSchemaDiscovery(BaseModel):
             "resource_types": obj.get("resource_types"),
             "schemas": obj.get("schemas"),
             "dependency_graph": obj.get("dependency_graph"),
-            "examples": obj.get("examples")
+            "examples": obj.get("examples"),
+            "example_manifest": obj.get("example_manifest"),
+            "authoring_loop": obj.get("authoring_loop"),
+            "extractor_catalog": obj.get("extractor_catalog"),
+            "stage_catalog": obj.get("stage_catalog")
         })
         return _obj
 

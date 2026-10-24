@@ -1284,10 +1284,12 @@ class SMatrix_SELL(SMatrix):
                 f"Z {old_Z}->{self.Z}, X {old_X}->{self.X}, "
                 f"storage {new_total_storage}")
 
-    def virtual_truncate(self, time_range=None, time_decimate=1, space_range=None, verbose=True):
+    def virtual_truncate(self, time_range=None, time_decimate=1, space_range=None, field_indices=None, verbose=True):
         """
         Virtual truncation: A stays untouched in VRAM, only active indices are stored.
-        A_eff = phi_t . A . phi_s^T is applied on the vectors inside the projections.
+        A_eff = phi_f . phi_t . A . phi_s^T is applied on the vectors inside the projections.
+
+        phi_f: field selection (N_full -> N_eff) via `field_indices` (list of indices).
         """
         if self.sell_values_gpu is None and self.sell_values is None:
             raise ValueError("[AOT-biomaps] SELL matrix not loaded.")
@@ -1296,6 +1298,19 @@ class SMatrix_SELL(SMatrix):
         if not hasattr(self, "_full_T"):
             self._full_N, self._full_T = self.N, self.T
             self._full_Z, self._full_X = self.Z, self.X
+
+        # --- Field selection (phi_f) ---
+        if field_indices is None:
+            field_indices = np.arange(self._full_N)
+        field_indices = np.asarray(field_indices, dtype=np.int64)
+        if field_indices.size == 0:
+            raise ValueError("[AOT-biomaps] No field remaining.")
+        if field_indices.max() >= self._full_N or field_indices.min() < 0:
+            raise ValueError(f"[AOT-biomaps] field_indices out of range [0, {self._full_N}).")
+        # Reject duplicate indices (keep order as given)
+        if np.unique(field_indices).size != field_indices.size:
+            raise ValueError("[AOT-biomaps] field_indices contains duplicates.")
+        self._vf_field_indices = field_indices
 
         # --- Time mask ---
         time_mask = np.ones(self._full_T, dtype=bool)
@@ -1306,9 +1321,13 @@ class SMatrix_SELL(SMatrix):
         if not time_mask.any():
             raise ValueError("[AOT-biomaps] No time samples remaining.")
 
-        # Active physical rows (row = n*T + t), order preserved
         self._vt_time_mask = time_mask
-        self._vt_active_rows = np.flatnonzero(np.tile(time_mask, self._full_N)).astype(np.int32)
+        t_idx = np.flatnonzero(time_mask)  # active time indices
+
+        # Active physical rows (row = n*T_full + t)
+        # Ordering: field first, then time (consistent with row layout = n*T + t)
+        # rows[f*T_eff + k] = field_indices[f] * T_full + t_idx[k]
+        self._vt_active_rows = (field_indices[:, None] * self._full_T + t_idx[None, :]).ravel().astype(np.int32)
 
         # --- Space mask ---
         if space_range is not None:
@@ -1316,10 +1335,10 @@ class SMatrix_SELL(SMatrix):
             zs, ze = space_range.get("Z", (0, self._full_Z))
             Zg, Xg = np.meshgrid(np.arange(zs, ze), np.arange(xs, xe), indexing='ij')
             self._vs_active_cols = (Zg * self._full_X + Xg).ravel().astype(np.int32)
-            self._vs_box = (zs, ze, xs, xe)        
+            self._vs_box = (zs, ze, xs, xe)
         else:
             self._vs_active_cols = None
-            self._vs_box = None   
+            self._vs_box = None
 
         # --- GPU index arrays ---
         if CUPY_AVAILABLE and check_gpu_available(self):
@@ -1329,6 +1348,7 @@ class SMatrix_SELL(SMatrix):
                                             if self._vs_active_cols is not None else None)
 
         # --- Swap the public dims to effective values (optimizers read these) ---
+        self.N = int(field_indices.size)
         self.T = int(time_mask.sum())
         if self._vs_active_cols is not None:
             self.Z, self.X = ze - zs, xe - xs
@@ -1336,8 +1356,9 @@ class SMatrix_SELL(SMatrix):
             self.Z, self.X = self._full_Z, self._full_X
 
         if verbose:
-            print(f"[AOT-biomaps] Virtual truncation active: T {self._full_T} -> {self.T}, "
-                  f"N {self.N}, Z {self.Z}, X {self.X} (matrix data untouched)")
+            print(f"[AOT-biomaps] Virtual truncation active: N {self._full_N} -> {self.N}, "
+                f"T {self._full_T} -> {self.T}, "
+                f"Z {self.Z}, X {self.X} (matrix data untouched)")
 
     def untruncate(self, verbose=True):
         """Cancel the virtual truncation. A is already in VRAM, nothing to reload."""
@@ -1346,6 +1367,7 @@ class SMatrix_SELL(SMatrix):
         self._vt_active_rows_gpu = None
         self._vs_active_cols = None
         self._vs_active_cols_gpu = None
+        self._vf_field_indices = None
         if hasattr(self, "_full_T"):
             self.N, self.T = self._full_N, self._full_T
             self.Z, self.X = self._full_Z, self._full_X

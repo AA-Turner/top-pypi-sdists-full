@@ -18,9 +18,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
-from typing_extensions import Annotated
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from mixpeek.models.cost_unit import CostUnit
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,7 +29,7 @@ class CostRate(BaseModel):
     Cost rate for a specific billing unit.  Defines how many credits are charged per unit of a specific type.  Example:     CostRate(         unit=CostUnit.MINUTE,         credits_per_unit=200,         description=\"Video processing\"     )     # Means: 200 credits per minute of video
     """ # noqa: E501
     unit: CostUnit = Field(description="The billing unit type")
-    credits_per_unit: Annotated[int, Field(strict=True, ge=1)] = Field(description="Number of credits charged per unit")
+    credits_per_unit: Union[StrictFloat, StrictInt] = Field(description="Credits charged per unit (1 credit = $0.001). Fractional when the per-unit price is not a whole number of credits, for example 1.5 for an image at $1.50 per 1,000.")
     description: Optional[StrictStr] = Field(default=None, description="Human-readable description of what this rate covers")
     __properties: ClassVar[List[str]] = ["unit", "credits_per_unit", "description"]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testmuai-appium-bindings
-Version: 0.4.9
+Version: 0.4.10
 Summary: Testmu binding for Appium Python — thin mobile test runtime for LambdaTest exports
 Author-email: LambdaTest <engineering@lambdatest.com>
 License-Expression: LicenseRef-Proprietary

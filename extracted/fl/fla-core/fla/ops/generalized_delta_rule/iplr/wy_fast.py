@@ -41,11 +41,11 @@ def prepare_wy_repr_fwd_kernel_chunk32(
     BC: tl.constexpr,  # dummy placeholder
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -61,7 +61,7 @@ def prepare_wy_repr_fwd_kernel_chunk32(
         p_b = b + (bos * H + i_h) * K + o_k[:, None] + o_t[None, :] * (K*H)
         b_a = tl.load(p_a, mask=m_a, other=0.0)
         b_b = tl.load(p_b, mask=m_b, other=0.0)
-        b_A += tl.dot(b_a, b_b)
+        b_A = tl.dot(b_a, b_b, b_A)
 
     b_A = tl.where(tl.arange(0, BT)[:, None] > tl.arange(0, BT)[None, :], b_A, 0)
     for i in range(1, BT):
@@ -102,11 +102,11 @@ def prepare_wy_repr_fwd_kernel_chunk64(
     BC: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -134,9 +134,9 @@ def prepare_wy_repr_fwd_kernel_chunk64(
         b_a2 = tl.load(p_a2, mask=m_a2, other=0.0)
         b_b1 = tl.load(p_b1, mask=m_b1, other=0.0)
         b_b2 = tl.load(p_b2, mask=m_b2, other=0.0)
-        b_A += tl.dot(b_a1, b_b1, allow_tf32=False)
-        b_A2 += tl.dot(b_a2, b_b2, allow_tf32=False)
-        b_A3 += tl.dot(b_a2, b_b1, allow_tf32=False)
+        b_A = tl.dot(b_a1, b_b1, b_A, allow_tf32=False)
+        b_A2 = tl.dot(b_a2, b_b2, b_A2, allow_tf32=False)
+        b_A3 = tl.dot(b_a2, b_b1, b_A3, allow_tf32=False)
 
     b_A = tl.where(tl.arange(0, BC)[:, None] > tl.arange(0, BC)[None, :], b_A, 0)
     b_A2 = tl.where(tl.arange(0, BC)[:, None] > tl.arange(0, BC)[None, :], b_A2, 0)
@@ -198,11 +198,11 @@ def wu_fwd_kernel(
     BV: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -225,7 +225,7 @@ def wu_fwd_kernel(
         b_k = tl.load(p_k, mask=m_k, other=0.0)
         b_a = tl.load(p_a, mask=m_k, other=0.0)
         b_w = tl.dot(b_A, b_a)
-        b_Aak += tl.dot(b_a, tl.trans(b_k))
+        b_Aak = tl.dot(b_a, tl.trans(b_k), b_Aak)
         tl.store(p_w, b_w.to(p_w.dtype.element_ty), mask=m_k)
 
     b_Aak = tl.where(tl.arange(0, BT)[:, None] > tl.arange(0, BT)[None, :], b_Aak, 0)

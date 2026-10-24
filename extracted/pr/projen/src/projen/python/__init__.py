@@ -3221,7 +3221,7 @@ class PythonProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cabdb593e4357c0da03ac92882cb152b8d7fd4429738682c7081bc2132bad82b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pytest", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pytest", value)
 
 
 @jsii.data_type(

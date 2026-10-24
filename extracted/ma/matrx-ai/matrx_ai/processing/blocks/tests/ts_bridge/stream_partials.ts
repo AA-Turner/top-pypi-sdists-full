@@ -1,7 +1,7 @@
 /**
  * stream_partials.ts — TypeScript bridge for PARTIAL-VALUE parity.
  *
- * The detection bridge (`parse_blocks.ts`) answers "do both runtimes assign the
+ * The detection bridge (`parse_blocks.mts`) answers "do both runtimes assign the
  * same block TYPE". This one answers the question that matters once content
  * renders while it streams: **do both runtimes agree on the progressive VALUE
  * a user is looking at mid-stream?**

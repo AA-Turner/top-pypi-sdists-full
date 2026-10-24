@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bd_materials
-Version: 0.2.4
+Version: 0.2.5
 Summary: Typical-values engineering materials for build123d -- with finishes and three.js PBR looks
 Author-email: Bernhard Walter <b_walter@arcor.de>
 Project-URL: Homepage, https://github.com/bernhard-42/bd_materials
@@ -12,10 +12,12 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: threejs-materials<1.3.0,>=1.2.3
 Requires-Dist: webcolors~=24.8.0
 Provides-Extra: test
 Requires-Dist: pytest==9.0.3; extra == "test"
+Dynamic: license-file
 
 # bd_materials
 

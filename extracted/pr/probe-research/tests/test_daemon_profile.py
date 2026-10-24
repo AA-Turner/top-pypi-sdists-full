@@ -19,7 +19,8 @@ def test_the_daemon_blurb_is_the_approved_text():
     assert agent_rules.DAEMON_POINTER_BODY == _body("agent-facing/managed-block.PROPOSED.md")
     # 1,131 approved 09-27; the `probe session inline` line (10-05) out again 10-06;
     # 1,365 with the PLAN FIRST section (10-11); 1,624 with PAPERS (10-12);
-    # 1,816 with FEEDBACK (10-13); 1,969 with `probe ask --writer` (10-13).
+    # 1,816 with FEEDBACK (10-13); 1,969 with `probe ask --writer` (10-13);
+    # 1,608 with `probe doctor --send` (10-23), after the 10-14 and 10-22 rewrites.
     assert len(agent_rules.DAEMON_POINTER_BODY) < 2000
 
 
@@ -378,7 +379,8 @@ DAEMONS = {
     # What moves the key, account or folder the daemon records with, or holds
     # and drops its queued writes.
     "login", "logout", "context use", "workspace use", "project use", "token revoke", "token create",
-    "session initialize", "outbox discard", "outbox pause", "outbox resume", "snapshot-prune-refs",
+    "session initialize", "outbox adopt", "outbox discard", "outbox pause", "outbox resume",
+    "snapshot-prune-refs",
     # The team's permissions and workspaces.
     "workspace create", "workspace rename", "workspace writers set", "access-group create",
     "access-group rename", "access-group add",

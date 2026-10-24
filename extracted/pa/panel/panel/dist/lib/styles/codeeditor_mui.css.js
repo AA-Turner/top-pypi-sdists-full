@@ -1,0 +1,1 @@
+export default `:host div.ace_editor,:host div.ace_editor .ace_gutter{background-color:transparent;}:host div.ace_editor .ace_gutter{border-right:1px solid var(--mui-palette-divider);color:var(--mui-palette-text-disabled);}`

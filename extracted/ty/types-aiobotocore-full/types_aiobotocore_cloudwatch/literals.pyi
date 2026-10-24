@@ -27,6 +27,8 @@ __all__ = (
     "AlarmMuteRuleExistsWaiterName",
     "AlarmMuteRuleStatusType",
     "AlarmTypeType",
+    "AnomalyDetectorAdaptationSpeedType",
+    "AnomalyDetectorOutlierFilteringStrengthType",
     "AnomalyDetectorStateValueType",
     "AnomalyDetectorTypeType",
     "CloudWatchServiceName",
@@ -62,6 +64,8 @@ AlarmExistsWaiterName = Literal["alarm_exists"]
 AlarmMuteRuleExistsWaiterName = Literal["alarm_mute_rule_exists"]
 AlarmMuteRuleStatusType = Literal["ACTIVE", "EXPIRED", "SCHEDULED"]
 AlarmTypeType = Literal["CompositeAlarm", "LogAlarm", "MetricAlarm"]
+AnomalyDetectorAdaptationSpeedType = Literal["FAST", "NORMAL", "SLOW"]
+AnomalyDetectorOutlierFilteringStrengthType = Literal["MINIMAL", "MODERATE", "STRICT"]
 AnomalyDetectorStateValueType = Literal["PENDING_TRAINING", "TRAINED", "TRAINED_INSUFFICIENT_DATA"]
 AnomalyDetectorTypeType = Literal["METRIC_MATH", "SINGLE_METRIC"]
 ComparisonOperatorType = Literal[
@@ -280,13 +284,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -354,6 +357,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -488,6 +492,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -538,7 +543,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

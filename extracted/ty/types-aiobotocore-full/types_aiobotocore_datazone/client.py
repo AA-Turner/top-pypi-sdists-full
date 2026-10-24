@@ -39,6 +39,7 @@ from .paginator import (
     ListDataSourceRunActivitiesPaginator,
     ListDataSourceRunsPaginator,
     ListDataSourcesPaginator,
+    ListDesignationsPaginator,
     ListDomainsPaginator,
     ListDomainUnitsForParentPaginator,
     ListEntityOwnersPaginator,
@@ -106,6 +107,8 @@ from .type_defs import (
     CreateDataProductRevisionOutputTypeDef,
     CreateDataSourceInputTypeDef,
     CreateDataSourceOutputTypeDef,
+    CreateDesignationInputTypeDef,
+    CreateDesignationOutputTypeDef,
     CreateDomainInputTypeDef,
     CreateDomainOutputTypeDef,
     CreateDomainUnitInputTypeDef,
@@ -155,6 +158,7 @@ from .type_defs import (
     DeleteDataProductInputTypeDef,
     DeleteDataSourceInputTypeDef,
     DeleteDataSourceOutputTypeDef,
+    DeleteDesignationInputTypeDef,
     DeleteDomainInputTypeDef,
     DeleteDomainOutputTypeDef,
     DeleteDomainUnitInputTypeDef,
@@ -200,6 +204,8 @@ from .type_defs import (
     GetDataSourceOutputTypeDef,
     GetDataSourceRunInputTypeDef,
     GetDataSourceRunOutputTypeDef,
+    GetDesignationInputTypeDef,
+    GetDesignationOutputTypeDef,
     GetDomainInputTypeDef,
     GetDomainOutputTypeDef,
     GetDomainUnitInputTypeDef,
@@ -278,6 +284,8 @@ from .type_defs import (
     ListDataSourceRunsOutputTypeDef,
     ListDataSourcesInputTypeDef,
     ListDataSourcesOutputTypeDef,
+    ListDesignationsInputTypeDef,
+    ListDesignationsOutputTypeDef,
     ListDomainsInputTypeDef,
     ListDomainsOutputTypeDef,
     ListDomainUnitsForParentInputTypeDef,
@@ -381,6 +389,8 @@ from .type_defs import (
     UpdateConnectionOutputTypeDef,
     UpdateDataSourceInputTypeDef,
     UpdateDataSourceOutputTypeDef,
+    UpdateDesignationInputTypeDef,
+    UpdateDesignationOutputTypeDef,
     UpdateDomainInputTypeDef,
     UpdateDomainOutputTypeDef,
     UpdateDomainUnitInputTypeDef,
@@ -666,6 +676,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#create_data_source)
         """
 
+    async def create_designation(
+        self, **kwargs: Unpack[CreateDesignationInputTypeDef]
+    ) -> CreateDesignationOutputTypeDef:
+        """
+        Creates a new user-defined designation with a Cedar permit policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/create_designation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#create_designation)
+        """
+
     async def create_domain(
         self, **kwargs: Unpack[CreateDomainInputTypeDef]
     ) -> CreateDomainOutputTypeDef:
@@ -946,6 +966,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_data_source.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_data_source)
+        """
+
+    async def delete_designation(
+        self, **kwargs: Unpack[DeleteDesignationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a designation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_designation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_designation)
         """
 
     async def delete_domain(
@@ -1257,6 +1287,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_data_source_run.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_data_source_run)
+        """
+
+    async def get_designation(
+        self, **kwargs: Unpack[GetDesignationInputTypeDef]
+    ) -> GetDesignationOutputTypeDef:
+        """
+        Gets the details of a designation, including its Cedar policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_designation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_designation)
         """
 
     async def get_domain(self, **kwargs: Unpack[GetDomainInputTypeDef]) -> GetDomainOutputTypeDef:
@@ -1645,6 +1685,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_data_sources.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#list_data_sources)
+        """
+
+    async def list_designations(
+        self, **kwargs: Unpack[ListDesignationsInputTypeDef]
+    ) -> ListDesignationsOutputTypeDef:
+        """
+        Lists the designations in a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_designations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#list_designations)
         """
 
     async def list_domain_units_for_parent(
@@ -2187,6 +2237,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_data_source)
         """
 
+    async def update_designation(
+        self, **kwargs: Unpack[UpdateDesignationInputTypeDef]
+    ) -> UpdateDesignationOutputTypeDef:
+        """
+        Updates an existing designation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_designation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_designation)
+        """
+
     async def update_domain(
         self, **kwargs: Unpack[UpdateDomainInputTypeDef]
     ) -> UpdateDomainOutputTypeDef:
@@ -2462,6 +2522,17 @@ class DataZoneClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_data_sources"]
     ) -> ListDataSourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_designations"]
+    ) -> ListDesignationsPaginator:
         """
         Create a paginator for an operation.
 

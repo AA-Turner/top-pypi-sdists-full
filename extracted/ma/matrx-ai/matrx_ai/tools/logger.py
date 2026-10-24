@@ -103,6 +103,13 @@ TURN_ACTOR_KEY = "turn_actor_user_id"
 #: coordinator first (``persistence.queue_helpers._child_coordinator_scope``).
 PARENT_TOOL_CALL_ROW_KEY = "agent_call_parent_tool_call_row_id"
 
+#: ``AppContext.metadata`` key carrying the provider ``call_id`` of the same
+#: ``agent_call`` (bound beside ``PARENT_TOOL_CALL_ROW_KEY``). The host copies
+#: both onto the child run's durable execution record, which is how crash
+#: recovery finds the helper an interrupted call started and continues it
+#: instead of answering for it (aidream ``runtime/helper_reattach.py``).
+PARENT_TOOL_CALL_ID_KEY = "agent_call_parent_call_id"
+
 
 def _stamp_parent_call(data: dict[str, Any]) -> None:
     """Stamp ``parent_call_id`` from the running ``agent_call`` (if any).
@@ -260,6 +267,100 @@ def _cx_tool_call_supports_as_called() -> bool:
     return _AS_CALLED_SUPPORTED
 
 
+def build_tool_call_started_row(
+    *,
+    row_id: str,
+    conversation_id: Any,
+    user_request_id: str | None,
+    tool_name: str,
+    tool_type: str,
+    call_id: str,
+    arguments: dict[str, Any],
+    iteration: int,
+    started_at: datetime,
+    message_id: str | None = None,
+    turn_actor_user_id: str | None = None,
+    parent_call_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """THE ``chat.tool_call`` row a call is born with — pure, no I/O.
+
+    The ONE builder every writer of a call's first row uses: the engine's own
+    ``ToolExecutionLogger.log_started`` and the coding-session bridge, which
+    mirrors a coding tool's calls (aidream ``coding_session_bridge``) as the
+    same rows an AI Matrx run writes. Arguments are capped exactly as the
+    engine caps them; ``parent_call_id`` is stamped from the running
+    ``agent_call`` unless the caller names it.
+    """
+    now_iso = started_at.isoformat()
+    data: dict[str, Any] = {
+        "id": row_id,
+        "conversation_id": conversation_id,
+        "user_request_id": user_request_id if user_request_id else None,
+        "tool_name": tool_name,
+        "tool_type": tool_type,
+        "call_id": call_id,
+        "status": "running",
+        # The DB column defaults success=true; a row that is only just
+        # STARTING has not succeeded. Stamp it false at INSERT so a row stuck
+        # at 'running' (e.g. a lost completion write) never masquerades as a
+        # success. The completion path (log_completed) flips it to true.
+        "success": False,
+        "is_error": False,
+        "arguments": ToolExecutionLogger._truncate_arguments(arguments),
+        "iteration": iteration,
+        "cost_usd": Decimal("0"),
+        "started_at": now_iso,
+        "completed_at": now_iso,
+        "created_at": now_iso,
+        "metadata": dict(metadata or {}),
+    }
+    if message_id:
+        data["message_id"] = message_id
+    if turn_actor_user_id:
+        data["metadata"] = {**data["metadata"], TURN_ACTOR_KEY: turn_actor_user_id}
+    if parent_call_id:
+        data["parent_call_id"] = parent_call_id
+    _stamp_parent_call(data)
+    return data
+
+
+def build_tool_call_finished_fields(
+    output: Any,
+    *,
+    is_error: bool,
+    completed_at: datetime,
+    duration_ms: int,
+    error_message: str | None = None,
+    output_preview: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The fields a finished call's row is updated with — pure, no I/O.
+
+    Output is serialized, capped and previewed by the SAME rules
+    ``log_completed`` applies, so a mirrored call and an engine call store an
+    identical shape.
+    """
+    output_str, output_type, output_chars = ToolExecutionLogger._serialize_output(output)
+    preview = output_preview
+    if preview is None:
+        preview = ToolExecutionLogger._synthesize_preview(output, output_type, output_chars)
+    fields: dict[str, Any] = {
+        "status": "error" if is_error else "completed",
+        "success": not is_error,
+        "is_error": is_error,
+        "output": output_str,
+        "output_type": output_type,
+        "output_chars": output_chars,
+        "output_preview": preview,
+        "duration_ms": max(0, int(duration_ms)),
+        "completed_at": completed_at.isoformat(),
+    }
+    if is_error:
+        fields["error_type"] = "tool_error"
+        fields["error_message"] = (error_message or output_str or "")[:2000] or None
+    return fields
+
+
 class ToolExecutionLogger:
     """Two-phase logging to the ``cx_tool_call`` table via the ORM manager.
 
@@ -323,8 +424,6 @@ class ToolExecutionLogger:
         row_id = str(uuid4())
         now = datetime.now(UTC)
 
-        safe_arguments = self._truncate_arguments(arguments)
-
         # THE LEDGER (in-process mirror of this row) — recorded at the same
         # instant the chat.tool_call INSERT is decided, and BEFORE the
         # store=False early return, so an ephemeral run reports just as
@@ -348,45 +447,28 @@ class ToolExecutionLogger:
         # haven't been updated yet).
         as_called = exposed_name if exposed_name is not None else tool_def.name
 
-        data: dict[str, Any] = {
-            "id": row_id,
-            "conversation_id": ctx.conversation_id,
-            "user_request_id": ctx.request_id if ctx.request_id else None,
-            "tool_name": tool_def.name,
-            "tool_type": tool_def.tool_type.value,
-            "call_id": ctx.call_id,
-            "status": "running",
-            # The DB column defaults success=true; a row that is only just
-            # STARTING has not succeeded. Stamp it false at INSERT so a row stuck
-            # at 'running' (e.g. a lost completion write) never masquerades as a
-            # success. The completion path (log_completed) flips it to true.
-            "success": False,
-            "is_error": False,
-            "arguments": safe_arguments,
-            "iteration": ctx.iteration,
-            "cost_usd": Decimal("0"),
-            "started_at": now.isoformat(),
-            "completed_at": now.isoformat(),
-            "created_at": now.isoformat(),
-            "metadata": {},
-        }
+        metadata: dict[str, Any] = {}
         if authorization_metadata:
-            data["metadata"] = {
-                **data["metadata"],
-                "execution_authorization": authorization_metadata,
-            }
+            metadata["execution_authorization"] = authorization_metadata
         if candidate_disposition:
             # Mandate-candidate containment: how this call was decided (real /
             # borrowed / stopped) rides the row from its INSERT, so the row is
             # honest even if the run dies before completion.
-            data["metadata"] = {
-                **data["metadata"],
-                "mandate_candidate_disposition": candidate_disposition,
-            }
-        if ctx.message_id:
-            data["message_id"] = ctx.message_id
-        if ctx.user_id:
-            data["metadata"] = {**data["metadata"], TURN_ACTOR_KEY: str(ctx.user_id)}
+            metadata["mandate_candidate_disposition"] = candidate_disposition
+        data = build_tool_call_started_row(
+            row_id=row_id,
+            conversation_id=ctx.conversation_id,
+            user_request_id=ctx.request_id or None,
+            tool_name=tool_def.name,
+            tool_type=tool_def.tool_type.value,
+            call_id=ctx.call_id,
+            arguments=arguments,
+            iteration=ctx.iteration,
+            started_at=now,
+            message_id=ctx.message_id or None,
+            turn_actor_user_id=str(ctx.user_id) if ctx.user_id else None,
+            metadata=metadata,
+        )
         _stamp_parent_call(data)
 
         stamp_row_owner(data, ctx.user_id)
@@ -1153,6 +1235,54 @@ class ToolExecutionLogger:
             "execution_events": execution_events or [],
         }
         await self._update_row(row_id, update_data, coordinator=coordinator)
+
+    async def stamp_row_metadata(
+        self, row_id: str, metadata: dict[str, Any], *, coordinator: Any = None
+    ) -> None:
+        """Replace the row's ``metadata`` (the caller merges) and leave its status alone.
+
+        Crash recovery writes a durable marker here BEFORE it re-runs paid work for
+        the call, so a second crash can read that the call was already re-attached.
+        """
+        await self._update_row(row_id, {"metadata": metadata}, coordinator=coordinator)
+
+    async def log_resolved_after_restart(
+        self,
+        row_id: str,
+        *,
+        output: Any,
+        is_error: bool,
+        error_type: str | None,
+        error_message: str | None,
+        metadata: dict[str, Any],
+        duration_ms: int = 0,
+        coordinator: Any = None,
+    ) -> None:
+        """Settle a call a server restart left open, with the result recovery produced.
+
+        The output is serialized and previewed by the same rules a live completion
+        uses (``build_tool_call_finished_fields``), so the rebuilt turn pairs this
+        row's output as the call's tool_result and the card reads it like any other.
+        ``resolution_source='crash_recovery'`` names who answered.
+        """
+        now = datetime.now(UTC)
+        fields = build_tool_call_finished_fields(
+            output,
+            is_error=is_error,
+            completed_at=now,
+            duration_ms=duration_ms,
+            error_message=error_message,
+        )
+        if is_error and error_type:
+            fields["error_type"] = error_type
+        fields.update(
+            {
+                "resolved_at": now.isoformat(),
+                "resolution_source": "crash_recovery",
+                "metadata": metadata,
+            }
+        )
+        await self._update_row(row_id, fields, coordinator=coordinator)
 
     async def settle_open_rows_at_run_end(
         self,

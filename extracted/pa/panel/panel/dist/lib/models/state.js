@@ -14,10 +14,8 @@ function get_json(file, callback) {
     xobj.send(null);
 }
 export class StateView extends View {
-    static __name__ = "StateView";
 }
 export class State extends Model {
-    static __name__ = "State";
     _receiver;
     _cache;
     constructor(attrs) {

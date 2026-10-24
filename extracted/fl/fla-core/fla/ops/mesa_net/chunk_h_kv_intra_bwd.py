@@ -55,12 +55,12 @@ def chunk_mesa_net_h_kv_bwd_intra_kernel(
     BV: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_tg = i_t
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
         NT = tl.cdiv(T, BT)
     else:
@@ -117,7 +117,9 @@ def chunk_mesa_net_h_kv_bwd_intra_kernel(
     b_g_last = tl.load(g + (min(i_t * BT + BT, T) - 1) * H)
 
     # calculation
-    b_dg_last += tl.sum(b_h * b_dh)
+    # h_kv is stored in bf16 (wide exponent range) while dh_kv is fp16
+    # lift both precision to float32 to prevent overflow from large h_kv entries
+    b_dg_last += tl.sum(b_h.to(tl.float32) * b_dh.to(tl.float32))
     b_dg_last *= exp2(b_g_last)
 
     b_m = tl.where((o_t[:, None] >= o_t[None, :]) & (m_t[:, None] & m_t[None, :]), exp2(b_g[:, None] - b_g[None, :]), 0)
@@ -139,9 +141,9 @@ def chunk_mesa_net_h_kv_bwd_intra_kernel(
     b_dg_last += tl.sum(b_dk * b_k)
     b_dg -= tl.sum(b_dk * b_k, axis=1)
     b_dg += tl.sum(b_dq * b_q, axis=1)
-    b_dq += tl.dot(b_ds.to(b_k.dtype), b_k)
+    b_dq = tl.dot(b_ds.to(b_k.dtype), b_k, b_dq)
     b_dv += tl.dot(b_k, tl.trans(b_dh).to(b_k.dtype)) * b_g_exp_k[:, None] + tl.dot(tl.trans(b_s.to(b_do.dtype)), b_do)
-    b_dk += tl.dot(tl.trans(b_ds.to(b_q.dtype)), b_q)
+    b_dk = tl.dot(tl.trans(b_ds.to(b_q.dtype)), b_q, b_dk)
 
     b_dg = tl.where(o_t < min(i_t * BT + BT, T) - 1, b_dg, b_dg + b_dg_last)
     p_dq = dq + o_t[:, None] * (H*K) + o_k[None, :]

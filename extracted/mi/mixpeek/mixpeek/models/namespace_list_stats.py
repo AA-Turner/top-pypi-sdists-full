@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,6 +30,7 @@ class NamespaceListStats(BaseModel):
     total_feature_extractors: Optional[StrictInt] = Field(default=0, description="Total number of feature extractors across all namespaces")
     total_payload_indexes: Optional[StrictInt] = Field(default=0, description="Total number of payload indexes across all namespaces")
     total_documents: Optional[StrictInt] = Field(default=0, description="Total number of documents across all namespaces")
+    total_documents_complete: Optional[StrictBool] = Field(default=True, description="Whether every namespace's document count in this list finished. False when any namespace has document_count_complete false, so total_documents is a lower bound.")
     total_buckets: Optional[StrictInt] = Field(default=0, description="Total number of buckets across all namespaces")
     total_collections: Optional[StrictInt] = Field(default=0, description="Total number of collections across all namespaces")
     total_objects: Optional[StrictInt] = Field(default=0, description="Total number of objects across all namespaces")
@@ -39,7 +40,7 @@ class NamespaceListStats(BaseModel):
     avg_buckets_per_namespace: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Average number of buckets per namespace")
     avg_collections_per_namespace: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Average number of collections per namespace")
     avg_objects_per_namespace: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Average number of objects per namespace")
-    __properties: ClassVar[List[str]] = ["total_feature_extractors", "total_payload_indexes", "total_documents", "total_buckets", "total_collections", "total_objects", "avg_feature_extractors_per_namespace", "avg_payload_indexes_per_namespace", "avg_documents_per_namespace", "avg_buckets_per_namespace", "avg_collections_per_namespace", "avg_objects_per_namespace"]
+    __properties: ClassVar[List[str]] = ["total_feature_extractors", "total_payload_indexes", "total_documents", "total_documents_complete", "total_buckets", "total_collections", "total_objects", "avg_feature_extractors_per_namespace", "avg_payload_indexes_per_namespace", "avg_documents_per_namespace", "avg_buckets_per_namespace", "avg_collections_per_namespace", "avg_objects_per_namespace"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +96,7 @@ class NamespaceListStats(BaseModel):
             "total_feature_extractors": obj.get("total_feature_extractors") if obj.get("total_feature_extractors") is not None else 0,
             "total_payload_indexes": obj.get("total_payload_indexes") if obj.get("total_payload_indexes") is not None else 0,
             "total_documents": obj.get("total_documents") if obj.get("total_documents") is not None else 0,
+            "total_documents_complete": obj.get("total_documents_complete") if obj.get("total_documents_complete") is not None else True,
             "total_buckets": obj.get("total_buckets") if obj.get("total_buckets") is not None else 0,
             "total_collections": obj.get("total_collections") if obj.get("total_collections") is not None else 0,
             "total_objects": obj.get("total_objects") if obj.get("total_objects") is not None else 0,

@@ -23,15 +23,16 @@ from typing import Optional
 from mixpeek.models.anthropic_model import AnthropicModel
 from mixpeek.models.google_model import GoogleModel
 from mixpeek.models.open_ai_model import OpenAIModel
+from mixpeek.models.type_safe_model import TypeSafeModel
 from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-MODELNAME_ANY_OF_SCHEMAS = ["AnthropicModel", "GoogleModel", "OpenAIModel"]
+MODELNAME_ANY_OF_SCHEMAS = ["AnthropicModel", "GoogleModel", "OpenAIModel", "TypeSafeModel"]
 
 class ModelName(BaseModel):
     """
-    REQUIRED when enabled=True. Specific LLM model to use for cluster labeling. All models are defined as enums for type safety.  OpenAI Models (provider='openai'): - gpt-4o-2024-08-06: Highest quality, best for production ($2.50/$10 per 1M tokens) - gpt-4o-mini-2024-07-18: Cost-effective, recommended for most use cases ($0.15/$0.60 per 1M tokens) - gpt-4.1-2025-04-14: Latest model, future-proofed - gpt-4.1-mini-2025-04-14: Latest cost-optimized model - o3-mini-2025-01-31: Advanced reasoning, best for complex clustering  Google Models (provider='google'): - gemini-2.5-flash-lite: Fastest, latest multimodal model, recommended ($0.15/$0.60 per 1M tokens)  Anthropic Models (provider='anthropic'): - claude-3-5-sonnet-20241022: Best reasoning, 200K context ($3/$15 per 1M tokens) - claude-3-5-haiku-20241022: Fast, cost-effective ($0.25/$1.25 per 1M tokens)  Recommendation: - Use gemini-2.5-flash-lite (DEFAULT) - multimodal support - Use gpt-4o-mini-2024-07-18 for OpenAI compatibility - Use gpt-4o-2024-08-06 for highest quality when cost is not a concern
+    REQUIRED when enabled=True. Specific LLM model to use for cluster labeling. All models are defined as enums for type safety.  OpenAI Models (provider='openai'): - gpt-4o-2024-08-06: Highest quality, best for production ($2.50/$10 per 1M tokens) - gpt-4o-mini-2024-07-18: Cost-effective, recommended for most use cases ($0.15/$0.60 per 1M tokens) - gpt-4.1-2025-04-14: Latest model, future-proofed - gpt-4.1-mini-2025-04-14: Latest cost-optimized model - o3-mini-2025-01-31: Advanced reasoning, best for complex clustering  Google Models (provider='google'): - gemini-3.5-flash-lite: Fastest, latest multimodal model, recommended ($0.30/$2.50 per 1M tokens)  Anthropic Models (provider='anthropic'): - claude-3-5-sonnet-20241022: Best reasoning, 200K context ($3/$15 per 1M tokens) - claude-3-5-haiku-20241022: Fast, cost-effective ($0.25/$1.25 per 1M tokens)  Recommendation: - Use gemini-3.5-flash-lite (DEFAULT) - multimodal support - Use gpt-4o-mini-2024-07-18 for OpenAI compatibility - Use gpt-4o-2024-08-06 for highest quality when cost is not a concern
     """
 
     # data type: OpenAIModel
@@ -40,11 +41,13 @@ class ModelName(BaseModel):
     anyof_schema_2_validator: Optional[GoogleModel] = None
     # data type: AnthropicModel
     anyof_schema_3_validator: Optional[AnthropicModel] = None
+    # data type: TypeSafeModel
+    anyof_schema_4_validator: Optional[TypeSafeModel] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[AnthropicModel, GoogleModel, OpenAIModel]] = None
+        actual_instance: Optional[Union[AnthropicModel, GoogleModel, OpenAIModel, TypeSafeModel]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "AnthropicModel", "GoogleModel", "OpenAIModel" }
+    any_of_schemas: Set[str] = { "AnthropicModel", "GoogleModel", "OpenAIModel", "TypeSafeModel" }
 
     model_config = {
         "validate_assignment": True,
@@ -83,9 +86,15 @@ class ModelName(BaseModel):
         else:
             return v
 
+        # validate data type: TypeSafeModel
+        if not isinstance(v, TypeSafeModel):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TypeSafeModel`")
+        else:
+            return v
+
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in ModelName with anyOf schemas: AnthropicModel, GoogleModel, OpenAIModel. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in ModelName with anyOf schemas: AnthropicModel, GoogleModel, OpenAIModel, TypeSafeModel. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -116,10 +125,16 @@ class ModelName(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
+        # anyof_schema_4_validator: Optional[TypeSafeModel] = None
+        try:
+            instance.actual_instance = TypeSafeModel.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ModelName with anyOf schemas: AnthropicModel, GoogleModel, OpenAIModel. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ModelName with anyOf schemas: AnthropicModel, GoogleModel, OpenAIModel, TypeSafeModel. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -133,7 +148,7 @@ class ModelName(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], AnthropicModel, GoogleModel, OpenAIModel]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AnthropicModel, GoogleModel, OpenAIModel, TypeSafeModel]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

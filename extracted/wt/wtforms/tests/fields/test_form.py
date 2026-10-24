@@ -2,7 +2,9 @@ import pytest
 
 from tests.common import DummyPostData
 from wtforms import validators
+from wtforms.fields import FieldList
 from wtforms.fields import FormField
+from wtforms.fields import SelectField
 from wtforms.fields import StringField
 from wtforms.form import Form
 
@@ -107,6 +109,103 @@ def test_no_validators_or_filters(F1):
     form = C()
     with pytest.raises(TypeError):
         form.validate()
+
+
+def test_post_process_propagates_through_form_field():
+    """``post_process`` of a nested form runs before its enclosing ``FormField``."""
+    captured = []
+
+    class Inner(Form):
+        x = StringField()
+
+        def post_process(self, formdata=None):
+            super().post_process(formdata)
+            captured.append(("inner", self.x.data))
+
+    class Outer(Form):
+        block = FormField(Inner)
+
+        def post_process(self, formdata=None):
+            super().post_process(formdata)
+            captured.append(("outer", self.block.form.x.data))
+
+    Outer(DummyPostData({"block-x": "v"}))
+    assert captured == [("inner", "v"), ("outer", "v")]
+
+
+def test_post_process_runs_once_per_field():
+    """Processing runs each nested field's ``post_process`` exactly once."""
+    calls = []
+
+    class CountingField(StringField):
+        def post_process(self, formdata=None):
+            super().post_process(formdata)
+            calls.append(self.name)
+
+    Inner = make_form(item=CountingField())
+    Outer = make_form(block=FormField(Inner))
+
+    Outer(DummyPostData({"block-item": "a"}))
+    assert calls == ["block-item"]
+
+
+def test_post_process_propagates_through_field_list():
+    """``post_process`` is invoked on every ``FieldList`` entry."""
+    counter = {"n": 0}
+
+    def choices(form, field):
+        counter["n"] += 1
+        return ["a", "b"]
+
+    Inner = make_form(item=SelectField(choices=choices))
+    Outer = make_form(items=FieldList(FormField(Inner), min_entries=2))
+
+    form = Outer()
+    for entry in form.items.entries:
+        assert entry.form.item.choices is not None
+    assert counter["n"] == 2
+
+
+def test_post_process_mutation_propagates_top_down():
+    """A mutation done before super() in the root's post_process is visible
+    to nested fields' post_process."""
+    captured = []
+
+    def choices(form, field):
+        captured.append(form._parent_form.tenant.data)
+        return ["a"]
+
+    class Inner(Form):
+        item = SelectField(choices=choices)
+
+    class Outer(Form):
+        tenant = StringField()
+        block = FormField(Inner)
+
+        def post_process(self, formdata=None):
+            self.tenant.data = (self.tenant.data or "").upper()
+            super().post_process(formdata)
+
+    form = Outer(DummyPostData({"tenant": "acme", "block-item": "a"}))
+    assert form.block.form.item.choices == ["a"]
+    assert captured == ["ACME"]
+
+
+def test_choices_callback_in_subform_can_read_parent():
+    """A ``choices`` callable in a nested form can reach the parent form."""
+    captured = []
+
+    def choices(form, field):
+        captured.append(form._parent_form.tenant.data)
+        return ["a", "b"]
+
+    Inner = make_form(group=SelectField(choices=choices))
+    Outer = make_form(tenant=StringField(), block=FormField(Inner))
+
+    form = Outer(DummyPostData({"tenant": "acme", "block-group": "a"}))
+    list(form.block.form.group)
+
+    assert captured == ["acme"]
 
 
 def test_populate_missing_obj(F1):

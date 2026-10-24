@@ -61,6 +61,19 @@ CORE_SOURCES = (
     # The B-spline kernels (momwire#1517 step 0): the extension's bspline
     # TU's text over `_mw_nd.h`'s arrays.
     "_bspline_core.cpp",
+    # The sinusoidal basis' point-matched field tensors (momwire#1607 B1):
+    # the extension TU's text over `_mw_nd.h`'s arrays.
+    "_sinusoidal_core.cpp",
+    # The sinusoidal front half over the NEC-4.2 build (momwire#1607 B2),
+    # linked into `sinusoidal_front_driver.cpp`.
+    "_sinusoidal_front_core.cpp",
+    # The sinusoidal free-space fill and port solve over it (momwire#1607
+    # B3), linked into `sinusoidal_fill_driver.cpp`.
+    "_sinusoidal_fill_core.cpp",
+    # The NEC-4.2 run half and the sinusoidal basis' answers to it
+    # (momwire#1607 B4a), linked into `nec4_sinusoidal_printout_driver.cpp`.
+    "_nec4_run_core.cpp",
+    "_sinusoidal_run_core.cpp",
     # The NEC-5 deck reader (unit 2a): the executable's first step, card text
     # to the parsed deck, linked into `nec5_deck_driver.cpp` below.
     "_nec5_deck_core.cpp",
@@ -73,6 +86,9 @@ CORE_SOURCES = (
     # The NEC-4.2 build over it (momwire#1607 A2b), linked into
     # `nec4_build_driver.cpp`.
     "_nec4_build_core.cpp",
+    # The NEC-4.2 printout writer (momwire#1607 A3), linked into
+    # `nec4_printout_driver.cpp`.
+    "_nec4_printout_core.cpp",
     # The seam's structure half (unit 2b): the parsed deck to RazorSolver's
     # arguments, linked into `nec5_razor_driver.cpp` (deck text -> currents);
     # the engine-neutral seam and razor-2p's engine over it.
@@ -94,6 +110,10 @@ CORE_SOURCES = (
     "_somm_below_fill_core.cpp",
     "_near_interface_core.cpp",
     "_near_interface_eval.cpp",
+    # The point-observer twin and the buried near-field readout over it
+    # (momwire#1653).
+    "_near_interface_point_core.cpp",
+    "_near_buried_core.cpp",
     "_razor_crossing_core.cpp",
     # The near-field remainder over a finite ground (S4).
     "_somm_field_core.cpp",
@@ -196,11 +216,16 @@ def driver(accel, tmp_path_factory):
         "nec4_deck_driver",
         "nec4_seam_driver",
         "nec4_build_driver",
+        "nec4_printout_driver",
         "nec5_razor_driver",
         "nec5_razor_printout_driver",
         "nec5_bspline_printout_driver",
         "exact_kernel_coaxial_driver",
         "bspline_core_driver",
+        "sinusoidal_core_driver",
+        "sinusoidal_front_driver",
+        "sinusoidal_fill_driver",
+        "nec4_sinusoidal_printout_driver",
     )
     sources = [PKG / s for s in CORE_SOURCES] + [SPLIT / f"{d}.cpp" for d in drivers]
     objects, deps, procs = {}, [], []
@@ -236,8 +261,13 @@ def test_the_core_includes_no_python_header(driver):
     assert "_nec4_deck_core.h" in seen, "the nec2 / nec4 reader's core was not built"
     assert "_nec4_seam_core.h" in seen, "the NEC-4.2 seam's core was not built"
     assert "_nec4_build_core.h" in seen, "the NEC-4.2 build's core was not built"
+    assert "_nec4_printout_core.h" in seen, "the NEC-4.2 writer's core was not built"
     assert "_nec5_razor_seam_core.h" in seen, "the seam's core was not built"
     assert "_bspline_core.h" in seen, "the B-spline kernels' core was not built"
+    assert "_sinusoidal_core.h" in seen, "the sinusoidal kernels' core was not built"
+    assert "_sinusoidal_front_core.h" in seen, "the sinusoidal front half was not built"
+    assert "_sinusoidal_fill_core.h" in seen, "the sinusoidal fill was not built"
+    assert "_nec4_run_core.h" in seen, "the NEC-4.2 run half was not built"
     for marker in ("Python.h", "pybind11", "numpy"):
         assert marker not in seen, f"a core TU includes {marker}"
 
@@ -316,6 +346,332 @@ def test_the_nec4_build_in_cxx_alone_is_pythons(driver, basis):
     assert not mismatches, mismatches[:3]
     assert counts["built"] >= 200, counts
     assert counts["declined"] <= 3, counts
+
+
+@pytest.mark.parametrize("basis", ["sinusoidal", "bspline"])
+def test_the_nec4_refusal_printouts_in_cxx_alone_are_the_slots(driver, basis):
+    """momwire#1607 A3: every fixture deck the NEC-4.2 slot refuses before a
+    solve prints, from the core TUs alone (`nec4_printout_driver`: the C++
+    reader, seam, build and writer), the text `_nec4.render` writes."""
+    from momwire.eznec import _nec4, _printout
+
+    version = _printout._stamp_field(_printout._momwire_version()) or "unknown"
+    variant = _printout._stamp_field(_printout._accelerator_variant()) or "none"
+    marker = _printout._overlay_marker(version) or "-"
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    run = subprocess.run(
+        [
+            str(driver[0]["nec4_printout_driver"]),
+            basis,
+            version,
+            variant,
+            marker,
+            *map(str, decks),
+        ],
+        capture_output=True,
+        check=True,
+    )
+    dumps: dict[str, str] = {}
+    current = None
+    for line in run.stdout.decode("utf-8").splitlines(keepends=True):
+        if line.startswith("== "):
+            current = line[3:].rstrip("\n")
+            dumps[current] = ""
+        else:
+            dumps[current] += line
+    refused = 0
+    for path in decks:
+        cxx = dumps[str(path)]
+        if cxx == "? solve\n":
+            continue
+        refused += 1
+        python = _nec4.render(path.read_bytes().decode("latin-1"), basis=basis)
+        assert cxx == python, path
+    assert refused >= 150, refused
+
+
+def test_the_sinusoidal_front_in_cxx_alone_is_pythons(driver):
+    """momwire#1607 B2: the sinusoidal front half (constants, junctions,
+    `_build_geometry`, `_basis_coefs`), built from the core TUs alone
+    (`sinusoidal_front_driver`), is `SinusoidalSolver`'s at every operating
+    point the NEC-4.2 build makes of every fixture deck, to the bit."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_sinusoidal_front_compare", SPLIT / "sinusoidal_front_compare.py"
+    )
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    run = subprocess.run(
+        [str(driver[0]["sinusoidal_front_driver"]), *map(str, decks)],
+        capture_output=True,
+        check=True,
+    )
+    dumps: dict[str, str] = {}
+    current = None
+    for line in run.stdout.decode("utf-8").splitlines(keepends=True):
+        if line.startswith("== "):
+            current = line[3:].rstrip("\n")
+            dumps[current] = ""
+        else:
+            dumps[current] += line
+    compared = 0
+    for path in decks:
+        cxx = dumps[str(path)]
+        if nc.classify(cxx) == "declined":
+            continue
+        diff = nc.dc.first_difference(
+            nc.py_front(path.read_bytes().decode("latin-1")), cxx
+        )
+        assert diff is None, (path, diff)
+        compared += 1
+    assert compared >= 50, compared
+
+
+def test_the_sinusoidal_fill_in_cxx_alone_is_pythons(driver):
+    """momwire#1607 B3: the sinusoidal free-space fill and port solve (Z,
+    the coefficients, Y), built from the core TUs alone
+    (`sinusoidal_fill_driver`, on the OpenBLAS builds numpy and SciPy
+    bundle), is `SinusoidalSolver.compute_port_solution`'s at every
+    operating point the NEC-4.2 build makes of every free-space fixture deck,
+    to the bit."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_sinusoidal_fill_compare", SPLIT / "sinusoidal_fill_compare.py"
+    )
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    run = subprocess.run(
+        [
+            str(driver[0]["sinusoidal_fill_driver"]),
+            pc.scipy_openblas(),
+            pc.numpy_openblas(),
+            *map(str, decks),
+        ],
+        capture_output=True,
+        check=True,
+        env=dict(os.environ, **_ONE_THREAD),
+    )
+    dumps: dict[str, str] = {}
+    current = None
+    for line in run.stdout.decode("utf-8").splitlines(keepends=True):
+        if line.startswith("== "):
+            current = line[3:].rstrip("\n")
+            dumps[current] = ""
+        else:
+            dumps[current] += line
+    compared = 0
+    for path in decks:
+        cxx = dumps[str(path)]
+        if nc.classify(cxx) != "fills":
+            continue
+        diff = nc.dc.first_difference(
+            nc.py_fill(path.read_bytes().decode("latin-1")), cxx
+        )
+        assert diff is None, (path, diff)
+        compared += 1
+    assert compared >= 30, compared
+
+
+def test_the_nec42_sinusoidal_printout_in_cxx_alone_is_pythons(driver):
+    """momwire#1607 B4a: deck text to the NEC-4.2 slot's printout for the
+    sinusoidal basis, built from the core TUs alone
+    (`nec4_sinusoidal_printout_driver`, on the OpenBLAS builds numpy and SciPy
+    bundle), is `_nec4.render(text, basis="sinusoidal")`'s on every NEC-4.2
+    fixture deck it prints, byte for byte but for the two measured-time
+    lines (masked by exact pattern, the same count on both sides)."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_nec4_run_compare", SPLIT / "nec4_run_compare.py"
+    )
+    rc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rc)
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    version, variant, marker = rc.pc.stamp()
+    run = subprocess.run(
+        [
+            str(driver[0]["nec4_sinusoidal_printout_driver"]),
+            pc.scipy_openblas(),
+            pc.numpy_openblas(),
+            version,
+            variant,
+            marker or "-",
+            *map(str, decks),
+        ],
+        capture_output=True,
+        check=True,
+        env=dict(os.environ, **_ONE_THREAD),
+    )
+    blob = run.stdout
+    answers: dict[str, tuple[bool, str]] = {}
+    pos = 0
+    while pos < len(blob):
+        head_end = blob.index(b"\n", pos)
+        path = blob[pos + 3 : head_end].decode("utf-8")
+        line_end = blob.index(b"\n", head_end + 1)
+        word, arg = blob[head_end + 1 : line_end].split(b" ", 1)
+        if word == b"printed":
+            n = int(arg)
+            answers[path] = (
+                True,
+                blob[line_end + 1 : line_end + 1 + n].decode("utf-8"),
+            )
+            pos = line_end + 1 + n
+        else:
+            answers[path] = (False, bytes.fromhex(arg.decode()).decode("utf-8"))
+            pos = line_end + 1
+    printed = 0
+    with _one_thread():
+        for path in decks:
+            ok, text = answers[str(path)]
+            if not ok:
+                continue
+            a, na = rc.mask(rc.py_printout(path.read_bytes().decode("latin-1")))
+            b, nb = rc.mask(text)
+            assert (rc.first_difference(a, b), na) == (None, nb), path
+            printed += 1
+    assert printed >= 30, printed
+
+
+_SIN_KERNELS = (
+    "sinusoidal_field_tensor",
+    "sinusoidal_field_tensor_refl",
+    "sinusoidal_field_tensor_ek",
+    "sinusoidal_field_tensor_ek_refl",
+    "sinusoidal_field_tensor_cplx",
+)
+
+
+def _sin_spec(value, tmp_path, name: str) -> str:
+    """One recorded argument in `sinusoidal_core_driver`'s call syntax."""
+    import struct
+
+    def bits(x: float) -> str:
+        return struct.pack(">d", float(x)).hex()
+
+    if isinstance(value, np.ndarray):
+        kind = {np.dtype(np.float64): "A", np.dtype(np.int8): "I"}[value.dtype]
+        np.ascontiguousarray(value).tofile(tmp_path / name)
+        return f"{kind}:{name}:" + "x".join(str(d) for d in value.shape)
+    if isinstance(value, (bool, np.bool_)):
+        return f"B:{int(value)}"
+    if isinstance(value, complex):
+        return f"Z:{bits(value.real)}:{bits(value.imag)}"
+    if isinstance(value, float):
+        return f"D:{bits(value)}"
+    raise TypeError(f"no driver spelling for {type(value).__name__}")
+
+
+def test_the_sinusoidal_kernels_in_cxx_alone_are_the_extensions(
+    driver, tmp_path, monkeypatch
+):
+    """momwire#1607 B1: the point-matched field tensors, built from the core
+    TUs alone (`sinusoidal_core_driver`, the default host: memory from `new`,
+    no GIL), return the extension's bytes on every call real solves make:
+    free space and a PEC image (the plain tensor), the reflection-coefficient
+    ground (`_refl`), the extended kernel (`_ek`, `_ek_refl`) and a buried
+    wire at a complex wavenumber (`_cplx`, the literal and the folded third
+    shape). Each call is recorded from the extension and replayed through
+    the core with the same arguments."""
+    import warnings
+
+    from momwire import sinusoidal as sm
+
+    real = sm._acc
+    calls = []
+
+    class Recording:
+        def __getattr__(self, name):
+            fn = getattr(real, name)
+            if name not in _SIN_KERNELS:
+                return fn
+
+            def call(*args):
+                # Copies, taken at the call: the solver works in place on what
+                # it is handed back (the image subtraction folds into it).
+                kept = tuple(
+                    np.array(a, copy=True) if isinstance(a, np.ndarray) else a
+                    for a in args
+                )
+                out = fn(*args)
+                calls.append((name, kept, tuple(np.array(o, copy=True) for o in out)))
+                return out
+
+            return call
+
+    monkeypatch.setattr(sm, "_acc", Recording())
+    dipole = [np.array([[0.0, 0.0, -0.25], [0.0, 0.0, 0.25]])]
+    raised = [np.array([[0.0, 0.0, 0.1], [0.0, 0.3, 0.6]])]
+    buried = [np.array([[0.0, 0.0, -1.0], [0.2, 0.0, -0.5]])]
+    soil = dict(ground_z=0.0, ground_eps=(13.0, 0.005))
+    cases = [
+        (dipole, 1.0, {}),
+        (dipole, 1.0, {"extended_kernel": True}),
+        (raised, 1.0, {"ground_z": 0.0}),
+        (raised, 1.0, soil),
+        (raised, 1.0, {**soil, "extended_kernel": True}),
+        (buried, 1.0, {**soil, "ground_model": "sommerfeld"}),
+        (buried, 1e5, {**soil, "ground_model": "sommerfeld"}),
+    ]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for wires, wavelength, kw in cases:
+            sm.SinusoidalSolver(
+                wires=wires,
+                n_per_edge_per_wire=[[11]],
+                feeds=[(0, 0.25, 1.0)],
+                wavelength=wavelength,
+                wire_radius=0.001,
+                **kw,
+            ).compute_port_solution()
+    assert {name for name, _a, _o in calls} == set(_SIN_KERNELS), calls
+    folded = [a[10] for name, a, _o in calls if name == "sinusoidal_field_tensor_cplx"]
+    assert True in folded and False in folded, folded
+    lines = []
+    for c, (name, args, _out) in enumerate(calls):
+        specs = []
+        for j, value in enumerate(args):
+            if (
+                j == len(args) - 1
+                and isinstance(value, int)
+                and not isinstance(value, bool)
+            ):
+                specs.append("U:0")  # the cancel flag: no cancellation in the replay
+            else:
+                specs.append(_sin_spec(value, tmp_path, f"c{c}_a{j}.bin"))
+        lines.append(f"{name} c{c} " + " ".join(specs))
+    (tmp_path / "calls.txt").write_text("\n".join(lines) + "\n")
+    run = subprocess.run(
+        [str(driver[0]["sinusoidal_core_driver"]), str(tmp_path)],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    for c, (name, _args, out) in enumerate(calls):
+        for t in range(3):
+            got = (tmp_path / f"c{c}_{t}.bin").read_bytes()
+            want = np.ascontiguousarray(out[t]).tobytes()
+            assert got == want, (name, c, t)
 
 
 @pytest.mark.parametrize("prefix", ["", "ek_"], ids=["reduced", "extended_kernel"])
@@ -896,6 +1252,9 @@ BURIED_DECKS = [
         "eznec_phantom_1139/ground_rod_efhw_wa7ark.nec",
         "eznec_split_1281/dan_through.nec",
         "eznec_split_1281/thr_n21.nec",
+        # the exact ring kernel on the above medium (momwire#1619 stage 1)
+        "eznec_exact_buried_1619/fat_hub.nec",
+        "eznec_exact_buried_1619/fat_slant.nec",
     )
 ] + [
     # NX chains of buried structures (momwire#1512): kept out of
@@ -1291,9 +1650,10 @@ def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
     Sommerfeld composition with its graded raised pairs (steps 3b, 3c) and a
     wholly-buried structure (step 4a) included. What it declines is a deck
     with wires on both sides of the interface and no crossing node (the
-    transmitted blocks, step 4c), a geometry Python refuses by medium
-    (its sentence not yet ported) and the exact kernel's radius-step cross
-    job, by name, and nothing else. A one-radius crossing node is served
+    transmitted blocks, step 4c) and a geometry Python refuses by medium
+    (its sentence not yet ported), by name, and nothing else. The exact
+    kernel's cross job across a radius step is served (momwire#1615). A
+    one-radius crossing node is served
     (step 4b), a node gap on one included (its KCL row, momwire#1282 /
     #1569), and a two-radius one (antennaknobs plan U5, 0.79.2)."""
     # The wholly-buried decks have their own test below (their Python fills
@@ -1318,7 +1678,6 @@ def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
         "front:bspline-buried-refusal-medium",
         "front:bspline-buried-refusal-contact",
         "front:bspline-buried-refusal-unearned",
-        "front:bspline-exact-kernel-radius-step",
     }, reasons
 
 
@@ -1347,6 +1706,9 @@ BSPLINE_CROSSING_DECKS = [
         "eznec_fr_step_1508/b01_buried_xq.nec",
         "eznec_fr_step_1508/b02_buried_rp.nec",
         "bspline_printout_crossing/aca_vertical_screen.nec",
+        # the exact ring kernel above ground (momwire#1619 stage 1)
+        "eznec_exact_buried_1619/fat_hub.nec",
+        "eznec_exact_buried_1619/fat_slant.nec",
     )
 ]
 
@@ -1359,7 +1721,9 @@ def test_the_crossing_decks_print_as_python(driver, tmp_path):
     direct groups through one memo, the far blocks' ACA (the screen with a
     vertical through the plane takes it), the ends and the designed corner,
     and the self completions -- composed into Z as the buried fill composes
-    it, with the above blocks and both remainders around it."""
+    it, with the above blocks and both remainders around it -- and, on a fat
+    vertical, the exact ring kernel on the above-ground pairs after the
+    loading (momwire#1619 stage 1)."""
     counts, reasons = _bspline_printouts(driver, BSPLINE_CROSSING_DECKS, tmp_path)
     assert counts.get("served", 0) == len(BSPLINE_CROSSING_DECKS) and not reasons, (
         counts,

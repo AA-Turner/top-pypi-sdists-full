@@ -19,6 +19,10 @@ Records carry a monotonically increasing ``seq``. Resume replays cache hits keye
   ``ok`` record in the same append-only file is the single claimable source, so
   a later occurrence of a key can never claim a duplicate of an earlier
   occurrence's result (chained resumes stay self-consistent).
+* A call rerun because its replay was rejected writes ``replaces_seq``. An
+  ``ok`` replacement takes the rejected record's pool slot, so the same
+  occurrence claims it on the next resume. The match uses ``seq``, not
+  ``call_id``: each run numbers its call ids from ``c0001`` again.
 
 Durability: appends take an ``asyncio.Lock`` and ``flush() + os.fsync()`` before
 returning, so a journal record on disk implies the corresponding work is durable.
@@ -67,6 +71,9 @@ class JournalRecord(BaseModel):
     phase: str | None = None
     label: str | None = None
     cached_from: str | None = None
+    # seq of the replayable record that this call ran again in place of (its
+    # replay was rejected). Old journals have no such field and load as None.
+    replaces_seq: int | None = None
     error: str | None = None
     # script_sha256 / args_sha256 / workflow result payload, etc.
     payload: dict[str, Any] | None = None
@@ -172,8 +179,13 @@ class Journal:
                 and record.key is not None
                 and record.cached_from is None
             ):
-                self._replay.setdefault(record.key, []).append(record)
-                replayable += 1
+                pool = self._replay.setdefault(record.key, [])
+                slot = self._replaced_slot(pool, record.replaces_seq)
+                if slot is None:
+                    pool.append(record)
+                    replayable += 1
+                else:
+                    pool[slot] = record
 
         if good_end < len(data):
             # Unparseable tail (truncated final append or trailing corruption):
@@ -186,6 +198,16 @@ class Journal:
 
         self._next_seq = max_seq + 1
         return replayable
+
+    @staticmethod
+    def _replaced_slot(pool: list[JournalRecord], replaces_seq: int | None) -> int | None:
+        """Index of the pool record whose seq is ``replaces_seq``, or None."""
+        if replaces_seq is None:
+            return None
+        for index, candidate in enumerate(pool):
+            if candidate.seq == replaces_seq:
+                return index
+        return None
 
     def claim_replay(self, key: str) -> JournalRecord | None:
         """Pop the oldest unclaimed ``ok`` result for ``key`` (FIFO), or None."""

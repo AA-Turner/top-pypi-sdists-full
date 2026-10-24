@@ -4,7 +4,6 @@ use crate::unlikely; // Branch prediction optimization
 use crate::webrtc_data_channel::WebRTCDataChannel;
 use guacr_handlers::video::VideoOutput;
 use log::{debug, error};
-use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -62,7 +61,8 @@ pub(crate) async fn setup_channel_for_data_channel(
 
     // Shared sender: on_message and on_close both use this. When DataChannel closes, on_close
     // takes and drops the sender so rx_from_dc.recv() returns None and channel.run() exits.
-    let tx_from_dc = Arc::new(Mutex::new(Some(tx)));
+    let tx_from_dc = Arc::clone(&data_channel.local_input);
+    *tx_from_dc.lock() = Some(tx);
 
     // Create shutdown notifier for clean async cancellation
     let shutdown_notify = Arc::new(tokio::sync::Notify::new());

@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.promoted_node import PromotedNode
 from mixpeek.models.skipped_document_ref import SkippedDocumentRef
 from typing import Optional, Set
 from typing_extensions import Self
@@ -40,7 +41,8 @@ class TaxonomyNodeFromDocumentsResponse(BaseModel):
     taxonomy_created: Optional[StrictBool] = Field(default=False, description="True when this call also created the taxonomy (one-gesture mode).")
     retriever_id: Optional[StrictStr] = Field(default=None, description="Retriever created for the taxonomy (one-gesture mode only).")
     enrichment_hint: StrictStr = Field(description="Plain-language description of how the new node will be applied to future data.")
-    __properties: ClassVar[List[str]] = ["taxonomy_id", "taxonomy_name", "node_document_id", "node_collection_id", "node_label", "vector_name", "vector_dimensions", "documents_used", "documents_skipped", "taxonomy_created", "retriever_id", "enrichment_hint"]
+    nodes: Optional[List[PromotedNode]] = Field(default=None, description="Every node created, when the source was a `cluster_run` (one per cluster). `node_document_id` and `node_label` name the first.")
+    __properties: ClassVar[List[str]] = ["taxonomy_id", "taxonomy_name", "node_document_id", "node_collection_id", "node_label", "vector_name", "vector_dimensions", "documents_used", "documents_skipped", "taxonomy_created", "retriever_id", "enrichment_hint", "nodes"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,6 +90,13 @@ class TaxonomyNodeFromDocumentsResponse(BaseModel):
                 if _item_documents_skipped:
                     _items.append(_item_documents_skipped.to_dict())
             _dict['documents_skipped'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in nodes (list)
+        _items = []
+        if self.nodes:
+            for _item_nodes in self.nodes:
+                if _item_nodes:
+                    _items.append(_item_nodes.to_dict())
+            _dict['nodes'] = _items
         return _dict
 
     @classmethod
@@ -111,7 +120,8 @@ class TaxonomyNodeFromDocumentsResponse(BaseModel):
             "documents_skipped": [SkippedDocumentRef.from_dict(_item) for _item in obj["documents_skipped"]] if obj.get("documents_skipped") is not None else None,
             "taxonomy_created": obj.get("taxonomy_created") if obj.get("taxonomy_created") is not None else False,
             "retriever_id": obj.get("retriever_id"),
-            "enrichment_hint": obj.get("enrichment_hint")
+            "enrichment_hint": obj.get("enrichment_hint"),
+            "nodes": [PromotedNode.from_dict(_item) for _item in obj["nodes"]] if obj.get("nodes") is not None else None
         })
         return _obj
 

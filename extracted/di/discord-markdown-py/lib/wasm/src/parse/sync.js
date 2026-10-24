@@ -48,9 +48,11 @@ function ensureReady() {
 	ready = true;
 }
 
-export function parse(content, allowedRules) {
+export { Syntax } from "@discord/markdown-types";
+
+export function parse(content, flags) {
 	ensureReady();
-	return rawParse(content, allowedRules);
+	return rawParse(content, flags);
 }
 
 export function unparse(nodes) {

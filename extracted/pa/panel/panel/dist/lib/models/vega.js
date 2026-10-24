@@ -3,10 +3,10 @@ import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { isArray } from "@bokehjs/core/util/types";
 import { LayoutDOM, LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { set_size } from "./layout";
+import { await_resources, define_external_resources, load_resources, render_resource_error, } from "./resources";
 import { debounce } from "debounce";
 export class VegaEvent extends ModelEvent {
     data;
-    static __name__ = "VegaEvent";
     constructor(data) {
         super();
         this.data = data;
@@ -19,7 +19,6 @@ export class VegaEvent extends ModelEvent {
     }
 }
 export class VegaPlotView extends LayoutDOMView {
-    static __name__ = "VegaPlotView";
     vega_view;
     container;
     _callbacks;
@@ -27,6 +26,13 @@ export class VegaPlotView extends LayoutDOMView {
     _replot;
     _resize;
     _rendered = false;
+    async lazy_initialize() {
+        await super.lazy_initialize();
+        const error = await await_resources(this.model);
+        if (error != null) {
+            render_resource_error(this, error, LayoutDOMView.prototype.render);
+        }
+    }
     connect_signals() {
         super.connect_signals();
         const { data, show_actions, theme, data_sources, events } = this.model.properties;
@@ -164,7 +170,6 @@ export class VegaPlotView extends LayoutDOMView {
     }
 }
 export class VegaPlot extends LayoutDOM {
-    static __name__ = "VegaPlot";
     constructor(attrs) {
         super(attrs);
     }
@@ -179,6 +184,11 @@ export class VegaPlot extends LayoutDOM {
             theme: [Nullable(Str), null],
             throttle: [Any, {}],
         }));
+        define_external_resources(this);
+    }
+    initialize() {
+        super.initialize();
+        load_resources(this);
     }
 }
 //# sourceMappingURL=vega.js.map

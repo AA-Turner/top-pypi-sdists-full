@@ -395,18 +395,27 @@ def report_nonadjacent_tool_uses(
 ORPHAN_TOOL_USE_REPAIR_KIND = "orphan_tool_use_repaired"
 
 # The sentence the model reads in place of the answer that never came. It names
-# the tool, states the fact, and gives the only two honest next moves — never a
-# fabricated success and never silence.
+# the tool, states only what is KNOWN, and gives the honest next moves — never a
+# fabricated success, never silence, and never a claim that nothing happened:
+# a tool the SERVER runs may have done some or all of its work before it was cut
+# off (a deploy replaced the process mid-call — conversation 577db529…,
+# 2026-10-24: a helper had written 155 rows, and this sentence told the model
+# "Nothing was written", so it re-checked and gave up). A helper started with the
+# ``agent`` tool is continued by crash recovery instead (aidream
+# ``runtime/helper_reattach.py``); this is what every other unanswered call reads.
 ORPHAN_TOOL_RESULT_TEXT = (
     "TOOL NEVER ANSWERED [{name}]: this call was dispatched but no result ever "
-    "came back, so the platform is answering for it. Nothing was written and "
-    "nothing was changed. This is what it means: the tool was handed to a "
-    "client surface (a page, an extension, or a desktop app) that was not "
-    "there to run it, or its answer never reached the server. Do NOT assume it "
-    "succeeded and do NOT silently retry the identical call. Tell the user "
-    "plainly that the action did not happen, name what you were trying to do, "
-    "and either ask them to open the page that can apply it or offer a way "
-    "that does not need that surface."
+    "came back, so the platform is answering for it. It is NOT known whether "
+    "the action ran: a tool the server runs may have done some or all of its "
+    "work before it was cut off (for example by a server restart), and a tool "
+    "handed to a client surface (a page, an extension, or a desktop app) may "
+    "never have reached anything that could run it. Do NOT assume it succeeded "
+    "and do NOT assume it did nothing. Before you retry, check whether its "
+    "effect is already there (read the records, files or settings it would have "
+    "changed) and never repeat a write that already happened. If it did not "
+    "happen, tell the user plainly, name what you were trying to do, and either "
+    "retry it once or, when it needs a page that was not open, ask them to open "
+    "the page that can apply it or offer a way that does not need that surface."
 )
 
 

@@ -216,6 +216,7 @@ class CollectorValidationService:
         dc_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         only_periodic: bool = False,
+        include_internal: bool = False,
     ) -> int:
         """
         Runs all validators for all integrations in the data collector.
@@ -223,6 +224,7 @@ class CollectorValidationService:
         :param dc_id: The optional UUID of the data collector, used to disambiguate.
         :param agent_id: The optional UUID of the agent, used to disambiguate.
         :param only_periodic: Whether only periodic validations must be run or not.
+        :param include_internal: Whether to also run internal validations.
         """
         if agent_id:
             agent = self._user_service.get_agent(agent_id)
@@ -275,7 +277,11 @@ class CollectorValidationService:
         # Start the load operations and mark each future with its URL
         future_to_integration = {
             executor.submit(
-                self._run_validations_for_integration, dc, integration, only_periodic
+                self._run_validations_for_integration,
+                dc,
+                integration,
+                only_periodic,
+                include_internal,
             ): integration
             for integration in all_integrations
         }
@@ -303,7 +309,7 @@ class CollectorValidationService:
         return total_failures
 
     def _run_validations_for_integration(
-        self, dc: Box, integration: Dict, only_periodic: bool
+        self, dc: Box, integration: Dict, only_periodic: bool, include_internal: bool
     ) -> Tuple[int, List[str]]:
         integration_failures = 0
         click.echo(f"Running validations for {integration['name']}")
@@ -320,6 +326,7 @@ class CollectorValidationService:
                     connection_type=connection["type"].lower(),
                     connection_uuid=connection["uuid"],
                     only_periodic=only_periodic,
+                    include_internal=include_internal,
                 )
                 integration_failures += connection_failures
                 messages.append("")
@@ -334,6 +341,7 @@ class CollectorValidationService:
         connection_type: str,
         connection_uuid: uuid.UUID,
         only_periodic: bool,
+        include_internal: bool = False,
     ) -> Tuple[int, List[str]]:
         messages = []
         messages.append(f"Validating {connection_type} connection: {name} - {connection_uuid}")
@@ -341,6 +349,7 @@ class CollectorValidationService:
             dc_uuid=dc_uuid,
             connection_type=connection_type,
             only_periodic=only_periodic,
+            include_internal=include_internal,
         )
         failures = 0
         for validation in validations:
@@ -367,9 +376,14 @@ class CollectorValidationService:
         dc_uuid: Union[uuid.UUID, str],
         connection_type: str,
         only_periodic: bool,
+        include_internal: bool = False,
     ) -> List:
         query = Query()
-        query.get_supported_validations_v2(dc_id=dc_uuid, connection_type=connection_type)
+        # Sent only when true, so other callers work against any monolith version.
+        internal_arg = {"include_internal": True} if include_internal else {}
+        query.get_supported_validations_v2(
+            dc_id=dc_uuid, connection_type=connection_type, **internal_arg
+        )
 
         try:
             result = self._mc_client(

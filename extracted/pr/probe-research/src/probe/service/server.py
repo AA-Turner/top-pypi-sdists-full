@@ -11,16 +11,41 @@
             app / CLI      ──action.run─────────> actions.py ──> python -m probe.core.run <action>
                            ──status.get─────────> statuscache.py (a child, cached 30 s)
             CLI            ──manifest.refresh───> manifest.py (a child refreshes the CLI's cache)
+            app            ──desktop.request────> management.py (a child answers `probe desktop request`'s request)
+            app / CLI      ──session.list───────> registry.py + receipts.py (each session's journal: D29)
                            ──run.hold/release───> runholds.py (a `probe exec`'s run: the quiet check)
                            ──recorders.finish───> recorders.py (`probe capture off` for one agent)
+            a recorder's tap ──controls.workers───> workers.py (its session's daemon worker)
+            daemon worker  ──mailbox.post───────> mailhost.py (messages, run alerts, held questions:
+            hooks, app     ──mailbox.claim/answer> the service owns delivery; the files stay the store, Q2)
+            Stop waiter    ──events.subscribe───> mailwatch.py (the reads mailbox and held
+                                                  questions of the sessions waited on, Q2)
+            (daemon sessions) ──────────────────> alertpoll.py (their run alerts, once a machine)
+            (recorded sessions) ────────────────> hints.py (the team's nearest records, posted to
+                                                  each session's mailbox; Probe hints T3)
+            SDK            ──outbox.drain───────> background.py: the drainer, a child (caller's python)
+                           ──box.watch──────────> background.py: the box watcher, a child
+                           ──telemetry.send─────> background.py: one sender thread
+                           ──import.start───────> imports.py (an approved import's worker, watched)
+            hooks          ──statusline.refresh─> statusline.py (one fetch child per plugin folder)
+                           ──notes.sync─────────> notesync.py (the team note's sync, debounced)
             (schedule, check_now) ──────────────> updater.py: CLI + plugins, app, self
 
 Nothing here runs on a timer while idle: owners are watched by the kernel
 (pidfd on Linux, kqueue on macOS; a 2 s poll only where neither works), and the
-only timers are the discovery end, the grace, a heartbeat-only owner's TTL and
-the 6-hourly update check. No model calls, no uploads, no capture, no CLI
-import: heavy work stays in the per-session workers, and every action, status
-read and update runs in a `probe.core.run` child (plan R9, X7; `children.py`).
+only timers are the discovery end, the grace, a heartbeat-only owner's TTL,
+the 6-hourly update check, and two that run only while they have work (plan
+Q2): the mailbox watch's look every 0.25 s while a subscriber waits on a
+session, and the run-alert round every 30 s while a daemon session is live
+(one GET per session whose worker asked, on a kept connection). No model calls
+and no CLI import in this process: heavy work stays in the per-session
+workers, and every action, status read and update runs in a `probe.core.run`
+child (plan R9, X7; `children.py`). Uploads run here in two places only: the
+recorders (plan A2, D3: the owner moved capture into the service on
+2026-10-22) and a training process's outbox drain (plan Q5), which runs as a
+CHILD on the caller's interpreter, never in this process, and never holds the
+service alive (D1); client telemetry batches the SDK built are POSTed from
+one thread.
 
 Stdlib only on the start path (plan S1, Q3; `tests/test_service_import_budget.py`).
 """
@@ -29,6 +54,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import itertools
 import os
 import select
 import signal
@@ -43,20 +69,43 @@ from pathlib import Path
 from . import caller, paths
 from . import updater as updater_mod
 from .actions import ActionManager
+from .alertpoll import AlertPoller
+from .background import FLUSH_S as BACKGROUND_FLUSH_S
+from .background import BackgroundHost, other_network
+from .hints import HintLane
+from .hints import followed as hint_sessions
 from .hookhosts import DRAIN_S, UNHOSTED_LANES, HookHosts, Via, run_event, timed_out_answer
 from .hookqueue import HookQueue
+from .imports import IMPORTS_NAME, ImportWorkers, valid_job_id
+from .imports import prepare as prepare_import
+from .mailhost import MailHost
+from .mailwatch import MAX_TARGETS, MailWatch, Target, default_state
+from .management import CALLER_PID_ENV, CALLER_START_ENV, Management
 from .manifest import ManifestRefresher
+from .notesync import MAX_AGENTS as MAX_NOTE_AGENTS
+from .notesync import NoteSync
+from .receipts import ReceiptCache, by_harness, journal_roots
 from .recorders import RecorderHost
 from .runholds import RUNS_NAME, Hold, RunHolds
+from .statusline import StatuslineRefresher
 from .protocol import (
     API_VERSION,
+    CAPS,
     Action,
+    BusyHolder,
     CLIENTS,
+    MAX_HOOK_PATH,
     MAX_LINE_BYTES,
     METHODS,
     MODES,
+    MAX_SUBSCRIBE_SESSIONS,
+    MailboxPart,
+    SESSION_TOPICS,
+    NOTES_MODES,
+    REPORT_ENV,
     TOPICS,
     CHECK_TRIGGERS,
+    BackgroundRefusal,
     Client,
     EndReason,
     ErrorCode,
@@ -71,24 +120,39 @@ from .protocol import (
     error,
     event,
     invalid_params,
+    need_background,
+    is_agent_id,
     need_bool,
     need_choice,
     need_context,
+    need_env,
     need_hook_queue,
     need_hook_run,
+    need_mailbox_answer,
+    need_mailbox_claim,
+    need_mailbox_post,
+    need_app_check,
+    need_app_result,
     need_int,
     need_owner,
+    need_sessions,
+    need_path,
+    need_sid,
     need_state_dir,
     need_str,
+    need_telemetry,
     need_wait,
     parse_request,
     result,
     BASE_URL_ENV,
+    ORIGIN_DESKTOP,
     Mode,
 )
 from .registry import HEARTBEAT_TTL_S, Outcome, Registry, Session
 from .statuscache import StatusCache
 from .updater import Updater, preload
+from .watch import UPDATE_FAILED_STREAK, Family, Live, TracebackGate, Watch, log_traceback
+from .workers import WorkerHost
 
 #: Seconds without a live session (or keep-alive client) before the service exits.
 GRACE_S = 5.0
@@ -127,10 +191,21 @@ MAX_PENDING_QUEUE_STORES = 8
 QUEUE_STORE_WAIT_S = 5.0
 #: What a `hooks.host` caller waits for its host start, at most.
 HOST_START_WAIT_S = 5.0
+#: `outbox.drain` / `box.watch` checks and child starts (a stat, a sandbox
+#: read, a fork) on their own threads, at most this many taken in at once, and
+#: what a caller is answered within (the SDK gives up well before: its budget
+#: is `client.HANDOFF_BUDGET_S`).
+BACKGROUND_THREADS = 2
+MAX_PENDING_BACKGROUND = 8
+BACKGROUND_WAIT_S = 2.0
 #: A folder's warm host is started for `hooks.run` at most this often (a host
 #: that will not stay up is not started again on every tool call): the
 #: dispatcher's own `ASK_EVERY_S`.
 WARM_EVERY_S = 30.0
+#: How long `session.list` waits for its sessions' receipts (`receipts.py`)
+#: before it answers with the last ones read: the listing is on every
+#: `probe status`'s one-second path.
+RECEIPTS_WAIT_S = 0.25
 #: The log is cut over to `service.log.1` at start once it passes this.
 MAX_LOG_BYTES = 256 * 1024
 #: Created while the service stops, so a new instance that finds the lock still
@@ -141,6 +216,122 @@ STOPPING_WAIT_S = 3.0
 #: from before the key, still running), look again this often (plan D8).
 LEGACY_RETRY_S = 10.0
 LEGACY_RETRY_ENV = "PROBE_SERVICE_LEGACY_RETRY_S"
+
+
+class Policy:
+    """What a method does for its caller (`METHOD_POLICY`), which decides who may call it."""
+
+    #: Answers from what the service knows: anyone (of this user) may ask.
+    READ = "read"
+    #: Ends or stops what is the caller's own (or the service): benign, anyone.
+    CONTROL = "control"
+    #: Runs or stores work outside the caller -- a child, a recorder, a hold
+    #: that keeps updates off, an upload: never for a caller this service
+    #: cannot rule out being confined (`caller.sandboxed`, `other_network`).
+    #: Refused before its handler is reached, whatever the handler checks.
+    WORK = "work"
+
+
+#: Every method, classified (tests/test_service_background.py fails on one
+#: missing). A method added to `protocol.METHODS` without a class is WORK.
+METHOD_POLICY = {
+    Method.HELLO: Policy.READ,
+    Method.STATUS: Policy.READ,
+    Method.SESSION_LIST: Policy.READ,
+    Method.EVENTS_SUBSCRIBE: Policy.READ,
+    Method.ACTION_STATUS: Policy.READ,
+    Method.ACTION_EVENTS: Policy.READ,
+    Method.UPDATE_STATUS: Policy.READ,
+    Method.SESSION_RECORDING: Policy.READ,
+    Method.SESSION_END: Policy.CONTROL,
+    Method.ACTION_CANCEL: Policy.CONTROL,
+    Method.STOP: Policy.CONTROL,
+    # Not a read: a `refresh` starts a `probe status` child that sends the
+    # stored token and each agent's capture token through the proxy and CA
+    # the request's `context` names.
+    Method.STATUS_GET: Policy.WORK,
+    # Stops ANY session's recorder by its id (`session.list` names them all):
+    # the same as `recorders.finish`, one session at a time.
+    Method.SESSION_FINISH: Policy.WORK,
+    Method.ACTION_RUN: Policy.WORK,
+    Method.UPDATE_CHECK_NOW: Policy.WORK,
+    # It only records what the desktop app reports, but that record decides
+    # when the app next checks for its update: a caller in a sandbox must not
+    # be able to write it (a forged `current` would hold the check off 6 h).
+    Method.UPDATE_APP_RESULT: Policy.WORK,
+    Method.SESSION_REGISTER: Policy.WORK,
+    Method.SESSION_RECORD: Policy.WORK,
+    Method.HOOKS_HOST: Policy.WORK,
+    Method.HOOKS_RUN: Policy.WORK,
+    Method.HOOKS_QUEUE: Policy.WORK,
+    Method.RECORDERS_FINISH: Policy.WORK,
+    Method.RUN_HOLD: Policy.WORK,
+    Method.RUN_RELEASE: Policy.WORK,
+    Method.MANIFEST_REFRESH: Policy.WORK,
+    Method.OUTBOX_DRAIN: Policy.WORK,
+    Method.BOX_WATCH: Policy.WORK,
+    Method.TELEMETRY_SEND: Policy.WORK,
+    # The mailbox writes and claims files for its session (Q2); a desktop
+    # request runs a child that reads this user's credentials (Q6). Each of
+    # their handlers already refused a sandboxed caller, in this same shape.
+    Method.MAILBOX_POST: Policy.WORK,
+    Method.MAILBOX_CLAIM: Policy.WORK,
+    Method.MAILBOX_ANSWER: Policy.WORK,
+    Method.DESKTOP_REQUEST: Policy.WORK,
+    # Each starts or schedules a child on the caller's say (a status-line
+    # fetch, the team note's sync, an import's worker); their handlers
+    # already refused a sandboxed caller (Q4), as `_refuse_sandboxed`.
+    Method.STATUSLINE_REFRESH: Policy.WORK,
+    Method.NOTES_SYNC: Policy.WORK,
+    Method.IMPORT_START: Policy.WORK,
+}
+
+#: A WORK method's answer to a caller it refuses for its confinement, in the
+#: shape that method's clients already read as "not here, do it yourself";
+#: every other WORK method answers error REFUSED with `reason: sandboxed`.
+CONFINED_ANSWERS = {
+    # `reason` is new beside `refused` (older clients read `refused` alone):
+    # pi runs the lane itself on exactly this one.
+    Method.HOOKS_HOST: {"refused": "a caller in a sandbox", "reason": RefusedReason.SANDBOXED},
+    Method.HOOKS_RUN: {"refused": "a caller in a sandbox", "reason": RefusedReason.SANDBOXED},
+    Method.HOOKS_QUEUE: {"refused": "a caller in a sandbox", "reason": RefusedReason.SANDBOXED},
+    Method.SESSION_RECORD: {"recording": False, "reason": RefusedReason.SANDBOXED},
+    # What a tap reads as "nothing hosted here" (`tap/record_client.py`).
+    Method.SESSION_FINISH: {"recording": False, "finished": False},
+    # What every tap reads as "do not register this session again"
+    # (`service_link`'s `alive: false`), not a refusal to retry every 2 s.
+    Method.SESSION_REGISTER: {"alive": False, "reason": RefusedReason.SANDBOXED},
+    Method.OUTBOX_DRAIN: {"accepted": False, "reason": BackgroundRefusal.SANDBOXED},
+    Method.BOX_WATCH: {"accepted": False, "reason": BackgroundRefusal.SANDBOXED},
+    Method.TELEMETRY_SEND: {"accepted": False, "reason": BackgroundRefusal.SANDBOXED},
+}
+
+
+def confined(pid: int | None) -> bool:
+    """A caller this service cannot rule out being more confined than itself:
+    `caller.sandboxed` (Landlock included), or (Linux) another network namespace."""
+    return caller.sandboxed(pid) or other_network(pid)
+
+
+def screen(pid: int | None, start: str | None) -> str | None:
+    """Why a WORK request from the process `pid` (started at `start`, where
+    known) is refused, or None. `RefusedReason.CALLER_GONE` when that
+    process has exited (a connection handed to a child: who asks can no
+    longer be checked, plan D9), else `SANDBOXED` when `confined`. A check
+    that fails refuses."""
+    try:
+        # pid 1 (a container's entrypoint) never reads as alive to `procid`.
+        if pid is not None and pid > 1:
+            from . import procid
+
+            # As `_refuse_gone_caller` asks (never `os.kill(pid, 0)`: on
+            # Windows that would end the caller).
+            gone = procid.alive(pid, start) is False if start else not procid.exists(pid)
+            if gone:
+                return RefusedReason.CALLER_GONE
+        return RefusedReason.SANDBOXED if confined(pid) else None
+    except Exception:  # noqa: BLE001 -- unknown counts as confined
+        return RefusedReason.SANDBOXED
 
 
 _session_envs: dict | None = None
@@ -358,10 +549,16 @@ class Connection:
         self.peer_pid = peer_pid
         #: Its start time when it connected: the same process later, or not.
         self.peer_start: str | None = None
+        #: In the order connections came (the service numbers them): the
+        #: newest app connection is the one `app.check` goes to.
+        self.serial = 0
         self.hello = False
         self.client: str | None = None
         self.keepalive = False
         self.topics: set = set()
+        #: The sessions its SESSION_TOPICS subscription is for: sid -> the
+        #: state folder it named (None: the default). Empty: every live one.
+        self.sessions: dict = {}
         self.after_reply: Callable[[], None] | None = None
 
     def send_nowait(self, message: dict) -> bool:
@@ -395,12 +592,13 @@ class Service:
         self.legacy = legacy
         self.grace_s = grace_s
         self.discovery_s = discovery_s
-        self.expected_uid = os.getuid() if expected_uid is None else expected_uid
+        self.expected_uid = (os.getuid() if hasattr(os, "getuid") else None) if expected_uid is None else expected_uid
         self.version = _version()
         self.pid = os.getpid()
         self.started_at = time.time()
         self.state = State.DISCOVERING
         self.connections: set[Connection] = set()
+        self._serials = itertools.count(1)
         self.stop_reason: str | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._done: asyncio.Future | None = None
@@ -411,8 +609,19 @@ class Service:
         self._expiry_handle: asyncio.TimerHandle | None = None
         self.watcher: PidWatcher | None = None
         self.status_cache = StatusCache()
+        #: What fails here, sent to the Probe team as automatic diagnostic
+        #: reports (crash-report plan B2): the parts below note their failures
+        #: to it (`incident=`), and it decides what is reported, with whose consent.
+        self.watch = Watch(
+            log=log, loop_getter=lambda: self._loop, updating=self._updating, barrier_up=_barrier_up,
+            discovering=lambda: self.discovering, sessions=self._live_sessions, voters=self._voters,
+            hosted_env=self._hosted_env, supervised=lambda sid: self.workers.supervised(sid),
+            recorders=self._recorder_beats, receipts=self._watch_receipts,
+        )
+        #: `service_error`'s tracebacks in service.log: a few per site and type (`watch.TracebackGate`).
+        self._tracebacks = TracebackGate()
         #: Warm hook hosts, one per plugin folder sessions use (plan A0).
-        self.hookhosts = HookHosts(log)
+        self.hookhosts = HookHosts(log, incident=self.watch.note)
         #: `hooks.run`'s threads (plan D38), started on the first, and its slots.
         self._hook_runs = None
         self._hook_slots = threading.BoundedSemaphore(MAX_PENDING_HOOK_RUNS)
@@ -420,6 +629,11 @@ class Service:
         #: block, so neither runs on this loop.
         self._host_starts = None
         self._host_slots = threading.BoundedSemaphore(MAX_PENDING_HOST_STARTS)
+        #: A training process's background work (plan Q5): drainer and box
+        #: watcher children, client telemetry; their starts' threads and slots.
+        self.background = BackgroundHost(log=log, incident=self.watch.note)
+        self._background_starts = None
+        self._background_slots = threading.BoundedSemaphore(MAX_PENDING_BACKGROUND)
         #: Warm-ups under way (asyncio keeps only a weak reference to a task).
         self._warming: set = set()
         #: plugin folder -> when `hooks.run` last started its host (monotonic).
@@ -427,16 +641,36 @@ class Service:
         #: Hook events' record-keeping routes, queued to run once (plan D36):
         #: stored on `_queue_stores`' thread, run on the queue's own.
         self.hook_queue = HookQueue(
-            log, version=self.version, warm=self._warm_soon, changed=self._queue_changed
+            log, version=self.version, warm=self._warm_soon, changed=self._queue_changed, incident=self.watch.note
         )
         self._queue_stores = None
         self._queue_slots = threading.BoundedSemaphore(MAX_PENDING_QUEUE_STORES)
+        #: The daemon workers of the sessions recorded here whose tap hands them over (plan Q3).
+        self.workers = WorkerHost(log=log, incident=self.watch.note)
         #: Sessions this service records itself, one thread each (plan A2).
-        self.recorders = RecorderHost(log=log, loop_getter=lambda: self._loop, changed=self._recorders_changed)
+        self.recorders = RecorderHost(
+            log=log, loop_getter=lambda: self._loop, changed=self._recorders_changed, workers=self.workers,
+            incident=self.watch.note,
+        )
         #: The runs a `probe exec` wraps here (`run.hold`), beside the registry.
         self.runs = RunHolds(registry.path.parent / RUNS_NAME)
         #: The CLI's release-manifest refreshes (`manifest.refresh`).
         self.manifest = ManifestRefresher(changed=self.reevaluate)
+        #: Each registered session's delivery receipts (`session.list`, D29).
+        self.receipts = ReceiptCache()
+        #: The desktop app's management requests (`desktop.request`).
+        self.management = Management(log=log, changed=self._management_changed)
+        #: The status line's server reads, one child per plugin folder (`statusline.refresh`).
+        self.statusline = StatuslineRefresher(log=log, changed=self.reevaluate)
+        #: The team note's sync, once per machine (`notes.sync`); none starts
+        #: while an in-place update replaces the CLI's files.
+        self.notes = NoteSync(log=log, changed=self.reevaluate, held=lambda: self.updater.applying)
+        #: Approved imports' workers this service started or watches (`import.start`).
+        self.imports = ImportWorkers(
+            registry.path.parent / IMPORTS_NAME, log=log, changed=self._imports_changed,
+            held=lambda: self.updater.applying,
+        )
+        self._import_count = 0
         #: An update installed a new CLI while an action ran: stop once it ends.
         self._restart_pending = False
         self.actions = ActionManager(
@@ -447,19 +681,46 @@ class Service:
             emit=self._emit,
             changed=self._cycle_changed,
             stop=self._restart_for_update,
-            action_running=lambda: self.actions.running is not None,
+            # A desktop request's change imports from the CLI's env like an action.
+            action_running=lambda: self.actions.running is not None or self.management.running > 0,
             discovering=lambda: self.discovering,
             daemon_session=self.registry.daemon_unseen,
             state_dirs=self.registry.state_dirs,
-            run_held=self.runs.live,
+            # An import worker imports from the CLI's env as a wrapped run does.
+            run_held=lambda: self.runs.live() or self.imports.live(),
+            app_connected=lambda: len(self._app_connections()),
+            app_listeners=lambda: len(self._app_listeners()),
+            app_target=self._app_target,
+            send_app_check=self._send_app_check,
+            app_alive=lambda serial: any(c.serial == serial for c in self._app_connections()),
         )
         updater_mod.set_hosted(self.recorders.live)
+        #: The reads mailboxes and approvals boards somebody waits on (plan Q2).
+        self.mailwatch = MailWatch(
+            loop_getter=lambda: self._loop,
+            emit=self._emit,
+            targets=self._watch_targets,
+            log=log,
+            boards=lambda: any(Topic.APPROVALS_CHANGED in c.topics for c in self.connections),
+        )
+        #: The reads mailbox and approvals board's writes and claims (plan Q2).
+        self.mailhost = MailHost(log=log)
+        #: The daemon sessions' run alerts, asked for once for the machine (plan Q2).
+        self.alerts = AlertPoller(
+            loop_getter=lambda: self._loop, sessions=self._daemon_sessions, log=log, version=self.version
+        )
+        #: The team's nearest records for each session recorded here, looked up
+        #: once for the machine and posted to its mailbox (Probe hints T3).
+        self.hints = HintLane(sessions=self._hint_sessions, log=log, version=self.version, posted=self._hint_posted)
 
     # -- lifecycle -----------------------------------------------------------
 
     async def run(self, listen: socket.socket, *, on_ready: Callable[[], None] | None = None) -> str:
         """Serve on `listen` until idle, stopped or signalled. Returns why it stopped."""
         self._loop = asyncio.get_running_loop()
+        # The loop's unhandled exceptions: logged with their traceback and
+        # counted for `service_error` (crash-report plan B2).
+        self._loop.set_exception_handler(self._loop_exception)
         self._done = self._loop.create_future()
         # Before anything below can ask what holds the service (an action the
         # last service left unfinished ends during `actions.load`).
@@ -469,21 +730,32 @@ class Service:
             self._watch(session)
         for hold in self.runs.load():
             self._watch_hold(hold)
+        self.imports.load(self.watcher.watch)
+        self._import_count = len(self.imports.workers)
         self._schedule_expiry()
+        self.alerts.changed()
         self.actions.load(self.watcher.watch)
+        # The desktop changes an earlier service left running (they hold Update off).
+        self.management.load(self.watcher.watch)
         self.updater.attach(self._loop)
         # Before the socket opens, so no `hooks.queue` finds it unready; what a
         # dispatcher queued while no service ran starts running now.
         self.hook_queue.start()
-        self._server = await asyncio.start_unix_server(self._handle, sock=listen, limit=MAX_LINE_BYTES + 1)
-        if self.legacy is not None:
+        if paths.WINDOWS:
+            # A named pipe only this user can open (`winpipe.py`, plan R3/D17).
+            from . import winpipe
+
+            self._server = await winpipe.serve(self._loop, listen, self._handle, limit=MAX_LINE_BYTES + 1)
+        else:
+            self._server = await asyncio.start_unix_server(self._handle, sock=listen, limit=MAX_LINE_BYTES + 1)
+        if self.legacy is not None and not paths.WINDOWS:
             await self.legacy.open(self._loop, self._handle)
         if self.discovery_s > 0:
             self._discovery_handle = self._loop.call_later(self.discovery_s, self._discovery_over)
         else:
             self._discovery_over()
         with contextlib.suppress(NotImplementedError, RuntimeError, ValueError):
-            for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            for sig in [getattr(signal, name) for name in ("SIGTERM", "SIGINT", "SIGHUP") if hasattr(signal, name)]:
                 self._loop.add_signal_handler(sig, self.stop, StopReason.SIGNAL)
         log(
             f"serving (api {API_VERSION}, version {self.version}, pid watch {self.watcher.mechanism}, "
@@ -492,6 +764,8 @@ class Service:
         )
         if on_ready is not None:
             on_ready()
+        # What fails from here on is watched (crash-report plan B2).
+        self.watch.start()
         # The sessions the last service recorded, from their saved progress
         # (after `on_ready`: the tap's import is no part of the start path).
         self._loop.call_soon(self._resume_recorders)
@@ -523,21 +797,31 @@ class Service:
         A live session, a keep-alive client (the app's window), an action in
         progress, an update cycle (for at most its hold), a session's recorder
         still finishing (its last pass and FINALIZE), a manifest refresh in
-        flight (at most its child's timeout), or queued hook events not yet run
-        (each bounded by its lane's budget). A run hold does not: with no
-        service there is no updater to keep off the run."""
+        flight (at most its child's timeout), queued hook events not yet run
+        (each bounded by its lane's budget), a desktop request being answered
+        (at most its deadline), a status-line read or a team-note sync waiting
+        or in flight (a session's last sync must not be lost), or an import
+        worker it watches. A run hold does not: with no service there is no
+        updater to keep off the run."""
         if self.registry.alive_count() > 0 or self.recorders.alive() or self.manifest.in_flight():
             return True
         if self.hook_queue.pending() > 0:
             return True  # queued hook events still to run (plan D36)
+        if self.management.in_flight() or self.management.running > 0:
+            return True  # a desktop request being answered, or a change's child still running
+        if self.notes.in_flight() or self.statusline.in_flight() or self.imports.live():
+            return True
         if self.actions.running is not None or self.updater.holding():
             return True
         return any(conn.keepalive for conn in self.connections)
 
     def mutating_holder(self) -> dict | None:
-        """What holds the one mutating slot (plan A5): an action, or the update
-        step that replaces the CLI's env. None when it is free."""
-        return self.actions.busy_holder() or self.updater.busy_holder()
+        """What holds the one mutating slot (plan A5): an action, the update
+        step that replaces the CLI's env, or a desktop request's change still
+        running (until its child exits, past its deadline too: an Update or an
+        uninstall must not replace the env under it, whatever wizard lock its
+        context names). None when it is free."""
+        return self.actions.busy_holder() or self.updater.busy_holder() or self.management.busy_holder()
 
     def _changed(self) -> None:
         """An action started or ended: what holds the service, and what
@@ -548,14 +832,131 @@ class Service:
             return
         self.reevaluate()
 
+    def _management_changed(self) -> None:
+        """A desktop change's child exited: what holds the service (and the
+        mutating slot) may have changed."""
+        self.status_cache.invalidate()
+        self.reevaluate()
+
     def _cycle_changed(self) -> None:
         """An update cycle started or ended: what holds the service may have
         changed, and so may every version `probe status` reports."""
         self.status_cache.invalidate()
+        self._note_update_cycles()
         self.reevaluate()
+
+    def _note_update_cycles(self) -> None:
+        """UPDATE_FAILED_STREAK cycles in a row ended `ok: false`
+        (`updater` keeps the count): one `update_failed` per such cycle (plan B2)."""
+        if self.updater.in_progress():
+            return
+        streak = self.updater.state.get("failed_in_a_row")
+        last = self.updater.state.get("last_result")
+        if isinstance(streak, int) and streak >= UPDATE_FAILED_STREAK and isinstance(last, dict):
+            self.watch.note(
+                Family.UPDATE_FAILED, "failed_in_a_row", facts={"in_a_row": streak, "last_result": last},
+                once=f"update_failed:{last.get('cycle_id')}",
+            )
+
+    # -- the watch's view (crash-report plan B2) ---------------------------------
+
+    def _updating(self) -> bool:
+        """An update cycle runs (it drains the daemon workers, raises its
+        barrier): what fails meanwhile is its hand-over, which the watch neither
+        counts nor reports. Two attributes: cheap from any thread, never a file
+        (the barrier itself is read by the watch's scan, `_barrier_up`)."""
+        updater = getattr(self, "updater", None)
+        return updater is not None and (updater.in_progress() or updater.applying)
+
+    def _live_sessions(self) -> list:
+        """Every live registered session (on the loop)."""
+        now = time.time()
+        return [s for s in self.registry.sessions.values() if s.alive(now, self.registry.ttl)]
+
+    def _voters(self) -> list:
+        """Every registered session whose agent runs, mode off included (it is
+        never "live", but its opt-out counts): a report's consent (on the loop)."""
+        now = time.time()
+        out = []
+        for session in self.registry.sessions.values():
+            running = session.owner_live if session.owner is not None else now - session.heartbeat_at < self.registry.ttl
+            if running:
+                hosted = self._hosted_env(session.sid)
+                out.append(Live(session.sid, hosted_env=dict(hosted) if hosted is not None else None,
+                                report_env=session.report_env))
+        return out
+
+    async def _watch_receipts(self) -> dict:
+        """The delivery receipts of each live session whose agent runs (the
+        watch's `capture_stalled`), from the same cache `session.list` reads,
+        asked for the same sessions it asks for (every registered one): the
+        cache keeps the answers of the sessions its last read asked about."""
+        live = {s.sid for s in self._live_sessions() if s.owner is None or s.owner_live}
+        if not live:
+            return {}
+        envs = [rec.params.get("env") for rec in list(self.recorders.recordings.values())]
+        found = await self.receipts.get(
+            [s["sid"] for s in self.registry.listing()], journal_roots(envs), wait=RECEIPTS_WAIT_S,
+            claims=self.recorders.claims(),
+        )
+        return {sid: receipts for sid, receipts in found.items() if sid in live}
+
+    def _recorder_beats(self) -> list:
+        """Each hosted recorder inside `hosted.record` that beat during this
+        run of it (`tap.hosted.Controls.beat`; an older tap never does): the age
+        of its last beat, for the watch's `stalled` (on the loop)."""
+        now = time.monotonic()
+        out = []
+        for rec in list(self.recorders.recordings.values()):
+            controls = rec.controls
+            if rec.thread is None or not rec.thread.is_alive() or controls.stop.is_set() or controls.pause.is_set():
+                continue
+            beaten = getattr(controls, "beaten", None)
+            if not rec.in_record or not isinstance(beaten, float) or beaten < rec.record_since:
+                continue
+            out.append({"sid": rec.sid, "beat_age_s": now - beaten, "owner": rec.params.get("owner")})
+        return out
+
+    def _hosted_env(self, sid: str) -> dict | None:
+        """The environment a hosted session's recorder runs with (`session.record`'s)."""
+        rec = self.recorders.recordings.get(sid)
+        env = rec.params.get("env") if rec is not None else None
+        return env if isinstance(env, dict) else None
+
+    def _loop_exception(self, loop: asyncio.AbstractEventLoop, context: dict) -> None:
+        """`loop.set_exception_handler`: a callback's exception, a task's never
+        retrieved. Logged with its traceback (each line with the service's
+        prefix), and one event of `service_error`. Never raises."""
+        try:
+            exc = context.get("exception")
+            message = str(context.get("message") or "unhandled exception in the event loop")
+            text = ""
+            if isinstance(exc, BaseException):
+                import traceback
+
+                text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            log_traceback(log, f"loop: {message}", text, gate=self._tracebacks,
+                          key=("loop", type(exc).__name__ if exc is not None else message[:60]))
+            self.watch.note(Family.SERVICE_ERROR, "loop_exception", facts={
+                "message": message[:300], "type": type(exc).__name__ if exc is not None else None, "traceback": text,
+            })
+        except Exception:  # noqa: BLE001
+            pass
 
     def _recorders_changed(self) -> None:
         self.status_cache.invalidate()
+        self.hints.changed()
+        self.reevaluate()
+
+    def _imports_changed(self) -> None:
+        """An import worker started or ended: one fewer is, for a deferred
+        update, as a run's end is (`_run_gone`)."""
+        count = len(self.imports.workers)
+        fewer = count < self._import_count
+        self._import_count = count
+        self.status_cache.invalidate()
+        if fewer:
+            self.updater.session_ended()
         self.reevaluate()
 
     def _resume_recorders(self) -> None:
@@ -568,6 +969,7 @@ class Service:
             return
         if resumed:
             log(f"recorder: {resumed} session(s) resumed")
+            self.hints.changed()
         self.reevaluate()
 
     def _register_saved(self, params: dict) -> None:
@@ -623,6 +1025,9 @@ class Service:
         with contextlib.suppress(OSError):
             (paths.service_dir() / STOPPING_NAME).touch()
         log(f"stopping ({reason})")
+        # No daemon worker starts from here on: one would outlive this process unowned.
+        with contextlib.suppress(Exception):
+            self.workers.close()
         self._emit(Topic.SERVICE_STOPPING, {"reason": reason})
         with contextlib.suppress(Exception):
             self.updater.before_exit(reason)
@@ -655,16 +1060,34 @@ class Service:
                 conn.writer.close()
         if self.watcher is not None:
             self.watcher.close()
+        self.mailwatch.close()
+        self.mailhost.close()
+        self.alerts.close()
+        self.hints.close()
         self.hookhosts.close()
         self.hook_queue.close()
-        for pool in (self._hook_runs, self._host_starts, self._queue_stores):
+        # Its children go on delivering: the outbox on disk is theirs. The
+        # telemetry it took gets the SDK sender's bounded flush, on a thread,
+        # while the recorders pause below.
+        flushing = asyncio.ensure_future(asyncio.to_thread(self.background.close, BACKGROUND_FLUSH_S))
+        for pool in (self._hook_runs, self._host_starts, self._queue_stores, self._background_starts):
             if pool is not None:
                 pool.shutdown(wait=False, cancel_futures=True)
+        # No worker starts from here on; the running ones are asked to hand over
+        # to the next service's (`recorders.close`), never stopped.
+        with contextlib.suppress(Exception):
+            self.workers.close()
+        self.watch.close()
         # Every recorder pauses (after the connections closed: a recorder's link
         # cannot end its session in the registry saved below).
         with contextlib.suppress(Exception):
             await self.recorders.close()
+        with contextlib.suppress(Exception):
+            await flushing
         self.actions.close()
+        for part in (self.statusline, self.notes, self.imports):
+            with contextlib.suppress(Exception):
+                part.close()
         self.registry.save()
 
     # -- sessions ------------------------------------------------------------
@@ -691,6 +1114,58 @@ class Service:
     def _session_gone(self) -> None:
         self.status_cache.invalidate()
         self.updater.session_ended()
+        self.mailwatch.changed()
+
+    def _watch_targets(self, extra: dict | None = None) -> set:
+        """Every session a SESSION_TOPICS subscriber waits on: the ones it
+        named, and every live registered one for a subscriber that named none.
+        `extra` (sid -> state folder) counts sessions a subscription would add."""
+        targets: set = set()
+        default = None
+        named = [conn.sessions for conn in self.connections if conn.topics & SESSION_TOPICS and conn.sessions]
+        everyone = any(conn.topics & SESSION_TOPICS and not conn.sessions for conn in self.connections)
+        for sessions in named + ([extra] if extra else []):
+            for sid, state in sessions.items():
+                if state is None:
+                    default = default or default_state()
+                targets.add(Target(sid, state or default))
+        if everyone:
+            now = time.time()
+            for session in self.registry.sessions.values():
+                if session.alive(now, self.registry.ttl):
+                    if session.state_dir is None:
+                        default = default or default_state()
+                    targets.add(Target(session.sid, session.state_dir or default))
+        return targets
+
+    def _daemon_sessions(self) -> list:
+        """`(sid, state folder)` of every live daemon-mode session an
+        unconfined registrant registered, for the run-alert poller (which asks
+        only for those whose worker wants it)."""
+        now = time.time()
+        return [
+            (s.sid, s.state_dir or default_state())
+            for s in sorted(self.registry.sessions.values(), key=lambda s: s.registered_at)
+            if s.mode == Mode.DAEMON and s.unconfined and s.alive(now, self.registry.ttl)
+        ]
+
+    def _hint_sessions(self) -> list:
+        """The sessions the hint lane reads (`hints.followed`): asked on its own
+        thread, from snapshots of the recordings and the registry."""
+        return hint_sessions(
+            list(self.recorders.recordings.values()), list(self.registry.sessions.values()),
+            now=time.time(), ttl=self.registry.ttl, default_state=default_state(),
+        )
+
+    def _hint_posted(self, sid: str) -> None:
+        """From the hint lane's thread: a hint posted or withdrawn in `sid`'s
+        mailbox. Its watchers hear at once, as for `mailbox.post`."""
+        loop = self._loop
+        if loop is not None:
+            with contextlib.suppress(RuntimeError):
+                loop.call_soon_threadsafe(
+                    self._emit, Topic.MAILBOX_CHANGED, {"sid": sid, "parts": [MailboxPart.MESSAGES]}
+                )
 
     def _schedule_expiry(self) -> None:
         if self._loop is None:
@@ -719,10 +1194,32 @@ class Service:
     # -- events --------------------------------------------------------------
 
     def _emit(self, topic: str, payload: dict) -> None:
+        """To every subscriber of `topic`; `app.check` goes to one app only (`_send_app_check`)."""
         message = event(topic, payload)
+        scoped = topic in SESSION_TOPICS
         for conn in list(self.connections):
-            if topic in conn.topics:
+            if topic in conn.topics and (not scoped or not conn.sessions or payload.get("sid") in conn.sessions):
                 conn.send_nowait(message)
+
+    def _app_connections(self) -> list:
+        """The desktop app's open connections (`service.hello` client `app`)."""
+        return [c for c in self.connections if c.hello and c.client == Client.APP]
+
+    def _app_listeners(self) -> list:
+        """The app connections that take `app.check`."""
+        return [c for c in self._app_connections() if Topic.APP_CHECK in c.topics]
+
+    def _app_target(self) -> int | None:
+        """The one app connection a hand-off goes to: the newest that takes `app.check`."""
+        listeners = self._app_listeners()
+        return max(c.serial for c in listeners) if listeners else None
+
+    def _send_app_check(self, serial: int, payload: dict) -> bool:
+        """`app.check` to that one connection; False when it is gone or closing."""
+        for conn in self._app_listeners():
+            if conn.serial == serial:
+                return conn.send_nowait(event(Topic.APP_CHECK, payload))
+        return False
 
     # -- connections ---------------------------------------------------------
 
@@ -733,7 +1230,14 @@ class Service:
             log(f"refused a connection from uid {uid}")
             writer.close()
             return
-        conn = Connection(writer, caller.peer_pid(sock) if sock is not None else None)
+        if paths.WINDOWS:
+            from . import winpipe
+
+            peer = winpipe.peer_of(writer)  # the pipe's DACL lets only this user in
+        else:
+            peer = caller.peer_pid(sock) if sock is not None else None
+        conn = Connection(writer, peer)
+        conn.serial = next(self._serials)
         if conn.peer_pid is not None and os.path.isdir("/proc/self"):
             # Linux: one /proc read. Elsewhere it would be a `ps` per connection
             # on the loop: there `_action_run` checks only that the pid exists.
@@ -765,6 +1269,9 @@ class Service:
             self.connections.discard(conn)
             with contextlib.suppress(Exception):
                 writer.close()
+            if conn.client == Client.APP:
+                # The app check it was handed and never reported is failed (due again).
+                self.updater.app_gone(conn.serial)
             if conn.keepalive:
                 self.reevaluate()
 
@@ -779,6 +1286,25 @@ class Service:
             return error(id_, RpcError(ErrorCode.HELLO_REQUIRED, "hello_required: send service.hello first"))
         if method not in METHODS:
             return error(id_, RpcError(ErrorCode.UNKNOWN_METHOD, f"unknown method: {method}"))
+        if METHOD_POLICY.get(method, Policy.WORK) == Policy.WORK:
+            # Before the handler, whatever it checks itself: one rule for
+            # every method that runs or stores work (`Policy.WORK`). Inline,
+            # as the hook methods always checked: /proc reads on Linux, a
+            # `sandbox_check` call on macOS, never a process.
+            refusal = screen(conn.peer_pid, conn.peer_start)
+            if refusal is not None:
+                answer = CONFINED_ANSWERS.get(method)
+                if answer is not None:
+                    return result(id_, dict(answer))
+                if refusal == RefusedReason.CALLER_GONE:
+                    return error(id_, RpcError(
+                        ErrorCode.REFUSED,
+                        "refused: the process that opened this connection has exited; connect again",
+                        {"reason": RefusedReason.CALLER_GONE},
+                    ))
+                return error(id_, RpcError(
+                    ErrorCode.REFUSED, "refused: a caller in a sandbox", {"reason": RefusedReason.SANDBOXED}
+                ))
         handler = self._handlers()[method]
         try:
             value = handler(conn, params)
@@ -787,9 +1313,21 @@ class Service:
         except RpcError as exc:
             return error(id_, exc)
         except Exception as exc:  # noqa: BLE001 -- one bad request never stops the service
-            log(f"{method} failed: {exc!r}")
+            self._internal_error(method, exc)
             return error(id_, RpcError(ErrorCode.REFUSED, "internal error", {"reason": RefusedReason.INTERNAL}))
         return result(id_, value)
+
+    def _internal_error(self, method: str, exc: Exception) -> None:
+        """A handler's own exception (a bug, answered `internal error`): logged
+        with its traceback, and one event of `service_error` (plan B2)."""
+        import traceback
+
+        text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        log_traceback(log, f"{method} failed: {exc!r}", text, gate=self._tracebacks,
+                      key=("request", method, type(exc).__name__))
+        self.watch.note(Family.SERVICE_ERROR, "request_error", facts={
+            "method": method, "type": type(exc).__name__, "traceback": text,
+        })
 
     def _handlers(self) -> dict:
         return {
@@ -807,6 +1345,7 @@ class Service:
             Method.ACTION_CANCEL: lambda conn, params: self.actions.cancel(params),
             Method.UPDATE_STATUS: lambda conn, params: self.updater.public(),
             Method.UPDATE_CHECK_NOW: self._check_now,
+            Method.UPDATE_APP_RESULT: lambda conn, params: self.updater.app_result(need_app_result(params)),
             Method.HOOKS_HOST: self._hooks_host,
             Method.HOOKS_RUN: self._hooks_run,
             Method.HOOKS_QUEUE: self._hooks_queue,
@@ -817,6 +1356,16 @@ class Service:
             Method.RUN_HOLD: self._run_hold,
             Method.RUN_RELEASE: self._run_release,
             Method.MANIFEST_REFRESH: self._manifest_refresh,
+            Method.MAILBOX_POST: self._mailbox_post,
+            Method.MAILBOX_CLAIM: self._mailbox_claim,
+            Method.MAILBOX_ANSWER: self._mailbox_answer,
+            Method.DESKTOP_REQUEST: self._desktop_request,
+            Method.OUTBOX_DRAIN: self._outbox_drain,
+            Method.BOX_WATCH: self._box_watch,
+            Method.TELEMETRY_SEND: self._telemetry_send,
+            Method.STATUSLINE_REFRESH: self._statusline_refresh,
+            Method.NOTES_SYNC: self._notes_sync,
+            Method.IMPORT_START: self._import_start,
         }
 
     # -- methods -------------------------------------------------------------
@@ -844,6 +1393,7 @@ class Service:
             "pid": self.pid,
             "started_at": self.started_at,
             "state": self.state,
+            "caps": sorted(CAPS),
         }
 
     def _status(self, conn: Connection, params: dict) -> dict:
@@ -856,14 +1406,24 @@ class Service:
             "started_at": self.started_at,
             "state": self.state,
             "sessions": self.registry.alive_count(),
-            "app_clients": sum(1 for c in self.connections if c.hello and c.client == Client.APP),
+            "app_clients": len(self._app_connections()),
             "update": self.updater.public(),
             "actions": {"running": self.actions.busy_holder()},
             "discovering_until": until,
             "hook_hosts": self.hookhosts.public(),
             "hook_queue": self.hook_queue.public(),
             "recorders": self.recorders.public(),
+            "workers": self.workers.public(),
             "runs": self.runs.public(),
+            # The sessions whose mailbox and held questions a subscriber waits on (Q2).
+            "watched": len(self._watch_targets()),
+            "background": self.background.public(),
+
+            "imports": self.imports.public(),
+            "statusline": self.statusline.public(),
+            "notes": self.notes.public(),
+            # What fails here and what was reported (crash-report plan B2).
+            "watch": self.watch.public(),
         }
 
     def _stop(self, conn: Connection, params: dict) -> dict:
@@ -883,7 +1443,23 @@ class Service:
         owner = need_owner(params)
         generation = need_int(params, "generation")
         state_dir = need_state_dir(params)
-        reg = self.registry.register(sid, harness, mode, owner, generation, state_dir)
+        # Whether the registrant's environment allows automatic reports (plan
+        # B2): a bool, else unsaid (an older registrant: None, read as no).
+        report_env = params.get(REPORT_ENV)
+        report_env = report_env if isinstance(report_env, bool) else None
+        reg = self.registry.register(sid, harness, mode, owner, generation, state_dir, report_env)
+        # Whether the service may poll for it with the user's key (`alertpoll`):
+        # never for a registrant in a sandbox, which names the state folder the
+        # answers go to. `session.record` refused those already; None: this service.
+        reg.session.unconfined = conn is None or not caller.sandboxed(conn.peer_pid)
+        if reg.outcome != Outcome.DEAD:
+            # Every register, a heartbeat's too: after a restart the sessions
+            # come back from `sessions.json` unconfirmed, and only their next
+            # register says they may be polled for (both start only once).
+            self.alerts.changed()
+            self.mailwatch.changed()
+            # A session's mode may have moved (off -> on): the hint lane looks again.
+            self.hints.changed()
         now = time.time()
         if reg.outcome in (Outcome.NEW, Outcome.REPLACED):
             if reg.previous is not None and self.watcher is not None:
@@ -925,9 +1501,10 @@ class Service:
             setattr(self, name, pool)
         return pool
 
-    async def _offload(self, pool: str, workers: int, slots, busy: str, wait: float, fn, *args):
+    async def _offload(self, pool: str, workers: int, slots, busy: str, wait: float, fn, *args, late=None):
         """`fn(*args)` on one of `pool`'s threads, never this loop: `(True,
-        its value)`, or `(False, None)` when it is not done within `wait`.
+        its value)`, or `(False, None)` when it is not done within `wait`
+        (`late`, when given, then gets its value on this loop once it is).
 
         Admission is a slot of `slots`, taken here (`{"refused": busy}` at once
         when none is free) and given back only by the thread, when it has run
@@ -962,7 +1539,7 @@ class Service:
         done, _ = await asyncio.wait({future}, timeout=max(wait, 0.0))
         if done:
             return True, future.result()
-        future.add_done_callback(_settled)
+        future.add_done_callback(lambda settled: _settled(settled, late))
         return False, None
 
     async def _start_host(self, params: dict) -> dict:
@@ -981,7 +1558,10 @@ class Service:
         event would run outside it with the environment it sent; and only a
         complete Probe plugin folder, checked on the thread (it reads files
         the request names: never on this loop, which every client waits on).
-        A folder that had no warm host gets one for its next event."""
+        A folder that had no warm host gets one for its next event, also when
+        the event's answer comes past its caller's wait (`late`): where the
+        kernel has no `os.waitid` (macOS) stopping an overrun outlasts
+        ANSWER_GRACE_S."""
         request = need_hook_run(params)
         request["deadline"] = time.monotonic() + request["timeout_s"]
         if caller.sandboxed(conn.peer_pid):
@@ -991,14 +1571,15 @@ class Service:
         done, answer = await self._offload(
             "_hook_runs", MAX_HOOK_RUNS, self._hook_slots, "busy: too many hook events in flight",
             request["deadline"] - time.monotonic() + ANSWER_GRACE_S, run_event, request, conn.peer_pid,
+            late=lambda late_answer: self._warm_after(request, late_answer),
         )
         if not done:
+            self._note_hook_run(request, None)
             return timed_out_answer()
         if "refused" in answer:
             return answer
-        if answer.get("via") != Via.HOST and request["lane"] not in UNHOSTED_LANES and self.stop_reason is None:
-            root = request["root"]
-            asyncio.get_running_loop().call_soon(lambda: self._warm(root))
+        self._note_hook_run(request, answer)
+        self._warm_after(request, answer)
         # Past what a client reads in one line: stderr goes first, then stdout,
         # each marked cut, so an intact stdout keeps its verdict while it fits.
         for stream in ("stderr", "stdout"):
@@ -1029,6 +1610,33 @@ class Service:
             log(f"hooks.queue {item['id']}: still storing after {QUEUE_STORE_WAIT_S}s")
             return {"queued": True, "duplicate": False}
         return answer
+
+    def _note_hook_run(self, request: dict, answer: dict | None) -> None:
+        """`hooks.run` ran out of time (`answer` None: not even an answer), or
+        the warm host running its event was lost: one event of `hook_host`
+        (plan B2). Never its exit code: 2 is a Stop message delivered (or a
+        veto), and the dispatcher turns its own failures into 0 (Codex rev-3 #3)."""
+        if answer is None or answer.get("timed_out"):
+            reason = "timed_out"
+        elif answer.get("via") == Via.HOST and answer.get("exit_code") is None:
+            reason = "host_lost"
+        else:
+            return
+        self.watch.note(Family.HOOK_HOST, reason, facts={
+            "lane": request["lane"], "via": None if answer is None else answer.get("via"),
+            "timeout_s": request["timeout_s"],
+        }, env=request.get("env"))  # the session's own: its opt-out counts
+
+    def _warm_after(self, request: dict, answer: dict) -> None:
+        """After `hooks.run`'s event: its folder's warm host when it ran without one."""
+        if (
+            "refused" not in answer
+            and answer.get("via") != Via.HOST
+            and request["lane"] not in UNHOSTED_LANES
+            and self.stop_reason is None
+        ):
+            root = request["root"]
+            asyncio.get_running_loop().call_soon(lambda: self._warm(root))
 
     def _queue_changed(self) -> None:
         """From any thread: queued hook events started or stopped holding the service."""
@@ -1064,8 +1672,7 @@ class Service:
     def _record(self, conn: Connection, params: dict) -> dict:
         """`session.record` (plan A2): `session.register`, then this session's
         recorder on a thread here. `{recording: false, ...}` (the tap then
-        starts its own `tap watch`) when it cannot be: off POSIX, a caller in a
-        sandbox, no owner, no loadable tap, or a newer tap than the one loaded
+        starts its own `tap watch`) when it cannot be: a caller in a sandbox, no owner, no loadable tap, or a newer tap than the one loaded
         (`restart: true`: the service restarts onto it, the caller asks the
         next one)."""
         if caller.sandboxed(conn.peer_pid):
@@ -1083,7 +1690,9 @@ class Service:
             registered = self._register(conn, params)
             if registered.get("alive") is False:
                 return {"recording": False, "reason": "owner_gone"}
-        return self.recorders.record(params)
+        answer = self.recorders.record(params)
+        self.hints.changed()
+        return answer
 
     def _end(self, conn: Connection, params: dict) -> dict:
         sid = need_str(params, "sid", max_len=128)
@@ -1099,17 +1708,64 @@ class Service:
             self.reevaluate()
         return {}
 
-    def _list(self, conn: Connection, params: dict) -> dict:
-        return {"sessions": self.registry.listing()}
+    async def _list(self, conn: Connection, params: dict) -> dict:
+        """`session.list`: every registered session, each with its delivery
+        `receipts` (plan D29; `receipts.py`), and `harnesses`, the same per
+        agent. `receipts: false` leaves both out (a caller that only counts)."""
+        sessions = self.registry.listing()
+        if not need_bool(params, "receipts", default=True):
+            return {"sessions": sessions}
+        envs = [rec.params.get("env") for rec in list(self.recorders.recordings.values())]
+        found = await self.receipts.get(
+            [s["sid"] for s in sessions], journal_roots(envs), wait=RECEIPTS_WAIT_S, claims=self.recorders.claims()
+        )
+        for session in sessions:
+            session["receipts"] = found.get(session["sid"])
+        return {"sessions": sessions, "harnesses": by_harness(sessions)}
 
-    def _subscribe(self, conn: Connection, params: dict) -> dict:
+    async def _subscribe(self, conn: Connection, params: dict) -> dict:
+        """`events.subscribe`. For a SESSION_TOPICS topic, `sessions` (and the
+        `state_dir` they keep their files under) say whose mailbox to watch;
+        the answer comes once their files are baselined (`MailWatch.baseline`),
+        so a change after it is an event, and a refused one watches nothing
+        new. Watching only reads, so a caller in a sandbox may watch too, but
+        only live registered sessions, where they registered their files. At
+        most MAX_SUBSCRIBE_SESSIONS a connection, MAX_TARGETS a machine."""
         topics = params.get("topics")
         if not isinstance(topics, list) or not topics or not all(isinstance(t, str) for t in topics):
             raise invalid_params("topics must be a non-empty list of topic names")
         unknown = sorted(set(topics) - TOPICS)
         if unknown:
             raise invalid_params(f"unknown topics {unknown}")
+        sessions = need_sessions(params)
+        state_dir = need_state_dir(params)
+        if not set(topics) & SESSION_TOPICS and not sessions:
+            conn.topics |= set(topics)  # nothing new to watch: no baseline either
+            return {}
+        added = dict.fromkeys(sessions or (), state_dir)
+        if await asyncio.to_thread(caller.sandboxed, conn.peer_pid):
+            # Watching only reads, but a caller in a sandbox names only live
+            # registered sessions, watched where they keep their files: never
+            # a folder of its choosing (a hung mount, a planted FIFO), never
+            # every session's held questions.
+            if not sessions:
+                raise invalid_params("a caller in a sandbox must name its sessions")
+            now = time.time()
+            for sid in sessions:
+                registered = self.registry.sessions.get(sid)
+                if registered is None or not registered.alive(now, self.registry.ttl):
+                    raise invalid_params(f"session {sid!r} is not registered")
+                added[sid] = registered.state_dir
+        if len({**conn.sessions, **added}) > MAX_SUBSCRIBE_SESSIONS:
+            raise invalid_params(f"a connection watches at most {MAX_SUBSCRIBE_SESSIONS} sessions")
+        if len(self._watch_targets(added)) > MAX_TARGETS:
+            raise RpcError(ErrorCode.BUSY, f"busy: more than {MAX_TARGETS} sessions are watched")
+        before = (set(conn.topics), dict(conn.sessions))
         conn.topics |= set(topics)
+        conn.sessions.update(added)
+        if not await self.mailwatch.baseline():
+            conn.topics, conn.sessions = before  # refused: it watches nothing new
+            raise RpcError(ErrorCode.BUSY, "busy: the watched sessions' files could not be read in time")
         return {}
 
     async def _status_get(self, conn: Connection, params: dict) -> dict:
@@ -1135,23 +1791,24 @@ class Service:
             )
         return env
 
-    def _caller_session(self, conn: Connection, env: dict) -> Session | None:
+    def _caller_session(self, conn: Connection, env: dict, seen: tuple | None = None) -> Session | None:
         """The registered session the caller runs inside (plan D9), or None:
         its process ancestry passes a session's owner (pid and start time),
         or (Linux) its environment names a registered session. A session
         found this way that the context did not name joins `env` under its
-        harness's variable, so `probe.core.run` refuses what it refuses there."""
+        harness's variable, so `probe.core.run` refuses what it refuses there.
+        `seen`: `(ancestry, environ)` read already, off the loop (`_caller_seen`)."""
         names = session_envs()
         found: Session | None = None
         if conn.peer_pid is not None:
             owners = self.registry.owners()
             if owners:
-                for pid, start in caller.ancestry(conn.peer_pid):
+                for pid, start in seen[0] if seen is not None else caller.ancestry(conn.peer_pid):
                     found = owners.get((pid, start))
                     if found is not None:
                         break
             if found is None:
-                carried = caller.environ(conn.peer_pid, frozenset(names.values()))
+                carried = seen[1] if seen is not None else caller.environ(conn.peer_pid, frozenset(names.values()))
                 for value in carried.values():
                     candidate = self.registry.sessions.get(value)
                     if candidate is not None and candidate.alive(time.time(), self.registry.ttl):
@@ -1163,30 +1820,52 @@ class Service:
                 env[name] = found.sid
         return found
 
-    def _action_run(self, conn: Connection, params: dict) -> dict:
-        env = self._context(params)
-        if conn.peer_pid is not None:
-            from . import procid
+    def _caller_seen(self, conn: Connection) -> tuple:
+        """`(ancestry, environ)` of the caller, for `_caller_session`: `ps` on
+        macOS, so a caller of it runs this on a thread."""
+        if conn.peer_pid is None:
+            return [], {}
+        names = frozenset(session_envs().values())
+        return caller.ancestry(conn.peer_pid), caller.environ(conn.peer_pid, names)
 
-            if conn.peer_start:
-                gone = procid.alive(conn.peer_pid, conn.peer_start) is False
-            else:
-                try:
-                    os.kill(conn.peer_pid, 0)
-                    gone = False
-                except ProcessLookupError:
-                    gone = True
-                except OSError:
-                    gone = False
-            if gone:
-                # The process that connected is gone (a connection handed to a
-                # child, which kept the session's environment): who calls can no
-                # longer be checked, so nothing changes on its say (plan D9).
-                raise RpcError(
-                    ErrorCode.REFUSED,
-                    "refused: the process that opened this connection has exited; connect again",
-                    {"reason": RefusedReason.CALLER_GONE},
-                )
+    def _refuse_gone_caller(self, conn: Connection) -> None:
+        """The process that connected is gone (a connection handed to a child,
+        which kept the session's environment): who calls can no longer be
+        checked, so nothing changes on its say (plan D9)."""
+        if conn.peer_pid is None:
+            return
+        from . import procid
+
+        if conn.peer_start:
+            gone = procid.alive(conn.peer_pid, conn.peer_start) is False
+        else:
+            gone = not procid.exists(conn.peer_pid)
+        if gone:
+            raise RpcError(
+                ErrorCode.REFUSED,
+                "refused: the process that opened this connection has exited; connect again",
+                {"reason": RefusedReason.CALLER_GONE},
+            )
+
+    async def _action_run(self, conn: Connection, params: dict) -> dict:
+        """`action.run`: never for a caller in a sandbox (`Cap.ACTION_SANDBOX`),
+        as every other method that runs work: the change would land outside
+        it. The caller's own confinement decides, never the client kind its
+        hello names (a label anyone can send); the desktop app, which is never
+        sandboxed, is unaffected, and a refused CLI runs the action itself,
+        inside its sandbox. A `client_request_id` this service accepted
+        already gets its action before any check (`ActionManager.existing`;
+        it starts nothing): a retry never reads as refused because something
+        changed since (the endpoint it signed out of)."""
+        known = self.actions.existing(params)
+        if known is not None:
+            return known
+        env = self._context(params)
+        self._refuse_gone_caller(conn)
+        await self._refuse_sandboxed(conn)
+        return self._action_run_now(conn, params, env)
+
+    def _action_run_now(self, conn: Connection, params: dict, env: dict) -> dict:
         inside = self._caller_session(conn, env)
         if inside is not None and inside.mode == Mode.DAEMON:
             log(f"refused {params.get('action')!r} from inside session {inside.sid}, which the Probe daemon records")
@@ -1208,7 +1887,7 @@ class Service:
         trigger = params.get("trigger", CheckTrigger.CLI)
         if trigger not in CHECK_TRIGGERS:
             raise invalid_params(f"trigger must be one of {sorted(CHECK_TRIGGERS)}")
-        return self.updater.check_now(trigger)
+        return self.updater.check_now(trigger, need_app_check(params, trigger))
 
     async def _recorders_finish(self, conn: Connection, params: dict) -> dict:
         """`recorders.finish` (`probe capture off` for one agent): every
@@ -1324,6 +2003,250 @@ class Service:
         await self._refuse_sandboxed(conn)
         return await self.manifest.refresh(env, wait=wait)
 
+    # -- the mailbox (plan Q2) -----------------------------------------------
+
+    async def _mailbox_post(self, conn: Connection, params: dict) -> dict:
+        """`mailbox.post`: a message or a held question written for its session
+        (`mailhost.MailHost.post`), and its watchers told at once. Never for a
+        caller in a sandbox, which writes the file itself."""
+        request = need_mailbox_post(params)
+        await self._refuse_sandboxed(conn)
+        request["state"] = request["state_dir"] or default_state()
+        answer = self._mailbox_answered(await self.mailhost.run(MailHost.post, request))
+        if "error" in answer:
+            raise invalid_params(answer["error"])
+        if answer.get("posted"):
+            if answer.get("kind") == "question":
+                self._emit(Topic.APPROVALS_CHANGED, {"sid": request["sid"], "ids": [answer["posted"]]})
+            else:
+                self._emit(Topic.MAILBOX_CHANGED, {"sid": request["sid"], "parts": [MailboxPart.MESSAGES]})
+        return answer
+
+    async def _mailbox_claim(self, conn: Connection, params: dict) -> dict:
+        """`mailbox.claim`: the named messages taken once for the caller to show
+        (`mailhost.MailHost.claim`). Never for a caller in a sandbox."""
+        request = need_mailbox_claim(params)
+        await self._refuse_sandboxed(conn)
+        request["state"] = request["state_dir"] or default_state()
+        answer = self._mailbox_answered(await self.mailhost.run(MailHost.claim, request))
+        if answer.get("claimed"):
+            self._emit(Topic.MAILBOX_CHANGED, {"sid": request["sid"],
+                                               "parts": [MailboxPart.CLAIMED, MailboxPart.MESSAGES]})
+        answer.setdefault("claimed", [])
+        answer.setdefault("gone", [])
+        return answer
+
+    async def _mailbox_answer(self, conn: Connection, params: dict) -> dict:
+        """`mailbox.answer`: the researcher's pick for a held question
+        (`mailhost.MailHost.answer`). Never for a caller in a sandbox."""
+        request = need_mailbox_answer(params)
+        await self._refuse_sandboxed(conn)
+        request["state"] = request["state_dir"] or default_state()
+        answer = self._mailbox_answered(await self.mailhost.run(MailHost.answer, request))
+        if answer.get("answered") and answer.get("sid"):
+            self._emit(Topic.APPROVALS_CHANGED, {"sid": answer["sid"], "ids": [request["id"]]})
+        return answer
+
+    @staticmethod
+    def _mailbox_answered(answer: dict | None) -> dict:
+        """A step's answer, or `busy` when none came (a stuck step before it,
+        or this one): its caller then works on the files itself."""
+        if answer is None:
+            raise RpcError(ErrorCode.BUSY, "busy: the mailbox is stuck on a file; work on the files directly")
+        return answer
+    async def _desktop_request(self, conn: Connection, params: dict) -> dict:
+        """`desktop.request` (plan Q6): one of the desktop app's management
+        requests, answered as `probe desktop request --json` answers it, by a
+        child running the same code (`management.py`). Never for a caller in a
+        sandbox (the child reads this user's credentials, with the context it
+        chose), nor from a caller that has exited or runs inside a session the
+        daemon records (D9: `probe desktop` is refused there too, reads
+        included); and no child starts while an update replaces the CLI's
+        files under it (`busy`, holder `update`), checked again right before
+        it starts."""
+        request = params.get("request")
+        op = request.get("op") if isinstance(request, dict) else None
+        if not isinstance(op, str) or not op or len(op) > 64:
+            raise invalid_params('request must be a desktop management request: {"op": ..., ...}')
+        origin = params.get("origin")
+        if origin is not None and origin != ORIGIN_DESKTOP:
+            raise invalid_params(f"origin must be {ORIGIN_DESKTOP} when supplied")
+        env = self._context(params)
+        await self._refuse_sandboxed(conn)
+        self._refuse_gone_caller(conn)
+        seen = await asyncio.to_thread(self._caller_seen, conn)
+        inside = self._caller_session(conn, env, seen)
+        if inside is not None and inside.mode == Mode.DAEMON:
+            log(f"refused desktop {op!r} from inside session {inside.sid}, which the Probe daemon records")
+            raise RpcError(
+                ErrorCode.REFUSED,
+                "refused: the Probe app's requests cannot come from inside a coding agent's session the Probe "
+                "daemon records; use the Probe app or your own terminal",
+                {"reason": RefusedReason.DAEMON_SESSION, "sid": inside.sid},
+            )
+
+        # The caller's own session, registered or not, is resolved by the child
+        # from the caller's process (its environment, a harness-process marker
+        # above it), as its own `probe` would (`probe.core.run._desktop_refusal`).
+        if conn.peer_pid is not None:
+            env[CALLER_PID_ENV] = str(conn.peer_pid)
+            env[CALLER_START_ENV] = conn.peer_start or ""
+        self._desktop_may_start()
+        try:
+            return await self.management.request(
+                request, env, human=origin == ORIGIN_DESKTOP, may_start=self._desktop_may_start
+            )
+        finally:
+            # Answered: what holds the service may have changed.
+            self.reevaluate()
+
+    def _desktop_may_start(self) -> None:
+        """`busy` while the CLI's files are being replaced under a new child:
+        the update cycle applying in place, or a person's Update (`action.run
+        update`, which raises no barrier of its own)."""
+        if self.updater.applying:
+            raise RpcError(
+                ErrorCode.BUSY,
+                "busy: an update is replacing the Probe CLI",
+                {"holder": {"kind": BusyHolder.UPDATE, "cycle_id": self.updater.cycle_id}},
+            )
+        running = self.actions.running
+        if running is not None and running.action == Action.UPDATE:
+            raise RpcError(
+                ErrorCode.BUSY,
+                "busy: an update is replacing the Probe CLI",
+                {"holder": self.actions.busy_holder()},
+            )
+
+    async def _outbox_drain(self, conn: Connection, params: dict) -> dict:
+        """`outbox.drain` (plan Q5): the drainer of the outbox folder `dir`, as
+        the service's child on the caller's interpreter and environment
+        (`background.py`). `{accepted: true, state}` (started, or this
+        service's child for it runs), else `{accepted: false, reason}` and the
+        caller forks its own drainer, as before."""
+        return await self._background_start(conn, need_background(params, directory=True), self.background.drain)
+
+    async def _box_watch(self, conn: Connection, params: dict) -> dict:
+        """`box.watch` (plan Q5): this box's watcher (`probe.box`), likewise."""
+        return await self._background_start(conn, need_background(params, directory=False), self.background.watch_box)
+
+    async def _background_start(self, conn: Connection, request: dict, start) -> dict:
+        """The caller checks, then `start(request)`, on a thread: a caller in
+        a sandbox is refused (its child would run outside it), and so is a
+        `PROBE_BASE_URL` the CLI config does not name (plan D10: the stored
+        login follows that variable). An answer not ready within
+        BACKGROUND_WAIT_S reads `busy`; the start still completes, and the
+        caller's own drainer and this one share the outbox's lease."""
+        if self.stop_reason is not None:
+            return {"accepted": False, "reason": BackgroundRefusal.STOPPING}
+        peer = conn.peer_pid
+
+        def checked() -> dict:
+            # A caller cut off from the network is confined too: its uploads
+            # would go out on this service's.
+            if caller.sandboxed(peer) or other_network(peer):
+                return {"accepted": False, "reason": BackgroundRefusal.SANDBOXED}
+            url = request["env"].get(BASE_URL_ENV) or None  # empty is unset, as `config.resolve` reads it
+            if url is not None and not (url.startswith("https://") and caller.known_endpoint(url, request["env"])):
+                return {"accepted": False, "reason": BackgroundRefusal.UNKNOWN_ENDPOINT}
+            return start(request)
+
+        done, answer = await self._offload(
+            "_background_starts", BACKGROUND_THREADS, self._background_slots, BackgroundRefusal.BUSY,
+            BACKGROUND_WAIT_S, checked,
+        )
+        if not done or "refused" in answer:
+            return {"accepted": False, "reason": BackgroundRefusal.BUSY}
+        return answer
+
+    async def _telemetry_send(self, conn: Connection, params: dict) -> dict:
+        """`telemetry.send` (plan Q5): one batch the caller built, POSTed from
+        the service's telemetry thread. Never for a caller in a sandbox (its
+        network would be this service's)."""
+        entries, batch_id = need_telemetry(params)
+        peer = conn.peer_pid
+        if await asyncio.to_thread(lambda: caller.sandboxed(peer) or other_network(peer)):
+            return {"accepted": False, "reason": BackgroundRefusal.SANDBOXED}
+        return self.background.send_telemetry(entries, batch_id)
+    async def _statusline_refresh(self, conn: Connection, params: dict) -> dict:
+        """`statusline.refresh`: refresh `sid`'s status-line marker with the
+        folder's next fetch child (`statusline.py`); `{scheduled: true,
+        due_in}`, else `{scheduled: false, reason}` and the hook fetches
+        itself. `plugin_root` must be a Probe plugin folder of this user's
+        with the refresh script; `python` the hook's interpreter (a 3.9 or
+        newer, else the service PATH's `python3`); `agent` the session's
+        harness id, for its capture reading."""
+        sid = need_sid(params)
+        agent = params.get("agent")
+        if agent is not None and not is_agent_id(agent):
+            raise invalid_params("agent must be a harness id")
+        raw = need_path(params, "plugin_root")
+        asked = params.get("python")
+        if asked is not None and (not isinstance(asked, str) or not asked.startswith("/") or len(asked) > MAX_HOOK_PATH):
+            raise invalid_params("python must be an absolute path")
+        env = self._context(params)
+        await self._refuse_sandboxed(conn)
+
+        def check() -> tuple:
+            root = os.path.realpath(raw)
+            verdict = self.statusline.check(root)
+            return root, verdict, (None if verdict else self.hookhosts.python_for(asked))
+
+        root, verdict, python = await asyncio.to_thread(check)
+        if verdict is not None:
+            return {"scheduled": False, "reason": verdict}
+        if python is None:
+            return {"scheduled": False, "reason": "no python 3.9 or newer"}
+        return self.statusline.request(root, python, env, sid, agent)
+
+    async def _notes_sync(self, conn: Connection, params: dict) -> dict:
+        """`notes.sync`: the team note's sync for the caller's context, once
+        per machine and debounced (`notesync.py`). `mode` push | reconcile;
+        `rules_for` the `PROBE_AGENT` values whose `probe agent-rules refresh`
+        runs first ("" = the CLI's own default); `feedback` a `probe feedback
+        flush` after. `{outcome: scheduled | queued}`, else `{outcome: null,
+        reason}` and the hook spawns its own."""
+        mode = need_choice(params, "mode", NOTES_MODES)
+        rules_for = params.get("rules_for", [])
+        if (
+            not isinstance(rules_for, list)
+            or len(rules_for) > MAX_NOTE_AGENTS
+            or not all(agent == "" or is_agent_id(agent) for agent in rules_for)
+        ):
+            raise invalid_params(f"rules_for must be a list of at most {MAX_NOTE_AGENTS} harness ids (or \"\")")
+        feedback = need_bool(params, "feedback")
+        env = self._context(params)
+        await self._refuse_sandboxed(conn)
+        return self.notes.request(env, mode, rules_for, feedback)
+
+    async def _import_start(self, conn: Connection, params: dict) -> dict:
+        """`import.start`: start an approved import's worker (`imports.py`)
+        with the CLI's own environment (`env`, required), and watch it.
+        `{started: true, pid, start_time}`, else `{started: false, reason}`:
+        `running` (this service runs it: `pid`, `start_time`), `not_a_job`
+        (`detail`), `too_many`, `stopping`, `could_not_start: ...`."""
+        job_id = params.get("job_id")
+        if not valid_job_id(job_id):
+            raise invalid_params("job_id must be an import job id (32 hex digits)")
+        directory = need_path(params, "directory")
+        attempt = need_int(params, "attempt")
+        env = need_env(params)
+        if not env:
+            raise invalid_params("env is required: the worker runs with the CLI's own environment")
+        await self._refuse_sandboxed(conn)
+        # The folder's real path names the job (with its id): checked, and
+        # its log opened, on a thread; `start` re-checks what runs after it.
+        fd, directory, why = await asyncio.to_thread(prepare_import, job_id, directory)
+        if fd is None:
+            return {"started": False, "reason": "not_a_job", "detail": why}
+        worker = self.imports.start(job_id, directory, attempt, env, fd)
+        if isinstance(worker, dict):
+            return worker
+        from . import procid
+
+        start = await asyncio.to_thread(procid.start_time, worker.pid)  # `ps` on macOS
+        return self.imports.started(worker, start or "")
+
     async def _refuse_sandboxed(self, conn: Connection) -> None:
         """Refuse a caller in a sandbox (as `hooks.host` and `session.record`
         do): a child this runs would fetch and write outside it, with the
@@ -1335,10 +2258,11 @@ class Service:
             )
 
 
-def _settled(future: asyncio.Future) -> None:
-    """An answer nobody waits for any more: read, so it is never reported unread."""
-    if not future.cancelled():
-        future.exception()
+def _settled(future: asyncio.Future, then: Callable[[object], None] | None = None) -> None:
+    """An answer nobody waits for any more: read, so it is never reported
+    unread, and handed to `then` (when given) if it is a value."""
+    if not future.cancelled() and future.exception() is None and then is not None:
+        then(future.result())
 
 
 class LegacyDoor:
@@ -1426,8 +2350,6 @@ def _open_log() -> int | None:
 def _take_lock(path: Path | None = None, *, wait_for_stopping: bool = True) -> int | None:
     """The life-long `service.lock` (this machine's, unless `path` names
     another), or None when another service holds it."""
-    import fcntl
-
     try:
         fd = os.open(path or paths.lock_path(), os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
     except OSError:
@@ -1436,21 +2358,19 @@ def _take_lock(path: Path | None = None, *, wait_for_stopping: bool = True) -> i
         return None
     deadline = None
     while True:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if paths.try_lock(fd):
             return fd
-        except BlockingIOError:
-            # A service that is stopping lets go within moments; one that runs
-            # does not, and then this instance is the duplicate and leaves.
-            if not wait_for_stopping or not (paths.service_dir() / STOPPING_NAME).exists():
-                os.close(fd)
-                return None
-            if deadline is None:
-                deadline = time.monotonic() + STOPPING_WAIT_S
-            if time.monotonic() >= deadline:
-                os.close(fd)
-                return None
-            time.sleep(0.05)
+        # A service that is stopping lets go within moments; one that runs
+        # does not, and then this instance is the duplicate and leaves.
+        if not wait_for_stopping or not (paths.service_dir() / STOPPING_NAME).exists():
+            os.close(fd)
+            return None
+        if deadline is None:
+            deadline = time.monotonic() + STOPPING_WAIT_S
+        if time.monotonic() >= deadline:
+            os.close(fd)
+            return None
+        time.sleep(0.05)
 
 
 def _keep() -> None:
@@ -1478,7 +2398,8 @@ def _name_holder(fd: int) -> None:
 
     with contextlib.suppress(OSError):
         os.ftruncate(fd, 0)
-        os.pwrite(fd, f"{os.getpid()} {procid.start_time(os.getpid()) or ''}\n".encode(), 0)
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.write(fd, f"{os.getpid()} {procid.start_time(os.getpid()) or ''}\n".encode())
 
 
 def _bind(path: Path) -> socket.socket:
@@ -1497,6 +2418,35 @@ def _bind(path: Path) -> socket.socket:
     return sock
 
 
+def _barrier_up() -> bool:
+    """The update barrier or the workers' hold is up (an update's hand-over,
+    this service's or one a stopped service left): read by the watch's scan, on
+    a thread (files, and `ps` on macOS)."""
+    from . import barrier
+
+    return barrier.workers_held() or not barrier.wait(0)
+
+
+def _thread_exception(service: Service, args) -> None:
+    """`threading.excepthook`: never raises."""
+    try:
+        if args.exc_type is SystemExit:
+            return
+        import traceback
+
+        text = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
+        name = args.thread.name if args.thread is not None else "?"
+        # A thread's name carries a pid or a counter: its site is the name without digits.
+        site = "".join(ch for ch in name if not ch.isdigit())
+        log_traceback(log, f"thread {name}: unhandled {args.exc_type.__name__}", text, gate=service._tracebacks,
+                      key=("thread", site, args.exc_type.__name__))
+        service.watch.note(Family.SERVICE_ERROR, "thread_exception", facts={
+            "thread": name, "type": args.exc_type.__name__, "traceback": text,
+        })
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def run_service() -> int:
     """`python -m probe.service`: one instance; exits 0 when idle or as a duplicate."""
     try:
@@ -1507,37 +2457,66 @@ def run_service() -> int:
     lock_fd = _take_lock()
     if lock_fd is None:
         return 0  # another service runs: this one is the duplicate
+    from . import watch
+
+    # The service before this one, as it named itself in the lock file: read
+    # before this one names itself there (crash-report plan B2).
+    previous = watch.previous_holder()
     _name_holder(lock_fd)
     log_fd = _open_log()
     if log_fd is not None and not os.isatty(2):
         os.dup2(log_fd, 1)
         os.dup2(log_fd, 2)
+    with contextlib.suppress(Exception):
+        import faulthandler
+
+        # A fatal signal's traceback (a crash in C, an abort) lands in service.log too.
+        faulthandler.enable(file=sys.stderr, all_threads=True)
     with contextlib.suppress(OSError):
         (paths.service_dir() / STOPPING_NAME).unlink()
-    try:
-        listen = _bind(sock_path)
-    except OSError as exc:
-        log(f"cannot bind {sock_path}: {exc}")
-        return 1
-    bound = os.stat(sock_path)
+    # How it ended: no stop record on this boot, or a recorded crash, is a
+    # `service_crash` to report (`watch.last_run`; this one's own record next).
+    crashed = watch.last_run(previous, _version())
+    if paths.WINDOWS:
+        listen, bound = paths.pipe_name(), None
+    else:
+        try:
+            listen = _bind(sock_path)
+        except OSError as exc:
+            log(f"cannot bind {sock_path}: {exc}")
+            watch.record_crash(f"cannot bind the socket: {exc}", "")
+            return 1
+        bound = os.stat(sock_path)
     registry = Registry(paths.registry_path(), ttl=_env_float(TTL_ENV, HEARTBEAT_TTL_S))
     service = Service(
         registry=registry,
         grace_s=_env_float(GRACE_ENV, GRACE_S),
         discovery_s=_env_float(DISCOVERY_ENV, DISCOVERY_S),
-        legacy=LegacyDoor(),
+        legacy=None if paths.WINDOWS else LegacyDoor(),
     )
+    if crashed is not None:
+        why = crashed.pop("reason")
+        log(f"the service before this one ended without stopping ({why}): reported once consent allows")
+        service.watch.note(Family.SERVICE_CRASH, why, facts=crashed)
+    # A thread's unhandled exception: logged with its traceback, and counted
+    # for `service_error` (crash-report plan B2).
+    threading.excepthook = lambda args: _thread_exception(service, args)
     try:
         reason = asyncio.run(service.run(listen))
     except Exception as exc:  # noqa: BLE001
-        log(f"crashed: {exc!r}")
+        import traceback
+
+        text = traceback.format_exc()
+        log_traceback(log, f"crashed: {exc!r}", text)
+        # What the next service reports (`watch.last_run`): this one wrote no stop record.
+        watch.record_crash(repr(exc), text)
         reason = "crash"
     finally:
         # Unlink only OUR socket, and before the lock goes (process exit): a new
         # service can bind only after that, so this never removes its socket.
         with contextlib.suppress(OSError):
             st = os.stat(sock_path)
-            if (st.st_dev, st.st_ino) == (bound.st_dev, bound.st_ino):
+            if bound is not None and (st.st_dev, st.st_ino) == (bound.st_dev, bound.st_ino):
                 os.unlink(sock_path)
         with contextlib.suppress(OSError):
             (paths.service_dir() / STOPPING_NAME).unlink()

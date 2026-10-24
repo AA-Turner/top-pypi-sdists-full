@@ -13,11 +13,11 @@
 // Cleanup: call deregister() when the owner disconnects (AC-3).
 
 use bytes::Bytes;
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
-use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc};
+use parking_lot::RwLock;
+use std::sync::{Arc, Weak};
+use tokio::sync::{broadcast, mpsc, watch};
 use uuid::Uuid;
 
 /// Capacity of the broadcast channel buffer.
@@ -60,20 +60,98 @@ pub struct ViewerActor<'a> {
     pub display_name: &'a str,
 }
 
-/// A handle to a live session.
-///
-/// Holds the broadcast sender that the owner uses to distribute screen frames
-/// to all connected viewers, plus a cache of the most recent frame for late-join
-/// state sync (T-087).
+/// A sticky, receiver-only lifetime signal. Closing the last signal sender also ends it.
+#[derive(Clone, Debug)]
+pub(crate) struct SessionCancellation {
+    rx: watch::Receiver<bool>,
+}
+
+impl SessionCancellation {
+    pub(crate) fn subscribe(sender: &watch::Sender<bool>) -> Self {
+        Self {
+            rx: sender.subscribe(),
+        }
+    }
+
+    pub(crate) async fn cancelled(&mut self) {
+        while !*self.rx.borrow_and_update() {
+            if self.rx.changed().await.is_err() {
+                return;
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct SessionState {
+    sender: Option<broadcast::Sender<Bytes>>,
+    last_frame: Option<Bytes>,
+    viewer_input_tx: Option<ViewerInputSender>,
+    ended: watch::Sender<bool>,
+}
+
+/// An owner capability for a live session. All clones share one terminal state.
 #[derive(Clone, Debug)]
 pub struct SessionHandle {
-    /// Broadcast sender — clone for each new viewer subscription.
-    sender: broadcast::Sender<Bytes>,
-    /// Most recent frame from the owner, used for late-join state sync (T-087 AC-1).
-    last_frame: Arc<Mutex<Option<Bytes>>>,
-    /// Input channel registered by the owner's handler so viewers with PRIV_CONTROL
-    /// can forward key/mouse events into the owner's processing loop.
-    viewer_input_tx: Arc<Mutex<Option<ViewerInputSender>>>,
+    state: Arc<RwLock<SessionState>>,
+}
+
+/// Weak identity for one frame generation; invitations must never rebind by session ID.
+#[derive(Clone, Debug)]
+pub(crate) struct SessionGeneration {
+    state: Weak<RwLock<SessionState>>,
+}
+
+impl SessionGeneration {
+    pub(crate) fn is_live(&self) -> bool {
+        self.state
+            .upgrade()
+            .is_some_and(|state| state.read().sender.is_some())
+    }
+
+    pub(crate) fn matches(&self, handle: &SessionHandle) -> bool {
+        self.state.ptr_eq(&Arc::downgrade(&handle.state))
+    }
+
+    pub(crate) fn subscribe_viewer(
+        &self,
+        update: Bytes,
+    ) -> Option<(SessionSubscription, Option<Bytes>)> {
+        let handle = SessionHandle {
+            state: self.state.upgrade()?,
+        };
+        handle.broadcast_control(update);
+        handle.subscribe_viewer()
+    }
+}
+
+/// Receiver-only viewer capability: it never keeps the owner/frame/input channel alive.
+pub(crate) struct SessionSubscription {
+    pub(crate) rx: broadcast::Receiver<Bytes>,
+    pub(crate) ended: SessionCancellation,
+    state: Weak<RwLock<SessionState>>,
+}
+
+impl SessionSubscription {
+    pub(crate) fn forward_viewer_input(&self, input: ViewerInput) -> bool {
+        self.state.upgrade().is_some_and(|state| {
+            let state = state.read();
+            state
+                .viewer_input_tx
+                .as_ref()
+                .is_some_and(|tx| tx.send(input).is_ok())
+        })
+    }
+
+    pub(crate) fn broadcast_control(&self, msg: Bytes) -> usize {
+        self.state.upgrade().map_or(0, |state| {
+            let state = state.read();
+            state
+                .sender
+                .as_ref()
+                .map_or(0, |sender| sender.send(msg).unwrap_or(0))
+        })
+    }
 }
 
 /// Sender half of the viewer → owner input channel.
@@ -83,72 +161,106 @@ pub type ViewerInputSender = mpsc::UnboundedSender<ViewerInput>;
 pub type ViewerInputReceiver = mpsc::UnboundedReceiver<ViewerInput>;
 
 impl SessionHandle {
-    /// Create a new SessionHandle with a fresh broadcast channel.
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
+        let (ended, _) = watch::channel(false);
         Self {
-            sender,
-            last_frame: Arc::new(Mutex::new(None)),
-            viewer_input_tx: Arc::new(Mutex::new(None)),
+            state: Arc::new(RwLock::new(SessionState {
+                sender: Some(sender),
+                last_frame: None,
+                viewer_input_tx: None,
+                ended,
+            })),
         }
     }
 
-    /// Register the owner's input channel so viewers with PRIV_CONTROL can forward
-    /// key/mouse events into the owner's handler loop.
-    ///
-    /// Called once by the owner's handler immediately after session registration.
-    /// The owner's handler reads from the corresponding receiver alongside `from_client`.
+    pub(crate) fn generation(&self) -> SessionGeneration {
+        SessionGeneration {
+            state: Arc::downgrade(&self.state),
+        }
+    }
+
+    /// Register input only while this generation is live.
     pub fn set_viewer_input_channel(&self, tx: ViewerInputSender) {
-        *self.viewer_input_tx.lock() = Some(tx);
-    }
-
-    /// Forward a viewer input event (key/mouse) to the owner's handler.
-    ///
-    /// Returns `true` if the channel is registered and the send succeeded,
-    /// `false` if no channel is registered (viewer input silently dropped).
-    pub fn forward_viewer_input(&self, input: ViewerInput) -> bool {
-        if let Some(tx) = self.viewer_input_tx.lock().as_ref() {
-            tx.send(input).is_ok()
-        } else {
-            false
+        let mut state = self.state.write();
+        if state.sender.is_some() {
+            state.viewer_input_tx = Some(tx);
         }
     }
 
-    /// Get a receiver that delivers all frames broadcast after this call.
+    /// Forward attributed input, or return false when input is unavailable/ended.
+    pub fn forward_viewer_input(&self, input: ViewerInput) -> bool {
+        self.state
+            .read()
+            .viewer_input_tx
+            .as_ref()
+            .is_some_and(|tx| tx.send(input).is_ok())
+    }
+
+    /// Subscribe to future output. An ended handle returns an already-closed receiver.
     pub fn subscribe(&self) -> broadcast::Receiver<Bytes> {
-        self.sender.subscribe()
+        let state = self.state.read();
+        match &state.sender {
+            Some(sender) => sender.subscribe(),
+            None => {
+                let (_, rx) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
+                rx
+            }
+        }
     }
 
-    /// Broadcast a screen frame to all connected viewers and cache it for late-join sync.
-    ///
-    /// Only call this for display state. Control traffic must use
-    /// [`Self::broadcast_control`] — caching a participant-list update as `last_frame`
-    /// makes the next late-joining viewer's state sync deliver a control message
-    /// instead of a picture.
-    ///
-    /// Returns the number of receivers that received it (0 if no viewers).
+    /// Subscribe and take the existing late-join cache atomically against broadcast/end.
+    pub(crate) fn subscribe_viewer(&self) -> Option<(SessionSubscription, Option<Bytes>)> {
+        let state = self.state.read();
+        let sender = state.sender.as_ref()?;
+        Some((
+            SessionSubscription {
+                rx: sender.subscribe(),
+                ended: SessionCancellation::subscribe(&state.ended),
+                state: Arc::downgrade(&self.state),
+            },
+            state.last_frame.clone(),
+        ))
+    }
+
+    /// Broadcast display output and cache it for late join; ended handles cannot send.
     pub fn broadcast(&self, frame: Bytes) -> usize {
-        // Cache the frame for late-joining viewers (T-087).
-        *self.last_frame.lock() = Some(frame.clone());
-        self.sender.send(frame).unwrap_or(0)
+        let mut state = self.state.write();
+        if state.sender.is_none() {
+            return 0;
+        }
+        state.last_frame = Some(frame.clone());
+        state.sender.as_ref().unwrap().send(frame).unwrap_or(0)
     }
 
-    /// Broadcast without disturbing the late-join frame cache.
-    ///
-    /// For participant updates, admin-takeover notices, disconnect notifications and
-    /// drawing overlays — none of which represent the screen's contents.
+    /// Broadcast control traffic without changing the display cache.
     pub fn broadcast_control(&self, msg: Bytes) -> usize {
-        self.sender.send(msg).unwrap_or(0)
+        self.state
+            .read()
+            .sender
+            .as_ref()
+            .map_or(0, |sender| sender.send(msg).unwrap_or(0))
     }
 
-    /// Get the most recent frame (for late-join state sync, T-087 AC-1).
     pub fn last_frame(&self) -> Option<Bytes> {
-        self.last_frame.lock().clone()
+        self.state.read().last_frame.clone()
     }
 
-    /// Current number of active viewer subscriptions.
     pub fn viewer_count(&self) -> usize {
-        self.sender.receiver_count()
+        self.state
+            .read()
+            .sender
+            .as_ref()
+            .map_or(0, |sender| sender.receiver_count())
+    }
+
+    /// Terminal close releases cached bytes/input and the sender even with surviving handles.
+    pub(crate) fn end(&self) {
+        let mut state = self.state.write();
+        state.ended.send_replace(true);
+        state.sender = None;
+        state.last_frame = None;
+        state.viewer_input_tx = None;
     }
 }
 
@@ -182,14 +294,14 @@ pub fn register(session_id: &str) -> Result<SessionHandle, String> {
             "Session ID must start with '$', got: {session_id:?}"
         ));
     }
-    let handle = SessionHandle::new();
-    if SESSION_REGISTRY
-        .insert(session_id.to_string(), handle.clone())
-        .is_some()
-    {
-        return Err(format!("Session {session_id:?} is already registered"));
+    match SESSION_REGISTRY.entry(session_id.to_string()) {
+        Entry::Occupied(_) => Err(format!("Session {session_id:?} is already registered")),
+        Entry::Vacant(entry) => {
+            let handle = SessionHandle::new();
+            entry.insert(handle.clone());
+            Ok(handle)
+        }
     }
-    Ok(handle)
 }
 
 /// Look up a session by ID.
@@ -204,112 +316,23 @@ pub fn lookup(session_id: &str) -> Option<SessionHandle> {
 ///
 /// After this call, looking up the session_id returns `None`.
 pub fn deregister(session_id: &str) {
-    SESSION_REGISTRY.remove(session_id);
+    if let Some((_, handle)) = SESSION_REGISTRY.remove(session_id) {
+        handle.end();
+        crate::share_registry::retire_frame_share(session_id, &handle);
+    }
+}
+
+/// End this owner's generation without removing a replacement registered under the same ID.
+pub(crate) fn deregister_owner(session_id: &str, handle: &SessionHandle) {
+    SESSION_REGISTRY.remove_if(session_id, |_, current| {
+        Arc::ptr_eq(&current.state, &handle.state)
+    });
+    handle.end();
+    crate::share_registry::retire_frame_share(session_id, handle);
 }
 
 /// Return all currently registered session IDs.
 /// Intended for diagnostics/metrics only.
 pub fn active_session_ids() -> Vec<String> {
     SESSION_REGISTRY.iter().map(|r| r.key().clone()).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Arc;
-    use std::thread;
-
-    fn unique_id(prefix: &str) -> String {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static CTR: AtomicU64 = AtomicU64::new(0);
-        format!("${prefix}{}", CTR.fetch_add(1, Ordering::Relaxed))
-    }
-
-    // AC-1: register and look up by ID.
-    #[test]
-    fn test_register_and_lookup() {
-        let id = unique_id("test_rl_");
-        let _handle = register(&id).unwrap();
-        assert!(lookup(&id).is_some(), "registered session must be findable");
-    }
-
-    // AC-2: lookup of unknown ID returns None.
-    #[test]
-    fn test_lookup_nonexistent_returns_none() {
-        assert!(lookup("$nonexistent_xyz_abc").is_none());
-    }
-
-    // AC-3: after deregister, lookup returns None.
-    #[test]
-    fn test_deregister_clears_entry() {
-        let id = unique_id("test_dc_");
-        register(&id).unwrap();
-        deregister(&id);
-        assert!(
-            lookup(&id).is_none(),
-            "deregistered session must not be findable"
-        );
-    }
-
-    // AC-4: concurrent registration and lookup is race-free.
-    #[test]
-    fn test_concurrent_register_lookup() {
-        let id = Arc::new(unique_id("test_con_"));
-        let barrier = Arc::new(std::sync::Barrier::new(4));
-
-        let handles: Vec<_> = (0..4)
-            .map(|i| {
-                let id_clone = Arc::clone(&id);
-                let b = Arc::clone(&barrier);
-                thread::spawn(move || {
-                    b.wait();
-                    if i == 0 {
-                        let _ = register(&id_clone);
-                    } else {
-                        // lookup may return None if registration hasn't happened yet — that's fine.
-                        let _ = lookup(&id_clone);
-                    }
-                })
-            })
-            .collect();
-
-        for h in handles {
-            h.join().expect("thread must not panic");
-        }
-        // Cleanup.
-        deregister(&id);
-    }
-
-    // AC-5: session ID without '$' prefix is rejected.
-    #[test]
-    fn test_session_id_must_have_dollar_prefix() {
-        let result = register("no-dollar-prefix");
-        assert!(result.is_err(), "missing '$' prefix must return Err");
-        let msg = result.unwrap_err();
-        assert!(msg.contains('$'), "error must mention the '$' requirement");
-    }
-
-    // AC-5: session ID with '$' prefix succeeds.
-    #[test]
-    fn test_session_id_with_dollar_prefix_succeeds() {
-        let id = unique_id("prefix_ok_");
-        assert!(register(&id).is_ok(), "'$' prefixed ID must succeed");
-        deregister(&id);
-    }
-
-    // Broadcast sanity: viewer receives frame.
-    #[test]
-    fn test_broadcast_reaches_viewer() {
-        let id = unique_id("test_bc_");
-        let handle = register(&id).unwrap();
-        let mut rx = handle.subscribe();
-
-        let frame = Bytes::from_static(b"frame-data");
-        let sent = handle.broadcast(frame.clone());
-        assert_eq!(sent, 1, "one receiver should have gotten the frame");
-
-        let received = rx.try_recv().expect("receiver must have the frame");
-        assert_eq!(received, frame);
-        deregister(&id);
-    }
 }

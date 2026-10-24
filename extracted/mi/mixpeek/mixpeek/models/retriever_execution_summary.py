@@ -40,7 +40,8 @@ class RetrieverExecutionSummary(BaseModel):
     cache_hit_rate: Optional[Union[Annotated[float, Field(le=1.0, strict=True, ge=0.0)], Annotated[int, Field(le=1, strict=True, ge=0)]]] = Field(default=None, description="Average cache hit rate for stages")
     inputs_hash: Optional[StrictStr] = Field(default=None, description="Stable hash of retriever inputs for dedupe")
     query_summary: Optional[StrictStr] = Field(default=None, description="Representative snippet of query inputs")
-    __properties: ClassVar[List[str]] = ["execution_id", "status", "created_at", "completed_at", "duration_ms", "credits_used", "total_processed", "total_returned", "cache_hit_rate", "inputs_hash", "query_summary"]
+    trace_id: Optional[StrictStr] = Field(default=None, description="Trace identifier recorded when this execution ran. Quote it to Mixpeek support to find the request's trace. Null for executions recorded before trace ids were stored.")
+    __properties: ClassVar[List[str]] = ["execution_id", "status", "created_at", "completed_at", "duration_ms", "credits_used", "total_processed", "total_returned", "cache_hit_rate", "inputs_hash", "query_summary", "trace_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -103,7 +104,8 @@ class RetrieverExecutionSummary(BaseModel):
             "total_returned": obj.get("total_returned"),
             "cache_hit_rate": obj.get("cache_hit_rate"),
             "inputs_hash": obj.get("inputs_hash"),
-            "query_summary": obj.get("query_summary")
+            "query_summary": obj.get("query_summary"),
+            "trace_id": obj.get("trace_id")
         })
         return _obj
 

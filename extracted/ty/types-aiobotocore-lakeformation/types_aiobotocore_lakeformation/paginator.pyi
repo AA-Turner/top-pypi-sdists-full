@@ -16,6 +16,8 @@ Usage::
         ListDataCellsFilterPaginator,
         ListLFTagExpressionsPaginator,
         ListLFTagsPaginator,
+        ListRLSPoliciesPaginator,
+        ListRLSPolicyAttachmentsPaginator,
         SearchDatabasesByLFTagsPaginator,
         SearchTablesByLFTagsPaginator,
     )
@@ -28,6 +30,8 @@ Usage::
         list_data_cells_filter_paginator: ListDataCellsFilterPaginator = client.get_paginator("list_data_cells_filter")
         list_lf_tag_expressions_paginator: ListLFTagExpressionsPaginator = client.get_paginator("list_lf_tag_expressions")
         list_lf_tags_paginator: ListLFTagsPaginator = client.get_paginator("list_lf_tags")
+        list_rls_policies_paginator: ListRLSPoliciesPaginator = client.get_paginator("list_rls_policies")
+        list_rls_policy_attachments_paginator: ListRLSPolicyAttachmentsPaginator = client.get_paginator("list_rls_policy_attachments")
         search_databases_by_lf_tags_paginator: SearchDatabasesByLFTagsPaginator = client.get_paginator("search_databases_by_lf_tags")
         search_tables_by_lf_tags_paginator: SearchTablesByLFTagsPaginator = client.get_paginator("search_tables_by_lf_tags")
     ```
@@ -49,6 +53,10 @@ from .type_defs import (
     ListLFTagExpressionsResponseTypeDef,
     ListLFTagsRequestPaginateTypeDef,
     ListLFTagsResponseTypeDef,
+    ListRLSPoliciesRequestPaginateTypeDef,
+    ListRLSPoliciesResponseTypeDef,
+    ListRLSPolicyAttachmentsRequestPaginateTypeDef,
+    ListRLSPolicyAttachmentsResponseTypeDef,
     SearchDatabasesByLFTagsRequestPaginateTypeDef,
     SearchDatabasesByLFTagsResponseTypeDef,
     SearchTablesByLFTagsRequestPaginateTypeDef,
@@ -65,6 +73,8 @@ __all__ = (
     "ListDataCellsFilterPaginator",
     "ListLFTagExpressionsPaginator",
     "ListLFTagsPaginator",
+    "ListRLSPoliciesPaginator",
+    "ListRLSPolicyAttachmentsPaginator",
     "SearchDatabasesByLFTagsPaginator",
     "SearchTablesByLFTagsPaginator",
 )
@@ -139,6 +149,42 @@ class ListLFTagsPaginator(_ListLFTagsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/paginator/ListLFTags.html#LakeFormation.Paginator.ListLFTags.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lakeformation/paginators/#listlftagspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRLSPoliciesPaginatorBase = AioPaginator[ListRLSPoliciesResponseTypeDef]
+else:
+    _ListRLSPoliciesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListRLSPoliciesPaginator(_ListRLSPoliciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/paginator/ListRLSPolicies.html#LakeFormation.Paginator.ListRLSPolicies)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lakeformation/paginators/#listrlspoliciespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRLSPoliciesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRLSPoliciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/paginator/ListRLSPolicies.html#LakeFormation.Paginator.ListRLSPolicies.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lakeformation/paginators/#listrlspoliciespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRLSPolicyAttachmentsPaginatorBase = AioPaginator[ListRLSPolicyAttachmentsResponseTypeDef]
+else:
+    _ListRLSPolicyAttachmentsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListRLSPolicyAttachmentsPaginator(_ListRLSPolicyAttachmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/paginator/ListRLSPolicyAttachments.html#LakeFormation.Paginator.ListRLSPolicyAttachments)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lakeformation/paginators/#listrlspolicyattachmentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRLSPolicyAttachmentsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRLSPolicyAttachmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/paginator/ListRLSPolicyAttachments.html#LakeFormation.Paginator.ListRLSPolicyAttachments.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lakeformation/paginators/#listrlspolicyattachmentspaginator)
         """
 
 if TYPE_CHECKING:

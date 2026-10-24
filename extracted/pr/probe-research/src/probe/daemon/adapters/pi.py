@@ -5,6 +5,9 @@
 pi has no hooks: its extension (`index.ts`) starts capture and writes the turn
 file. Its session is a tree (abandoned branches keep their lines, E9); the
 daemon reads lines in file order.
+
+No message from another agent is marked (`events.PEER_TOOL`): pi has no helper
+agents of its own, and no recorded pi log carries a message from another agent.
 """
 
 from __future__ import annotations

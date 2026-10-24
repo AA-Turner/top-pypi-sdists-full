@@ -278,8 +278,8 @@ def _headers(binding: SandboxBinding) -> dict[str, str]:
         "X-Sandbox-Access-Token": cached or binding.access_token,
         "Content-Type": "application/json",
     }
-    # A desktop keeps its sticky shell folder per session (exec.run ``cwd_key``); the cloud
-    # orchestrator keeps it per sandbox and ignores this header.
+    # The sticky shell folder is kept per session: a desktop via exec.run ``cwd_key``, the cloud
+    # orchestrator by this header on /exec (one chat's ``cd`` is never another chat's start).
     session = _shell_session()
     if session:
         headers[SHELL_SESSION_HEADER] = str(session)

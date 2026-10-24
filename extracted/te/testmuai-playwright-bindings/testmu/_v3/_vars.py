@@ -96,10 +96,10 @@ def _loggable(name, value):
     """
     if str(name).startswith(_MASKED_NAMESPACES):
         return "***"
-    if isinstance(value, str) and _SECRET_VALUES:
-        if any(secret in value for secret in _SECRET_VALUES):
-            return "***"
-    return _preview(value)
+    text = str(value)  # printed whole, so a dict (an API response) is checked too
+    if any(secret in text for secret in _SECRET_VALUES):
+        return "***"
+    return text
 
 
 def _is_sensitive_template(template_str):

@@ -39,8 +39,12 @@ pub const GROUPED_NAMED_DECLARATION_DIRECTORIES: [&str; 6] = [
 ];
 /// Project-wide named declaration roles.
 pub const GLOBAL_NAMED_DECLARATION_DIRECTORIES: [&str; 3] = ["audits", "schemas", "hooks"];
-/// Suffix of macro files.
+/// Suffix of Python macro files.
 pub const PYTHON_FILE_SUFFIX: &str = ".py";
+/// The folder of a macro role that holds Python macros.
+pub const PYTHON_MACROS_DIRECTORY: &str = "python";
+/// The folder of a macro role that holds SQL macros.
+pub const SQL_MACROS_DIRECTORY: &str = "sql";
 /// The project-wide audit role directory.
 pub const AUDIT_ROLE_DIRECTORY: &str = "audits";
 /// The folder-local audit role directory inside a declaration group.
@@ -48,7 +52,7 @@ pub const LOCAL_AUDIT_ROLE_DIRECTORY: &str = "_audits";
 /// The singular audit directory below an audit role.
 pub const SINGULAR_AUDIT_DIRECTORY: &str = "singular";
 /// Header keys a `MODEL` statement accepts, sorted by code point.
-pub const SQL_MODEL_HEADER_KEYS: [&str; 73] = [
+pub const SQL_MODEL_HEADER_KEYS: [&str; 74] = [
     "alias",
     "append_cursor_inclusive",
     "audit_factories",
@@ -60,6 +64,7 @@ pub const SQL_MODEL_HEADER_KEYS: [&str; 73] = [
     "config",
     "constants",
     "contract",
+    "critical",
     "cursor",
     "cursor_end",
     "cursor_future_action",

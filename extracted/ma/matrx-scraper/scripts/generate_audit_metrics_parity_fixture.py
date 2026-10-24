@@ -234,7 +234,7 @@ def build() -> dict[str, Any]:
 
 HOME = REPO_ROOT / "packages/matrx-scraper/tests/__fixtures__/audit-parity.json"
 VENDORED = (
-    REPO_ROOT.parent / "matrx-frontend/features/marketing/seo/audit/__fixtures__/audit-parity.json",
+    REPO_ROOT / "apps/matrx-frontend/features/marketing/seo/audit/__fixtures__/audit-parity.json",
     REPO_ROOT.parent / "matrx-extend/tests/unit/__fixtures__/audit-parity.json",
 )
 

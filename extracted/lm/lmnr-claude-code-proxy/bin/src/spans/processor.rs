@@ -2,7 +2,6 @@
 
 use dashmap::DashMap;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::anthropic::common::{ServerToolUseBlock, ToolUseBlock};
 use crate::anthropic::request::{ContentBlock, MessageContent, PostMessagesRequest};
@@ -19,6 +18,8 @@ use super::types::{
     PendingToolSpan, RegistrationContext, SpanHierarchy, SpawningToolType, extract_tool_output,
 };
 use super::utils::{bytes_to_uuid_like_string, generate_span_id};
+
+const ASYNC_AGENT_ACK: &str = "Async agent launched successfully";
 
 /// Processes spans across requests with proper context management
 #[derive(Debug, Clone)]
@@ -40,6 +41,10 @@ pub struct SpanProcessor {
     /// Key: parent_tool_use_id (from NestedContext)
     /// Value: latest child span end time in nanoseconds
     spawning_tool_child_end_times: DashMap<String, u64>,
+
+    /// Agents whose Agent tool_result was an immediate "launched in background" ack.
+    /// Key: tool_use_id
+    async_agents: DashMap<String, ()>,
 }
 
 impl Default for SpanProcessor {
@@ -55,6 +60,7 @@ impl SpanProcessor {
             tool_to_nested_context: DashMap::new(),
             pending_tool_spans: DashMap::new(),
             spawning_tool_child_end_times: DashMap::new(),
+            async_agents: DashMap::new(),
         }
     }
 
@@ -535,60 +541,29 @@ impl SpanProcessor {
                                 }
                             };
 
-                            let tool_span_id_bytes = pending
-                                .preset_span_id_bytes
-                                .clone()
-                                .unwrap_or_else(|| generate_span_id().unwrap_or_default());
-
                             let tool_output = extract_tool_output(content.as_ref());
 
-                            let description = pending
-                                .tool_input
-                                .get("description")
-                                // for WebFetch
-                                .or(pending.tool_input.get("url"))
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
+                            // Claude Code launches background agents with an immediate
+                            // "Async agent launched" tool_result. That is not the agent's
+                            // completion: keep the span pending until the agent's nested
+                            // chain ends (see finalize_async_agent).
+                            if tool_type == SpawningToolType::Task
+                                && tool_output
+                                    .as_deref()
+                                    .is_some_and(|o| o.contains(ASYNC_AGENT_ACK))
+                            {
+                                self.async_agents.insert(tool_use_id.clone(), ());
+                                self.pending_tool_spans.insert(tool_use_id.clone(), pending);
+                                continue;
+                            }
 
-                            let prompt_field = tool_type.prompt_field();
-                            let prompt = pending
-                                .tool_input
-                                .get(prompt_field)
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("")
-                                .to_string();
-
-                            // Use the latest child span end time if available
-                            let actual_end_time = self
-                                .take_child_end_time(tool_use_id)
-                                .unwrap_or(end_time_unix_nano);
-
-                            completed.push(CompletedSpawningToolSpan {
-                                start_time_unix_nano: pending.start_time_unix_nano,
-                                // subtract one millisecond so that in JS this is less than following request span's start time
-                                end_time_unix_nano: (actual_end_time - 1_000_000)
-                                    .max(pending.start_time_unix_nano),
-                                trace_id_bytes: pending.trace_id_bytes,
-                                parent_span_id_bytes: pending.parent_span_id_bytes,
-                                tool_span_id_bytes,
-                                span_ids_path: pending.span_ids_path,
-                                span_path: pending.span_path,
-                                tool_name: pending.tool_name,
-                                tool_type: tool_type.clone(),
-                                description,
-                                prompt: prompt.clone(),
+                            completed.push(self.build_completed_spawning(
+                                tool_use_id,
+                                pending,
+                                tool_type,
                                 tool_output,
-                                spawning_span_id_bytes: pending.spawning_span_id_bytes,
-                                spawning_tool_use_id: pending.spawning_tool_use_id,
-                            });
-
-                            // Clean up nested context entries and pending spawning tools
-                            self.tool_to_nested_context
-                                .retain(|call_id, _| call_id != tool_use_id);
-                            // Fallback, also delete by prompt. TODO: do we need this now that we delete by id?
-                            self.tool_to_nested_context
-                                .retain(|_, ctx| ctx.prompt != prompt);
-                            self.pending_spawning_tools.remove(&prompt);
+                                end_time_unix_nano,
+                            ));
                         }
                     }
                 }
@@ -596,5 +571,91 @@ impl SpanProcessor {
         }
 
         completed
+    }
+
+    fn build_completed_spawning(
+        &self,
+        tool_use_id: &str,
+        pending: PendingToolSpan,
+        tool_type: SpawningToolType,
+        tool_output: Option<String>,
+        end_time_unix_nano: u64,
+    ) -> CompletedSpawningToolSpan {
+        let tool_span_id_bytes = pending
+            .preset_span_id_bytes
+            .clone()
+            .unwrap_or_else(|| generate_span_id().unwrap_or_default());
+
+        let description = pending
+            .tool_input
+            .get("description")
+            // for WebFetch
+            .or(pending.tool_input.get("url"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let prompt_field = tool_type.prompt_field();
+        let prompt = pending
+            .tool_input
+            .get(prompt_field)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        // Use the latest child span end time if available
+        let actual_end_time = self
+            .take_child_end_time(tool_use_id)
+            .unwrap_or(end_time_unix_nano);
+
+        let span = CompletedSpawningToolSpan {
+            start_time_unix_nano: pending.start_time_unix_nano,
+            // subtract one millisecond so that in JS this is less than following request span's start time
+            end_time_unix_nano: (actual_end_time - 1_000_000).max(pending.start_time_unix_nano),
+            trace_id_bytes: pending.trace_id_bytes,
+            parent_span_id_bytes: pending.parent_span_id_bytes,
+            tool_span_id_bytes,
+            span_ids_path: pending.span_ids_path,
+            span_path: pending.span_path,
+            tool_name: pending.tool_name,
+            tool_type: tool_type.clone(),
+            description,
+            prompt: prompt.clone(),
+            tool_output,
+            spawning_span_id_bytes: pending.spawning_span_id_bytes,
+            spawning_tool_use_id: pending.spawning_tool_use_id,
+        };
+
+        // Clean up nested context entries and pending spawning tools
+        self.tool_to_nested_context
+            .retain(|call_id, _| call_id != tool_use_id);
+        // Fallback, also delete by prompt. TODO: do we need this now that we delete by id?
+        self.tool_to_nested_context
+            .retain(|_, ctx| ctx.prompt != prompt);
+        self.pending_spawning_tools.remove(&prompt);
+        self.async_agents.remove(tool_use_id);
+        span
+    }
+
+    /// Complete a background agent span once its nested chain has ended
+    /// (final nested LLM response without tool calls). Returns None if the
+    /// tool is not an async-launched agent.
+    pub fn finalize_async_agent(
+        &self,
+        tool_use_id: &str,
+        end_time_unix_nano: u64,
+        tool_output: Option<String>,
+    ) -> Option<CompletedSpawningToolSpan> {
+        if !self.async_agents.contains_key(tool_use_id) {
+            return None;
+        }
+        let (_, pending) = self.pending_tool_spans.remove(tool_use_id)?;
+        let tool_type = SpawningToolType::from_name(&pending.tool_name)?;
+        Some(self.build_completed_spawning(
+            tool_use_id,
+            pending,
+            tool_type,
+            tool_output,
+            end_time_unix_nano,
+        ))
     }
 }

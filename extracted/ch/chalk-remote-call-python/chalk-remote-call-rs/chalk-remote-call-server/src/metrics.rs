@@ -185,11 +185,19 @@ fn metric_function_name(function_name: &str) -> String {
     non_empty_env("CHALK_FNQ_FUNCTION_NAME").unwrap_or_else(|| function_name.to_string())
 }
 
-fn call_tags(function_name: &str, success: bool, mode: Mode) -> [String; 3] {
+fn resource_kind() -> &'static str {
+    match non_empty_env("CHALK_FNQ_RESOURCE_KIND").as_deref() {
+        Some("model") => "model",
+        _ => "function",
+    }
+}
+
+fn call_tags(function_name: &str, success: bool, mode: Mode) -> [String; 4] {
     [
         format!("function_name:{function_name}"),
         format!("status:{}", if success { "success" } else { "failure" }),
         format!("mode:{}", mode.as_str()),
+        format!("kind:{}", resource_kind()),
     ]
 }
 
@@ -329,6 +337,7 @@ mod tests {
         assert!(seen.contains("function_name:fn_a"), "{seen}");
         assert!(seen.contains("status:success"), "{seen}");
         assert!(seen.contains("mode:sync"), "{seen}");
+        assert!(seen.contains("kind:function"), "{seen}");
     }
 
     fn call_metrics(pipeline: &Arc<PublishingMetricsPipeline>) -> Arc<CallMetrics> {

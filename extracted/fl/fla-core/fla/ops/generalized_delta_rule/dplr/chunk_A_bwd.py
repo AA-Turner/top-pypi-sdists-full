@@ -10,7 +10,7 @@ import triton
 import triton.language as tl
 
 from fla.ops.utils import prepare_chunk_indices
-from fla.ops.utils.op import exp2, gather
+from fla.ops.utils.op import exp2, gather, unflatten_program_id
 from fla.utils import IS_AMD, IS_GATHER_SUPPORTED, autotune_cache_kwargs, check_shared_mem
 
 NUM_WARPS_AUTOTUNE = [2, 4, 8, 16] if IS_AMD else [2, 4, 8, 16, 32]
@@ -62,14 +62,15 @@ def chunk_dplr_bwd_kernel_intra(
     IS_VARLEN: tl.constexpr,
     GATHER_SUPPORTED: tl.constexpr,
 ):
-    i_k, i_t, i_bh = tl.program_id(0), tl.program_id(1).to(tl.int64), tl.program_id(2)
+    i_k, i_t = unflatten_program_id(tl.cdiv(K, BK))
+    i_bh = tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
-        bos, eos = (i_b * T).to(tl.int32), (i_b * T + T).to(tl.int32)
+        bos, eos = i_b * T, i_b * T + T
 
     if i_t * BT >= T:
         return
@@ -270,15 +271,16 @@ def chunk_dplr_bwd_kernel_intra_tensorcore(
     IS_VARLEN: tl.constexpr,
     GATHER_SUPPORTED: tl.constexpr,
 ):
-    i_k, i_t, i_bh = tl.program_id(0), tl.program_id(1).to(tl.int64), tl.program_id(2)
+    i_k, i_t = unflatten_program_id(tl.cdiv(K, BK))
+    i_bh = tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
 
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T_len = eos - bos
     else:
-        bos, eos = (i_b * T).to(tl.int32), (i_b * T + T).to(tl.int32)
+        bos, eos = i_b * T, i_b * T + T
         T_len = T
 
     if i_t * BT >= T_len:
@@ -290,7 +292,7 @@ def chunk_dplr_bwd_kernel_intra_tensorcore(
     valid_len = min(T_len - i_t * BT, BT)
     mid_idx = valid_len // 2
     m_k = tl.arange(0, BK) + i_k * BK < K
-    p_offset = gi + offset_base_k + (i_t * BT + mid_idx) * K + tl.arange(0, BK) + i_k * BK
+    p_offset = gi + offset_base_k + (i_t * BT + mid_idx) * H * K + tl.arange(0, BK) + i_k * BK
     b_offset = tl.load(p_offset, mask=m_k, other=0.0).to(tl.float32)
 
     # Q, K, A, B, Gates: [BT, BK]
@@ -426,18 +428,18 @@ def chunk_dplr_bwd_dgk_kernel(
     BK: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_t, i_k, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1), tl.program_id(2)
+    i_t, i_k, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64), tl.program_id(2).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_tg = i_t
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
         NT = tl.cdiv(T, BT)
     else:
         NT = tl.cdiv(T, BT)
-        i_tg = (i_b * NT + i_t).to(tl.int32)
-        bos, eos = (i_b * T).to(tl.int32), (i_b * T + T).to(tl.int32)
+        i_tg = i_b * NT + i_t
+        bos, eos = i_b * T, i_b * T + T
 
     stride_qk = H * K
     dgk += (bos * H + i_h) * K
@@ -501,7 +503,7 @@ def chunk_dplr_bwd_dqk_intra(
     dgk = torch.empty_like(gi, dtype=torch.float)
     dgk_offset = torch.empty_like(gi, dtype=torch.float)
 
-    grid = (NK, NT, B * H)
+    grid = (NK * NT, B * H)
     if safe_gate:
         chunk_dplr_bwd_kernel_intra_func = chunk_dplr_bwd_kernel_intra_tensorcore
     else:

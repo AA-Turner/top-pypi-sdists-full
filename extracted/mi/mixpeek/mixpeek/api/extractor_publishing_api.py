@@ -103,8 +103,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -175,8 +177,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -247,8 +251,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -324,7 +330,7 @@ class ExtractorPublishingApi:
     @validate_call
     def install_extractor(
         self,
-        install_extractor_request: InstallExtractorRequest,
+        install_extractor_request: Annotated[InstallExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -341,7 +347,7 @@ class ExtractorPublishingApi:
         """Install a public extractor
 
 
-        :param install_extractor_request: (required)
+        :param install_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type install_extractor_request: InstallExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -379,8 +385,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -396,7 +404,7 @@ class ExtractorPublishingApi:
     @validate_call
     def install_extractor_with_http_info(
         self,
-        install_extractor_request: InstallExtractorRequest,
+        install_extractor_request: Annotated[InstallExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -413,7 +421,7 @@ class ExtractorPublishingApi:
         """Install a public extractor
 
 
-        :param install_extractor_request: (required)
+        :param install_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type install_extractor_request: InstallExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -451,8 +459,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -468,7 +478,7 @@ class ExtractorPublishingApi:
     @validate_call
     def install_extractor_without_preload_content(
         self,
-        install_extractor_request: InstallExtractorRequest,
+        install_extractor_request: Annotated[InstallExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -485,7 +495,7 @@ class ExtractorPublishingApi:
         """Install a public extractor
 
 
-        :param install_extractor_request: (required)
+        :param install_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type install_extractor_request: InstallExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -523,8 +533,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -614,7 +626,7 @@ class ExtractorPublishingApi:
     def publish_extractor(
         self,
         extractor_id: Annotated[StrictStr, Field(description="ID of the extractor to publish")],
-        publish_extractor_request: PublishExtractorRequest,
+        publish_extractor_request: Annotated[PublishExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -633,7 +645,7 @@ class ExtractorPublishingApi:
 
         :param extractor_id: ID of the extractor to publish (required)
         :type extractor_id: str
-        :param publish_extractor_request: (required)
+        :param publish_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type publish_extractor_request: PublishExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -672,8 +684,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -690,7 +704,7 @@ class ExtractorPublishingApi:
     def publish_extractor_with_http_info(
         self,
         extractor_id: Annotated[StrictStr, Field(description="ID of the extractor to publish")],
-        publish_extractor_request: PublishExtractorRequest,
+        publish_extractor_request: Annotated[PublishExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -709,7 +723,7 @@ class ExtractorPublishingApi:
 
         :param extractor_id: ID of the extractor to publish (required)
         :type extractor_id: str
-        :param publish_extractor_request: (required)
+        :param publish_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type publish_extractor_request: PublishExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -748,8 +762,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -766,7 +782,7 @@ class ExtractorPublishingApi:
     def publish_extractor_without_preload_content(
         self,
         extractor_id: Annotated[StrictStr, Field(description="ID of the extractor to publish")],
-        publish_extractor_request: PublishExtractorRequest,
+        publish_extractor_request: Annotated[PublishExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -785,7 +801,7 @@ class ExtractorPublishingApi:
 
         :param extractor_id: ID of the extractor to publish (required)
         :type extractor_id: str
-        :param publish_extractor_request: (required)
+        :param publish_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type publish_extractor_request: PublishExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -824,8 +840,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -972,8 +990,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1044,8 +1064,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1116,8 +1138,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1194,7 +1218,7 @@ class ExtractorPublishingApi:
     def update_published_extractor_id_publish(
         self,
         extractor_id: Annotated[StrictStr, Field(description="ID of the extractor")],
-        update_published_extractor_request: UpdatePublishedExtractorRequest,
+        update_published_extractor_request: Annotated[UpdatePublishedExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1213,7 +1237,7 @@ class ExtractorPublishingApi:
 
         :param extractor_id: ID of the extractor (required)
         :type extractor_id: str
-        :param update_published_extractor_request: (required)
+        :param update_published_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_published_extractor_request: UpdatePublishedExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1252,8 +1276,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1270,7 +1296,7 @@ class ExtractorPublishingApi:
     def update_published_extractor_id_publish_with_http_info(
         self,
         extractor_id: Annotated[StrictStr, Field(description="ID of the extractor")],
-        update_published_extractor_request: UpdatePublishedExtractorRequest,
+        update_published_extractor_request: Annotated[UpdatePublishedExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1289,7 +1315,7 @@ class ExtractorPublishingApi:
 
         :param extractor_id: ID of the extractor (required)
         :type extractor_id: str
-        :param update_published_extractor_request: (required)
+        :param update_published_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_published_extractor_request: UpdatePublishedExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1328,8 +1354,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1346,7 +1374,7 @@ class ExtractorPublishingApi:
     def update_published_extractor_id_publish_without_preload_content(
         self,
         extractor_id: Annotated[StrictStr, Field(description="ID of the extractor")],
-        update_published_extractor_request: UpdatePublishedExtractorRequest,
+        update_published_extractor_request: Annotated[UpdatePublishedExtractorRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1365,7 +1393,7 @@ class ExtractorPublishingApi:
 
         :param extractor_id: ID of the extractor (required)
         :type extractor_id: str
-        :param update_published_extractor_request: (required)
+        :param update_published_extractor_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_published_extractor_request: UpdatePublishedExtractorRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1404,8 +1432,10 @@ class ExtractorPublishingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

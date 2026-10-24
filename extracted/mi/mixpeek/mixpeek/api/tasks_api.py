@@ -102,8 +102,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -175,8 +177,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -248,8 +252,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -381,8 +387,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -454,8 +462,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -527,8 +537,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -612,7 +624,7 @@ class TasksApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tasks_request: Optional[ListTasksRequest] = None,
+        list_tasks_request: Annotated[Optional[ListTasksRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -628,7 +640,7 @@ class TasksApi:
     ) -> ListTasksResponse:
         """List Tasks
 
-        List tasks with optional filtering, sorting, and pagination.      **Filter Options**:     - `status`: Filter by specific status (PENDING, IN_PROGRESS, COMPLETED, FAILED, etc.)     - `task_type`: Filter by task type      **Examples**:     - All tasks: `{}`     - Failed tasks only: `{\"status\": \"FAILED\"}`     - Pending batches: `{\"status\": \"PENDING\", \"task_type\": \"API_BUCKETS_UPLOADS_BATCH_CONFIRM\"}`     - In-progress tasks: `{\"status\": \"IN_PROGRESS\"}`
+        List tasks with optional filtering, sorting, and pagination.      **Filter Options**:     - `status`: Filter by specific status (PENDING, IN_PROGRESS, COMPLETED, FAILED, etc.)     - `task_type`: Filter by task type     - `filters`: AND/OR/NOT conditions on any task field, for example       `{\"AND\": [{\"field\": \"task_id\", \"operator\": \"eq\", \"value\": \"<task_id>\"}]}`     - `search`: case-insensitive text matched against task_id, task_type and status     - `sort`: `{\"field\": \"created_at\", \"direction\": \"desc\"}`      **Examples**:     - All tasks: `{}`     - Failed tasks only: `{\"status\": \"FAILED\"}`     - Pending batches: `{\"status\": \"PENDING\", \"task_type\": \"API_BUCKETS_UPLOADS_BATCH_CONFIRM\"}`     - In-progress tasks: `{\"status\": \"IN_PROGRESS\"}`
 
         :param limit:
         :type limit: int
@@ -646,7 +658,7 @@ class TasksApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tasks_request:
+        :param list_tasks_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tasks_request: ListTasksRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -692,8 +704,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -717,7 +731,7 @@ class TasksApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tasks_request: Optional[ListTasksRequest] = None,
+        list_tasks_request: Annotated[Optional[ListTasksRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -733,7 +747,7 @@ class TasksApi:
     ) -> ApiResponse[ListTasksResponse]:
         """List Tasks
 
-        List tasks with optional filtering, sorting, and pagination.      **Filter Options**:     - `status`: Filter by specific status (PENDING, IN_PROGRESS, COMPLETED, FAILED, etc.)     - `task_type`: Filter by task type      **Examples**:     - All tasks: `{}`     - Failed tasks only: `{\"status\": \"FAILED\"}`     - Pending batches: `{\"status\": \"PENDING\", \"task_type\": \"API_BUCKETS_UPLOADS_BATCH_CONFIRM\"}`     - In-progress tasks: `{\"status\": \"IN_PROGRESS\"}`
+        List tasks with optional filtering, sorting, and pagination.      **Filter Options**:     - `status`: Filter by specific status (PENDING, IN_PROGRESS, COMPLETED, FAILED, etc.)     - `task_type`: Filter by task type     - `filters`: AND/OR/NOT conditions on any task field, for example       `{\"AND\": [{\"field\": \"task_id\", \"operator\": \"eq\", \"value\": \"<task_id>\"}]}`     - `search`: case-insensitive text matched against task_id, task_type and status     - `sort`: `{\"field\": \"created_at\", \"direction\": \"desc\"}`      **Examples**:     - All tasks: `{}`     - Failed tasks only: `{\"status\": \"FAILED\"}`     - Pending batches: `{\"status\": \"PENDING\", \"task_type\": \"API_BUCKETS_UPLOADS_BATCH_CONFIRM\"}`     - In-progress tasks: `{\"status\": \"IN_PROGRESS\"}`
 
         :param limit:
         :type limit: int
@@ -751,7 +765,7 @@ class TasksApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tasks_request:
+        :param list_tasks_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tasks_request: ListTasksRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -797,8 +811,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -822,7 +838,7 @@ class TasksApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tasks_request: Optional[ListTasksRequest] = None,
+        list_tasks_request: Annotated[Optional[ListTasksRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -838,7 +854,7 @@ class TasksApi:
     ) -> RESTResponseType:
         """List Tasks
 
-        List tasks with optional filtering, sorting, and pagination.      **Filter Options**:     - `status`: Filter by specific status (PENDING, IN_PROGRESS, COMPLETED, FAILED, etc.)     - `task_type`: Filter by task type      **Examples**:     - All tasks: `{}`     - Failed tasks only: `{\"status\": \"FAILED\"}`     - Pending batches: `{\"status\": \"PENDING\", \"task_type\": \"API_BUCKETS_UPLOADS_BATCH_CONFIRM\"}`     - In-progress tasks: `{\"status\": \"IN_PROGRESS\"}`
+        List tasks with optional filtering, sorting, and pagination.      **Filter Options**:     - `status`: Filter by specific status (PENDING, IN_PROGRESS, COMPLETED, FAILED, etc.)     - `task_type`: Filter by task type     - `filters`: AND/OR/NOT conditions on any task field, for example       `{\"AND\": [{\"field\": \"task_id\", \"operator\": \"eq\", \"value\": \"<task_id>\"}]}`     - `search`: case-insensitive text matched against task_id, task_type and status     - `sort`: `{\"field\": \"created_at\", \"direction\": \"desc\"}`      **Examples**:     - All tasks: `{}`     - Failed tasks only: `{\"status\": \"FAILED\"}`     - Pending batches: `{\"status\": \"PENDING\", \"task_type\": \"API_BUCKETS_UPLOADS_BATCH_CONFIRM\"}`     - In-progress tasks: `{\"status\": \"IN_PROGRESS\"}`
 
         :param limit:
         :type limit: int
@@ -856,7 +872,7 @@ class TasksApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tasks_request:
+        :param list_tasks_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tasks_request: ListTasksRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -902,8 +918,10 @@ class TasksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -1351,7 +1351,7 @@ fn ensure_traceparent(headers: &mut HashMap<String, String>) -> String {
 /// `end`, or `error`) to the call's result stream, updating meta status along
 /// the way.
 async fn execute_and_write(
-    handler: &PythonHandler,
+    handler: &Arc<PythonHandler>,
     output: &mut CallOutput,
     work: QueuedCall,
     flush_timeout: Duration,

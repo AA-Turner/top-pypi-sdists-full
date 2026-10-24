@@ -24,7 +24,7 @@ from seeq import spy
 from seeq.base import util
 from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
-from seeq.spy import _common, _datalab, _compatibility, _version
+from seeq.spy import _common, _datalab, _compatibility, _oauth, _version
 from seeq.spy._config import Setting
 from seeq.spy._errors import *
 from seeq.spy._session import Session
@@ -44,6 +44,7 @@ def login(
         ignore_ssl_errors: bool = False,
         proxy: str = AUTOMATIC_PROXY_DETECTION,
         credentials_file: Optional[Union[str, Path]] = None,
+        auth_code: Optional[str] = None,
         force: bool = True,
         quiet: Optional[bool] = None,
         status: Optional[Status] = None,
@@ -55,10 +56,11 @@ def login(
         request_origin_url: Optional[str] = None
 ) -> None:
     """
-    Establishes a connection with Seeq Server and logs in with a set of
-    credentials. At least one set of credentials must be provided.
-    Applicable credential sets are:
+    Establishes a connection with Seeq Server and logs in, either through
+    the browser or with a set of credentials:
 
+        - url only: your organization's single sign-on, through the browser
+          (the way AI coding agents log in; see the auth_code argument)
         - username + password (where username is in "Seeq" user directory)
         - username + password + directory
         - access_key + password
@@ -91,9 +93,8 @@ def login(
     directory : str, default 'Seeq'
         The authentication directory to use. You must be able to supply a
         username/password, so some passwordless Windows Authentication
-        (NTLM) scenarios will not work. OpenID Connect is also not
-        supported. If you need to use such authentication schemes, set up
-        a Seeq Data Lab server.
+        (NTLM) scenarios will not work. For single sign-on (OAuth 2.0 /
+        OpenID Connect), give only the url to sign in through the browser.
 
     ignore_ssl_errors : bool, default False
         If True, SSL certificate validation errors are ignored. Use this
@@ -111,6 +112,12 @@ def login(
         a string path or a pathlib.Path object. If specified, the file
         should be plain text and contain two lines, the first line being
         the username, the second being the user's password.
+
+    auth_code : str, optional
+        Finishes a browser sign-in where no browser could open. The first
+        spy.login call stops with an error containing a sign-in URL; after
+        you open it in any browser and allow access, Seeq shows a one-time
+        code. Pass that code here, in a second call, within ten minutes.
 
     force : str, default True
         If True, re-logs in even if already logged in. If False, skips
@@ -169,7 +176,7 @@ def login(
     try:
         _login(username, password, access_key, url, directory, ignore_ssl_errors, proxy,
                credentials_file, auth_token, private_url, force, status, csrf_token, session, request_origin_url,
-               request_origin_label)
+               request_origin_label, auth_code)
     except SPyException as e:
         status.update(str(e), Status.FAILURE)
         raise
@@ -193,7 +200,8 @@ def _login(
         csrf_token: Optional[str],
         session: Session,
         request_origin_url: Optional[str] = None,
-        request_origin_label: Optional[str] = None
+        request_origin_label: Optional[str] = None,
+        auth_code: Optional[str] = None
 ) -> None:
     if access_key and username:
         raise SPyValueError('"username" argument must be omitted when supplying "access_key" argument')
@@ -222,7 +230,7 @@ def _login(
                 session.private_url = private_url
 
             _client_login(auth_token, credentials_file, directory, ignore_ssl_errors, password, proxy, status,
-                          session.get_api_url(), username, access_key, csrf_token, session)
+                          session.get_api_url(), username, access_key, csrf_token, session, auth_code)
 
         system_api = SystemApi(session.client)
         server_status = system_api.get_server_status()  # type: ServerStatusOutputV1
@@ -274,7 +282,8 @@ def _client_login(
         username: Optional[str],
         access_key: Optional[str],
         csrf_token: Optional[str],
-        session: Session
+        session: Session,
+        auth_code: Optional[str] = None
 ) -> None:
     # Annoying warnings are printed to stderr if connections fail
     logging.getLogger("requests").setLevel(logging.FATAL)
@@ -307,6 +316,13 @@ def _client_login(
     elif proxy is not None:
         session.client_configuration.proxy = proxy
 
+    # With no credentials at all, sign in through the browser. Never inside Data Lab notebooks, jobs, or APIs,
+    # which always log in with a token.
+    browser_sign_in = not any((username, password, access_key, credentials_file, auth_token, csrf_token)) and not (
+            _datalab.is_datalab() or _datalab.is_executor() or _datalab.is_datalab_api())
+    if auth_code and not browser_sign_in:
+        raise SPyValueError('auth_code finishes a browser sign-in and cannot be combined with other credentials')
+
     _client = ApiClient(api_client_url, configuration=session.client_configuration)
     if _datalab.is_datalab_api():
         _client.set_default_header('x-sq-origin', SeeqNames.Origins.add_on)
@@ -330,7 +346,9 @@ def _client_login(
         raise SPyRuntimeError(
             '"%s" could not be reached. Is the server or network down?\n%s' % (api_client_url, e))
 
-    if auth_token:
+    if browser_sign_in:
+        _client.auth_token = _oauth.sign_in(_client, session.public_url, status, auth_code)
+    elif auth_token:
         if username or password or credentials_file:
             raise SPyValueError('username, password and/or credentials_file cannot be provided along with auth_token')
 
@@ -486,6 +504,7 @@ def _clear_login_state(quiet, status, session: Session, call_logout=False):
         if call_logout:
             auth_api = AuthApi(session.client)
             auth_api.logout()
+            _oauth.forget(session.public_url, session.client.auth_token)
 
         session.client.logout()
 

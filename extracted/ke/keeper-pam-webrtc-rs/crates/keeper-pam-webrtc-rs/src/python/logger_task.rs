@@ -19,6 +19,14 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use crate::python::channel_logger::LogRecord;
 use crate::runtime::RuntimeHandle;
 
+fn fallback_failure(record: &LogRecord, reason: &'static str) {
+    // Python exception values and custom class names may echo the original input.
+    eprintln!(
+        "ERROR keeper_pam_webrtc_rs::python::logger_task: forwarding_failed reason={} original_level={} target={} location={}:{} details_omitted=true",
+        reason, record.level, record.target, file!(), line!()
+    );
+}
+
 /// Spawn a background task to process log records from Rust and forward to Python
 ///
 /// This task runs for the lifetime of the application, receiving log records
@@ -56,13 +64,8 @@ pub fn spawn_logger_task(
                 // Get Python's logging module
                 let logging_module = match PyModule::import(py, "logging") {
                     Ok(module) => module,
-                    Err(e) => {
-                        // Fallback: print to stderr if Python logging unavailable
-                        // This should never happen in production, but handle gracefully
-                        eprintln!(
-                            "Logger task: Failed to import Python logging module: {:?}",
-                            e
-                        );
+                    Err(_) => {
+                        fallback_failure(&record, "logging_import_failed");
                         return;
                     }
                 };
@@ -79,11 +82,8 @@ pub fn spawn_logger_task(
                 let logger = match logging_module.call_method1("getLogger", (&python_logger_name,))
                 {
                     Ok(logger) => logger,
-                    Err(e) => {
-                        eprintln!(
-                            "Logger task: Failed to get Python logger for '{}': {:?}",
-                            python_logger_name, e
-                        );
+                    Err(_) => {
+                        fallback_failure(&record, "logger_lookup_failed");
                         return;
                     }
                 };
@@ -98,6 +98,40 @@ pub fn spawn_logger_task(
                     log::Level::Trace => 10, // logging.DEBUG (Python has no TRACE level)
                 };
 
+                if record.target == guacr_handlers::operational_diagnostics::TARGET {
+                    // Keep JSON intact and supply only the captured static source location.
+                    // Logger.handle does not check the logger level, so mirror Logger.log first.
+                    let enabled = logger
+                        .call_method1("isEnabledFor", (py_level,))
+                        .and_then(|value| value.extract::<bool>());
+                    match enabled {
+                        Ok(false) => return,
+                        Err(_) => {
+                            fallback_failure(&record, "logger_level_failed");
+                            return;
+                        }
+                        Ok(true) => (),
+                    }
+                    let result = logger
+                        .call_method1(
+                            "makeRecord",
+                            (
+                                &python_logger_name,
+                                py_level,
+                                record.file.as_deref().unwrap_or("rust"),
+                                record.line.unwrap_or(0),
+                                &record.message,
+                                pyo3::types::PyTuple::empty(py),
+                                py.None(),
+                            ),
+                        )
+                        .and_then(|python_record| logger.call_method1("handle", (python_record,)));
+                    if result.is_err() {
+                        fallback_failure(&record, "handler_emit_failed");
+                    }
+                    return;
+                }
+
                 // Build the full log message with optional metadata
                 let full_message = if let (Some(file), Some(line)) = (&record.file, record.line) {
                     format!("{} ({}:{})", record.message, file, line)
@@ -107,13 +141,11 @@ pub fn spawn_logger_task(
 
                 // Call Python: logger.log(level, message)
                 // This goes through Python's configured handlers (file, console, etc.)
-                if let Err(e) = logger.call_method1("log", (py_level, full_message)) {
-                    // Fallback: print to stderr if Python logging fails
-                    // This should be rare, but we don't want to lose logs
-                    eprintln!(
-                        "Logger task: Failed to log to Python (level={}, target={}): {:?}",
-                        record.level, record.target, e
-                    );
+                if logger
+                    .call_method1("log", (py_level, full_message))
+                    .is_err()
+                {
+                    fallback_failure(&record, "handler_emit_failed");
                 }
             });
         }

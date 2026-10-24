@@ -17,7 +17,8 @@ Stdlib only: `import probe.core` stays light.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 
 from probe._compat import StrEnum
 
@@ -38,6 +39,15 @@ class ActionName(StrEnum):
     #: an update, because its own `probe.__version__` is the one it started
     #: with, and (`latest`) before it stops daemon workers for one (D7).
     VERSION = "version"
+    #: A read, not an action: one diagnostic report to the Probe team
+    #: (`probe.core.report`), `{"sent", "id", "skipped", "path"}` back. The
+    #: Probe service asks it when something it watches misbehaves.
+    REPORT = "report"
+    #: Not an action either: one desktop management request (the JSON object
+    #: `probe desktop request --json` reads) in, its v1 envelope out (API v1
+    #: `desktop.request`). `probe.cli.desktop` reads and checks the request
+    #: itself, so it never goes through `parse`.
+    DESKTOP = "desktop"
 
 
 def _agent_words() -> dict[str, str]:
@@ -151,18 +161,75 @@ class VersionRequest:
     refresh: bool = False
 
 
+#: `report`'s `family` and `reason`: the server's slug rule.
+_SLUG = re.compile(r"^[a-z0-9_:.-]{1,64}$")
+_SESSION_ID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+#: `report`'s `facts`, serialized, at most (the contract's cap).
+REPORT_FACTS_MAX_BYTES = 64 * 1024
+
+
+@dataclass(frozen=True)
+class ReportRequest:
+    """`report`: one diagnostic report to the Probe team (`probe.core.report`).
+
+    `auto` false is a manual report (`probe doctor --send`): no consent gate, no
+    dedupe. `sid` names the session a session-family report is about (null for
+    a machine family). `env` is the consenting environment an automatic report
+    is gated on (`report_policy`): the session's own variables, REQUIRED for an
+    automatic session report (left out, `{}` would read as consent), or left
+    out / `{}` for a machine family whose consent the service already decided.
+    `facts` is what the service saw (counters, last exits, a traceback), at
+    most 64 KiB."""
+
+    family: str
+    reason: str
+    auto: bool = True
+    sid: str | None = None
+    env: dict | None = None
+    facts: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("family", "reason"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not _SLUG.match(value):
+                raise RequestError(f"report: {name} must match {_SLUG.pattern}, got {_shown(value)}")
+        if type(self.auto) is not bool:
+            raise RequestError("report: auto must be true or false")
+        if self.sid is not None and (not isinstance(self.sid, str) or not _SESSION_ID.match(self.sid)):
+            raise RequestError(f"report: sid must be a session UUID or null, got {_shown(self.sid)}")
+        if self.env is None:
+            if self.auto and self.sid is not None:
+                raise RequestError("report: an automatic session report needs that session's env (its consent)")
+            object.__setattr__(self, "env", {})
+        if not isinstance(self.env, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in self.env.items()
+        ):
+            raise RequestError("report: env must be an object of strings")
+        if not isinstance(self.facts, dict):
+            raise RequestError("report: facts must be an object")
+        try:
+            size = len(json.dumps(self.facts, ensure_ascii=False).encode("utf-8"))
+        except (TypeError, ValueError):
+            raise RequestError("report: facts must be JSON") from None
+        if size > REPORT_FACTS_MAX_BYTES:
+            raise RequestError(f"report: facts is {size} bytes; at most {REPORT_FACTS_MAX_BYTES}")
+
+
 @dataclass(frozen=True)
 class EmptyRequest:
     """logout, uninstall and update take no parameters."""
 
 
-Request = ConfigureRequest | RecorderRequest | SessionDefaultRequest | StatusRequest | VersionRequest | EmptyRequest
+Request = (
+    ConfigureRequest | RecorderRequest | SessionDefaultRequest | StatusRequest | VersionRequest | ReportRequest
+    | EmptyRequest
+)
 
 #: A configure request's capabilities: each is true, false or left out.
 CAPABILITIES = ("tracking", "capture", "auto_update", "agent_rules")
 
-#: Each action's fields: name -> (JSON type, required). The API v1 `params`.
-_FIELDS: dict[ActionName, dict[str, tuple[type, bool]]] = {
+#: Each action's fields: name -> (JSON type(s), required). The API v1 `params`.
+_FIELDS: dict[ActionName, dict[str, tuple[type | tuple[type, ...], bool]]] = {
     ActionName.CONFIGURE: {
         "agents": (list, True),
         "tracking": (bool, False),
@@ -175,6 +242,14 @@ _FIELDS: dict[ActionName, dict[str, tuple[type, bool]]] = {
     ActionName.SESSION_DEFAULT: {"state": (str, True)},
     ActionName.STATUS: {"refresh": (bool, False)},
     ActionName.VERSION: {"latest": (bool, False), "refresh": (bool, False)},
+    ActionName.REPORT: {
+        "auto": (bool, False),
+        "family": (str, True),
+        "reason": (str, True),
+        "sid": ((str, type(None)), False),
+        "env": (dict, False),
+        "facts": (dict, False),
+    },
     ActionName.LOGOUT: {},
     ActionName.UNINSTALL: {},
     ActionName.UPDATE: {},
@@ -218,6 +293,8 @@ def parse(action: ActionName | str, payload: object) -> Request:
     name = action_name(str(action))
     if not isinstance(payload, dict):
         raise RequestError(f"{name}: the request must be a JSON object, got {type(payload).__name__}")
+    if name not in _FIELDS:
+        raise RequestError(f"{name}: its request is read by `probe.cli.desktop`, never parsed here")
     fields = _FIELDS[name]
     unknown = sorted(set(payload) - set(fields))
     if unknown:
@@ -231,8 +308,10 @@ def parse(action: ActionName | str, payload: object) -> Request:
             continue
         value = payload[key]
         # `True` is an int in Python, and 1 is not a boolean in JSON: exact types only.
-        if type(value) is not kind:
-            raise RequestError(f"{name}: {key} must be a JSON {_json_type(kind)}, got {_shown(value)}")
+        kinds = kind if isinstance(kind, tuple) else (kind,)
+        if type(value) not in kinds:
+            wanted = " or ".join(_json_type(each) for each in kinds)
+            raise RequestError(f"{name}: {key} must be a JSON {wanted}, got {_shown(value)}")
     if name is ActionName.CONFIGURE:
         agents = payload["agents"]
         if not all(isinstance(agent, str) for agent in agents):
@@ -250,6 +329,15 @@ def parse(action: ActionName | str, payload: object) -> Request:
         return StatusRequest(refresh=payload.get("refresh", False))
     if name is ActionName.VERSION:
         return VersionRequest(latest=payload.get("latest", False), refresh=payload.get("refresh", False))
+    if name is ActionName.REPORT:
+        return ReportRequest(
+            family=payload["family"],
+            reason=payload["reason"],
+            auto=payload.get("auto", True),
+            sid=payload.get("sid"),
+            env=payload.get("env"),
+            facts=payload.get("facts", {}),
+        )
     return EmptyRequest()
 
 
@@ -281,4 +369,4 @@ def _object(pairs: list[tuple[str, object]]) -> dict:
 
 
 def _json_type(kind: type) -> str:
-    return {bool: "boolean", str: "string", list: "array"}[kind]
+    return {bool: "boolean", str: "string", list: "array", dict: "object", type(None): "null"}[kind]

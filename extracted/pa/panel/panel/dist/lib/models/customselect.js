@@ -1,6 +1,5 @@
 import { Select, SelectView } from "@bokehjs/models/widgets/select";
 export class CustomSelectView extends SelectView {
-    static __name__ = "CustomSelectView";
     connect_signals() {
         super.connect_signals();
         const { disabled_options } = this.model.properties;
@@ -29,7 +28,6 @@ export class CustomSelectView extends SelectView {
     }
 }
 export class CustomSelect extends Select {
-    static __name__ = "CustomSelect";
     constructor(attrs) {
         super(attrs);
     }

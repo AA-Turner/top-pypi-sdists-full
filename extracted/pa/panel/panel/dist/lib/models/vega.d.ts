@@ -2,6 +2,7 @@ import type * as p from "@bokehjs/core/properties";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { LayoutDOM, LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import type { Attrs } from "@bokehjs/core/types";
+import type { ResourceSpec } from "./resources";
 export declare class VegaEvent extends ModelEvent {
     readonly data: any;
     constructor(data: any);
@@ -16,6 +17,7 @@ export declare class VegaPlotView extends LayoutDOMView {
     _replot: any;
     _resize: any;
     _rendered: boolean;
+    lazy_initialize(): Promise<void>;
     connect_signals(): void;
     _connect_sources(): void;
     remove(): void;
@@ -36,6 +38,7 @@ export declare namespace VegaPlot {
         show_actions: p.Property<boolean>;
         theme: p.Property<string | null>;
         throttle: p.Property<any>;
+        external_resources: p.Property<ResourceSpec | null>;
     };
 }
 export interface VegaPlot extends VegaPlot.Attrs {
@@ -44,5 +47,6 @@ export declare class VegaPlot extends LayoutDOM {
     properties: VegaPlot.Props;
     constructor(attrs?: Partial<VegaPlot.Attrs>);
     static __module__: string;
+    initialize(): void;
 }
 //# sourceMappingURL=vega.d.ts.map

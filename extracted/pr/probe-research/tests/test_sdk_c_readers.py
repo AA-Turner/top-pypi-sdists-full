@@ -142,6 +142,19 @@ def test_parquet_file_and_read_metadata_record_the_file(tmp_path) -> None:
 #: with no Probe at all (`pd.read_parquet(f)`: 3 of 200), and 0 of 200 with
 #: `use_threads=False`. The dataset is still made from the file object, so
 #: the wrapper under test is the same (the old one still segfaults here).
+#:
+#: That made the abort rare, not gone. On pyarrow 26.0.0 a file-object read
+#: can still hand its last reference to the file to one of pyarrow's own
+#: threads, which then needs the GIL; asking for it while the interpreter
+#: tears down, it is ended by CPython (3.10-3.13) with pthread_exit, which
+#: cannot unwind through pyarrow's C++: the same abort, after the script's
+#: last line (no Python frame on any thread). With no Probe imported that
+#: reference went to a pyarrow thread after 34 of 300
+#: `ParquetFile(f).read(use_threads=False)` calls; agent-ci aborted on
+#: `read_table(f, use_threads=False)` and `ParquetFile(f).read()`
+#: (2026-10-23). So each child ends as `_EXIT` does: its exit handlers run
+#: (Probe's among them), and only the teardown where pyarrow's threads abort
+#: is skipped. The read and its record come before it, as they did.
 _PARQUET_CALLS = {
     "pd.read_parquet(file)": ("assert len(pd.read_parquet(FILE, use_threads=False)) == 50", "file"),
     "pd.read_parquet(dir)": ("assert len(pd.read_parquet(DIR)) == 42", "dir"),
@@ -158,6 +171,13 @@ _PARQUET_CALLS = {
 }
 
 
+#: How a parquet child ends (the comment above `_PARQUET_CALLS`): what it
+#: printed is out, its exit handlers run as at any exit, and it leaves
+#: without the interpreter's teardown.
+_EXIT = ("import atexit, os, sys", "sys.stdout.flush()", "sys.stderr.flush()", "atexit._run_exitfuncs()",
+         "os._exit(0)")
+
+
 def _parquet_call_code(call: str, file: Path, root: Path, run_id: str | None) -> str:
     """``call`` with pyarrow (and pandas, when it uses it) imported first (a
     script's imports run before ``probe.init()``), recording into ``run_id``
@@ -171,7 +191,7 @@ def _parquet_call_code(call: str, file: Path, root: Path, run_id: str | None) ->
         f"FILE, DIR = {str(file)!r}, {str(root)!r}",
     ]
     if run_id is None:
-        return "\n".join([*head, call, "print('ok')"]) + "\n"
+        return "\n".join([*head, call, "print('ok')", *_EXIT]) + "\n"
     return "\n".join([
         *head,
         "from probe.sdk import inputs",
@@ -179,6 +199,7 @@ def _parquet_call_code(call: str, file: Path, root: Path, run_id: str | None) ->
         call,
         f"got = inputs.collect_all({run_id!r}, wait_s=10)",
         "print(json.dumps(sorted(r['path'] for r in got.inputs)))",
+        *_EXIT,
     ]) + "\n"
 
 

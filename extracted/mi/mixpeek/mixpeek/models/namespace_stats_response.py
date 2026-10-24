@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -28,11 +28,12 @@ class NamespaceStatsResponse(BaseModel):
     Per-namespace statistics (counts) returned by the stats endpoint.
     """ # noqa: E501
     namespace_id: StrictStr = Field(description="Namespace identifier")
-    document_count: Optional[StrictInt] = Field(default=0, description="Total number of documents in this namespace")
+    document_count: Optional[StrictInt] = Field(default=0, description="Total number of documents in this namespace. With document_count_complete false the count did not finish and this is a lower bound (the documents counted before it stopped, 0 when none were).")
+    document_count_complete: Optional[StrictBool] = Field(default=True, description="Whether document_count finished. False when a collection's or the vector store's count timed out or failed, in which case document_count is a lower bound and a 0 does not mean the namespace is empty; ask again shortly.")
     bucket_count: Optional[StrictInt] = Field(default=0, description="Total number of buckets in this namespace")
     collection_count: Optional[StrictInt] = Field(default=0, description="Total number of collections in this namespace")
     object_count: Optional[StrictInt] = Field(default=0, description="Total number of objects across all buckets in this namespace")
-    __properties: ClassVar[List[str]] = ["namespace_id", "document_count", "bucket_count", "collection_count", "object_count"]
+    __properties: ClassVar[List[str]] = ["namespace_id", "document_count", "document_count_complete", "bucket_count", "collection_count", "object_count"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,6 +88,7 @@ class NamespaceStatsResponse(BaseModel):
         _obj = cls.model_validate({
             "namespace_id": obj.get("namespace_id"),
             "document_count": obj.get("document_count") if obj.get("document_count") is not None else 0,
+            "document_count_complete": obj.get("document_count_complete") if obj.get("document_count_complete") is not None else True,
             "bucket_count": obj.get("bucket_count") if obj.get("bucket_count") is not None else 0,
             "collection_count": obj.get("collection_count") if obj.get("collection_count") is not None else 0,
             "object_count": obj.get("object_count") if obj.get("object_count") is not None else 0

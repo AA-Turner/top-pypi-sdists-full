@@ -17,7 +17,7 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictInt, StrictStr, field_validator
+from pydantic import Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, Optional
 from typing_extensions import Annotated
 from mixpeek.models.add_domain_request import AddDomainRequest
@@ -76,7 +76,7 @@ class AppsApi:
     def add_domain_apps(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        add_domain_request: AddDomainRequest,
+        add_domain_request: Annotated[AddDomainRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -96,7 +96,7 @@ class AppsApi:
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param add_domain_request: (required)
+        :param add_domain_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type add_domain_request: AddDomainRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -135,8 +135,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -153,7 +155,7 @@ class AppsApi:
     def add_domain_apps_with_http_info(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        add_domain_request: AddDomainRequest,
+        add_domain_request: Annotated[AddDomainRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -173,7 +175,7 @@ class AppsApi:
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param add_domain_request: (required)
+        :param add_domain_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type add_domain_request: AddDomainRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -212,8 +214,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -230,7 +234,7 @@ class AppsApi:
     def add_domain_apps_without_preload_content(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        add_domain_request: AddDomainRequest,
+        add_domain_request: Annotated[AddDomainRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -250,7 +254,7 @@ class AppsApi:
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param add_domain_request: (required)
+        :param add_domain_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type add_domain_request: AddDomainRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -289,8 +293,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -383,7 +389,7 @@ class AppsApi:
     def connect_repo_apps(
         self,
         app_id: StrictStr,
-        connect_repo_request: ConnectRepoRequest,
+        connect_repo_request: Annotated[ConnectRepoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -403,7 +409,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param connect_repo_request: (required)
+        :param connect_repo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type connect_repo_request: ConnectRepoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -442,8 +448,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -460,7 +468,7 @@ class AppsApi:
     def connect_repo_apps_with_http_info(
         self,
         app_id: StrictStr,
-        connect_repo_request: ConnectRepoRequest,
+        connect_repo_request: Annotated[ConnectRepoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -480,7 +488,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param connect_repo_request: (required)
+        :param connect_repo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type connect_repo_request: ConnectRepoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -519,8 +527,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -537,7 +547,7 @@ class AppsApi:
     def connect_repo_apps_without_preload_content(
         self,
         app_id: StrictStr,
-        connect_repo_request: ConnectRepoRequest,
+        connect_repo_request: Annotated[ConnectRepoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -557,7 +567,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param connect_repo_request: (required)
+        :param connect_repo_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type connect_repo_request: ConnectRepoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -596,8 +606,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -689,7 +701,7 @@ class AppsApi:
     @validate_call
     def create_app(
         self,
-        create_app_request: CreateAppRequest,
+        create_app_request: Annotated[CreateAppRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -707,7 +719,7 @@ class AppsApi:
 
         Create a new App.  Apps are full-stack web applications deployed as zip bundles to ``{slug}.mxp.co``.  After creation, deploy your built frontend via the deploy pipeline:  1. ``POST /v1/apps/{app_id}/deploy/upload-url`` — get a presigned S3 PUT URL 2. Upload your built ``dist/`` zip to that URL 3. ``POST /v1/apps/{app_id}/deploy`` — trigger the build  Only ``slug`` and ``meta`` are required.  Set ``auth_config.mode`` to control end-user authentication (``public``, ``clerk``, ``password``, ``api_key``, ``jwt``, ``sso_oidc``, ``sso_saml``).  Slugs are globally unique across all organizations.  **Deprecated fields:** ``template``, ``sections``, ``custom_html``, ``hero``, ``theme``, ``seo``, ``stats``, ``featured_gallery``, ``tabs``, ``password_secret_name`` are accepted for backward compatibility but should not be used for new apps.  **Tier limits:** Free = 1 app, Pro = 10, Enterprise = unlimited (``TierLimits._max_apps``). Exceeding your tier's limit returns a 400 with the limit + current count in ``error.details``.
 
-        :param create_app_request: (required)
+        :param create_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_app_request: CreateAppRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -745,8 +757,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -762,7 +776,7 @@ class AppsApi:
     @validate_call
     def create_app_with_http_info(
         self,
-        create_app_request: CreateAppRequest,
+        create_app_request: Annotated[CreateAppRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -780,7 +794,7 @@ class AppsApi:
 
         Create a new App.  Apps are full-stack web applications deployed as zip bundles to ``{slug}.mxp.co``.  After creation, deploy your built frontend via the deploy pipeline:  1. ``POST /v1/apps/{app_id}/deploy/upload-url`` — get a presigned S3 PUT URL 2. Upload your built ``dist/`` zip to that URL 3. ``POST /v1/apps/{app_id}/deploy`` — trigger the build  Only ``slug`` and ``meta`` are required.  Set ``auth_config.mode`` to control end-user authentication (``public``, ``clerk``, ``password``, ``api_key``, ``jwt``, ``sso_oidc``, ``sso_saml``).  Slugs are globally unique across all organizations.  **Deprecated fields:** ``template``, ``sections``, ``custom_html``, ``hero``, ``theme``, ``seo``, ``stats``, ``featured_gallery``, ``tabs``, ``password_secret_name`` are accepted for backward compatibility but should not be used for new apps.  **Tier limits:** Free = 1 app, Pro = 10, Enterprise = unlimited (``TierLimits._max_apps``). Exceeding your tier's limit returns a 400 with the limit + current count in ``error.details``.
 
-        :param create_app_request: (required)
+        :param create_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_app_request: CreateAppRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -818,8 +832,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -835,7 +851,7 @@ class AppsApi:
     @validate_call
     def create_app_without_preload_content(
         self,
-        create_app_request: CreateAppRequest,
+        create_app_request: Annotated[CreateAppRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -853,7 +869,7 @@ class AppsApi:
 
         Create a new App.  Apps are full-stack web applications deployed as zip bundles to ``{slug}.mxp.co``.  After creation, deploy your built frontend via the deploy pipeline:  1. ``POST /v1/apps/{app_id}/deploy/upload-url`` — get a presigned S3 PUT URL 2. Upload your built ``dist/`` zip to that URL 3. ``POST /v1/apps/{app_id}/deploy`` — trigger the build  Only ``slug`` and ``meta`` are required.  Set ``auth_config.mode`` to control end-user authentication (``public``, ``clerk``, ``password``, ``api_key``, ``jwt``, ``sso_oidc``, ``sso_saml``).  Slugs are globally unique across all organizations.  **Deprecated fields:** ``template``, ``sections``, ``custom_html``, ``hero``, ``theme``, ``seo``, ``stats``, ``featured_gallery``, ``tabs``, ``password_secret_name`` are accepted for backward compatibility but should not be used for new apps.  **Tier limits:** Free = 1 app, Pro = 10, Enterprise = unlimited (``TierLimits._max_apps``). Exceeding your tier's limit returns a 400 with the limit + current count in ``error.details``.
 
-        :param create_app_request: (required)
+        :param create_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_app_request: CreateAppRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -891,8 +907,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1037,8 +1055,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1110,8 +1130,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1183,8 +1205,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1320,8 +1344,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1397,8 +1423,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1474,8 +1502,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1555,7 +1585,7 @@ class AppsApi:
     def deploy_app(
         self,
         app_id: StrictStr,
-        deploy_request: DeployRequest,
+        deploy_request: Annotated[DeployRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1575,7 +1605,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param deploy_request: (required)
+        :param deploy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type deploy_request: DeployRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1614,8 +1644,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1632,7 +1664,7 @@ class AppsApi:
     def deploy_app_with_http_info(
         self,
         app_id: StrictStr,
-        deploy_request: DeployRequest,
+        deploy_request: Annotated[DeployRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1652,7 +1684,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param deploy_request: (required)
+        :param deploy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type deploy_request: DeployRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1691,8 +1723,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1709,7 +1743,7 @@ class AppsApi:
     def deploy_app_without_preload_content(
         self,
         app_id: StrictStr,
-        deploy_request: DeployRequest,
+        deploy_request: Annotated[DeployRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1729,7 +1763,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param deploy_request: (required)
+        :param deploy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type deploy_request: DeployRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1768,8 +1802,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1925,8 +1961,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2006,8 +2044,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2087,8 +2127,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2226,8 +2268,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2299,8 +2343,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2372,8 +2418,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2509,8 +2557,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2586,8 +2636,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2663,8 +2715,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2799,8 +2853,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2872,8 +2928,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2945,8 +3003,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3039,7 +3099,7 @@ class AppsApi:
     ) -> AppAnalyticsResponse:
         """Get app analytics overview
 
-        Per-app analytics dashboard data: error trend, Web Vitals, recent errors, event counts.  Queries ClickHouse canvas_errors, canvas_vitals, and canvas_app_events tables.
+        Per-app analytics dashboard data: error trend, Web Vitals, recent errors, event counts.  Reads the canvas_errors, canvas_vitals and canvas_app_events collections.
 
         :param app_id: (required)
         :type app_id: str
@@ -3082,8 +3142,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3116,7 +3178,7 @@ class AppsApi:
     ) -> ApiResponse[AppAnalyticsResponse]:
         """Get app analytics overview
 
-        Per-app analytics dashboard data: error trend, Web Vitals, recent errors, event counts.  Queries ClickHouse canvas_errors, canvas_vitals, and canvas_app_events tables.
+        Per-app analytics dashboard data: error trend, Web Vitals, recent errors, event counts.  Reads the canvas_errors, canvas_vitals and canvas_app_events collections.
 
         :param app_id: (required)
         :type app_id: str
@@ -3159,8 +3221,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3193,7 +3257,7 @@ class AppsApi:
     ) -> RESTResponseType:
         """Get app analytics overview
 
-        Per-app analytics dashboard data: error trend, Web Vitals, recent errors, event counts.  Queries ClickHouse canvas_errors, canvas_vitals, and canvas_app_events tables.
+        Per-app analytics dashboard data: error trend, Web Vitals, recent errors, event counts.  Reads the canvas_errors, canvas_vitals and canvas_app_events collections.
 
         :param app_id: (required)
         :type app_id: str
@@ -3236,8 +3300,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3338,7 +3404,7 @@ class AppsApi:
     ) -> AppLogsResponse:
         """Get runtime or request logs
 
-        Query ClickHouse canvas_app_logs or canvas_request_logs.
+        Read the canvas_app_logs or canvas_request_logs collection.
 
         :param app_id: (required)
         :type app_id: str
@@ -3390,8 +3456,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3427,7 +3495,7 @@ class AppsApi:
     ) -> ApiResponse[AppLogsResponse]:
         """Get runtime or request logs
 
-        Query ClickHouse canvas_app_logs or canvas_request_logs.
+        Read the canvas_app_logs or canvas_request_logs collection.
 
         :param app_id: (required)
         :type app_id: str
@@ -3479,8 +3547,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3516,7 +3586,7 @@ class AppsApi:
     ) -> RESTResponseType:
         """Get runtime or request logs
 
-        Query ClickHouse canvas_app_logs or canvas_request_logs.
+        Read the canvas_app_logs or canvas_request_logs collection.
 
         :param app_id: (required)
         :type app_id: str
@@ -3568,8 +3638,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3725,8 +3797,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3802,8 +3876,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3879,8 +3955,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3976,7 +4054,7 @@ class AppsApi:
     ) -> ErrorRateResponse:
         """Get recent error rate
 
-        Query ClickHouse canvas_errors for the error count in the last N minutes.
+        Count of canvas_errors for this app in the last N minutes.
 
         :param app_id: (required)
         :type app_id: str
@@ -4019,8 +4097,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4053,7 +4133,7 @@ class AppsApi:
     ) -> ApiResponse[ErrorRateResponse]:
         """Get recent error rate
 
-        Query ClickHouse canvas_errors for the error count in the last N minutes.
+        Count of canvas_errors for this app in the last N minutes.
 
         :param app_id: (required)
         :type app_id: str
@@ -4096,8 +4176,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4130,7 +4212,7 @@ class AppsApi:
     ) -> RESTResponseType:
         """Get recent error rate
 
-        Query ClickHouse canvas_errors for the error count in the last N minutes.
+        Count of canvas_errors for this app in the last N minutes.
 
         :param app_id: (required)
         :type app_id: str
@@ -4173,8 +4255,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4256,7 +4340,7 @@ class AppsApi:
     def get_upload_url_apps_id_deploy(
         self,
         app_id: StrictStr,
-        upload_url_request: UploadUrlRequest,
+        upload_url_request: Annotated[UploadUrlRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4276,7 +4360,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param upload_url_request: (required)
+        :param upload_url_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type upload_url_request: UploadUrlRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4315,8 +4399,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4333,7 +4419,7 @@ class AppsApi:
     def get_upload_url_apps_id_deploy_with_http_info(
         self,
         app_id: StrictStr,
-        upload_url_request: UploadUrlRequest,
+        upload_url_request: Annotated[UploadUrlRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4353,7 +4439,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param upload_url_request: (required)
+        :param upload_url_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type upload_url_request: UploadUrlRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4392,8 +4478,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4410,7 +4498,7 @@ class AppsApi:
     def get_upload_url_apps_id_deploy_without_preload_content(
         self,
         app_id: StrictStr,
-        upload_url_request: UploadUrlRequest,
+        upload_url_request: Annotated[UploadUrlRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4430,7 +4518,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param upload_url_request: (required)
+        :param upload_url_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type upload_url_request: UploadUrlRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4469,8 +4557,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4622,8 +4712,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4699,8 +4791,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4776,8 +4870,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4912,8 +5008,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4985,8 +5083,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5058,8 +5158,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5136,7 +5238,7 @@ class AppsApi:
     def invite_app_user(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID")],
-        invite_user_request: InviteUserRequest,
+        invite_user_request: Annotated[InviteUserRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5156,7 +5258,7 @@ class AppsApi:
 
         :param app_id: App ID (required)
         :type app_id: str
-        :param invite_user_request: (required)
+        :param invite_user_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type invite_user_request: InviteUserRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5195,8 +5297,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5213,7 +5317,7 @@ class AppsApi:
     def invite_app_user_with_http_info(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID")],
-        invite_user_request: InviteUserRequest,
+        invite_user_request: Annotated[InviteUserRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5233,7 +5337,7 @@ class AppsApi:
 
         :param app_id: App ID (required)
         :type app_id: str
-        :param invite_user_request: (required)
+        :param invite_user_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type invite_user_request: InviteUserRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5272,8 +5376,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5290,7 +5396,7 @@ class AppsApi:
     def invite_app_user_without_preload_content(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID")],
-        invite_user_request: InviteUserRequest,
+        invite_user_request: Annotated[InviteUserRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5310,7 +5416,7 @@ class AppsApi:
 
         :param app_id: App ID (required)
         :type app_id: str
-        :param invite_user_request: (required)
+        :param invite_user_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type invite_user_request: InviteUserRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5349,8 +5455,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5498,8 +5606,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5571,8 +5681,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5644,8 +5756,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5777,8 +5891,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5850,8 +5966,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5923,8 +6041,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6072,8 +6192,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6161,8 +6283,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6250,8 +6374,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6405,8 +6531,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6478,8 +6606,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6551,8 +6681,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6684,8 +6816,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6757,8 +6891,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6830,8 +6966,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6963,8 +7101,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7036,8 +7176,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7109,8 +7251,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7187,7 +7331,7 @@ class AppsApi:
     def publish_app(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        publish_app_request: Optional[PublishAppRequest] = None,
+        publish_app_request: Annotated[Optional[PublishAppRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7207,7 +7351,7 @@ class AppsApi:
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param publish_app_request:
+        :param publish_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type publish_app_request: PublishAppRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7246,8 +7390,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7264,7 +7410,7 @@ class AppsApi:
     def publish_app_with_http_info(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        publish_app_request: Optional[PublishAppRequest] = None,
+        publish_app_request: Annotated[Optional[PublishAppRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7284,7 +7430,7 @@ class AppsApi:
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param publish_app_request:
+        :param publish_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type publish_app_request: PublishAppRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7323,8 +7469,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7341,7 +7489,7 @@ class AppsApi:
     def publish_app_without_preload_content(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        publish_app_request: Optional[PublishAppRequest] = None,
+        publish_app_request: Annotated[Optional[PublishAppRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7361,7 +7509,7 @@ class AppsApi:
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param publish_app_request:
+        :param publish_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type publish_app_request: PublishAppRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7400,8 +7548,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7553,8 +7703,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7630,8 +7782,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7707,8 +7861,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7789,7 +7945,7 @@ class AppsApi:
         self,
         app_id: StrictStr,
         version: Annotated[StrictInt, Field(description="Version number to restore")],
-        restore_version_request: RestoreVersionRequest,
+        restore_version_request: Annotated[RestoreVersionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7811,7 +7967,7 @@ class AppsApi:
         :type app_id: str
         :param version: Version number to restore (required)
         :type version: int
-        :param restore_version_request: (required)
+        :param restore_version_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type restore_version_request: RestoreVersionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7851,8 +8007,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7870,7 +8028,7 @@ class AppsApi:
         self,
         app_id: StrictStr,
         version: Annotated[StrictInt, Field(description="Version number to restore")],
-        restore_version_request: RestoreVersionRequest,
+        restore_version_request: Annotated[RestoreVersionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7892,7 +8050,7 @@ class AppsApi:
         :type app_id: str
         :param version: Version number to restore (required)
         :type version: int
-        :param restore_version_request: (required)
+        :param restore_version_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type restore_version_request: RestoreVersionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7932,8 +8090,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7951,7 +8111,7 @@ class AppsApi:
         self,
         app_id: StrictStr,
         version: Annotated[StrictInt, Field(description="Version number to restore")],
-        restore_version_request: RestoreVersionRequest,
+        restore_version_request: Annotated[RestoreVersionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7973,7 +8133,7 @@ class AppsApi:
         :type app_id: str
         :param version: Version number to restore (required)
         :type version: int
-        :param restore_version_request: (required)
+        :param restore_version_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type restore_version_request: RestoreVersionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -8013,8 +8173,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8169,8 +8331,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8246,8 +8410,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8323,8 +8489,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8459,8 +8627,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8532,8 +8702,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8605,8 +8777,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8742,8 +8916,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8819,8 +8995,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8896,8 +9074,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8977,7 +9157,8 @@ class AppsApi:
     def update_app(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        update_app_request: UpdateAppRequest,
+        update_app_request: Annotated[UpdateAppRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
+        dry_run: Annotated[Optional[StrictBool], Field(description="Check candidate slug availability (global uniqueness + reserved words) without writing anything, then return the app unchanged. Only slug is checked under dry_run; other fields in the body are ignored. Use this instead of PATCHing a live app repeatedly to probe for an open slug.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -8993,12 +9174,14 @@ class AppsApi:
     ) -> AppResponse:
         """Update an App
 
-        Partially update an App configuration (saved as draft).  All fields are optional — only the fields you provide are updated. Updates are draft by default. Set `publish: true` to apply and publish in a single call.
+        Partially update an App configuration (saved as draft).  All fields are optional — only the fields you provide are updated. Updates are draft by default. Set `publish: true` to apply and publish in a single call.  Set `dry_run=true` to check slug availability only, with no write.
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param update_app_request: (required)
+        :param update_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_app_request: UpdateAppRequest
+        :param dry_run: Check candidate slug availability (global uniqueness + reserved words) without writing anything, then return the app unchanged. Only slug is checked under dry_run; other fields in the body are ignored. Use this instead of PATCHing a live app repeatedly to probe for an open slug.
+        :type dry_run: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -9024,6 +9207,7 @@ class AppsApi:
         _param = self._update_app_serialize(
             app_id=app_id,
             update_app_request=update_app_request,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -9036,8 +9220,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9054,7 +9240,8 @@ class AppsApi:
     def update_app_with_http_info(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        update_app_request: UpdateAppRequest,
+        update_app_request: Annotated[UpdateAppRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
+        dry_run: Annotated[Optional[StrictBool], Field(description="Check candidate slug availability (global uniqueness + reserved words) without writing anything, then return the app unchanged. Only slug is checked under dry_run; other fields in the body are ignored. Use this instead of PATCHing a live app repeatedly to probe for an open slug.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9070,12 +9257,14 @@ class AppsApi:
     ) -> ApiResponse[AppResponse]:
         """Update an App
 
-        Partially update an App configuration (saved as draft).  All fields are optional — only the fields you provide are updated. Updates are draft by default. Set `publish: true` to apply and publish in a single call.
+        Partially update an App configuration (saved as draft).  All fields are optional — only the fields you provide are updated. Updates are draft by default. Set `publish: true` to apply and publish in a single call.  Set `dry_run=true` to check slug availability only, with no write.
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param update_app_request: (required)
+        :param update_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_app_request: UpdateAppRequest
+        :param dry_run: Check candidate slug availability (global uniqueness + reserved words) without writing anything, then return the app unchanged. Only slug is checked under dry_run; other fields in the body are ignored. Use this instead of PATCHing a live app repeatedly to probe for an open slug.
+        :type dry_run: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -9101,6 +9290,7 @@ class AppsApi:
         _param = self._update_app_serialize(
             app_id=app_id,
             update_app_request=update_app_request,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -9113,8 +9303,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9131,7 +9323,8 @@ class AppsApi:
     def update_app_without_preload_content(
         self,
         app_id: Annotated[StrictStr, Field(description="App ID (e.g. app_abc123def456)")],
-        update_app_request: UpdateAppRequest,
+        update_app_request: Annotated[UpdateAppRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
+        dry_run: Annotated[Optional[StrictBool], Field(description="Check candidate slug availability (global uniqueness + reserved words) without writing anything, then return the app unchanged. Only slug is checked under dry_run; other fields in the body are ignored. Use this instead of PATCHing a live app repeatedly to probe for an open slug.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9147,12 +9340,14 @@ class AppsApi:
     ) -> RESTResponseType:
         """Update an App
 
-        Partially update an App configuration (saved as draft).  All fields are optional — only the fields you provide are updated. Updates are draft by default. Set `publish: true` to apply and publish in a single call.
+        Partially update an App configuration (saved as draft).  All fields are optional — only the fields you provide are updated. Updates are draft by default. Set `publish: true` to apply and publish in a single call.  Set `dry_run=true` to check slug availability only, with no write.
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
-        :param update_app_request: (required)
+        :param update_app_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_app_request: UpdateAppRequest
+        :param dry_run: Check candidate slug availability (global uniqueness + reserved words) without writing anything, then return the app unchanged. Only slug is checked under dry_run; other fields in the body are ignored. Use this instead of PATCHing a live app repeatedly to probe for an open slug.
+        :type dry_run: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -9178,6 +9373,7 @@ class AppsApi:
         _param = self._update_app_serialize(
             app_id=app_id,
             update_app_request=update_app_request,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -9190,8 +9386,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9204,6 +9402,7 @@ class AppsApi:
         self,
         app_id,
         update_app_request,
+        dry_run,
         _request_auth,
         _content_type,
         _headers,
@@ -9228,6 +9427,10 @@ class AppsApi:
         if app_id is not None:
             _path_params['app_id'] = app_id
         # process the query parameters
+        if dry_run is not None:
+            
+            _query_params.append(('dry_run', dry_run))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -9285,7 +9488,7 @@ class AppsApi:
         self,
         app_id: Annotated[StrictStr, Field(description="App ID")],
         user_id: Annotated[StrictStr, Field(description="Clerk user ID")],
-        update_role_request: UpdateRoleRequest,
+        update_role_request: Annotated[UpdateRoleRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9307,7 +9510,7 @@ class AppsApi:
         :type app_id: str
         :param user_id: Clerk user ID (required)
         :type user_id: str
-        :param update_role_request: (required)
+        :param update_role_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_role_request: UpdateRoleRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -9347,8 +9550,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9366,7 +9571,7 @@ class AppsApi:
         self,
         app_id: Annotated[StrictStr, Field(description="App ID")],
         user_id: Annotated[StrictStr, Field(description="Clerk user ID")],
-        update_role_request: UpdateRoleRequest,
+        update_role_request: Annotated[UpdateRoleRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9388,7 +9593,7 @@ class AppsApi:
         :type app_id: str
         :param user_id: Clerk user ID (required)
         :type user_id: str
-        :param update_role_request: (required)
+        :param update_role_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_role_request: UpdateRoleRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -9428,8 +9633,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9447,7 +9654,7 @@ class AppsApi:
         self,
         app_id: Annotated[StrictStr, Field(description="App ID")],
         user_id: Annotated[StrictStr, Field(description="Clerk user ID")],
-        update_role_request: UpdateRoleRequest,
+        update_role_request: Annotated[UpdateRoleRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9469,7 +9676,7 @@ class AppsApi:
         :type app_id: str
         :param user_id: Clerk user ID (required)
         :type user_id: str
-        :param update_role_request: (required)
+        :param update_role_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_role_request: UpdateRoleRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -9509,8 +9716,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9622,7 +9831,7 @@ class AppsApi:
     ) -> DomainResponse:
         """Trigger DNS verification
 
-        Trigger asynchronous DNS TXT record verification for a domain.  The domain status is set to `verifying` immediately. A Celery worker polls DNS every 30 minutes for up to 72 hours. On success the status advances to `provisioning_tls`.
+        Trigger asynchronous DNS TXT record verification for a domain.  The domain status is set to `verifying` immediately. A background worker polls DNS every 30 minutes for up to 72 hours. On success the status advances to `provisioning_tls`.
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
@@ -9665,8 +9874,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9699,7 +9910,7 @@ class AppsApi:
     ) -> ApiResponse[DomainResponse]:
         """Trigger DNS verification
 
-        Trigger asynchronous DNS TXT record verification for a domain.  The domain status is set to `verifying` immediately. A Celery worker polls DNS every 30 minutes for up to 72 hours. On success the status advances to `provisioning_tls`.
+        Trigger asynchronous DNS TXT record verification for a domain.  The domain status is set to `verifying` immediately. A background worker polls DNS every 30 minutes for up to 72 hours. On success the status advances to `provisioning_tls`.
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
@@ -9742,8 +9953,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9776,7 +9989,7 @@ class AppsApi:
     ) -> RESTResponseType:
         """Trigger DNS verification
 
-        Trigger asynchronous DNS TXT record verification for a domain.  The domain status is set to `verifying` immediately. A Celery worker polls DNS every 30 minutes for up to 72 hours. On success the status advances to `provisioning_tls`.
+        Trigger asynchronous DNS TXT record verification for a domain.  The domain status is set to `verifying` immediately. A background worker polls DNS every 30 minutes for up to 72 hours. On success the status advances to `provisioning_tls`.
 
         :param app_id: App ID (e.g. app_abc123def456) (required)
         :type app_id: str
@@ -9819,8 +10032,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9900,7 +10115,7 @@ class AppsApi:
     def verify_upload_apps_id_deploy(
         self,
         app_id: StrictStr,
-        verify_upload_request: VerifyUploadRequest,
+        verify_upload_request: Annotated[VerifyUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9920,7 +10135,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param verify_upload_request: (required)
+        :param verify_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type verify_upload_request: VerifyUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -9959,8 +10174,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9977,7 +10194,7 @@ class AppsApi:
     def verify_upload_apps_id_deploy_with_http_info(
         self,
         app_id: StrictStr,
-        verify_upload_request: VerifyUploadRequest,
+        verify_upload_request: Annotated[VerifyUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -9997,7 +10214,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param verify_upload_request: (required)
+        :param verify_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type verify_upload_request: VerifyUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -10036,8 +10253,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10054,7 +10273,7 @@ class AppsApi:
     def verify_upload_apps_id_deploy_without_preload_content(
         self,
         app_id: StrictStr,
-        verify_upload_request: VerifyUploadRequest,
+        verify_upload_request: Annotated[VerifyUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -10074,7 +10293,7 @@ class AppsApi:
 
         :param app_id: (required)
         :type app_id: str
-        :param verify_upload_request: (required)
+        :param verify_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type verify_upload_request: VerifyUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -10113,8 +10332,10 @@ class AppsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

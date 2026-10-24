@@ -1,6 +1,5 @@
 import { HTMLBox, HTMLBoxView } from "./layout";
 export class VideoStreamView extends HTMLBoxView {
-    static __name__ = "VideoStreamView";
     videoEl;
     canvasEl;
     constraints = {
@@ -91,7 +90,6 @@ export class VideoStreamView extends HTMLBoxView {
     }
 }
 export class VideoStream extends HTMLBox {
-    static __name__ = "VideoStream";
     constructor(attrs) {
         super(attrs);
     }

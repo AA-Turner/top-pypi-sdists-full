@@ -31,7 +31,7 @@ class BoxOAuthCredentials(BaseModel):
     client_id: StrictStr = Field(description="REQUIRED. Box application client ID. Found in: Box Developer Console > Your App > Configuration > OAuth 2.0 Credentials.")
     client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Secret credential, redacted on read. Never log or expose. Found in: Box Developer Console > Your App > Configuration.")
     access_token: StrictStr = Field(description="REQUIRED. Box OAuth 2.0 access token. SECURITY: Encrypted at rest. Expires in ~60 minutes.")
-    refresh_token: StrictStr = Field(description="REQUIRED. Box OAuth 2.0 refresh token for automatic token renewal. SECURITY: Encrypted at rest. Single-use; new one issued on each refresh.")
+    refresh_token: Optional[StrictStr] = Field(default=None, description="Box OAuth 2.0 refresh token for automatic token renewal. Optional: the sync uses access_token directly, and Studio's Box form sends none. SECURITY: Encrypted at rest. Single-use; new one issued on each refresh.")
     __properties: ClassVar[List[str]] = ["type", "client_id", "client_secret", "access_token", "refresh_token"]
 
     @field_validator('type')

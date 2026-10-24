@@ -91,6 +91,7 @@ def test_discovery_window_blocks_idle_exit(service_home, monkeypatch):
     assert time.monotonic() - started >= 1.5
 
 
+@pytest.mark.realtime
 def test_a_keepalive_connection_holds_the_service(service_home, monkeypatch):
     monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "0.3")
     status = service_home.start()
@@ -121,6 +122,36 @@ def test_a_crashed_service_is_respawned_by_the_next_ensure(service_home):
     assert client.ensure() == client.Ensured.SPAWNED
     second = wait_for(service_home.status, 5.0)
     assert second and second["pid"] != first["pid"]
+
+
+_UNCLEAN = "ended without stopping"
+
+
+def _run_record() -> dict:
+    return json.loads((paths.service_dir() / "service.run").read_text())
+
+
+def test_the_next_service_names_a_killed_one_and_never_a_stopped_one(service_home):
+    """Crash-report plan B2: a service that left no stop record on this boot
+    (SIGKILL, an OOM kill) is a `service_crash` at the next start; a stop on
+    purpose (SIGTERM, `service.stop`, idle) writes its record and is none."""
+    first = service_home.start()
+    assert _run_record()["pid"] == first["pid"] and _run_record()["boot"]
+    os.kill(first["pid"], signal.SIGTERM)
+    assert service_home.wait_exit(first["pid"], 5.0)
+    second = service_home.start()
+    assert _UNCLEAN not in service_home.log()
+    assert _run_record()["pid"] == second["pid"]
+    os.kill(second["pid"], signal.SIGKILL)
+    assert service_home.wait_exit(second["pid"], 5.0)
+    third = service_home.start()
+    assert service_home.log().count(f"{_UNCLEAN} (unclean_exit)") == 1
+    service_home.call(Method.STOP)
+    assert service_home.wait_exit(third["pid"], 5.0)
+    # What the next start compares with (a fourth start here would meet
+    # `ensure`'s back-off: three a minute).
+    stop = json.loads((paths.service_dir() / "last-stop.json").read_text())
+    assert stop["pid"] == third["pid"] == _run_record()["pid"] and stop["start"] == _run_record()["start"]
 
 
 def test_ensure_backs_off_after_three_starts_a_minute(service_home):
@@ -185,6 +216,7 @@ def test_the_service_starts_with_a_clean_environment(service_home, monkeypatch):
     assert env[b"HOME"] == str(service_home.home).encode()
 
 
+@pytest.mark.realtime
 def test_socket_ready_within_300ms_of_the_spawn(service_home):
     """Plan "Super lightweight": socket ready <= 150 ms warm; 300 ms on CI. Best of 3."""
     best = None
@@ -199,3 +231,47 @@ def test_socket_ready_within_300ms_of_the_spawn(service_home):
         service_home.wait_exit(status["pid"], 3.0)
         paths.starts_path().unlink()  # not a crash loop: three deliberate starts
     assert best < 0.3, f"socket ready after {best * 1000:.0f} ms"
+
+
+def _venv(tmp_path, cfg: str, scripts: tuple = ("python.exe",), home_files: tuple = ("python.exe",)):
+    home = tmp_path / "base"
+    home.mkdir()
+    for name in home_files:
+        (home / name).write_text("")
+    venv = tmp_path / "venv"
+    (venv / "Scripts").mkdir(parents=True)
+    for name in scripts:
+        (venv / "Scripts" / name).write_text("")
+    (venv / "pyvenv.cfg").write_text(cfg.format(home=home), encoding="utf-8")
+    return home, venv
+
+
+def test_the_base_interpreter_keeps_the_venvs_own_build(tmp_path):
+    """A free-threaded venv's launcher runs home's python3.13t.exe, not the
+    regular python.exe beside it: the service must start that same build, or
+    the venv's native packages (built for the other ABI) fail to import."""
+    home, venv = _venv(tmp_path, "home = {home}\nversion_info = 3.13.1\n",
+                       scripts=("python.exe", "python3.13t.exe"), home_files=("python.exe", "python3.13t.exe"))
+    launcher = str(venv / "Scripts" / "python.exe")
+    argv, env = client._without_venv_launcher([launcher, "-I"], {})
+    assert argv == [str(home / "python3.13t.exe"), "-I"]
+    assert env == {"__PYVENV_LAUNCHER__": launcher}
+
+
+def test_the_base_interpreter_is_the_one_pyvenv_cfg_names(tmp_path):
+    home, venv = _venv(tmp_path, "home = {home}\nexecutable = {home}/python3.13t.exe\n",
+                       home_files=("python.exe", "python3.13t.exe"))
+    argv, _ = client._without_venv_launcher([str(venv / "Scripts" / "python.exe")], {})
+    assert argv == [str(home / "python3.13t.exe")]
+
+
+def test_a_free_threaded_venv_without_its_interpreter_keeps_the_launcher(tmp_path):
+    _, venv = _venv(tmp_path, "home = {home}\nversion_info = 3.13.1+freethreaded\n")
+    launcher = [str(venv / "Scripts" / "python.exe"), "-I"]
+    assert client._without_venv_launcher(launcher, {}) == (launcher, {})
+
+
+def test_a_regular_venv_starts_homes_python(tmp_path):
+    home, venv = _venv(tmp_path, "home = {home}\nversion_info = 3.12.7\n")
+    argv, _ = client._without_venv_launcher([str(venv / "Scripts" / "python.exe")], {})
+    assert argv == [str(home / "python.exe")]

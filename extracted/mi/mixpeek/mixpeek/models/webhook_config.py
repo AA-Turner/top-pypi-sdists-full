@@ -31,7 +31,8 @@ class WebhookConfig(BaseModel):
     headers: Optional[Dict[str, StrictStr]] = Field(default=None, description="Custom headers to include in the webhook request.")
     payload_template: Optional[Dict[str, Any]] = Field(default=None, description="A Jinja2 template for the JSON payload.")
     timeout: Optional[Union[StrictFloat, StrictInt]] = Field(default=10.0, description="Request timeout in seconds.")
-    __properties: ClassVar[List[str]] = ["url", "headers", "payload_template", "timeout"]
+    signing_secret: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED. A secret shared with the receiver. When set, every delivery carries X-Mixpeek-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of '<t>.' plus the raw request body, keyed by this secret>. The receiver recomputes it to verify the delivery came from Mixpeek and rejects an old t to stop replays. Stored encrypted and never returned: reads show 'redacted'. Send 'redacted' (or omit the field) on an update to keep it, or an empty string to remove it.")
+    __properties: ClassVar[List[str]] = ["url", "headers", "payload_template", "timeout", "signing_secret"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,7 +88,8 @@ class WebhookConfig(BaseModel):
             "url": obj.get("url"),
             "headers": obj.get("headers"),
             "payload_template": obj.get("payload_template"),
-            "timeout": obj.get("timeout") if obj.get("timeout") is not None else 10.0
+            "timeout": obj.get("timeout") if obj.get("timeout") is not None else 10.0,
+            "signing_secret": obj.get("signing_secret")
         })
         return _obj
 

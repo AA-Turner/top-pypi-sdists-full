@@ -25,6 +25,35 @@ fn parse_instructions(content: &str) -> Vec<(String, Vec<String>)> {
         .collect()
 }
 
+#[derive(Debug, PartialEq)]
+pub(super) enum RecordedEvent<'a> {
+    Instruction(String, Vec<String>),
+    Output(&'a [u8]),
+}
+
+pub(super) fn parse_recording(mut bytes: &[u8]) -> Vec<RecordedEvent<'_>> {
+    let mut events = Vec::new();
+    while !bytes.is_empty() {
+        if bytes[0].is_ascii_digit() {
+            let instruction = guacr_protocol::StreamingParser::peek_instruction(bytes)
+                .expect("recording text must have valid codepoint lengths and boundaries");
+            events.push(RecordedEvent::Instruction(
+                instruction.opcode.to_string(),
+                instruction.args.iter().map(|arg| arg.to_string()).collect(),
+            ));
+            bytes = &bytes[instruction.total_length_in_buffer..];
+        } else {
+            assert!(bytes.len() >= 8, "binary frame header must be complete");
+            assert_eq!(bytes[0], guacr_protocol::Opcode::TerminalData as u8);
+            let length = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+            assert!(8 + length <= bytes.len(), "binary payload must be complete");
+            events.push(RecordedEvent::Output(&bytes[8..8 + length]));
+            bytes = &bytes[8 + length..];
+        }
+    }
+    events
+}
+
 fn opcodes(parsed: &[(String, Vec<String>)]) -> Vec<&str> {
     parsed.iter().map(|(opcode, _)| opcode.as_str()).collect()
 }

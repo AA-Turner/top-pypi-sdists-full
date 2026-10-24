@@ -5,7 +5,8 @@ Each public function resolves credentials for a specific GCP service. Callers
 declare *what* they need access to; the resolver handles *how* to get it.
 
 Resolution order (SA/ADC path):
-1. `GCP_PROD_DB_ACCESS_CREDENTIALS` env var (JSON service account key)
+1. BigQuery checks only `GCP_BIGQUERY_CREDENTIALS`; other resolvers check only
+   `GCP_PROD_DB_ACCESS_CREDENTIALS`.
 2. Standard ADC discovery (workload identity, gcloud auth, GOOGLE_APPLICATION_CREDENTIALS)
 
 Usage:
@@ -24,11 +25,15 @@ import sys
 import threading
 
 import google.auth
+import google.auth.credentials
 from google.cloud import logging as gcp_logging
 from google.cloud import secretmanager
 from google.oauth2 import service_account
 
-from airbyte_ops_mcp.constants import ENV_GCP_PROD_DB_ACCESS_CREDENTIALS
+from airbyte_ops_mcp.constants import (
+    ENV_GCP_BIGQUERY_CREDENTIALS,
+    ENV_GCP_PROD_DB_ACCESS_CREDENTIALS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,52 +78,60 @@ def _get_identity_from_credentials(
 DEFAULT_GCP_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
 # Module-level cache for SA/ADC credentials (thread-safe)
-_cached_sa_credentials: google.auth.credentials.Credentials | None = None
+_cached_sa_credentials: dict[tuple[str, ...], google.auth.credentials.Credentials] = {}
 _sa_credentials_lock = threading.Lock()
 
 
-def _resolve_sa_credentials() -> google.auth.credentials.Credentials:
+def _resolve_sa_credentials(
+    env_vars: tuple[str, ...] = (ENV_GCP_PROD_DB_ACCESS_CREDENTIALS,),
+) -> google.auth.credentials.Credentials:
     """Resolve SA/ADC credentials (shared implementation for all SA-based resolvers).
 
     Resolution order:
-    1. `GCP_PROD_DB_ACCESS_CREDENTIALS` env var (JSON content) — parsed directly
+    1. First non-empty environment variable in `env_vars` (JSON content); invalid
+       credentials raise an error.
     2. Standard ADC discovery (workload identity, gcloud auth, GOOGLE_APPLICATION_CREDENTIALS)
 
-    Credentials are cached after first resolution for efficiency.
+    Credentials are cached by environment-variable order after resolution.
     """
-    global _cached_sa_credentials
-
-    if _cached_sa_credentials is not None:
-        return _cached_sa_credentials
+    cached_credentials = _cached_sa_credentials.get(env_vars)
+    if cached_credentials is not None:
+        return cached_credentials
 
     with _sa_credentials_lock:
-        if _cached_sa_credentials is not None:
-            return _cached_sa_credentials
+        cached_credentials = _cached_sa_credentials.get(env_vars)
+        if cached_credentials is not None:
+            return cached_credentials
 
-        creds_json = os.getenv(ENV_GCP_PROD_DB_ACCESS_CREDENTIALS)
-        if creds_json:
-            try:
-                creds_dict = json.loads(creds_json)
+        for env_var in env_vars:
+            creds_json = os.getenv(env_var)
+            if not creds_json:
+                continue
+            creds_dict = json.loads(creds_json)
+            if not isinstance(creds_dict, dict):
+                raise ValueError("Credential JSON must be an object")
+
+            if creds_dict.get("type") == "service_account":
                 credentials = service_account.Credentials.from_service_account_info(
                     creds_dict,
                     scopes=DEFAULT_GCP_SCOPES,
                 )
                 identity = _get_identity_from_service_account_info(creds_dict)
-                identity_str = f" (identity: {identity})" if identity else ""
-                print(
-                    f"GCP credentials loaded from {ENV_GCP_PROD_DB_ACCESS_CREDENTIALS}{identity_str}",
-                    file=sys.stderr,
+            else:
+                credentials, _ = google.auth.load_credentials_from_dict(
+                    creds_dict,
+                    scopes=DEFAULT_GCP_SCOPES,
                 )
-                logger.debug(
-                    f"Loaded GCP credentials from {ENV_GCP_PROD_DB_ACCESS_CREDENTIALS} env var"
-                )
-                _cached_sa_credentials = credentials
-                return credentials
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(
-                    f"Failed to parse {ENV_GCP_PROD_DB_ACCESS_CREDENTIALS}: "
-                    f"{type(e).__name__}. Falling back to ADC discovery."
-                )
+                identity = _get_identity_from_credentials(credentials)
+
+            identity_str = f" (identity: {identity})" if identity else ""
+            print(
+                f"GCP credentials loaded from {env_var}{identity_str}",
+                file=sys.stderr,
+            )
+            logger.debug(f"Loaded GCP credentials from {env_var} env var")
+            _cached_sa_credentials[env_vars] = credentials
+            return credentials
 
         credentials, project = google.auth.default(scopes=DEFAULT_GCP_SCOPES)
         identity = _get_identity_from_credentials(credentials)
@@ -129,7 +142,7 @@ def _resolve_sa_credentials() -> google.auth.credentials.Credentials:
             file=sys.stderr,
         )
         logger.debug(f"Loaded GCP credentials via ADC discovery (project: {project})")
-        _cached_sa_credentials = credentials
+        _cached_sa_credentials[env_vars] = credentials
         return credentials
 
 
@@ -152,6 +165,11 @@ def get_gcp_credentials_for_tier_gcs_ro() -> google.auth.credentials.Credentials
 def get_gcp_credentials_for_prod_db_replica() -> google.auth.credentials.Credentials:
     """Resolve credentials for Cloud SQL prod replica access."""
     return _resolve_sa_credentials()
+
+
+def get_gcp_credentials_for_bigquery() -> google.auth.credentials.Credentials:
+    """Resolve credentials for BigQuery access."""
+    return _resolve_sa_credentials((ENV_GCP_BIGQUERY_CREDENTIALS,))
 
 
 def get_gcp_credentials_for_registry_gcs_ro() -> google.auth.credentials.Credentials:

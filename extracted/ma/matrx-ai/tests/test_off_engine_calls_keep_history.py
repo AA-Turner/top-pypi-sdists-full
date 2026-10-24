@@ -218,7 +218,10 @@ async def test_a_refused_send_once_call_still_keeps_its_history(funnel):
         wire_payload={"temperature": 2},
     )
     assert record is not None
-    assert [m["role"] for m in funnel["message_create"]] == ["user"]
+    # The refusal is a visible error turn after the person's turn (owner ruling 2026-10-23).
+    assert [m["role"] for m in funnel["message_create"]] == ["user", "assistant"]
+    assert funnel["message_create"][1]["status"] == "failed"
+    assert funnel["message_create"][1]["is_visible_to_model"] is False
     assert funnel["snapshot"][0]["error_payload"]["outcome"] == "error"
     assert funnel["snapshot"][0]["request_payload"] == {"temperature": 2}
 
@@ -331,6 +334,51 @@ async def test_a_live_session_is_one_conversation_with_one_row_pair_per_turn(fun
     assert first["request_payload"]["input_audio"]["mime_type"] == "audio/pcm;rate=16000"
     assert first["error_payload"]["output_audio"]["data"]
     assert first["unified_payload"]["config"]["system_instruction"]
+
+
+@pytest.mark.asyncio
+async def test_a_stored_conversation_resumes_and_only_appends(funnel):
+    """One HTTP request per exchange (a browser-held realtime session): the
+    conversation is rebuilt from storage, never re-opened, and only the new
+    exchange is written."""
+    from matrx_ai.agents.run_history import RunConversation
+
+    conv = "11111111-1111-1111-1111-111111111177"
+    stored = [
+        UnifiedMessage(role="user", content=[TextContent(text="Hello")]),
+        UnifiedMessage(role="assistant", content=[TextContent(text="Hi there.")]),
+    ]
+
+    async def load(cid):
+        assert cid == conv
+        return stored
+
+    session = await RunConversation.resume(
+        conv, provider="xai", model="grok-voice-test",
+        source_feature="voice-agent", load=load,
+    )
+    assert session.opened is True
+    await session.record(
+        user_messages=[UnifiedMessage(role="user", content=[TextContent(text="And now?")])],
+        output_text="Now this.",
+    )
+    assert funnel["conversation_created"] == [], "a stored conversation was opened again"
+    texts = [(m["role"], _text_of(m)) for m in funnel["message_create"]]
+    assert texts == [("user", "And now?"), ("assistant", "Now this.")]
+
+    async def empty(cid):
+        return []
+
+    fresh = await RunConversation.resume(
+        "11111111-1111-1111-1111-111111111178", provider="xai",
+        model="grok-voice-test", source_feature="voice-agent", load=empty,
+    )
+    assert fresh.opened is False
+    await fresh.record(
+        user_messages=[UnifiedMessage(role="user", content=[TextContent(text="First")])],
+        output_text="Reply",
+    )
+    assert funnel["conversation_created"] == ["11111111-1111-1111-1111-111111111178"]
 
 
 @pytest.mark.asyncio

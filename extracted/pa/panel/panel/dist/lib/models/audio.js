@@ -1,6 +1,5 @@
 import { HTMLBox, HTMLBoxView, set_size } from "./layout";
 export class AudioView extends HTMLBoxView {
-    static __name__ = "AudioView";
     audioEl;
     dialogEl;
     _blocked;
@@ -108,7 +107,6 @@ export class AudioView extends HTMLBoxView {
     }
 }
 export class Audio extends HTMLBox {
-    static __name__ = "Audio";
     constructor(attrs) {
         super(attrs);
     }

@@ -54,7 +54,7 @@ def test_every_approved_file_is_used_here():
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 38
+    assert len(used) == 39
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +213,23 @@ def test_notices_show_whole_and_apart_from_the_harness_lines(tmp_path):
     assert template(daemon_label).match(shown) and shown.endswith(long), "whole, not 300 characters"
     assert template(harness_label).match(bite_mod.render(harness_ev))
     assert bite_mod.render(harness_ev).startswith("[harness · ")
+
+
+def test_a_peer_agents_message_shows_who_sent_it_apart_from_the_harness_lines(tmp_path):
+    """Plan probe-hints T4 moved a peer agent's sender out of the text (its
+    wrapper) into `command`: the writer and the reader still see who sent it,
+    in the approved label, as a preview counted like a harness line."""
+    from probe.daemon.adapters.base import peer_message
+
+    st = _store(tmp_path)
+    st.add([peer_message("main", 1, text="p" * 1000, sender_from="uds:/tmp/cc-socks/11957.sock",
+                         sender_name="Unconditional Generation")])
+    (ev,) = st.events_between(1)
+    shown = bite_mod.render(ev)
+    assert template(body("bite/peer-message-label.PROPOSED.md")).match(shown), shown[:120]
+    assert shown.startswith("[peer agent · Unconditional Generation (uds:/tmp/cc-socks/11957.sock) · ")
+    assert f"session op=open event_id={ev.event_id}" in shown, "a preview, like a harness line"
+    assert bite_mod.shown_chars(ev) == st.shown_turn_sizes()[0][2]
 
 
 def test_a_harness_line_is_a_preview_and_the_store_counts_it_so(tmp_path):

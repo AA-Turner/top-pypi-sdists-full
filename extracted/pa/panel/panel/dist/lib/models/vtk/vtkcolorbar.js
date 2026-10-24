@@ -4,7 +4,6 @@ export class VTKColorBar {
     parent;
     mapper;
     options;
-    static __name__ = "VTKColorBar";
     canvas;
     ctx;
     constructor(parent, mapper, options = {}) {

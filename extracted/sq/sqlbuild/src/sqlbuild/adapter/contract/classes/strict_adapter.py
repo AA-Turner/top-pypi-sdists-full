@@ -12,6 +12,7 @@ from sqlbuild.adapter.contract.classes.diff import DiffMixin
 from sqlbuild.adapter.contract.classes.materialization import MaterializationMixin
 from sqlbuild.adapter.contract.classes.schema import SchemaMixin
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
+from sqlbuild.adapter.contract.exceptions import AdapterUserError
 from sqlbuild.adapter.contract.models import (
     ColumnInfo,
     CursorValue,
@@ -19,7 +20,9 @@ from sqlbuild.adapter.contract.models import (
     FunctionDefinition,
     MigrationStagePlan,
     RelationGrant,
+    RelationInfo,
     RelationReadProbe,
+    RelationUsageReport,
     RowDiffTolerance,
     RowDiffTolerances,
     SnapshotChangeTarget,
@@ -212,6 +215,17 @@ class StrictAdapter(
         ...
 
     @abstractmethod
+    def relation_usage(
+        self,
+        *,
+        connection: Any,
+        relations: tuple[RelationInfo, ...],
+        window_seconds: int,
+    ) -> RelationUsageReport:
+        """Report reads of the relations by other queries in the last `window_seconds`."""
+        ...
+
+    @abstractmethod
     def query_column_names(self, *, connection: Any, sql: str) -> tuple[str, ...]:
         """Return column names produced by a SQL query."""
         ...
@@ -260,6 +274,21 @@ class StrictAdapter(
     ) -> tuple[str, ...]:
         """Render SQL statements that create a schema if missing."""
         ...
+
+    def render_drop_schema(
+        self,
+        *,
+        database: str | None,
+        schema: str,
+    ) -> tuple[str, ...]:
+        """Optional: SQL that drops a schema and everything in it; unsupported by default."""
+
+        del database
+        raise AdapterUserError(
+            f"the {self.adapter_name} adapter cannot drop schema '{schema}' with its contents",
+            code="A714",
+            help="sqb review needs a warehouse that can drop a schema it created",
+        )
 
     @abstractmethod
     def render_create_table_as(self, *, destination: str, sql: str) -> tuple[str, ...]:

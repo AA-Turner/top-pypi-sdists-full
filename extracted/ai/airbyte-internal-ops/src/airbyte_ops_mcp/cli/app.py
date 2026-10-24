@@ -20,6 +20,7 @@ from airbyte_ops_mcp.cli import (
     devin,  # noqa: F401
     dockerhub,  # noqa: F401
     gh,  # noqa: F401
+    lighthouse,  # noqa: F401
     local,  # noqa: F401
     registry,  # noqa: F401
     roster,  # noqa: F401

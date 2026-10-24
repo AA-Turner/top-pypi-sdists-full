@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typesense
-Version: 2.1.0
+Version: 2.1.1
 Summary: Python client for Typesense, an open source and typo tolerant search engine.
 Author-email: Typesense <contact@typesense.org>
 License: Apache 2.0

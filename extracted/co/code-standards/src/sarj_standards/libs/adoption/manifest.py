@@ -53,10 +53,10 @@ class _UpstreamRuleEngine(StrEnum):
 LINT_CONFIGS: Final = "code-standards"
 _PYTHON_LINT: Final = "sarj-python-lint"
 SIBLING_PACKAGES: Final = (_PYTHON_LINT, "sarj-sql-lint", "sarj-iac-lint")
-REPO_STANDARDS_VERSION: Final = "6.11.0"
+REPO_STANDARDS_VERSION: Final = "6.12.6"
 # Actions can receive delivery fixes independently of the consumer topology policy.
-REPO_STANDARDS_ACTION_VERSION: Final = "6.11.0"
-REPO_STANDARDS_REVISION: Final = "aed2501dc09aa5701c984544d4fa20bea91661f9"
+REPO_STANDARDS_ACTION_VERSION: Final = "6.12.6"
+REPO_STANDARDS_REVISION: Final = "914081677f450369a41a981e5a11b1be0c7c81a1"
 
 
 def adopted_version() -> str:
@@ -162,6 +162,7 @@ class Manifest:
     ci_bootstrap: tuple[str, ...] = ()
     prepared_targets: tuple[PreparedTarget, ...] = ()
     compose_version: str | None = None
+    compose_projects: tuple[tuple[str, ...], ...] = ()
     ci_runner: str | None = None
     ci_commit_policy: CommitPolicyCi = "workflow"
     knip_application: bool = False
@@ -219,8 +220,7 @@ class Manifest:
             if self.ci_runner is not None:
                 ci_fields += f"runner = {_toml_string(self.ci_runner)}\n"
             sections.append(f"\n[ci]\n{ci_fields}")
-        if self.compose_version is not None:
-            sections.append(f"\n[devops]\ncompose_version = {_toml_string(self.compose_version)}\n")
+        sections.append(self._compose_section())
         if self.knip_application:
             sections.append("\n[knip]\napplication = true\n")
         sections.extend(
@@ -228,6 +228,15 @@ class Manifest:
             for target in self.prepared_targets
         )
         return "".join(sections)
+
+    def _compose_section(self) -> str:
+        fields: list[str] = []
+        if self.compose_version is not None:
+            fields.append(f"compose_version = {_toml_string(self.compose_version)}\n")
+        if self.compose_projects:
+            projects = ", ".join(json.dumps(list(files), ensure_ascii=False) for files in self.compose_projects)
+            fields.append(f"compose_projects = [{projects}]\n")
+        return "\n[devops]\n" + "".join(fields) if fields else ""
 
 
 def as_table(value: object) -> dict[str, object]:
@@ -381,10 +390,36 @@ def _load_schema(  # ruff: ignore[too-many-locals] - one validation boundary kee
         ci_bootstrap=_ci_bootstrap(ci_table),
         prepared_targets=_prepared_targets(root, _manifest_table(data, "devops")),
         compose_version=_compose_version(_manifest_table(data, "devops")),
+        compose_projects=_compose_projects(root, _manifest_table(data, "devops")),
         ci_runner=_ci_runner(ci_table),
         ci_commit_policy=_ci_commit_policy(ci_table),
         knip_application=_knip_application(_manifest_table(data, "knip")),
     )
+
+
+def _compose_projects(root: Path, table: Mapping[str, object]) -> tuple[tuple[str, ...], ...]:
+    raw = table.get("compose_projects", [])
+    if not is_object_list(raw):
+        message = "manifest devops.compose_projects must be an array of ordered file arrays"
+        raise ValueError(message)
+    projects: list[tuple[str, ...]] = []
+    for item in raw:
+        if not is_object_list(item) or not item or any(not isinstance(name, str) or not name for name in item):
+            message = "Compose projects require nonempty file paths in invocation order"
+            raise ValueError(message)
+        files = tuple(name for name in item if isinstance(name, str))
+        for name in files:
+            path = Path(name)
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or "\\" in name
+                or not (root / path).resolve().is_relative_to(root.resolve())
+            ):
+                message = "Compose project files must be repository-relative paths"
+                raise ValueError(message)
+        projects.append(files)
+    return tuple(dict.fromkeys(projects))
 
 
 def _compose_version(table: Mapping[str, object]) -> str | None:
@@ -398,8 +433,8 @@ def _compose_version(table: Mapping[str, object]) -> str | None:
 
 
 def _prepared_targets(root: Path, table: Mapping[str, object]) -> tuple[PreparedTarget, ...]:
-    if set(table) - {"prepared_targets", "compose_version"}:
-        msg = "manifest [devops] supports only prepared_targets and compose_version"
+    if set(table) - {"prepared_targets", "compose_version", "compose_projects"}:
+        msg = "manifest [devops] supports only prepared_targets, compose_version and compose_projects"
         raise ValueError(msg)
     raw = table.get("prepared_targets", [])
     if not is_object_list(raw):
@@ -715,7 +750,7 @@ def _validate_known_rule(engine: str, rule: str, selector: str) -> None:
     if rule.startswith("@sarj/"):
         known = frozenset(f"@sarj/{name}" for name in shipped.rules.get(ledger.ESLINT, ()))
     elif "/" not in rule:
-        config = (CONFIGS_DIR / "eslint.strict.mjs").read_text(encoding="utf-8")
+        config = (CONFIGS_DIR / "eslint.strict.ts").read_text(encoding="utf-8")
         known = frozenset(match.group("rule") for match in _ESLINT_RULE_KEY.finditer(config))
     else:
         return

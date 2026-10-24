@@ -32,7 +32,7 @@ class TikTokOAuthCredentials(BaseModel):
     client_key: StrictStr = Field(description="TikTok App Client Key from Developer Portal.")
     client_secret: StrictStr = Field(description="SECURITY: Secret credential, redacted on read. Never log or expose. TikTok App Client Secret from Developer Portal.")
     access_token: StrictStr = Field(description="SECURITY: Encrypted at rest. TikTok access token (24h validity).")
-    refresh_token: StrictStr = Field(description="SECURITY: Encrypted at rest. Used to obtain new access tokens.")
+    refresh_token: Optional[StrictStr] = Field(default=None, description="SECURITY: Encrypted at rest. Used to obtain new access tokens. Optional: without one the sync skips refreshing and uses access_token.")
     token_expires_at: Optional[datetime] = Field(default=None, description="Access token expiration timestamp.")
     open_id: StrictStr = Field(description="TikTok user's open_id from the authorization response.")
     __properties: ClassVar[List[str]] = ["type", "client_key", "client_secret", "access_token", "refresh_token", "token_expires_at", "open_id"]

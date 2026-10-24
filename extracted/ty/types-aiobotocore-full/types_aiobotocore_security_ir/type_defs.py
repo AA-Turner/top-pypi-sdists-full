@@ -68,6 +68,8 @@ __all__ = (
     "GetCaseAttachmentUploadUrlResponseTypeDef",
     "GetCaseRequestTypeDef",
     "GetCaseResponseTypeDef",
+    "GetFindingMetricsRequestTypeDef",
+    "GetFindingMetricsResponseTypeDef",
     "GetMembershipAccountDetailErrorTypeDef",
     "GetMembershipAccountDetailItemTypeDef",
     "GetMembershipRequestTypeDef",
@@ -396,6 +398,21 @@ class GetCaseAttachmentUploadUrlResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetFindingMetricsResponseTypeDef(TypedDict):
+    findingsIngestedSecurityHub: int
+    findingsIngestedGuardDuty: int
+    findingsTriaged: int
+    findingsTriagedFalsePositive: int
+    findingsInvestigated: int
+    findingsInvestigatedFalsePositive: int
+    findingsEscalated: int
+    findingsEscalatedFalsePositive: int
+    findingsTruePositive: int
+    findingsInvestigatedInProgress: int
+    findingsEscalatedInProgress: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -424,6 +441,12 @@ class ListCaseEditsResponseTypeDef(TypedDict):
     total: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class GetFindingMetricsRequestTypeDef(TypedDict):
+    membershipId: str
+    startDate: TimestampTypeDef
+    endDate: TimestampTypeDef
 
 
 class CreateCaseRequestTypeDef(TypedDict):

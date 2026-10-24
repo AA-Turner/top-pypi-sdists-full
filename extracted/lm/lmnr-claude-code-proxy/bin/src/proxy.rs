@@ -1,6 +1,6 @@
 use crate::anthropic::common::{ToolUseBlock, Usage};
 use crate::anthropic::request::PostMessagesRequest;
-use crate::anthropic::response::{self, MessageResponse, ResponseContentBlock};
+use crate::anthropic::response::{MessageResponse, ResponseContentBlock};
 use crate::anthropic::stream::{ContentDelta, StreamContentBlock, StreamEvent};
 use crate::bedrock::{
     drain_bedrock_events, is_bedrock_endpoint, is_bedrock_path, parse_bedrock_event_stream,
@@ -160,6 +160,8 @@ struct PartialToolUseBlock {
 
 struct MidStreamParseState {
     sse_buffer: String,
+    /// Trailing bytes of an incomplete UTF-8 character carried over to the next chunk.
+    utf8_tail: Vec<u8>,
     bedrock_buffer: Vec<u8>,
     in_progress_blocks: HashMap<u32, PartialToolUseBlock>,
     already_registered: HashSet<String>,
@@ -167,16 +169,37 @@ struct MidStreamParseState {
     /// Used to give each tool span an accurate start time rather than the
     /// whole-stream end time.
     tool_call_start_times: HashMap<String, u64>,
+    /// Incremental gzip decoder so tool_use blocks can be registered mid-stream
+    /// even when the upstream response is gzip-encoded.
+    gzip_decoder: Option<flate2::write::GzDecoder<Vec<u8>>>,
 }
 
 impl MidStreamParseState {
+    /// Append bytes to `sse_buffer`, holding back an incomplete trailing UTF-8
+    /// character until the next chunk so characters split across chunks survive.
+    fn push_text(&mut self, bytes: &[u8]) {
+        self.utf8_tail.extend_from_slice(bytes);
+        let valid_up_to = match std::str::from_utf8(&self.utf8_tail) {
+            Ok(_) => self.utf8_tail.len(),
+            Err(e) if e.error_len().is_none() => e.valid_up_to(),
+            // Genuinely invalid bytes: decode lossily rather than stall.
+            Err(_) => self.utf8_tail.len(),
+        };
+        let rest = self.utf8_tail.split_off(valid_up_to);
+        self.sse_buffer
+            .push_str(&String::from_utf8_lossy(&self.utf8_tail));
+        self.utf8_tail = rest;
+    }
+
     fn new() -> Self {
         Self {
             sse_buffer: String::new(),
+            utf8_tail: Vec::new(),
             bedrock_buffer: Vec::new(),
             in_progress_blocks: HashMap::new(),
             already_registered: HashSet::new(),
             tool_call_start_times: HashMap::new(),
+            gzip_decoder: None,
         }
     }
 }
@@ -220,10 +243,20 @@ where
                         .extend_from_slice(&bytes);
                     self.try_register_completed_tool_use_blocks();
                 } else if !self.has_gzip_content_encoding {
-                    if let Ok(text) = std::str::from_utf8(&bytes) {
-                        self.mid_stream_state.sse_buffer.push_str(text);
-                    }
+                    self.mid_stream_state.push_text(&bytes);
                     self.try_register_completed_tool_use_blocks();
+                } else {
+                    use std::io::Write;
+                    let state = &mut self.mid_stream_state;
+                    let decoder = state
+                        .gzip_decoder
+                        .get_or_insert_with(|| flate2::write::GzDecoder::new(Vec::new()));
+                    if decoder.write_all(&bytes).is_ok() {
+                        let _ = decoder.flush();
+                        let out: Vec<u8> = decoder.get_mut().drain(..).collect();
+                        state.push_text(&out);
+                        self.try_register_completed_tool_use_blocks();
+                    }
                 }
                 Poll::Ready(Some(Ok(bytes)))
             }
@@ -445,10 +478,11 @@ where
 
             if req.model.is_none() && is_vertex_path(&uri_path) {
                 // Vertex path: /projects/.../publishers/anthropic/models/<model_name>:streamRawPredict
-                req.model = uri_path
-                    .split("/models/")
-                    .nth(1)
-                    .map(|s| s.trim_end_matches(":streamRawPredict").trim_end_matches(":rawPredict").to_string());
+                req.model = uri_path.split("/models/").nth(1).map(|s| {
+                    s.trim_end_matches(":streamRawPredict")
+                        .trim_end_matches(":rawPredict")
+                        .to_string()
+                });
             };
         }
 
@@ -607,6 +641,31 @@ where
             span_processor.update_child_end_time(&ctx.parent_tool_use_id, end_time_unix_nano);
         }
 
+        // A background agent has no meaningful tool_result (it is acked immediately), so its
+        // span completes when its nested chain produces a final response without tool calls.
+        let mut finished_agent_spans: Vec<CompletedSpawningToolSpan> = Vec::new();
+        if let (Some(ctx), Some(resp)) = (&nested_context, &parsed_response) {
+            if ctx.parent_tool_type == SpawningToolType::Task
+                && tool_count == 0
+                && self.response_status.is_success()
+            {
+                let final_text: String = resp
+                    .content
+                    .iter()
+                    .filter_map(|b| match b {
+                        ResponseContentBlock::Text { text, .. } => Some(text.as_str()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                finished_agent_spans.extend(span_processor.finalize_async_agent(
+                    &ctx.parent_tool_use_id,
+                    end_time_unix_nano,
+                    Some(final_text),
+                ));
+            }
+        }
+
         let response_info = if !self.response_status.is_success() {
             Some(ResponseInfo::Failure(ResponseFailure {
                 status_code: self.response_status,
@@ -674,6 +733,19 @@ where
                             Err(e) => {
                                 eprintln!("Failed to create span request: {}", e);
                             }
+                        }
+                    }
+
+                    for span in finished_agent_spans {
+                        if let Err(e) = send_tool_span(
+                            span,
+                            client.clone(),
+                            trace.project_api_key.clone(),
+                            trace.laminar_url.clone(),
+                        )
+                        .await
+                        {
+                            eprintln!("Failed to send background agent span: {}", e);
                         }
                     }
 

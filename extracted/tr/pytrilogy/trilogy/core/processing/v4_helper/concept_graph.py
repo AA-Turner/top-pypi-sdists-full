@@ -1275,12 +1275,19 @@ def _composite_relation_sibling_axes(
     ride one leg (a presence probe over `customer_id`) still consumes rows at
     the FULL composite grain; deduping its input to just the touched leg
     collapses distinct `(customer, item)` pairs into one row per customer and
-    undercounts."""
+    undercounts.
+
+    Only authored joins have legs: a global identity `merge` makes its two
+    concepts one, so two unrelated merges sharing a namespace are not one
+    composite relation."""
     groups = environment.scoped_join_key_groups
     if not groups:
         return frozenset()
+    authored = environment.domain_graph.authored_join_members()
     group_sets = {
-        canonical: {canonical, *members} for canonical, members in groups.items()
+        canonical: {canonical, *members}
+        for canonical, members in groups.items()
+        if authored & {canonical, *members}
     }
     # A group's sides are its members' namespaces (a rowset handle's is its
     # rowset); two groups with the same sides are legs of ONE composite
@@ -1541,6 +1548,18 @@ def _rowset_key_handles(
     return out
 
 
+def _grain_pin_anchors(concept: BuildConcept) -> frozenset[str]:
+    lineage = concept.lineage
+    if not (
+        isinstance(lineage, BuildFunction)
+        and lineage.operator == FunctionType.GRAIN_PIN
+    ):
+        return frozenset()
+    return frozenset(
+        arg.address for arg in lineage.arguments[1:] if isinstance(arg, BuildConcept)
+    )
+
+
 def _add_concept(
     concept: BuildConcept,
     environment: BuildEnvironment,
@@ -1722,6 +1741,7 @@ def _add_concept(
             if isinstance(concept.lineage, BuildAggregateWrapper)
             else None
         ),
+        grain_pin_anchors=_grain_pin_anchors(concept),
         keys=frozenset(concept.keys or set()),
         pseudonyms=frozenset(concept.pseudonyms),
         is_rename=is_rename,

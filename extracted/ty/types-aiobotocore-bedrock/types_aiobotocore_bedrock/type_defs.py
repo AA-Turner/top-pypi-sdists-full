@@ -56,6 +56,7 @@ from .literals import (
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingActionType,
     GuardrailContextualGroundingFilterTypeType,
+    GuardrailContextualGroundingTierNameType,
     GuardrailFilterStrengthType,
     GuardrailModalityType,
     GuardrailPiiEntityTypeType,
@@ -392,6 +393,8 @@ __all__ = (
     "GuardrailContextualGroundingFilterTypeDef",
     "GuardrailContextualGroundingPolicyConfigTypeDef",
     "GuardrailContextualGroundingPolicyTypeDef",
+    "GuardrailContextualGroundingTierConfigTypeDef",
+    "GuardrailContextualGroundingTierTypeDef",
     "GuardrailCrossRegionConfigTypeDef",
     "GuardrailCrossRegionDetailsTypeDef",
     "GuardrailManagedWordsConfigTypeDef",
@@ -1374,6 +1377,16 @@ GuardrailContextualGroundingFilterTypeDef = TypedDict(
         "enabled": NotRequired[bool],
     },
 )
+
+
+class GuardrailContextualGroundingTierConfigTypeDef(TypedDict):
+    tierName: GuardrailContextualGroundingTierNameType
+
+
+class GuardrailContextualGroundingTierTypeDef(TypedDict):
+    tierName: GuardrailContextualGroundingTierNameType
+
+
 GuardrailManagedWordsConfigTypeDef = TypedDict(
     "GuardrailManagedWordsConfigTypeDef",
     {
@@ -2756,10 +2769,12 @@ class GuardrailContentPolicyTypeDef(TypedDict):
 
 class GuardrailContextualGroundingPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContextualGroundingFilterConfigTypeDef]
+    tierConfig: NotRequired[GuardrailContextualGroundingTierConfigTypeDef]
 
 
 class GuardrailContextualGroundingPolicyTypeDef(TypedDict):
     filters: list[GuardrailContextualGroundingFilterTypeDef]
+    tier: NotRequired[GuardrailContextualGroundingTierTypeDef]
 
 
 class GuardrailSensitiveInformationPolicyConfigTypeDef(TypedDict):

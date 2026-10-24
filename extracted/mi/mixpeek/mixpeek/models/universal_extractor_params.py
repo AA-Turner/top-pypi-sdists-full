@@ -35,8 +35,8 @@ class UniversalExtractorParams(BaseModel):
     extract_text: Optional[StrictBool] = Field(default=True, description="Extract text content (OCR for images/docs, transcription for audio/video).")
     max_video_segments: Optional[Annotated[int, Field(le=50, strict=True, ge=1)]] = Field(default=10, description="Maximum number of 30s segments to process for video files.")
     max_document_pages: Optional[Annotated[int, Field(le=200, strict=True, ge=1)]] = Field(default=50, description="Maximum number of pages to process for document files.")
-    max_file_download_mb: Optional[Annotated[int, Field(le=1024, strict=True, ge=1)]] = Field(default=500, description="Maximum file download size in MB for Celery fast-path processing.")
-    max_concurrency: Optional[Annotated[int, Field(le=32, strict=True, ge=1)]] = Field(default=4, description="Maximum per-task object concurrency for Celery fast-path processing.")
+    max_file_download_mb: Optional[Annotated[int, Field(le=1024, strict=True, ge=1)]] = Field(default=500, description="Maximum file download size in MB for fast-path processing.")
+    max_concurrency: Optional[Annotated[int, Field(le=32, strict=True, ge=1)]] = Field(default=4, description="Maximum per-task object concurrency for fast-path processing.")
     __properties: ClassVar[List[str]] = ["extractor_type", "output_dimensionality", "task_type", "generate_description", "extract_text", "max_video_segments", "max_document_pages", "max_file_download_mb", "max_concurrency"]
 
     @field_validator('extractor_type')

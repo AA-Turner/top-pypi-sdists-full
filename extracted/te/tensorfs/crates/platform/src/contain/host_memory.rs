@@ -18,7 +18,7 @@ pub struct HostMemory {
     /// Bytes left before the tightest limit on this process's cgroup path, or the host's
     /// available memory when that is tighter. -1: unreadable (never 0).
     pub available: i64,
-    /// Shared memory (memfd/tmpfs) charged where that limit is: sealed and pinned weight tiers.
+    /// Shared memory (memfd/tmpfs) charged where that limit is: host pages and sealed layouts.
     /// 0 where weights are never held in shared memory (macOS, Windows).
     pub shmem: i64,
     /// The host's available memory (`MemAvailable` on Linux), for the record; -1 when unreadable.
@@ -54,7 +54,7 @@ pub fn process(pid: u32) -> io::Result<ProcessMemory> {
 
 /// One process's resident bytes now, anonymous, file and shmem (a sealed layout it maps), and
 /// its resident high-water since it started or [`reset_peak`]. Linux keeps no anonymous
-/// high-water; the host tier bounds one from these. Linux only (the host tier's OS); elsewhere
+/// high-water; varena's request window bounds one from these. Linux only; elsewhere
 /// `Unsupported`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Resident {
@@ -81,124 +81,4 @@ pub fn tree_private(pid: u32) -> u64 {
         .filter_map(|pid| process(pid).ok())
         .map(|m| m.pss.saturating_sub(m.pss_shmem))
         .sum()
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn every_os_reads_a_budget_within_its_memory_and_a_tree_holds_its_children() {
-        let (facts, total) = (super::read(), super::total());
-        assert!(total > 0, "{total}");
-        assert!(
-            facts.available > 0 && facts.available <= total,
-            "{facts:?} of {total}"
-        );
-        assert!(facts.mem_available >= facts.available, "{facts:?}");
-        let own = super::process(std::process::id()).unwrap();
-        assert!(own.rss > 0 && own.pss > 0, "{own:?}");
-        let mut child = std::process::Command::new(if cfg!(windows) { "cmd" } else { "sleep" })
-            .args(if cfg!(windows) {
-                &["/C", "ping -n 30 127.0.0.1 >NUL"][..]
-            } else {
-                &["30"][..]
-            })
-            .spawn()
-            .unwrap();
-        let child_private = super::process(child.id()).map(|m| m.pss - m.pss_shmem);
-        let tree = super::tree_private(std::process::id());
-        child.kill().unwrap();
-        child.wait().unwrap();
-        assert!(child_private.unwrap() > 0);
-        assert!(
-            tree > own.pss.saturating_sub(own.pss_shmem),
-            "a child counts too: {tree}"
-        );
-    }
-
-    /// The high-water holds a freed anonymous peak until it starts over; mapped file pages are
-    /// shared, never anonymous.
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn a_high_water_holds_a_freed_peak_until_reset_and_mapped_pages_are_shared() {
-        use std::io::{BufRead, Write};
-        let script = r#"
-import mmap, sys, tempfile
-b = bytearray(64 << 20); b[::4096] = b'\1' * len(b[::4096]); del b
-file = tempfile.TemporaryFile(); file.truncate(48 << 20)
-mapped = mmap.mmap(file.fileno(), 0)
-for at in range(0, len(mapped), 4096):
-    mapped[at] = 1
-print('mapped', flush=True)
-sys.stdin.readline()
-"#;
-        let mut child = std::process::Command::new("python3")
-            .args(["-c", script])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .unwrap();
-        let mut input = child.stdin.take().unwrap();
-        let mut line = String::new();
-        std::io::BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
-        let held = super::resident(child.id()).unwrap();
-        super::reset_peak(child.id()).unwrap();
-        let reset = super::resident(child.id()).unwrap();
-        input.write_all(b"done\n").unwrap();
-        assert!(child.wait().unwrap().success());
-        assert!(held.anon < 32 << 20 && held.file >= 48 << 20, "{held:?}");
-        assert!(held.peak >= 64 << 20 && held.peak > held.anon + held.file + held.shmem, "the freed peak holds: {held:?}");
-        assert!(reset.peak < held.peak && reset.peak >= reset.anon + reset.file + reset.shmem, "{reset:?}");
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn the_live_budget_is_read_and_never_above_mem_available() {
-        let facts = super::read();
-        assert!(facts.mem_available > 0, "{facts:?}");
-        assert!(
-            facts.available > 0 && facts.available <= facts.mem_available,
-            "{facts:?}"
-        );
-        let own = super::process(std::process::id()).unwrap();
-        assert!(own.rss > 0 && own.pss > 0 && own.pss <= own.rss, "{own:?}");
-        // A quiet tree, not this test process, whose other threads move its memory between
-        // two reads: a shell waiting on the `sleep` it started.
-        let mut shell = std::process::Command::new("sh")
-            .args(["-c", "sleep 60 & echo $!; wait"])
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .unwrap();
-        let mut pid = String::new();
-        std::io::BufRead::read_line(
-            &mut std::io::BufReader::new(shell.stdout.take().unwrap()),
-            &mut pid,
-        )
-        .unwrap();
-        let sleeper: u32 = pid.trim().parse().unwrap();
-        // Until the child has become `sleep`, it shares the shell's pages and their sizes move.
-        while std::fs::read_to_string(format!("/proc/{sleeper}/comm"))
-            .is_ok_and(|c| c.trim() != "sleep")
-        {
-            std::thread::yield_now();
-        }
-        let private = |pid: u32| {
-            super::process(pid)
-                .map(|m| m.pss.saturating_sub(m.pss_shmem))
-                .unwrap()
-        };
-        let (alone, child) = (private(shell.id()), private(sleeper));
-        let tree = super::tree_private(shell.id());
-        if let Ok(Some(sleeping)) =
-            crate::process::Birth::of(sleeper).and_then(|birth| crate::process::Exact::open(&birth))
-        {
-            let _ = sleeping.kill();
-        }
-        shell.wait().unwrap();
-        // Shared library pages split their size among every process mapping them, so a quiet
-        // process still moves by a few hundred bytes; the child's own pages are far more.
-        assert!(
-            child > 0 && tree > alone,
-            "a child counts too: {tree} vs {alone} alone, {child} child"
-        );
-    }
 }

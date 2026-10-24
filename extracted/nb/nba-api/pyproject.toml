@@ -1,6 +1,6 @@
 [project]
 name = "nba_api"
-version = "1.11.6"
+version = "1.12.0"
 description = "An API Client package to access the APIs for NBA.com"
 requires-python = ">=3.10"
 license = "MIT"
@@ -29,12 +29,15 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
-    "numpy >=1.26.0 ; python_version < '3.13'",
-    "numpy >=2.1.0 ; python_version >= '3.13'",
-    "pandas >=2.1.0; python_version < '3.12'",
-    "pandas >=2.2.0 ; python_version >= '3.12'",
+    "pandas >=2.2.2 ; python_version < '3.12'",
+    "pandas >=2.2.2 ; python_version == '3.12'",
+    "pandas >=2.2.3 ; python_version == '3.13'",
+    "pandas >=2.3.3 ; python_version == '3.14'",
+    "pandas >=3.0.6 ; python_version >= '3.15'",
     "requests (>=2.32.3,<3.0.0)"
 ]
 
@@ -43,29 +46,27 @@ readme = "README.md"
 [project.urls]
     repository = "https://github.com/swar/nba_api"
     "Bug Tracker" = "https://github.com/swar/nba_api/issues"
-    documentation = "https://github.com/swar/nba_api/blob/master/README.md"
+    documentation = "https://github.com/swar/nba_api/blob/master/docs/table_of_contents.md"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
-pytest-cov = "^4.0"
-python-semantic-release = "^9.0.0"
-pandas = [
-    {version = ">=2.2.0", python = ">=3.12"},
-    {version = "<2.2.0", python = "<3.12"}
-]
-ruff = "^0.15.2"
+pytest = "^9.0.2"
+pytest-cov = "^7.1"
+python-semantic-release = "^10.3.1"
+pandas = ">=2.2.2"
+ruff = "^0.17.2"
 pre-commit = "^4.0.0"
-pytest-recording = "^0.13.4"
+pytest-recording = "^0.14.0"
+requests = {version = "^2.32.3", extras = ["socks"]}
 
 [tool.pytest.ini_options]
 markers = [
     "live: test makes real HTTP requests to the NBA Stats API; skip in CI unless cassettes are present",
     "vcr: test uses a pre-recorded VCR cassette and does not require network access",
-    "canary: lightweight smoke test suitable for rapid health checks",
+    "canary: lightweight live check of a few endpoints through the proxy (see tests/integration/canary); never runs in the default CI jobs",
     "deprecated_endpoint: marks a test for an endpoint known to be deprecated or unstable",
 ]
 
@@ -95,6 +96,9 @@ ignore = [
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
+# Ruff 0.17 formats code blocks in Markdown. Leave the docs alone: their examples
+# use hand-aligned comments that the formatter would collapse.
+exclude = ["*.md", "*.MD"]
 
 # semantic-release only computes the next version from commit messages
 # (scripts/gen-release.sh). CHANGELOG.MD is written by hand, and publishing is

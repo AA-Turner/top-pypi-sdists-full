@@ -225,7 +225,12 @@ def admit_run_approval() -> None:
     if ctx is None:
         return
     request_id = str(getattr(ctx, "request_id", "") or "")
-    if request_id and request_id in _admitted:
+    # Admitted by its TREE (``tree_request_id``): a child agent run owns its own turn
+    # id, and a helper or fan-out sibling of an admitted run is never judged afresh.
+    from matrx_connect.context.app_context import tree_request_id_of
+
+    tree_key = tree_request_id_of(ctx)
+    if (tree_key and tree_key in _admitted) or (request_id and request_id in _admitted):
         return  # a running run is never stopped
     refusal = refusal_for(ctx)
     if refusal is not None:
@@ -236,8 +241,8 @@ def admit_run_approval() -> None:
             log_level="WARNING",
         )
         raise refusal
-    if request_id:
-        _remember(request_id)
+    if tree_key:
+        _remember(tree_key)
 
 
 def run_approval_refusal_in(source: Any, *, _max_depth: int = 16) -> RunApprovalRequiredError | None:

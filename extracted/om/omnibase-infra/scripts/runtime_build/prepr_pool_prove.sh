@@ -24,8 +24,8 @@
 #               prepr_teardown_slot.sh, both from the test-merge tree. Neither
 #               takes a lane argument; the project is derived from the slot.
 #
-# Params (sourced): TAG W [INFRA_PR INFRA_HEAD | INFRA_GROUP [INFRA_GROUP_BASE INFRA_GROUP_TREE]] [MARKET_PR MARKET_HEAD | MARKET_GROUP [MARKET_GROUP_BASE MARKET_GROUP_TREE]]
-#   MODEL_ENDPOINT [ID_FILES LIVE_GREP GROUP_GREP SQL TESTS CORE_REF SPI_REF COMPAT_REF
+# Params (sourced): TAG W [INFRA_PR INFRA_HEAD | INFRA_GROUP [INFRA_GROUP_BASE INFRA_GROUP_TREE] | INFRA_REF_SHA] [MARKET_PR MARKET_HEAD | MARKET_GROUP [MARKET_GROUP_BASE MARKET_GROUP_TREE] | MARKET_REF_SHA]
+#   MODEL_ENDPOINT [ID_FILES LIVE_GREP GROUP_GREP SQL TESTS SUITE_REPO SUITE_WORKERS DEV_CONTROL_MAX CORE_REF SPI_REF COMPAT_REF
 #   DOCKER_CONFIG_MODE SLOT_KIND PREPR_SLOT PROJECT MAIN_PORT EFFECTS_PORT SLOT_PORTS
 #   POSITIVE_CONTROL REASON OVERLAY_FILE POST_UP_COMMAND POST_BRINGUP_CMD]
 #
@@ -53,6 +53,56 @@ PC=${POSITIVE_CONTROL:-omnibase-infra-dogfood}
 R=$W/root; T=$W/test
 ts() { date -u +%FT%TZ; }
 lsn() { if command -v ss >/dev/null 2>&1; then ss -ltn; else lsof -nP -iTCP -sTCP:LISTEN; fi; }
+# stage_workspace.sh pins each sibling in a worktree under
+# ~/.omnibase/state/deploy_source_trees/<build context path, every character outside
+# [A-Za-z0-9._-] as _>, and each worktree points into this run's clone. $W is keyed by
+# holder and host, so the next run by the same holder reuses the key; with the clone
+# gone, its build refused ("not a git repository" on omnibase_core). Removing only this
+# run's key, before the clone and with the work directory, leaves other runs' trees alone.
+drop_source_trees() {
+  local ctx
+  ctx="$(cd "$W" 2>/dev/null && pwd -P || printf '%s' "$W")/root/omnibase_infra"
+  rm -rf "${HOME}/.omnibase/state/deploy_source_trees/${ctx//[!A-Za-z0-9._-]/_}"
+}
+
+# OMN-19064 AC-1: every container of the declared lanes beside a pre-PR slot, by
+# id, start time and restart count. snap-pre and snap-post each take one, so a run
+# shows by container id that it recreated or restarted none of them. The project
+# list is the slot policy's declared-lane table, passed by the driver.
+# --- neighbour-readback begin ---
+neighbour_snapshot() {
+  local proj ids
+  for proj in $(printf '%s' "${NEIGHBOUR_PROJECTS:-}" | tr '|' ' '); do
+    ids=$(docker ps -aq --filter "label=com.docker.compose.project=$proj")
+    [ -n "$ids" ] || continue
+    docker inspect -f "$proj {{.Name}} {{.Id}} {{.State.StartedAt}} {{.RestartCount}}" $ids
+  done | sort
+}
+neighbour_diff() {
+  local n d
+  n=$(grep -c . "$1" 2>/dev/null); n=${n:-0}
+  d=$(diff "$1" "$2" 2>/dev/null | grep -E '^[<>]')
+  echo "neighbour-diff=$(printf '%s' "$d" | grep -c .) neighbours=$n"
+  printf '%s\n' "$d" | grep . | head -20 | sed 's/^/neighbour-changed /'
+}
+# --- neighbour-readback end ---
+
+# OMN-19064 AC-2: every host port the slot's project publishes, and those outside
+# its reserved block (PORTS, the slot policy's four). A port range is never one of
+# the four literals, so it is reported outside as written.
+# --- slot-ports-readback begin ---
+slot_ports_readback() {
+  local pub out p
+  pub=$(docker ps --filter "label=com.docker.compose.project=$P" --format '{{.Ports}}' \
+    | tr ',' '\n' | sed -n 's/.*:\([0-9][0-9-]*\)->.*/\1/p' | sort -u | tr '\n' ' ')
+  out=""
+  for p in $pub; do
+    case "|$PORTS|" in *"|$p|"*) ;; *) out="$out $p" ;; esac
+  done
+  pub=$(echo $pub | tr ' ' ','); out=$(echo $out | tr ' ' ',')
+  echo "slot-published-ports=${pub:-none} outside-block=${out:-none}"
+}
+# --- slot-ports-readback end ---
 
 # Image identity is proven from content, never from the revision label (a label
 # is evidence of intent, not of what was built; OMN-18893). For each repository
@@ -215,13 +265,8 @@ derive_live_not_applicable() { # repo... -> the changed nodes that run in no run
   done
 }
 
-fetch_pr() { # dir repo pr expected -> merges PR head into dev (no-ff), falls back to raw head on conflict
-  local d=$1 repo=$2 pr=$3 exp=$4
-  git clone -q --branch dev "https://github.com/OmniNode-ai/$repo.git" "$d"
-  git -C "$d" fetch -q origin "pull/$pr/head"
-  local h; h=$(git -C "$d" rev-parse FETCH_HEAD)
-  echo "$repo#$pr fetched head $h expected $exp match=$([ "$h" = "$exp" ] && echo yes || echo NO)"
-  pr_subject "$d" "$repo" "$pr" "$h" "$(git -C "$d" rev-parse origin/dev)"
+test_merge_head() { # dir repo -> merges FETCH_HEAD into dev (no-ff), falls back to the raw head on conflict
+  local d=$1 repo=$2
   if git -C "$d" -c user.name=prover -c user.email=prover@lab.invalid merge -q --no-ff --no-edit FETCH_HEAD >/dev/null 2>&1; then
     echo "$repo test-merge clean $(git -C "$d" rev-parse HEAD) (dev $(git -C "$d" rev-parse origin/dev))"
   else
@@ -229,6 +274,23 @@ fetch_pr() { # dir repo pr expected -> merges PR head into dev (no-ff), falls ba
     git -C "$d" switch -q --detach FETCH_HEAD
     echo "$repo test-merge CONFLICTS with dev; building the raw head $(git -C "$d" rev-parse HEAD)"
   fi
+}
+fetch_pr() { # dir repo pr expected -> merges PR head into dev (no-ff), falls back to raw head on conflict
+  local d=$1 repo=$2 pr=$3 exp=$4
+  git clone -q --branch dev "https://github.com/OmniNode-ai/$repo.git" "$d"
+  git -C "$d" fetch -q origin "pull/$pr/head"
+  local h; h=$(git -C "$d" rev-parse FETCH_HEAD)
+  echo "$repo#$pr fetched head $h expected $exp match=$([ "$h" = "$exp" ] && echo yes || echo NO)"
+  pr_subject "$d" "$repo" "$pr" "$h" "$(git -C "$d" rev-parse origin/dev)"
+  test_merge_head "$d" "$repo"
+}
+fetch_ref() { # dir repo sha -> merges a branch head, named by its full sha, into dev; no PR (OMN-20085)
+  local d=$1 repo=$2 sha=$3
+  git clone -q --branch dev "https://github.com/OmniNode-ai/$repo.git" "$d"
+  git -C "$d" fetch -q origin "$sha"
+  local h; h=$(git -C "$d" rev-parse FETCH_HEAD)
+  echo "$repo@${sha:0:12} fetched head $h expected $sha match=$([ "$h" = "$sha" ] && echo yes || echo NO)"
+  test_merge_head "$d" "$repo"
 }
 
 # A group of pull requests is proved on the commit the merge queue would land:
@@ -287,6 +349,10 @@ snap-pre|snap-post)
       echo "## networks"; docker network ls --filter label=com.docker.compose.project=$P --format '{{.Name}}' | sort
       echo "## listeners"; lsn | grep -E ":($PORTS)\b" || echo none
     } > "$out"
+    neighbour_snapshot > "/tmp/$TAG-$PHASE-neighbours.txt"
+    if [ "$PHASE" = snap-post ]; then
+      neighbour_diff "/tmp/$TAG-snap-pre-neighbours.txt" "/tmp/$TAG-snap-post-neighbours.txt"
+    fi
   else
   { ts; uptime
     echo "## ps"; docker ps -a --format '{{.Names}} {{.ID}} {{.Label "com.docker.compose.project"}}' | sort
@@ -303,11 +369,14 @@ snap-pre|snap-post)
   echo "$PHASE lines=$(wc -l < "$out") local-containers=$(docker ps -a --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') listeners=$(grep -cE ":($PORTS)\b" "$out")"
   ;;
 clone)
+  drop_source_trees
   echo "clone start $(ts)"; mkdir -p "$R" "$T"
   if [ -n "${INFRA_GROUP:-}" ]; then
     fetch_group "$R/omnibase_infra" omnibase_infra "$INFRA_GROUP" "${INFRA_GROUP_BASE:-}" "${INFRA_GROUP_TREE:-}" || { echo "clone failed: group did not build"; exit 1; }
     # the focused tests run against the group commit itself
     git clone -q "https://github.com/OmniNode-ai/omnibase_infra.git" "$T/omnibase_infra"; git -C "$T/omnibase_infra" fetch -q "$R/omnibase_infra" HEAD; git -C "$T/omnibase_infra" switch -q --detach FETCH_HEAD
+  elif [ -n "${INFRA_REF_SHA:-}" ]; then fetch_ref "$R/omnibase_infra" omnibase_infra "$INFRA_REF_SHA"
+    git clone -q "https://github.com/OmniNode-ai/omnibase_infra.git" "$T/omnibase_infra"; git -C "$T/omnibase_infra" fetch -q origin "$INFRA_REF_SHA"; git -C "$T/omnibase_infra" switch -q --detach FETCH_HEAD
   elif [ -n "${INFRA_PR:-}" ]; then fetch_pr "$R/omnibase_infra" omnibase_infra "$INFRA_PR" "$INFRA_HEAD"
     git clone -q "https://github.com/OmniNode-ai/omnibase_infra.git" "$T/omnibase_infra"; git -C "$T/omnibase_infra" fetch -q origin "pull/$INFRA_PR/head"; git -C "$T/omnibase_infra" switch -q --detach FETCH_HEAD
   else git clone -q --branch dev https://github.com/OmniNode-ai/omnibase_infra.git "$R/omnibase_infra"; fi
@@ -315,6 +384,8 @@ clone)
     fetch_group "$R/omnimarket" omnimarket "$MARKET_GROUP" "${MARKET_GROUP_BASE:-}" "${MARKET_GROUP_TREE:-}" || { echo "clone failed: group did not build"; exit 1; }
     # the focused tests run against the group commit itself
     git clone -q "https://github.com/OmniNode-ai/omnimarket.git" "$T/omnimarket"; git -C "$T/omnimarket" fetch -q "$R/omnimarket" HEAD; git -C "$T/omnimarket" switch -q --detach FETCH_HEAD
+  elif [ -n "${MARKET_REF_SHA:-}" ]; then fetch_ref "$R/omnimarket" omnimarket "$MARKET_REF_SHA"
+    git clone -q "https://github.com/OmniNode-ai/omnimarket.git" "$T/omnimarket"; git -C "$T/omnimarket" fetch -q origin "$MARKET_REF_SHA"; git -C "$T/omnimarket" switch -q --detach FETCH_HEAD
   elif [ -n "${MARKET_PR:-}" ]; then fetch_pr "$R/omnimarket" omnimarket "$MARKET_PR" "$MARKET_HEAD"
     git clone -q "https://github.com/OmniNode-ai/omnimarket.git" "$T/omnimarket"; git -C "$T/omnimarket" fetch -q origin "pull/$MARKET_PR/head"; git -C "$T/omnimarket" switch -q --detach FETCH_HEAD
   else git clone -q --branch dev https://github.com/OmniNode-ai/omnimarket.git "$R/omnimarket"; fi
@@ -437,6 +508,7 @@ probe)
     sleep 15
   done
   echo "health wait $(( $(date +%s) - start ))s ended $(ts) starting=$starting $MAIN=$c1 $EFF=$c2"
+  if [ "$KIND" = prepr-slot ]; then slot_ports_readback; fi
   echo "== identity"
   # the label is printed for the reader and never judged: it records intent only
   echo "image-revision-label $(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$M" 2>&1 | tail -1)"
@@ -445,8 +517,8 @@ probe)
   # compared with its build tree, in both runtimes, so identity never depends
   # on which files a caller listed in ID_FILES
   SUBJECTS=""
-  [ -n "${INFRA_PR:-}${INFRA_GROUP:-}" ] && SUBJECTS="omnibase_infra"
-  [ -n "${MARKET_PR:-}${MARKET_GROUP:-}" ] && SUBJECTS="$SUBJECTS omnimarket"
+  [ -n "${INFRA_PR:-}${INFRA_GROUP:-}${INFRA_REF_SHA:-}" ] && SUBJECTS="omnibase_infra"
+  [ -n "${MARKET_PR:-}${MARKET_GROUP:-}${MARKET_REF_SHA:-}" ] && SUBJECTS="$SUBJECTS omnimarket"
   for repo in $SUBJECTS; do
     echo "identity-subject $repo"
     echo "src-diff $repo files=$(git -C "$R/$repo" diff --name-only origin/dev...HEAD -- src/ 2>/dev/null | grep -c .)"
@@ -521,26 +593,36 @@ post-bringup)
   exit 0
   ;;
 tests)
-  if [ -z "${TESTS:-}" ]; then
+  if [ -z "${TESTS:-}" ] && [ -z "${SUITE_REPO:-}" ]; then
     echo "no-focused-tests: the PR changes no test files"
     exit 0
   fi
   for spec in ${TESTS:-}; do repo=${spec%%:*}; f=${spec#*:}; echo "$repo $f" >> /tmp/$TAG-tests.lst; done
+  # A suite run (OMN-20085) names the repo whose unit suite runs whole, on its own
+  # budget (the driver's); it replaces the repo's file list.
+  if [ -n "${SUITE_REPO:-}" ]; then echo "$SUITE_REPO tests/unit" >> /tmp/$TAG-tests.lst; fi
   for repo in $(cut -d' ' -f1 /tmp/$TAG-tests.lst 2>/dev/null | sort -u); do
     cd "$T/$repo" || continue
     FILES=$(awk -v r=$repo '$1==r{print $2}' /tmp/$TAG-tests.lst | tr '\n' ' ')
+    KIND_WORD=focused; XARGS=""
+    if [ "$repo" = "${SUITE_REPO:-}" ]; then KIND_WORD=suite; XARGS="-n ${SUITE_WORKERS:-4}"; fi
     echo "== $repo at $(git rev-parse HEAD) sync $(ts)"; uv sync -q --frozen 2>&1 | tail -2
-    uv run --frozen pytest $FILES -q -rf -p no:cacheprovider > "/tmp/$TAG-$repo-pytest.out" 2>&1; frc=$?
-    tail -6 "/tmp/$TAG-$repo-pytest.out"; echo "$repo focused rc=$frc $(ts)"
+    uv run --frozen pytest $FILES $XARGS -q -rf -p no:cacheprovider > "/tmp/$TAG-$repo-pytest.out" 2>&1; frc=$?
+    tail -6 "/tmp/$TAG-$repo-pytest.out"; echo "$repo $KIND_WORD rc=$frc $(ts)"
     # Dev control: every test that failed here is run again at dev in the same
     # clone and on the same host. A test that fails at dev too (a host git
     # version, say) is dev-inherited, not the PR's; one that passes at dev, or
-    # does not exist there, is the PR's.
+    # does not exist there, is the PR's. The control is bounded (DEV_CONTROL_MAX,
+    # default 25 ids): a failure past the bound has no control line and so stays
+    # the PR's, which keeps a broken suite from rerunning itself one id at a time.
     FAILED=$(sed -n 's/^FAILED \([^ ]*\).*/\1/p' "/tmp/$TAG-$repo-pytest.out" | sort -u)
     if [ "$frc" != 0 ] && [ -n "$FAILED" ]; then
       HEADSHA=$(git rev-parse HEAD)
       git fetch -q origin dev && git switch -q --detach FETCH_HEAD && uv sync -q --frozen 2>&1 | tail -1
+      n=0
       for id in $FAILED; do
+        if [ "$n" -ge "${DEV_CONTROL_MAX:-25}" ]; then echo "dev-control-bound $repo skipped=$(( $(echo $FAILED | wc -w) - n )) bound=${DEV_CONTROL_MAX:-25}"; break; fi
+        n=$((n + 1))
         uv run --frozen pytest "$id" -q -p no:cacheprovider > /dev/null 2>&1; drc=$?
         echo "dev-control $repo $id rc=$drc at $(git rev-parse HEAD)"
       done
@@ -587,6 +669,7 @@ except (OSError, ValueError):
     print("slot residue unreadable")' "/tmp/$TAG-slot-teardown.json"
     fi
     echo "slot-teardown verdict=$SV"
+    drop_source_trees
     cd "$HOME" || exit 1; rm -rf "$W"
     echo "== zero residue $(ts)"
     echo "containers=$(docker ps -a --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') volumes=$(docker volume ls --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') networks=$(docker network ls --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') images=$SI listeners=$(lsn | grep -cE ":($PORTS)\b") workdir=$([ -e "$W" ] && echo present || echo gone)"
@@ -607,6 +690,7 @@ except (OSError, ValueError):
       echo "$PRE" | grep -qxF "$v" || { docker volume rm "$v" >/dev/null; echo "anon volume rm $v rc=$?"; }
     done
   else echo "no pre-snapshot: anonymous volumes left as they are"; fi
+  drop_source_trees
   cd "$HOME" || exit 1; rm -rf "$W"
   echo "== zero residue $(ts)"
   echo "containers=$(docker ps -a --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') volumes=$(docker volume ls --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') networks=$(docker network ls --filter label=com.docker.compose.project=$P -q | wc -l | tr -d ' ') images=$(docker images --filter reference="$P*" -q | wc -l | tr -d ' ') listeners=$(lsn | grep -cE ":($PORTS)\b") workdir=$([ -e "$W" ] && echo present || echo gone)"

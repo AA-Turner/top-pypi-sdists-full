@@ -46,6 +46,7 @@ import time
 from pathlib import Path
 
 from . import paths
+from .watch import Family
 
 MAX_HOSTS = 8
 #: A plugin folder's manifest or routes.json is read only when it is a regular
@@ -174,8 +175,10 @@ class HookHosts:
     holds a place in `_reserved`: running hosts and reserved places together
     never pass MAX_HOSTS (the oldest host stops to make room)."""
 
-    def __init__(self, log) -> None:
+    def __init__(self, log, *, incident=lambda *args, **kwargs: None) -> None:
         self.log = log
+        #: The service's watch (`watch.Watch.note`): a host that died (plan B2).
+        self.incident = incident
         #: realpath of the plugin folder -> (process, started monotonic)
         self.hosts: dict = {}
         #: interpreter -> is it 3.9 or newer (asked once: the check is a process start)
@@ -209,16 +212,29 @@ class HookHosts:
                 return python
         return None
 
+    def python_for(self, asked: object = None) -> str | None:
+        """`_python`, for another of the plugin's scripts the service runs the
+        way a hook runs it (`statusline.refresh`). Blocking: a worker thread."""
+        return self._python(asked)
+
     def _reap(self) -> None:
-        """Under the lock."""
+        """Under the lock. A host that exited on its own with an error or a
+        signal is one event of `hook_host` (plan B2): one the service stopped
+        left `hosts` first (`_stop`), and an idle or outdated host exits 0."""
         for root, (proc, _) in list(self.hosts.items()):
-            if proc.poll() is not None:
+            code = proc.poll()
+            if code is not None:
                 del self.hosts[root]
+                if code != 0:
+                    self.log(f"hook host for {root} (pid {proc.pid}) exited {code}")
+                    self.incident(Family.HOOK_HOST, "host_exited", None, {"code": code, "root": root})
 
     def host(self, params: dict) -> dict:
         """`hooks.host`: `{"running": bool, "started": bool}`, or `{"refused": why}`.
         Blocking (it reads the folder and starts a process): the service calls
         it on a worker thread, never its loop."""
+        if os.name == "nt":
+            return {"refused": "no hook host on Windows (it forks each event)"}
         raw = params.get("root")
         if not isinstance(raw, str) or not raw.startswith("/") or len(raw) > 4096:
             return {"refused": "root must be an absolute path"}

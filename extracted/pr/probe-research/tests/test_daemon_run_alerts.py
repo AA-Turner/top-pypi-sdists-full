@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import time
 from pathlib import Path
 
 import httpx
@@ -386,4 +388,119 @@ def test_a_session_that_is_ending_polls_no_more(tmp_path, monkeypatch):
     monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
     lane.w.stopping = True
     assert asyncio.run(lane.tick()) is None
+
+
+# ---------------------------------------------------------------------------
+# One poll for the machine: the Probe service's hand-off (plan Q2).
+# ---------------------------------------------------------------------------
+
+
+def _handoff(alerts: "list | None", *, age: float = 0.0, refused_until: "float | None" = None) -> None:
+    """What `probe.service.alertpoll` leaves for the session's worker."""
+    path = mailbox.alerts_handoff_path(SID)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"sid": SID, "polled_at": time.time() - age, "alerts": alerts,
+                                "refused_until": refused_until, "pid": 1}))
+
+
+def _offered(tmp_path) -> ra.RunAlertLane:
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    mailbox.mark_worker_accepts(SID)  # the worker's start (`worker.main`)
+    lane.offer()
+    return lane
+
+
+def _marker() -> dict:
+    return json.loads(mailbox.worker_marker_path(SID).read_text())
+
+
+def test_the_lane_offers_the_service_the_poll_with_the_config_it_reads_and_takes_it_back(tmp_path):
+    lane = _offered(tmp_path)
+    assert lane.offered == str(tmp_path / "no-config.json")
+    assert _marker() == {"pid": os.getpid(), "requests": 1, "run_alerts": 1, "config": lane.offered}
+    asyncio.run(lane.stop())
+    assert lane.offered is None
+    assert _marker() == {"pid": os.getpid(), "requests": 1}, "the offer goes, the marker stays"
+    assert mailbox.accepts_requests(SID)
+
+
+@pytest.mark.parametrize("name", ["PROBE_DAEMON_KEY", "PROBE_BASE_URL"])
+def test_a_worker_whose_key_or_endpoint_comes_from_its_environment_offers_nothing(tmp_path, monkeypatch, name):
+    """The service starts with a clean environment: it would ask with another key."""
+    monkeypatch.setenv(name, "https://staging.example.test" if name == "PROBE_BASE_URL" else "pk_env")
+    lane = _offered(tmp_path)
+    assert lane.offered is None and "run_alerts" not in _marker()
+
+
+def test_the_services_answer_is_taken_without_asking_each_once(tmp_path, monkeypatch):
+    lane = _offered(tmp_path)
+
+    async def never(env, session_id):
+        raise AssertionError("asked while the service polls for the session")
+
+    monkeypatch.setattr(probe_api, "run_alerts", never)
+    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    _handoff([_alert(1), _alert(2)])
+    assert asyncio.run(lane.tick()).alerts == [1, 2]
+    assert asyncio.run(lane.tick()) is None, "the same hand-off is taken once"
+    time.sleep(0.01)
+    _handoff([_alert(1), _alert(2), _alert(3)])
+    assert asyncio.run(lane.tick()).alerts == [3], "deduped by id, as the lane's own poll is"
+    time.sleep(0.01)
+    _handoff(None, refused_until=time.time() + 300)
+    assert asyncio.run(lane.tick()) is None, "the service holds back: so does the lane"
+    assert [m.alerts for m in _alerts_waiting()] == [[1, 2], [3]]
+
+
+@pytest.mark.parametrize("offered", [True, False])
+def test_with_no_fresh_handoff_or_no_offer_the_lane_asks_itself(tmp_path, monkeypatch, offered):
+    lane = _offered(tmp_path) if offered else ra.RunAlertLane(_worker(tmp_path))
+    asked: list[str] = []
+
+    async def fake(env, session_id):
+        asked.append(session_id)
+        return [_alert(5)]
+
+    monkeypatch.setattr(probe_api, "run_alerts", fake)
+    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    _handoff([_alert(4)], age=ra.HANDOFF_FRESH_S + 5 if offered else 0.0)
+    assert asyncio.run(lane.tick()).alerts == [5]
+    assert asked == [SID]
+
+
+def test_a_new_handoff_cuts_the_lanes_wait_short(tmp_path, monkeypatch):
+    monkeypatch.setattr(ra, "HANDOFF_CHECK_S", 0.05)
+    lane = _offered(tmp_path)
+
+    async def run() -> float:
+        waiting = asyncio.ensure_future(lane.pause())
+        await asyncio.sleep(0.3)
+        assert not waiting.done(), "nothing new: it waits for the next poll"
+        started = time.monotonic()
+        _handoff([_alert(6)])
+        await asyncio.wait_for(waiting, 5)
+        return time.monotonic() - started
+
+    assert asyncio.run(run()) < 1.0
+
+
+def test_the_lane_looks_again_when_the_services_next_round_is_due(tmp_path, monkeypatch):
+    """It sleeps until the last hand-off's `polled_at` plus the service's `every`
+    (no stat in between), then takes the next one at once."""
+    monkeypatch.setattr(ra, "HANDOFF_CHECK_S", 0.05)
+    lane = _offered(tmp_path)
+    path = mailbox.alerts_handoff_path(SID)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"sid": SID, "polled_at": time.time(), "alerts": [], "refused_until": None,
+                                "every": 0.6, "pid": 1}))
+
+    async def run() -> float:
+        waiting = asyncio.ensure_future(lane.pause())
+        await asyncio.sleep(0.7)
+        started = time.monotonic()
+        _handoff([_alert(7)])
+        await asyncio.wait_for(waiting, 5)
+        return time.monotonic() - started
+
+    assert asyncio.run(run()) < 1.0
 

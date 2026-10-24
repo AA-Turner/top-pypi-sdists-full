@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -27,10 +27,10 @@ class PaginationResponse(BaseModel):
     """
     PaginationResponse.  Cursor-based pagination response: - Use next_cursor for navigation - Total count fields only populated when include_total=true
     """ # noqa: E501
-    total: Optional[StrictInt] = None
+    total: Optional[StrictInt] = Field(default=None, description="Number of items matching the request across all pages, filters included. null unless the request set include_total=true (in the body or as ?include_total=true). A counted request that matches nothing returns 0.")
     page: Optional[StrictInt] = None
     page_size: Optional[StrictInt] = None
-    total_pages: Optional[StrictInt] = None
+    total_pages: Optional[StrictInt] = Field(default=None, description="Number of pages at page_size. null unless include_total=true.")
     next_page: Optional[StrictStr] = None
     previous_page: Optional[StrictStr] = None
     next_cursor: Optional[StrictStr] = None

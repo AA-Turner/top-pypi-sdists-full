@@ -183,6 +183,7 @@ class Exceptions(BaseClientExceptions):
     InvalidArnException: type[BotocoreClientError]
     InvalidAutoRollbackConfigException: type[BotocoreClientError]
     InvalidAutoScalingGroupException: type[BotocoreClientError]
+    InvalidAutoScalingGroupProcessToSuspendException: type[BotocoreClientError]
     InvalidBlueGreenDeploymentConfigurationException: type[BotocoreClientError]
     InvalidBucketNameFilterException: type[BotocoreClientError]
     InvalidComputePlatformException: type[BotocoreClientError]

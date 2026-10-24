@@ -518,6 +518,128 @@ async fn test_backpressure_blocks_and_resumes() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn large_single_send_preserves_framed_stream_and_order() {
+    use crate::buffer_pool::BufferPool;
+    use crate::tube_protocol::{try_parse_frame, Frame};
+    use crate::webrtc_core::NATIVE_MAX_MESSAGE_SIZE;
+    const MESSAGE_CAP: usize = guacr_protocol::MAX_SAFE_PAYLOAD_SIZE + 17;
+    let (sender, receiver) = make_loopback_pair().await;
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    receiver.data_channel.on_message(Box::new(move |msg| {
+        let _ = tx.send(msg.data);
+        Box::pin(async {})
+    }));
+    let pool = BufferPool::default();
+    // Safe-message boundary, native receive boundary, and original failing call.
+    for length in [
+        MESSAGE_CAP - 17,
+        MESSAGE_CAP - 16,
+        NATIVE_MAX_MESSAGE_SIZE - 17,
+        NATIVE_MAX_MESSAGE_SIZE - 16,
+        131_099,
+    ] {
+        let payload = Bytes::from((0..length).map(|i| (i % 251) as u8).collect::<Vec<_>>());
+        let frame = Frame {
+            connection_no: 7,
+            timestamp_ms: 42,
+            payload: payload.clone(),
+        };
+        sender.send(frame.encode_with_pool(&pool)).await.unwrap();
+        let mut received = Vec::with_capacity(length);
+        while received.len() < length {
+            let message = tokio::time::timeout(Duration::from_secs(5), rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(message.len() <= MESSAGE_CAP);
+            let mut buffer = bytes::BytesMut::from(message.as_ref());
+            let parsed = try_parse_frame(&mut buffer)
+                .unwrap()
+                .expect("each message is a whole frame");
+            assert!(buffer.is_empty());
+            assert_eq!(parsed.connection_no, 7);
+            assert_eq!(parsed.timestamp_ms, 42);
+            received.extend_from_slice(&parsed.payload);
+        }
+        assert_eq!(received.as_slice(), payload.as_ref());
+    }
+    // A peer's lower negotiated receive limit must also be honored.
+    sender.send_limit.store(4096, Ordering::Release);
+    let payload = Bytes::from(vec![0x9d; 20_000]);
+    sender
+        .send(Frame::new_data_with_pool(8, &payload, &pool).encode_with_pool(&pool))
+        .await
+        .unwrap();
+    let mut received = Vec::new();
+    while received.len() < payload.len() {
+        let message = tokio::time::timeout(Duration::from_secs(5), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(message.len() <= 4096);
+        let parsed = try_parse_frame(&mut bytes::BytesMut::from(message.as_ref()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.connection_no, 8);
+        received.extend_from_slice(&parsed.payload);
+    }
+    assert_eq!(received.as_slice(), payload.as_ref());
+
+    sender.send_limit.store(MESSAGE_CAP, Ordering::Release);
+    let euro_payload = Bytes::from("€".repeat(20_000));
+    sender
+        .send(Frame::new_data_with_pool(9, &euro_payload, &pool).encode_with_pool(&pool))
+        .await
+        .unwrap();
+    let mut received = Vec::with_capacity(euro_payload.len());
+    while received.len() < euro_payload.len() {
+        let message = tokio::time::timeout(Duration::from_secs(5), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let parsed = try_parse_frame(&mut bytes::BytesMut::from(message.as_ref()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.connection_no, 9);
+        assert!(std::str::from_utf8(&parsed.payload).is_ok());
+        received.extend_from_slice(&parsed.payload);
+    }
+    assert_eq!(received.as_slice(), euro_payload.as_ref());
+    sender.close().await.unwrap();
+    receiver.close().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn oversized_control_is_rejected_without_partial_delivery() {
+    use crate::tube_protocol::{ControlMessage, Frame};
+    let (sender, receiver) = make_loopback_pair().await;
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    receiver.data_channel.on_message(Box::new(move |msg| {
+        let _ = tx.send(msg.data);
+        Box::pin(async {})
+    }));
+    let pool = crate::buffer_pool::BufferPool::default();
+    let oversized =
+        Frame::new_control_with_pool(ControlMessage::OpenConnection, &vec![0; 70_000], &pool);
+    assert!(sender
+        .send(oversized.encode_with_pool(&pool))
+        .await
+        .is_err());
+    let valid = Frame::new_data_with_pool(9, b"after rejection", &pool).encode_with_pool(&pool);
+    sender.send(valid.clone()).await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(5), rx.recv())
+            .await
+            .unwrap()
+            .unwrap(),
+        valid
+    );
+    assert!(rx.try_recv().is_err());
+    sender.close().await.unwrap();
+    receiver.close().await.unwrap();
+}
+
 // ---------------------------------------------------------------------------
 // Manual stress test — never runs in CI
 // ---------------------------------------------------------------------------

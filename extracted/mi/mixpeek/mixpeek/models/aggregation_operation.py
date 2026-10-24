@@ -31,7 +31,7 @@ class AggregationOperation(BaseModel):
     function: AggregationFunction = Field(description="The aggregation function to apply. Different functions require different field types: COUNT: no field required. SUM/AVG: numeric fields only. MIN/MAX: numeric or date fields. COUNT_DISTINCT: any field type.")
     var_field: Optional[StrictStr] = Field(default=None, description="The field to aggregate. REQUIRED for all functions except COUNT. NOT REQUIRED for COUNT (counts documents). Supports dot notation for nested fields. Field type must be compatible with function.", alias="field")
     alias: StrictStr = Field(description="Name for the aggregation result in output. REQUIRED for all operations. Should be descriptive of the calculation. Used to reference results in post-filtering.")
-    distinct_field: Optional[StrictStr] = Field(default=None, description="Field to count distinct values from. REQUIRED when function is COUNT_DISTINCT. NOT REQUIRED for other functions. Supports dot notation for nested fields.")
+    distinct_field: Optional[StrictStr] = Field(default=None, description="Field to count distinct values from. Used by COUNT_DISTINCT; when omitted, `field` is used. Ignored by other functions. Supports dot notation for nested fields.")
     __properties: ClassVar[List[str]] = ["function", "field", "alias", "distinct_field"]
 
     model_config = ConfigDict(

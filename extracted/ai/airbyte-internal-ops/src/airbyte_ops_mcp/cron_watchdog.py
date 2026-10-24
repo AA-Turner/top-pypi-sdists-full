@@ -43,6 +43,13 @@ WATCHED = [
         frozenset({"schedule"}),
     ),
     (
+        "airbytehq/airbyte-ops-mcp",
+        "lighthouse-run-command.yml",
+        "Project Lighthouse",
+        1500,
+        frozenset({"schedule"}),
+    ),
+    (
         "airbytehq/ai-skills",
         "devin-knowledge-sync.yml",
         "Knowledge Sync",

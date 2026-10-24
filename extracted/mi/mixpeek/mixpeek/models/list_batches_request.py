@@ -32,10 +32,11 @@ class ListBatchesRequest(BaseModel):
     status: Optional[TaskStatusEnum] = Field(default=None, description="Filter batches by status.")
     collection_id: Optional[StrictStr] = Field(default=None, description="Filter batches to only those associated with a specific collection ID. Useful for tracking the processing state of all batches for a given collection.")
     bucket_id: Optional[StrictStr] = Field(default=None, description="Filter batches to only those belonging to a specific bucket. Useful with the org-level POST /v1/batches/list endpoint to scope results.")
-    namespace_id: Optional[StrictStr] = Field(default=None, description="Filter batches to a single namespace. Required here because POST /v1/batches/list is organization-scoped and does NOT read the X-Namespace header — that header is ignored on this endpoint, so pass the namespace here to narrow results.")
+    namespace_id: Optional[StrictStr] = Field(default=None, description="Filter batches to a single namespace, by name or ns_ id. The X-Namespace header does the same; if both are sent they must agree (a conflict is a 400). Omit both for the organization-wide view.")
     offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="The number of batches to skip.")
     limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=100, description="The maximum number of batches to return.")
     cursor: Optional[StrictStr] = Field(default=None, description="Cursor for deep pagination. Use next_cursor from a previous response to fetch the next page. More efficient than offset for large result sets.")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["status", "collection_id", "bucket_id", "namespace_id", "offset", "limit", "cursor"]
 
     model_config = ConfigDict(
@@ -68,8 +69,10 @@ class ListBatchesRequest(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -77,6 +80,11 @@ class ListBatchesRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -97,6 +105,11 @@ class ListBatchesRequest(BaseModel):
             "limit": obj.get("limit") if obj.get("limit") is not None else 100,
             "cursor": obj.get("cursor")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

@@ -67,6 +67,10 @@ from .type_defs import (
     BatchDeleteSecurityRequirementsOutputTypeDef,
     BatchDeleteThreatModelsInputTypeDef,
     BatchDeleteThreatModelsOutputTypeDef,
+    BatchDisassociateFindingIssueInputTypeDef,
+    BatchDisassociateFindingIssueOutputTypeDef,
+    BatchExportFindingsInputTypeDef,
+    BatchExportFindingsOutputTypeDef,
     BatchGetAgentSpacesInputTypeDef,
     BatchGetAgentSpacesOutputTypeDef,
     BatchGetArtifactMetadataInputTypeDef,
@@ -342,6 +346,26 @@ class SecurityAgentClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_threat_models.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_delete_threat_models)
+        """
+
+    async def batch_disassociate_finding_issue(
+        self, **kwargs: Unpack[BatchDisassociateFindingIssueInputTypeDef]
+    ) -> BatchDisassociateFindingIssueOutputTypeDef:
+        """
+        Disassociates a batch of findings from their linked issues.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_disassociate_finding_issue.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_disassociate_finding_issue)
+        """
+
+    async def batch_export_findings(
+        self, **kwargs: Unpack[BatchExportFindingsInputTypeDef]
+    ) -> BatchExportFindingsOutputTypeDef:
+        """
+        Exports a batch of findings to the connected issue tracker as issues.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_export_findings.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_export_findings)
         """
 
     async def batch_get_agent_spaces(

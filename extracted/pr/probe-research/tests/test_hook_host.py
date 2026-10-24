@@ -248,6 +248,32 @@ def test_the_service_hosts_only_a_probe_plugin_folder(tmp_path, monkeypatch):
         hosts.close()
 
 
+def test_a_host_that_dies_on_its_own_is_an_incident_and_one_the_service_stopped_is_not(tmp_path, monkeypatch):
+    """`hook_host` (crash-report plan B2): a host that exited with an error or a
+    signal the service did not send is one event; an idle host's exit 0 and the
+    SIGTERM the service sends one it evicts or closes are none."""
+    from probe.service import hookhosts
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    notes: list = []
+    hosts = hookhosts.HookHosts(lambda message: None, incident=lambda *args, **kwargs: notes.append(args))
+    exits = {}
+    for name, code in (("dies", 1), ("killed", None), ("idle", 0), ("stopped", None)):
+        proc = subprocess.Popen([sys.executable, "-c", f"import sys, time; time.sleep({30 if code is None else 0}); "
+                                 f"sys.exit({code or 0})"])
+        hosts.hosts[f"/plugins/{name}"] = (proc, time.monotonic())
+        exits[name] = proc
+    exits["killed"].kill()
+    with hosts._lock:
+        hosts._stop("/plugins/stopped")  # the service's own SIGTERM
+    for proc in exits.values():
+        proc.wait(10)
+    assert hosts.public() == []
+    assert sorted((args[0], args[1], args[3]["root"]) for args in notes) == [
+        ("hook_host", "host_exited", "/plugins/dies"), ("hook_host", "host_exited", "/plugins/killed"),
+    ]
+
+
 # -- review fixes (R2: Claude critic, Codex) ------------------------------------------
 
 

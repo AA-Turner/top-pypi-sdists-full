@@ -74,6 +74,10 @@ class AxNode:
     # control on screen (set by ax_tree/_actionable.py): the control's ref
     # then grounds on the label, which takes the click.
     via_label: "AxNode | None" = None
+    # Another element is painted on top at this control's centre (a drawer,
+    # an overlay), so a pointer click lands there instead (set by
+    # ax_tree/_actionable.py).
+    covered: bool = False
     children: list["AxNode"] = field(default_factory=list)
 
     def __post_init__(self) -> None:

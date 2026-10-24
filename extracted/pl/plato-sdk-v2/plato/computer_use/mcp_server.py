@@ -17,7 +17,11 @@ harness that issues several tool calls per turn see one frame per group.
 
 from __future__ import annotations
 
-from typing import Literal
+import asyncio
+import dataclasses
+import inspect
+import logging
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +30,9 @@ from plato.computer_use.remote_computer import RemoteDesktopComputer
 from plato.computer_use.ssh_sandbox import SshSandbox
 from plato.tools.definition import ToolDefinition
 from plato.tools.server import ToolServer
+from plato.utils.image_check import check_image_b64
+
+logger = logging.getLogger(__name__)
 
 ScreenshotMode = Literal["every_action", "on_request"]
 
@@ -55,6 +62,100 @@ def _result_to_dict(result: ToolResult, *, include_screenshot: bool = True) -> d
     if not out:
         out["output"] = "(no output)" if include_screenshot else _ACTION_DONE
     return out
+
+
+# The computer methods whose frame reaches the model in both screenshot modes.
+_ALWAYS_FRAMED_METHODS = frozenset({"screenshot", "cursor_position"})
+_RETAKEN_NOTE = "(screenshot retaken: the first frame was corrupt)"
+# Wait before a retake: a corrupt frame can be a file read before the desktop
+# agent flushed it.
+_FRAME_RETRY_DELAY_S = 0.3
+
+
+class _FrameGuardedComputer:
+    """Proxy for a computer that never returns a corrupt screenshot.
+
+    The desktop agent can return a frame that does not decode, also when its
+    header is valid. The model API rejects such a frame, and some harnesses
+    then loop on the error. This proxy forwards every
+    attribute to the real computer. It checks the frame of each awaited
+    method with :func:`check_image_b64`. For a bad frame it calls the real
+    ``screenshot()`` again, up to ``retries`` times. It never runs the action
+    again. If no retry gives a good frame, the result has no image and an
+    error text that tells the model to call screenshot again.
+    """
+
+    def __init__(
+        self,
+        computer: Any,
+        *,
+        retries: int = 2,
+        retry_delay_s: float = _FRAME_RETRY_DELAY_S,
+        check_actions: bool = True,
+    ) -> None:
+        self._computer = computer
+        self._retries = retries
+        self._retry_delay_s = retry_delay_s
+        # In on_request mode the action frames never reach the model, so
+        # only the methods in _ALWAYS_FRAMED_METHODS need the check.
+        self._check_actions = check_actions
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._computer, name)
+        if not callable(attr) or not (self._check_actions or name in _ALWAYS_FRAMED_METHODS):
+            return attr
+
+        def guarded(*args: Any, **kwargs: Any) -> Any:
+            result = attr(*args, **kwargs)
+            if inspect.isawaitable(result):
+                return self._guard(name, result)
+            return result
+
+        return guarded
+
+    async def _guard(self, name: str, pending: Any) -> Any:
+        result = await pending
+        if not isinstance(result, ToolResult) or not result.base64_image:
+            return result
+        check = check_image_b64(result.base64_image, result.media_type)
+        if check.ok:
+            if check.media_type == result.media_type:
+                return result
+            return dataclasses.replace(result, media_type=check.media_type)
+
+        logger.warning(
+            "computer %s returned a corrupt screenshot (%s: %s, %d bytes); retaking the screenshot",
+            name,
+            check.reason,
+            check.detail,
+            check.byte_size,
+        )
+        for attempt in range(1, self._retries + 1):
+            await asyncio.sleep(self._retry_delay_s)
+            try:
+                frame = await self._computer.screenshot()
+            except Exception as exc:
+                logger.warning("screenshot retake %d after %s failed: %s", attempt, name, exc)
+                continue
+            if not frame.base64_image:
+                continue
+            retake = check_image_b64(frame.base64_image, frame.media_type)
+            if retake.ok:
+                output = f"{result.output}\n{_RETAKEN_NOTE}" if result.output else _RETAKEN_NOTE
+                return dataclasses.replace(
+                    result, output=output, base64_image=frame.base64_image, media_type=retake.media_type
+                )
+            logger.warning(
+                "screenshot retake %d after %s is also corrupt (%s: %s)", attempt, name, retake.reason, retake.detail
+            )
+
+        note = (
+            f"The action ran, but the screenshot was corrupt ({check.reason}) and was not sent. Call screenshot again."
+            if name != "screenshot"
+            else f"The screenshot was corrupt ({check.reason}) and was not sent. Call screenshot again."
+        )
+        error = f"{result.error}\n{note}" if result.error else note
+        return dataclasses.replace(result, base64_image=None, media_type=None, error=error)
 
 
 class ScreenshotInput(BaseModel):
@@ -188,9 +289,10 @@ class RemoteComputerToolServer(ToolServer):
         return "every_action" if self._frame_every_action else "on_request"
 
     def build_tools(self) -> list[ToolDefinition]:
-        c = self._computer
         s = self._sandbox
         framed = self._frame_every_action
+        # Every frame is checked before it is sent; see _FrameGuardedComputer.
+        c = _FrameGuardedComputer(self._computer, retries=2, retry_delay_s=_FRAME_RETRY_DELAY_S, check_actions=framed)
         # Tool descriptions promise a frame only when one is actually attached.
         frame_note = (
             " Returns a post-action screenshot."

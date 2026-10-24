@@ -23,15 +23,16 @@ from sarj_python_lint.rule_base import (
     Severity,
 )
 from sarj_python_lint.rules._ast_index import children, walk
+from sarj_python_lint.rules._ast_names import dotted_name as _dotted
 from sarj_python_lint.rules._closed_helpers import dynamic_namespace
 from sarj_python_lint.rules._paths import is_test_path
-from sarj_python_lint.rules._resource_provenance import ResourceProvenance
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from sarj_python_lint._file_context import PythonFileContext
+    from sarj_python_lint.rules._resource_provenance import ResourceProvenance
 
 
 # The two attributes that *configure* what a mock does when called.
@@ -154,7 +155,7 @@ class UnusedMockSetup(Rule):
         if tree is None or dynamic_namespace(context):
             return []
 
-        provenance = ResourceProvenance(context)
+        provenance = context.resource_provenance
         if not provenance.builtin_namespace_untouched:
             return []
         seen: set[tuple[int, int]] = set()
@@ -382,18 +383,6 @@ def _config_target(stmt: ast.stmt, origins: frozenset[str], provenance: Resource
     ):
         return None
     return f"{target.value.id}.{target.attr}"
-
-
-def _dotted(node: ast.expr) -> str | None:
-    parts: list[str] = []
-    current = node
-    while isinstance(current, ast.Attribute):
-        parts.append(current.attr)
-        current = current.value
-    if not isinstance(current, ast.Name):
-        return None
-    parts.append(current.id)
-    return ".".join(reversed(parts))
 
 
 def _is_safe_value(node: ast.expr, provenance: ResourceProvenance, *, hash_key: bool = False) -> bool:

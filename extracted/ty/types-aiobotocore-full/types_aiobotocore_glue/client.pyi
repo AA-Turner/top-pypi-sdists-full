@@ -51,6 +51,7 @@ from .paginator import (
     ListAssetTypesPaginator,
     ListBlueprintsPaginator,
     ListConnectionTypesPaginator,
+    ListDataQualityResultsV2Paginator,
     ListEntitiesPaginator,
     ListFormTypesPaginator,
     ListGlossariesPaginator,
@@ -88,6 +89,8 @@ from .type_defs import (
     BatchGetCustomEntityTypesResponseTypeDef,
     BatchGetDataQualityResultRequestTypeDef,
     BatchGetDataQualityResultResponseTypeDef,
+    BatchGetDataQualityResultV2RequestTypeDef,
+    BatchGetDataQualityResultV2ResponseTypeDef,
     BatchGetDataQualityRulesetEvaluationRunRequestTypeDef,
     BatchGetDataQualityRulesetEvaluationRunResponseTypeDef,
     BatchGetDevEndpointsRequestTypeDef,
@@ -288,6 +291,8 @@ from .type_defs import (
     GetDataQualityModelResultResponseTypeDef,
     GetDataQualityResultRequestTypeDef,
     GetDataQualityResultResponseTypeDef,
+    GetDataQualityResultV2RequestTypeDef,
+    GetDataQualityResultV2ResponseTypeDef,
     GetDataQualityRuleRecommendationRunRequestTypeDef,
     GetDataQualityRuleRecommendationRunResponseTypeDef,
     GetDataQualityRulesetEvaluationRunRequestTypeDef,
@@ -365,6 +370,10 @@ from .type_defs import (
     GetSessionResponseTypeDef,
     GetStatementRequestTypeDef,
     GetStatementResponseTypeDef,
+    GetSystemLogsForJobRunRequestTypeDef,
+    GetSystemLogsForJobRunResponseTypeDef,
+    GetSystemLogsForSessionRequestTypeDef,
+    GetSystemLogsForSessionResponseTypeDef,
     GetTableOptimizerRequestTypeDef,
     GetTableOptimizerResponseTypeDef,
     GetTableRequestTypeDef,
@@ -418,6 +427,8 @@ from .type_defs import (
     ListCustomEntityTypesResponseTypeDef,
     ListDataQualityResultsRequestTypeDef,
     ListDataQualityResultsResponseTypeDef,
+    ListDataQualityResultsV2RequestTypeDef,
+    ListDataQualityResultsV2ResponseTypeDef,
     ListDataQualityRuleRecommendationRunsRequestTypeDef,
     ListDataQualityRuleRecommendationRunsResponseTypeDef,
     ListDataQualityRulesetEvaluationRunsRequestTypeDef,
@@ -470,6 +481,8 @@ from .type_defs import (
     ListWorkflowsResponseTypeDef,
     ModifyIntegrationRequestTypeDef,
     ModifyIntegrationResponseTypeDef,
+    PublishDataQualityResultV2RequestTypeDef,
+    PublishDataQualityResultV2ResponseTypeDef,
     PutAssetRequestTypeDef,
     PutAssetResponseTypeDef,
     PutAssetTypeRequestTypeDef,
@@ -787,6 +800,16 @@ class GlueClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_result.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#batch_get_data_quality_result)
+        """
+
+    async def batch_get_data_quality_result_v2(
+        self, **kwargs: Unpack[BatchGetDataQualityResultV2RequestTypeDef]
+    ) -> BatchGetDataQualityResultV2ResponseTypeDef:
+        """
+        Retrieves a list of data quality results for the specified result IDs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_result_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#batch_get_data_quality_result_v2)
         """
 
     async def batch_get_data_quality_ruleset_evaluation_run(
@@ -1981,6 +2004,17 @@ class GlueClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_data_quality_result)
         """
 
+    async def get_data_quality_result_v2(
+        self, **kwargs: Unpack[GetDataQualityResultV2RequestTypeDef]
+    ) -> GetDataQualityResultV2ResponseTypeDef:
+        """
+        Retrieves the result of a data quality rule evaluation published from any
+        supported data platform.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_data_quality_result_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_data_quality_result_v2)
+        """
+
     async def get_data_quality_rule_recommendation_run(
         self, **kwargs: Unpack[GetDataQualityRuleRecommendationRunRequestTypeDef]
     ) -> GetDataQualityRuleRecommendationRunResponseTypeDef:
@@ -2402,6 +2436,26 @@ class GlueClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_statement)
         """
 
+    async def get_system_logs_for_job_run(
+        self, **kwargs: Unpack[GetSystemLogsForJobRunRequestTypeDef]
+    ) -> GetSystemLogsForJobRunResponseTypeDef:
+        """
+        Retrieves the system logs for a job run.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_system_logs_for_job_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_system_logs_for_job_run)
+        """
+
+    async def get_system_logs_for_session(
+        self, **kwargs: Unpack[GetSystemLogsForSessionRequestTypeDef]
+    ) -> GetSystemLogsForSessionResponseTypeDef:
+        """
+        Retrieves the system logs for an interactive session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_system_logs_for_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_system_logs_for_session)
+        """
+
     async def get_table(self, **kwargs: Unpack[GetTableRequestTypeDef]) -> GetTableResponseTypeDef:
         """
         Retrieves the <code>Table</code> definition in a Data Catalog for a specified
@@ -2676,6 +2730,17 @@ class GlueClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#list_data_quality_results)
         """
 
+    async def list_data_quality_results_v2(
+        self, **kwargs: Unpack[ListDataQualityResultsV2RequestTypeDef]
+    ) -> ListDataQualityResultsV2ResponseTypeDef:
+        """
+        Returns a paginated list of data quality execution results for your account,
+        filtered by the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_data_quality_results_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#list_data_quality_results_v2)
+        """
+
     async def list_data_quality_rule_recommendation_runs(
         self, **kwargs: Unpack[ListDataQualityRuleRecommendationRunsRequestTypeDef]
     ) -> ListDataQualityRuleRecommendationRunsResponseTypeDef:
@@ -2940,6 +3005,16 @@ class GlueClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/modify_integration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#modify_integration)
+        """
+
+    async def publish_data_quality_result_v2(
+        self, **kwargs: Unpack[PublishDataQualityResultV2RequestTypeDef]
+    ) -> PublishDataQualityResultV2ResponseTypeDef:
+        """
+        This operation is intended for internal use.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/publish_data_quality_result_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#publish_data_quality_result_v2)
         """
 
     async def put_asset(self, **kwargs: Unpack[PutAssetRequestTypeDef]) -> PutAssetResponseTypeDef:
@@ -3929,6 +4004,17 @@ class GlueClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_connection_types"]
     ) -> ListConnectionTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_quality_results_v2"]
+    ) -> ListDataQualityResultsV2Paginator:
         """
         Create a paginator for an operation.
 

@@ -67,6 +67,9 @@ class WebhookEventType(str, Enum):
     ANNOTATION_DOT_CREATED = 'annotation.created'
     ANNOTATION_DOT_UPDATED = 'annotation.updated'
     ANNOTATION_DOT_DELETED = 'annotation.deleted'
+    RESOURCE_DOT_EXECUTED = 'resource.executed'
+    RESOURCE_DOT_EXECUTION_FAILED = 'resource.execution_failed'
+    MANIFEST_DOT_APPLY_DOT_RESOURCE_STATE = 'manifest.apply.resource_state'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

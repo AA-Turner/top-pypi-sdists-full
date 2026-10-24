@@ -1,7 +1,6 @@
 import { AbstractVTKView, AbstractVTKPlot } from "./vtklayout";
 import { vtkns } from "./util";
 export class VTKJSPlotView extends AbstractVTKView {
-    static __name__ = "VTKJSPlotView";
     connect_signals() {
         super.connect_signals();
         const { data } = this.model.properties;
@@ -62,7 +61,6 @@ export class VTKJSPlotView extends AbstractVTKView {
     }
 }
 export class VTKJSPlot extends AbstractVTKPlot {
-    static __name__ = "VTKJSPlot";
     static {
         this.prototype.default_view = VTKJSPlotView;
         this.define(({ Boolean, Bytes, Nullable, String }) => ({

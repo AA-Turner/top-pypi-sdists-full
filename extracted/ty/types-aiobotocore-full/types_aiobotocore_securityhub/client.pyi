@@ -42,12 +42,15 @@ from .paginator import (
     GetFindingsV2Paginator,
     GetInsightsPaginator,
     GetRecommendedPolicyV2Paginator,
+    GetRemediationsV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
+    ListExportJobsV2Paginator,
+    ListExposuresByRemediationV2Paginator,
     ListFindingAggregatorsPaginator,
     ListFreeTrialStatusesV2Paginator,
     ListInvitationsPaginator,
@@ -83,6 +86,8 @@ from .type_defs import (
     BatchUpdateFindingsV2ResponseTypeDef,
     BatchUpdateStandardsControlAssociationsRequestTypeDef,
     BatchUpdateStandardsControlAssociationsResponseTypeDef,
+    CancelExportJobV2RequestTypeDef,
+    CancelExportJobV2ResponseTypeDef,
     CreateActionTargetRequestTypeDef,
     CreateActionTargetResponseTypeDef,
     CreateAggregatorV2RequestTypeDef,
@@ -165,6 +170,8 @@ from .type_defs import (
     GetConnectorV2ResponseTypeDef,
     GetEnabledStandardsRequestTypeDef,
     GetEnabledStandardsResponseTypeDef,
+    GetExportJobV2RequestTypeDef,
+    GetExportJobV2ResponseTypeDef,
     GetFindingAggregatorRequestTypeDef,
     GetFindingAggregatorResponseTypeDef,
     GetFindingHistoryRequestTypeDef,
@@ -187,6 +194,8 @@ from .type_defs import (
     GetMembersResponseTypeDef,
     GetRecommendedPolicyV2RequestTypeDef,
     GetRecommendedPolicyV2ResponseTypeDef,
+    GetRemediationsV2RequestTypeDef,
+    GetRemediationsV2ResponseTypeDef,
     GetResourcesStatisticsV2RequestTypeDef,
     GetResourcesStatisticsV2ResponseTypeDef,
     GetResourcesTrendsV2RequestTypeDef,
@@ -213,6 +222,10 @@ from .type_defs import (
     ListConnectorsV2ResponseTypeDef,
     ListEnabledProductsForImportRequestTypeDef,
     ListEnabledProductsForImportResponseTypeDef,
+    ListExportJobsV2RequestTypeDef,
+    ListExportJobsV2ResponseTypeDef,
+    ListExposuresByRemediationV2RequestTypeDef,
+    ListExposuresByRemediationV2ResponseTypeDef,
     ListFindingAggregatorsRequestTypeDef,
     ListFindingAggregatorsResponseTypeDef,
     ListFreeTrialStatusesV2RequestTypeDef,
@@ -234,6 +247,8 @@ from .type_defs import (
     StartConfigurationPolicyAssociationRequestTypeDef,
     StartConfigurationPolicyAssociationResponseTypeDef,
     StartConfigurationPolicyDisassociationRequestTypeDef,
+    StartExportJobV2RequestTypeDef,
+    StartExportJobV2ResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateActionTargetRequestTypeDef,
@@ -464,6 +479,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_standards_control_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#batch_update_standards_control_associations)
+        """
+
+    async def cancel_export_job_v2(
+        self, **kwargs: Unpack[CancelExportJobV2RequestTypeDef]
+    ) -> CancelExportJobV2ResponseTypeDef:
+        """
+        Cancels a findings export job that is in progress.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/cancel_export_job_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#cancel_export_job_v2)
         """
 
     async def create_action_target(
@@ -992,6 +1017,19 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_enabled_standards)
         """
 
+    async def get_export_job_v2(
+        self, **kwargs: Unpack[GetExportJobV2RequestTypeDef]
+    ) -> GetExportJobV2ResponseTypeDef:
+        """
+        Returns the details of a single findings export job, including its current
+        <code>Status</code>, the <code>Destination</code> it writes to, the
+        <code>OutputConfiguration</code> it was started with, and its
+        <code>StartedAt</code> and <code>EndedAt</code> timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_export_job_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_export_job_v2)
+        """
+
     async def get_finding_aggregator(
         self, **kwargs: Unpack[GetFindingAggregatorRequestTypeDef]
     ) -> GetFindingAggregatorResponseTypeDef:
@@ -1108,6 +1146,17 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_recommended_policy_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_recommended_policy_v2)
+        """
+
+    async def get_remediations_v2(
+        self, **kwargs: Unpack[GetRemediationsV2RequestTypeDef]
+    ) -> GetRemediationsV2ResponseTypeDef:
+        """
+        Retrieves remediation targets for the account, or for all member accounts if
+        the caller is the delegated administrator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_remediations_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_remediations_v2)
         """
 
     async def get_resources_statistics_v2(
@@ -1246,6 +1295,27 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_enabled_products_for_import)
         """
 
+    async def list_export_jobs_v2(
+        self, **kwargs: Unpack[ListExportJobsV2RequestTypeDef]
+    ) -> ListExportJobsV2ResponseTypeDef:
+        """
+        Returns the findings export jobs in your account as a paginated list of
+        <code>ExportSummary</code> objects.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_export_jobs_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_export_jobs_v2)
+        """
+
+    async def list_exposures_by_remediation_v2(
+        self, **kwargs: Unpack[ListExposuresByRemediationV2RequestTypeDef]
+    ) -> ListExposuresByRemediationV2ResponseTypeDef:
+        """
+        Retrieves the exposure findings tied to a specific remediation target.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_exposures_by_remediation_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_exposures_by_remediation_v2)
+        """
+
     async def list_finding_aggregators(
         self, **kwargs: Unpack[ListFindingAggregatorsRequestTypeDef]
     ) -> ListFindingAggregatorsResponseTypeDef:
@@ -1361,6 +1431,17 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_configuration_policy_disassociation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#start_configuration_policy_disassociation)
+        """
+
+    async def start_export_job_v2(
+        self, **kwargs: Unpack[StartExportJobV2RequestTypeDef]
+    ) -> StartExportJobV2ResponseTypeDef:
+        """
+        Starts an ad hoc export job that writes Security Hub findings to an Amazon
+        Simple Storage Service (Amazon S3) bucket that you own.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_export_job_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#start_export_job_v2)
         """
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -1643,6 +1724,17 @@ class SecurityHubClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_remediations_v2"]
+    ) -> GetRemediationsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_resources_trends_v2"]
     ) -> GetResourcesTrendsV2Paginator:
         """
@@ -1700,6 +1792,28 @@ class SecurityHubClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_enabled_products_for_import"]
     ) -> ListEnabledProductsForImportPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_export_jobs_v2"]
+    ) -> ListExportJobsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_exposures_by_remediation_v2"]
+    ) -> ListExposuresByRemediationV2Paginator:
         """
         Create a paginator for an operation.
 

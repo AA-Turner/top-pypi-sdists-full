@@ -222,8 +222,10 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     });
     const downloadTimeoutMs = deadline - Date.now();
     if (downloadTimeoutMs <= 0) throw new Error("SingleFile download deadline exceeded");
-    downloadedPath = await helperPage.evaluate(
-      async ({ exactTab, extensionId, timeoutMs }) => {
+    // The capture budget belongs to this process: renderer timers can stop
+    // advancing while Chrome is busy, but cancellation must precede our caller.
+    downloadedPath = await chromeUtils.withTimeout(
+      () => helperPage.evaluate(async ({ exactTab, extensionId }) => {
         return await new Promise((resolve, reject) => {
           let downloadUrl = null;
           let contentDigest = null;
@@ -232,7 +234,6 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           let settled = false;
           const startedAfter = new Date().toISOString();
           const cleanup = () => {
-            clearTimeout(timer);
             chrome.downloads.onChanged.removeListener(onChanged);
             chrome.runtime.onMessage.removeListener(onMessage);
           };
@@ -309,35 +310,28 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
               await findCompleted();
             })().catch(fail);
           };
-          const timer = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            reject(
-              new Error(
-                `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
-              )
-            );
-          }, timeoutMs);
           chrome.downloads.onChanged.addListener(onChanged);
           chrome.runtime.onMessage.addListener(onMessage);
           window.archiveboxStartCapture().catch(fail);
         });
       },
-      { exactTab: tab, extensionId: extension.id, timeoutMs: downloadTimeoutMs }
+      { exactTab: tab, extensionId: extension.id }),
+      downloadTimeoutMs,
+      `SingleFile download for tab ${tab.id} did not complete within ${downloadTimeoutMs}ms`
     );
     console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
   } catch (error) {
     if (captureStarted) {
-      // A CDP failure can reject before the in-page download timer fires.
-      // Cancel the owned native task before closing its observer, including
-      // task id 0, which SingleFile's task-id cancellation treats as absent.
+      // Either the capture deadline or a CDP failure can end our wait.
+      // Use the extension's pending-task API: the captured renderer may be
+      // stalled and unable to execute a cancellation message itself.
       await chromeUtils.withTimeout(
         () => helperPage.evaluate(async (tabId) => {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            func: () => chrome.runtime.sendMessage({ method: "downloads.cancel" }),
-          });
+          const tasks = await chrome.runtime.sendMessage({ method: "downloads.getInfo" });
+          for (const task of tasks.filter(task => task.tabId === tabId)) {
+            // SingleFile accepts string IDs; numeric 0 selects its tab fallback.
+            await chrome.runtime.sendMessage({ method: "downloads.cancel", taskId: String(task.id) });
+          }
         }, tab.id),
         DOWNLOAD_WAIT_RESERVE_MS,
         "SingleFile cancellation deadline exceeded"

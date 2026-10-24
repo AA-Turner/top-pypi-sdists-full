@@ -18,8 +18,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
-from typing import Any, ClassVar, Dict, List
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +31,11 @@ class RestoreSnapshotResponse(BaseModel):
     snapshot_id: StrictStr
     target_namespace_id: StrictStr
     message: StrictStr
-    __properties: ClassVar[List[str]] = ["task_id", "snapshot_id", "target_namespace_id", "message"]
+    restore_point: Optional[StrictStr] = Field(default=None, description="The restore_point requested, normalized")
+    fork_id: Optional[StrictStr] = Field(default=None, description="Identifies the point-in-time replica this restore reads from; the task's restore_report carries the same id")
+    resolved_seq: Optional[StrictInt] = Field(default=None, description="The WAL seq the restore targets. Known here when restore_point is a seq; for an instant the shard resolves it during the restore, and the task's restore_report records it.")
+    isolated: Optional[StrictBool] = Field(default=False, description="True when the copy goes onto a temporary shard of its own; the task creates the namespace once that shard is up")
+    __properties: ClassVar[List[str]] = ["task_id", "snapshot_id", "target_namespace_id", "message", "restore_point", "fork_id", "resolved_seq", "isolated"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,7 +91,11 @@ class RestoreSnapshotResponse(BaseModel):
             "task_id": obj.get("task_id"),
             "snapshot_id": obj.get("snapshot_id"),
             "target_namespace_id": obj.get("target_namespace_id"),
-            "message": obj.get("message")
+            "message": obj.get("message"),
+            "restore_point": obj.get("restore_point"),
+            "fork_id": obj.get("fork_id"),
+            "resolved_seq": obj.get("resolved_seq"),
+            "isolated": obj.get("isolated") if obj.get("isolated") is not None else False
         })
         return _obj
 

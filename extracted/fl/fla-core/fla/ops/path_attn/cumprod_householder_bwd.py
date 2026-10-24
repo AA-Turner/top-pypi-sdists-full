@@ -31,7 +31,7 @@ def chunk_cumprod_householder_bwd_kernel(
     HQ: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_ss, i_hq = tl.program_id(0), tl.program_id(1)
+    i_ss, i_hq = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_h = i_hq // G
 
     if IS_VARLEN:
@@ -39,14 +39,14 @@ def chunk_cumprod_householder_bwd_kernel(
         bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = (eos - bos).to(tl.int32)
         NS = tl.cdiv(T, S)
-        boh = tl.load(chunk_offsets + i_n).to(tl.int32)
-        boh_large = tl.load(split_offsets + i_n).to(tl.int32)
+        boh = tl.load(chunk_offsets + i_n).to(tl.int64)
+        boh_large = tl.load(split_offsets + i_n).to(tl.int64)
     else:
         NS = tl.cdiv(T, S)
         i_n, i_s = i_ss // NS, i_ss % NS
         bos, eos = (i_n * T).to(tl.int64), (i_n * T + T).to(tl.int64)
-        boh = i_n * tl.cdiv(T, BT)
-        boh_large = i_n * tl.cdiv(T, S)
+        boh = (i_n * tl.cdiv(T, BT)).to(tl.int64)
+        boh_large = (i_n * tl.cdiv(T, S)).to(tl.int64)
 
     # offset calculations
     dhc_whole += ((boh_large + i_s) * HQ + i_hq) * K * K

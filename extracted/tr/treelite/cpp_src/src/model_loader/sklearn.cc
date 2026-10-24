@@ -12,6 +12,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <string>
 
 #include <treelite/enum/operator.h>
 #include <treelite/enum/task_type.h>
@@ -24,37 +25,6 @@
 namespace treelite::model_loader::sklearn {
 
 namespace detail {
-
-namespace stdex = std::experimental;
-// Multidimensional array views. Use row-major (C) layout
-template <typename ElemT>
-using Array2DView = stdex::mdspan<ElemT, stdex::dextents<std::uint64_t, 2>, stdex::layout_right>;
-
-class IsolationForestMixIn {
- public:
-  explicit IsolationForestMixIn(double ratio_c) : ratio_c_{ratio_c} {}
-
-  void HandleMetadata(model_builder::ModelBuilder& builder, int n_trees, int n_features,
-      [[maybe_unused]] int n_targets, [[maybe_unused]] std::int32_t const* n_classes) {
-    model_builder::Metadata metadata{n_features, TaskType::kIsolationForest, true, 1, {1}, {1, 1}};
-    model_builder::TreeAnnotation tree_annotation{
-        n_trees, std::vector<std::int32_t>(n_trees, 0), std::vector<std::int32_t>(n_trees, 0)};
-
-    std::ostringstream oss;
-    model_builder::PostProcessorFunc postprocessor{
-        "exponential_standard_ratio", {{"ratio_c", ratio_c_}}};
-
-    builder.InitializeMetadata(metadata, tree_annotation, postprocessor, {0.0}, std::nullopt);
-  }
-
-  void HandleLeafNode(model_builder::ModelBuilder& builder, int tree_id, int node_id,
-      double const** value, [[maybe_unused]] std::int32_t const* n_classes) const {
-    builder.LeafScalar(value[tree_id][node_id]);
-  }
-
- private:
-  double ratio_c_;
-};
 
 class GradientBoostingRegressorMixIn {
  public:
@@ -134,16 +104,22 @@ class GradientBoostingMulticlassClassifierMixIn {
 
 class HistGradientBoostingRegressorMixIn {
  public:
-  explicit HistGradientBoostingRegressorMixIn(double base_score) : base_score_{base_score} {}
+  explicit HistGradientBoostingRegressorMixIn(double base_score, std::string const& loss_function)
+      : base_score_{base_score}, loss_function_{loss_function} {}
 
   void HandleMetadata(model_builder::ModelBuilder& builder, int n_trees, int n_features,
       [[maybe_unused]] int n_targets, [[maybe_unused]] std::int32_t const* n_classes) {
     model_builder::Metadata metadata{n_features, TaskType::kRegressor, false, 1, {1}, {1, 1}};
     model_builder::TreeAnnotation tree_annotation{
         n_trees, std::vector<std::int32_t>(n_trees, 0), std::vector<std::int32_t>(n_trees, 0)};
-    model_builder::PostProcessorFunc postprocessor{"identity"};
     std::vector<double> base_scores{base_score_};
-    builder.InitializeMetadata(metadata, tree_annotation, postprocessor, base_scores, std::nullopt);
+
+    std::string postprocessor{"identity"};
+    if (loss_function_ == "gamma" || loss_function_ == "poisson") {
+      postprocessor = "exponential";
+    }
+    builder.InitializeMetadata(metadata, tree_annotation,
+        model_builder::PostProcessorFunc{postprocessor}, base_scores, std::nullopt);
   }
 
   void HandleLeafNode(model_builder::ModelBuilder& builder, int tree_id, int node_id,
@@ -153,6 +129,7 @@ class HistGradientBoostingRegressorMixIn {
 
  private:
   double base_score_;
+  std::string loss_function_;
 };
 
 class HistGradientBoostingBinaryClassifierMixIn {
@@ -370,18 +347,6 @@ std::unique_ptr<treelite::Model> LoadHistGradientBoosting(MixIn& mixin, int n_tr
 
 }  // namespace detail
 
-std::unique_ptr<treelite::Model> LoadIsolationForest(int n_estimators, int n_features,
-    std::int64_t const* node_count, std::int64_t const** children_left,
-    std::int64_t const** children_right, std::int64_t const** feature, double const** threshold,
-    double const** value, std::int64_t const** n_node_samples,
-    double const** weighted_n_node_samples, double const** impurity, double ratio_c) {
-  detail::IsolationForestMixIn mixin{ratio_c};
-  std::vector<std::int32_t> n_classes{1};
-  return detail::LoadSKLearnModel(mixin, n_estimators, n_features, 1, n_classes.data(), node_count,
-      children_left, children_right, feature, threshold, value, n_node_samples,
-      weighted_n_node_samples, impurity);
-}
-
 std::unique_ptr<treelite::Model> LoadGradientBoostingRegressor(int n_iter, int n_features,
     std::int64_t const* node_count, std::int64_t const** children_left,
     std::int64_t const** children_right, std::int64_t const** feature, double const** threshold,
@@ -419,8 +384,8 @@ std::unique_ptr<treelite::Model> LoadHistGradientBoostingRegressor(int n_iter, i
     std::uint32_t n_categorical_splits, std::uint32_t const** raw_left_cat_bitsets,
     std::uint32_t const* known_cat_bitsets, std::uint32_t const* known_cat_bitsets_offset_map,
     std::int32_t const* features_map, std::int64_t const** categories_map,
-    double const* base_scores) {
-  detail::HistGradientBoostingRegressorMixIn mixin{base_scores[0]};
+    double const* base_scores, std::string const& loss_function) {
+  detail::HistGradientBoostingRegressorMixIn mixin{base_scores[0], loss_function};
   return detail::LoadHistGradientBoosting(mixin, n_iter, n_features, 1, node_count, nodes,
       expected_sizeof_node_struct, raw_left_cat_bitsets, features_map, categories_map);
 }

@@ -1,6 +1,5 @@
 import { ClickableIcon, ClickableIconView } from "./icon";
 export class ButtonIconView extends ClickableIconView {
-    static __name__ = "ButtonIconView";
     _click_listener;
     *controls() { }
     update_cursor() {
@@ -23,7 +22,6 @@ export class ButtonIconView extends ClickableIconView {
     }
 }
 export class ButtonIcon extends ClickableIcon {
-    static __name__ = "ButtonIcon";
     static __module__ = "panel.models.icon";
     constructor(attrs) {
         super(attrs);

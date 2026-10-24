@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: uharfbuzz
-Version: 0.56.4
+Version: 0.57.0
 Summary: Streamlined Cython bindings for the harfbuzz shaping engine
 Home-page: https://github.com/trufont/uharfbuzz
 Author: Adrien Tétar
 Author-email: adri-from-59@hotmail.fr
 License: Apache License 2.0
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author

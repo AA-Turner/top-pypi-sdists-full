@@ -1,7 +1,6 @@
 import { ImportedStyleSheet } from "@bokehjs/core/dom";
 import { HTMLBox, HTMLBoxView } from "./layout";
 export class ProgressView extends HTMLBoxView {
-    static __name__ = "ProgressView";
     progressEl;
     connect_signals() {
         super.connect_signals();
@@ -59,7 +58,6 @@ export class ProgressView extends HTMLBoxView {
     }
 }
 export class Progress extends HTMLBox {
-    static __name__ = "Progress";
     constructor(attrs) {
         super(attrs);
     }

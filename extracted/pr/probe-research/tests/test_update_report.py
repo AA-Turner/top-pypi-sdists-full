@@ -23,6 +23,7 @@ import time
 
 import pytest
 
+from probe._shared import scrub
 from probe.cli import autoupdate, claude_cli, update_report, updater, upgrading, versions
 
 MANIFEST = {
@@ -633,7 +634,7 @@ def test_every_pi_step_has_a_result(step):
     ],
 )
 def test_details_lose_this_machines_home_and_login(monkeypatch, home, user, raw, clean):
-    monkeypatch.setattr(update_report, "_home_and_user", lambda: (home, user))
+    monkeypatch.setattr(scrub, "home_and_user", lambda: (home, user))
     assert update_report._detail(raw) == clean
 
 

@@ -79,6 +79,7 @@ from .literals import (
     ClarifyFeatureTypeType,
     ClarifyTextGranularityType,
     ClarifyTextLanguageType,
+    CleanupFailureErrorCodeType,
     ClusterAutoScalingModeType,
     ClusterAutoScalingStatusType,
     ClusterCapacityTypeType,
@@ -141,6 +142,7 @@ from .literals import (
     FillingTypeType,
     FlatInvocationsType,
     FlowDefinitionStatusType,
+    ForEachStatusType,
     FrameworkType,
     HomeEfsFileSystemCreationType,
     HubContentSortByType,
@@ -354,6 +356,7 @@ from .literals import (
     TrainingPlanSortOrderType,
     TrainingPlanStatusType,
     TrainingRepositoryAccessModeType,
+    TrainingSessionStatusType,
     TransformInstanceTypeType,
     TransformJobStatusType,
     TrialComponentPrimaryStatusType,
@@ -480,6 +483,7 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AthenaStepMetadataTypeDef",
     "AttachClusterNodeNetworkInterfaceRequestTypeDef",
     "AttachClusterNodeNetworkInterfaceResponseTypeDef",
     "AttachClusterNodeVolumeRequestTypeDef",
@@ -550,6 +554,7 @@ __all__ = (
     "BedrockProvisionedModelThroughputMetadataTypeDef",
     "BestObjectiveNotImprovingTypeDef",
     "BiasTypeDef",
+    "BillableTokenUsageTypeDef",
     "BlueGreenUpdatePolicyTypeDef",
     "CacheHitResultTypeDef",
     "CallbackStepMetadataTypeDef",
@@ -593,6 +598,8 @@ __all__ = (
     "ClarifyShapBaselineConfigTypeDef",
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
+    "CleanupFailureTypeDef",
+    "CleanupStepMetadataTypeDef",
     "ClusterAccountingDatabaseTypeDef",
     "ClusterAutoPatchConfigDetailsTypeDef",
     "ClusterAutoPatchConfigTypeDef",
@@ -804,6 +811,8 @@ __all__ = (
     "CreateTrainingJobResponseTypeDef",
     "CreateTrainingPlanRequestTypeDef",
     "CreateTrainingPlanResponseTypeDef",
+    "CreateTrainingSessionRequestTypeDef",
+    "CreateTrainingSessionResponseTypeDef",
     "CreateTransformJobRequestTypeDef",
     "CreateTransformJobResponseTypeDef",
     "CreateTrialComponentRequestTypeDef",
@@ -923,6 +932,7 @@ __all__ = (
     "DeleteStudioLifecycleConfigRequestTypeDef",
     "DeleteTagsInputTypeDef",
     "DeleteTrainingJobRequestTypeDef",
+    "DeleteTrainingSessionRequestTypeDef",
     "DeleteTrialComponentRequestTypeDef",
     "DeleteTrialComponentResponseTypeDef",
     "DeleteTrialRequestTypeDef",
@@ -1096,6 +1106,8 @@ __all__ = (
     "DescribeTrainingPlanExtensionHistoryResponseTypeDef",
     "DescribeTrainingPlanRequestTypeDef",
     "DescribeTrainingPlanResponseTypeDef",
+    "DescribeTrainingSessionRequestTypeDef",
+    "DescribeTrainingSessionResponseTypeDef",
     "DescribeTransformJobRequestTypeDef",
     "DescribeTransformJobRequestWaitTypeDef",
     "DescribeTransformJobResponseTypeDef",
@@ -1139,6 +1151,7 @@ __all__ = (
     "DynamicScalingConfigurationTypeDef",
     "EFSFileSystemConfigTypeDef",
     "EFSFileSystemTypeDef",
+    "EMRServerlessStepMetadataTypeDef",
     "EMRStepMetadataTypeDef",
     "EbsStorageSettingsTypeDef",
     "Ec2CapacityReservationTypeDef",
@@ -1205,6 +1218,8 @@ __all__ = (
     "FinalHyperParameterTuningJobObjectiveMetricTypeDef",
     "FlowDefinitionOutputConfigTypeDef",
     "FlowDefinitionSummaryTypeDef",
+    "ForEachSelectorResultTypeDef",
+    "ForEachStepMetadataTypeDef",
     "GenerativeAiSettingsTypeDef",
     "GetDeviceFleetReportRequestTypeDef",
     "GetDeviceFleetReportResponseTypeDef",
@@ -1331,6 +1346,7 @@ __all__ = (
     "InstanceRequirementsEniConfigurationTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
+    "IterationContextTypeDef",
     "JobConfigSchemaVersionSummaryTypeDef",
     "JobSecondaryStatusTransitionTypeDef",
     "JobStepMetadataTypeDef",
@@ -1619,6 +1635,9 @@ __all__ = (
     "ListTrainingPlansRequestPaginateTypeDef",
     "ListTrainingPlansRequestTypeDef",
     "ListTrainingPlansResponseTypeDef",
+    "ListTrainingSessionsRequestPaginateTypeDef",
+    "ListTrainingSessionsRequestTypeDef",
+    "ListTrainingSessionsResponseTypeDef",
     "ListTransformJobsRequestPaginateTypeDef",
     "ListTransformJobsRequestTypeDef",
     "ListTransformJobsResponseTypeDef",
@@ -1640,6 +1659,7 @@ __all__ = (
     "ListWorkteamsRequestPaginateTypeDef",
     "ListWorkteamsRequestTypeDef",
     "ListWorkteamsResponseTypeDef",
+    "LoraConfigTypeDef",
     "MLflowConfigurationTypeDef",
     "ManagedConfigurationTypeDef",
     "MemberDefinitionOutputTypeDef",
@@ -2064,6 +2084,7 @@ __all__ = (
     "StopPipelineExecutionResponseTypeDef",
     "StopProcessingJobRequestTypeDef",
     "StopTrainingJobRequestTypeDef",
+    "StopTrainingSessionRequestTypeDef",
     "StopTransformJobRequestTypeDef",
     "StoppingConditionTypeDef",
     "StudioLifecycleConfigDetailsTypeDef",
@@ -2114,6 +2135,11 @@ __all__ = (
     "TrainingPlanSummaryTypeDef",
     "TrainingProgressInfoTypeDef",
     "TrainingRepositoryAuthConfigTypeDef",
+    "TrainingSessionDetailTypeDef",
+    "TrainingSessionModelConfigTypeDef",
+    "TrainingSessionOutputConfigTypeDef",
+    "TrainingSessionS3LocationTypeDef",
+    "TrainingSessionSummaryTypeDef",
     "TrainingSpecificationOutputTypeDef",
     "TrainingSpecificationTypeDef",
     "TrainingSpecificationUnionTypeDef",
@@ -2487,6 +2513,10 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
 
+class AthenaStepMetadataTypeDef(TypedDict):
+    QueryExecutionId: NotRequired[str]
+    S3OutputLocation: NotRequired[str]
+
 class AttachClusterNodeNetworkInterfaceRequestTypeDef(TypedDict):
     ClusterName: str
     NodeId: str
@@ -2672,6 +2702,11 @@ class MetricsSourceTypeDef(TypedDict):
     ContentType: str
     S3Uri: str
     ContentDigest: NotRequired[str]
+
+class BillableTokenUsageTypeDef(TypedDict):
+    PrefillTokenCount: NotRequired[int]
+    SampleTokenCount: NotRequired[int]
+    TrainingTokenCount: NotRequired[int]
 
 class CacheHitResultTypeDef(TypedDict):
     SourcePipelineExecutionArn: NotRequired[str]
@@ -2864,6 +2899,11 @@ class ClarifyShapBaselineConfigTypeDef(TypedDict):
 class ClarifyTextConfigTypeDef(TypedDict):
     Language: ClarifyTextLanguageType
     Granularity: ClarifyTextGranularityType
+
+class CleanupFailureTypeDef(TypedDict):
+    StepName: NotRequired[str]
+    ErrorCode: NotRequired[CleanupFailureErrorCodeType]
+    ErrorMessage: NotRequired[str]
 
 class ClusterAccountingDatabaseTypeDef(TypedDict):
     Endpoint: str
@@ -3315,6 +3355,14 @@ class TensorBoardOutputConfigTypeDef(TypedDict):
     S3OutputPath: str
     LocalPath: NotRequired[str]
 
+class LoraConfigTypeDef(TypedDict):
+    Rank: int
+    Alpha: int
+
+class TrainingSessionModelConfigTypeDef(TypedDict):
+    BaseModelArn: str
+    AcceptEula: NotRequired[bool]
+
 class DataProcessingTypeDef(TypedDict):
     InputFilter: NotRequired[str]
     OutputFilter: NotRequired[str]
@@ -3688,6 +3736,9 @@ class DeleteTagsInputTypeDef(TypedDict):
 
 class DeleteTrainingJobRequestTypeDef(TypedDict):
     TrainingJobName: str
+
+class DeleteTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
 
 class DeleteTrialComponentRequestTypeDef(TypedDict):
     TrialComponentName: str
@@ -4238,6 +4289,9 @@ class ReservedCapacitySummaryTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
 
+class DescribeTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
+
 class DescribeTransformJobRequestTypeDef(TypedDict):
     TransformJobName: str
 
@@ -4363,6 +4417,12 @@ class FileSourceTypeDef(TypedDict):
     S3Uri: str
     ContentType: NotRequired[str]
     ContentDigest: NotRequired[str]
+
+class EMRServerlessStepMetadataTypeDef(TypedDict):
+    ApplicationId: NotRequired[str]
+    JobRunId: NotRequired[str]
+    JobRunName: NotRequired[str]
+    LogFilePath: NotRequired[str]
 
 class EMRStepMetadataTypeDef(TypedDict):
     ClusterId: NotRequired[str]
@@ -4492,6 +4552,10 @@ class FlowDefinitionSummaryTypeDef(TypedDict):
     FlowDefinitionStatus: FlowDefinitionStatusType
     CreationTime: datetime
     FailureReason: NotRequired[str]
+
+class ForEachSelectorResultTypeDef(TypedDict):
+    StepName: NotRequired[str]
+    Index: NotRequired[int]
 
 class GetDeviceFleetReportRequestTypeDef(TypedDict):
     DeviceFleetName: str
@@ -4737,6 +4801,11 @@ class IntegerParameterRangeTypeDef(TypedDict):
     MinValue: str
     MaxValue: str
     ScalingType: NotRequired[HyperParameterScalingTypeType]
+
+class IterationContextTypeDef(TypedDict):
+    ParentStepName: NotRequired[str]
+    Index: NotRequired[int]
+    Item: NotRequired[str]
 
 class JobConfigSchemaVersionSummaryTypeDef(TypedDict):
     JobConfigSchemaVersion: str
@@ -5056,6 +5125,12 @@ class ListTrainingJobsForHyperParameterTuningJobRequestTypeDef(TypedDict):
 class TrainingPlanFilterTypeDef(TypedDict):
     Name: Literal["Status"]
     Value: str
+
+class TrainingSessionSummaryTypeDef(TypedDict):
+    TrainingSessionArn: str
+    TrainingSessionStatus: TrainingSessionStatusType
+    CreationTime: datetime
+    LastModifiedTime: NotRequired[datetime]
 
 class TransformJobSummaryTypeDef(TypedDict):
     TransformJobName: str
@@ -5610,6 +5685,9 @@ class StopProcessingJobRequestTypeDef(TypedDict):
 class StopTrainingJobRequestTypeDef(TypedDict):
     TrainingJobName: str
 
+class StopTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
+
 class StopTransformJobRequestTypeDef(TypedDict):
     TransformJobName: str
 
@@ -5640,6 +5718,10 @@ class TimeSeriesTransformationsTypeDef(TypedDict):
 
 class TrainingRepositoryAuthConfigTypeDef(TypedDict):
     TrainingRepositoryCredentialsProviderArn: str
+
+class TrainingSessionS3LocationTypeDef(TypedDict):
+    Path: str
+    KmsKeyArn: NotRequired[str]
 
 class TransformS3DataSourceTypeDef(TypedDict):
     S3DataType: S3DataTypeType
@@ -6184,6 +6266,10 @@ class CreateTrainingJobResponseTypeDef(TypedDict):
 
 class CreateTrainingPlanResponseTypeDef(TypedDict):
     TrainingPlanArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateTrainingSessionResponseTypeDef(TypedDict):
+    TrainingSessionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateTransformJobResponseTypeDef(TypedDict):
@@ -7042,6 +7128,11 @@ class ClarifyShapConfigTypeDef(TypedDict):
     Seed: NotRequired[int]
     TextConfig: NotRequired[ClarifyTextConfigTypeDef]
 
+class CleanupStepMetadataTypeDef(TypedDict):
+    CleanedSteps: NotRequired[list[str]]
+    FailedSteps: NotRequired[list[CleanupFailureTypeDef]]
+    SkippedSteps: NotRequired[list[str]]
+
 class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
     SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
     AccountingDatabase: NotRequired[ClusterAccountingDatabaseTypeDef]
@@ -7821,6 +7912,14 @@ class ListTrainingJobsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     WarmPoolStatusEquals: NotRequired[WarmPoolResourceStatusType]
     TrainingPlanArnEquals: NotRequired[str]
+
+class ListTrainingSessionsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[TrainingSessionStatusType]
 
 class ListTransformJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -8768,6 +8867,13 @@ class ListTrainingJobsRequestPaginateTypeDef(TypedDict):
     TrainingPlanArnEquals: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListTrainingSessionsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[TrainingSessionStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListTransformJobsRequestPaginateTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -9593,6 +9699,15 @@ class ListFlowDefinitionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ForEachStepMetadataTypeDef(TypedDict):
+    Status: NotRequired[ForEachStatusType]
+    InputItemCount: NotRequired[int]
+    TotalStepCount: NotRequired[int]
+    SucceededStepCount: NotRequired[int]
+    FailedStepCount: NotRequired[int]
+    StoppedStepCount: NotRequired[int]
+    Selector: NotRequired[ForEachSelectorResultTypeDef]
+
 class GetScalingConfigurationRecommendationRequestTypeDef(TypedDict):
     InferenceRecommendationsJobName: str
     RecommendationId: NotRequired[str]
@@ -9942,6 +10057,11 @@ class ListTrainingPlansRequestTypeDef(TypedDict):
     SortBy: NotRequired[TrainingPlanSortByType]
     SortOrder: NotRequired[TrainingPlanSortOrderType]
     Filters: NotRequired[Sequence[TrainingPlanFilterTypeDef]]
+
+class ListTrainingSessionsResponseTypeDef(TypedDict):
+    TrainingSessionSummaries: list[TrainingSessionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ListTransformJobsResponseTypeDef(TypedDict):
     TransformJobSummaries: list[TransformJobSummaryTypeDef]
@@ -10294,6 +10414,9 @@ class TrainingImageConfigTypeDef(TypedDict):
     TrainingRepositoryAccessMode: TrainingRepositoryAccessModeType
     TrainingRepositoryAuthConfig: NotRequired[TrainingRepositoryAuthConfigTypeDef]
 
+class TrainingSessionOutputConfigTypeDef(TypedDict):
+    S3Location: TrainingSessionS3LocationTypeDef
+
 class TransformDataSourceTypeDef(TypedDict):
     S3DataSource: TransformS3DataSourceTypeDef
 
@@ -10550,31 +10673,6 @@ class ModelMetricsTypeDef(TypedDict):
     ModelDataQuality: NotRequired[ModelDataQualityTypeDef]
     Bias: NotRequired[BiasTypeDef]
     Explainability: NotRequired[ExplainabilityTypeDef]
-
-class PipelineExecutionStepMetadataTypeDef(TypedDict):
-    TrainingJob: NotRequired[TrainingJobStepMetadataTypeDef]
-    ProcessingJob: NotRequired[ProcessingJobStepMetadataTypeDef]
-    TransformJob: NotRequired[TransformJobStepMetadataTypeDef]
-    TuningJob: NotRequired[TuningJobStepMetaDataTypeDef]
-    Model: NotRequired[ModelStepMetadataTypeDef]
-    RegisterModel: NotRequired[RegisterModelStepMetadataTypeDef]
-    Condition: NotRequired[ConditionStepMetadataTypeDef]
-    Callback: NotRequired[CallbackStepMetadataTypeDef]
-    Lambda: NotRequired[LambdaStepMetadataTypeDef]
-    EMR: NotRequired[EMRStepMetadataTypeDef]
-    QualityCheck: NotRequired[QualityCheckStepMetadataTypeDef]
-    ClarifyCheck: NotRequired[ClarifyCheckStepMetadataTypeDef]
-    Fail: NotRequired[FailStepMetadataTypeDef]
-    AutoMLJob: NotRequired[AutoMLJobStepMetadataTypeDef]
-    Endpoint: NotRequired[EndpointStepMetadataTypeDef]
-    EndpointConfig: NotRequired[EndpointConfigStepMetadataTypeDef]
-    BedrockCustomModel: NotRequired[BedrockCustomModelMetadataTypeDef]
-    BedrockCustomModelDeployment: NotRequired[BedrockCustomModelDeploymentMetadataTypeDef]
-    BedrockProvisionedModelThroughput: NotRequired[BedrockProvisionedModelThroughputMetadataTypeDef]
-    BedrockModelImport: NotRequired[BedrockModelImportMetadataTypeDef]
-    InferenceComponent: NotRequired[InferenceComponentMetadataTypeDef]
-    Lineage: NotRequired[LineageMetadataTypeDef]
-    Job: NotRequired[JobStepMetadataTypeDef]
 
 class AutoMLCandidateTypeDef(TypedDict):
     CandidateName: str
@@ -10868,6 +10966,35 @@ class ListTrainingJobsForHyperParameterTuningJobResponseTypeDef(TypedDict):
     TrainingJobSummaries: list[HyperParameterTrainingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class PipelineExecutionStepMetadataTypeDef(TypedDict):
+    TrainingJob: NotRequired[TrainingJobStepMetadataTypeDef]
+    ProcessingJob: NotRequired[ProcessingJobStepMetadataTypeDef]
+    TransformJob: NotRequired[TransformJobStepMetadataTypeDef]
+    TuningJob: NotRequired[TuningJobStepMetaDataTypeDef]
+    Model: NotRequired[ModelStepMetadataTypeDef]
+    RegisterModel: NotRequired[RegisterModelStepMetadataTypeDef]
+    Condition: NotRequired[ConditionStepMetadataTypeDef]
+    Callback: NotRequired[CallbackStepMetadataTypeDef]
+    Lambda: NotRequired[LambdaStepMetadataTypeDef]
+    EMR: NotRequired[EMRStepMetadataTypeDef]
+    EMRServerless: NotRequired[EMRServerlessStepMetadataTypeDef]
+    QualityCheck: NotRequired[QualityCheckStepMetadataTypeDef]
+    ClarifyCheck: NotRequired[ClarifyCheckStepMetadataTypeDef]
+    Fail: NotRequired[FailStepMetadataTypeDef]
+    AutoMLJob: NotRequired[AutoMLJobStepMetadataTypeDef]
+    Endpoint: NotRequired[EndpointStepMetadataTypeDef]
+    EndpointConfig: NotRequired[EndpointConfigStepMetadataTypeDef]
+    BedrockCustomModel: NotRequired[BedrockCustomModelMetadataTypeDef]
+    BedrockCustomModelDeployment: NotRequired[BedrockCustomModelDeploymentMetadataTypeDef]
+    BedrockProvisionedModelThroughput: NotRequired[BedrockProvisionedModelThroughputMetadataTypeDef]
+    BedrockModelImport: NotRequired[BedrockModelImportMetadataTypeDef]
+    InferenceComponent: NotRequired[InferenceComponentMetadataTypeDef]
+    Lineage: NotRequired[LineageMetadataTypeDef]
+    Job: NotRequired[JobStepMetadataTypeDef]
+    Athena: NotRequired[AthenaStepMetadataTypeDef]
+    Cleanup: NotRequired[CleanupStepMetadataTypeDef]
+    ForEach: NotRequired[ForEachStepMetadataTypeDef]
 
 HyperParameterTuningResourceConfigUnionTypeDef = Union[
     HyperParameterTuningResourceConfigTypeDef, HyperParameterTuningResourceConfigOutputTypeDef
@@ -11712,6 +11839,34 @@ class AlgorithmSpecificationTypeDef(TypedDict):
     ContainerArguments: NotRequired[Sequence[str]]
     TrainingImageConfig: NotRequired[TrainingImageConfigTypeDef]
 
+class CreateTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
+    LoraConfig: LoraConfigTypeDef
+    RoleArn: str
+    ModelConfig: TrainingSessionModelConfigTypeDef
+    OutputConfig: TrainingSessionOutputConfigTypeDef
+    ModelPackageGroupArn: NotRequired[str]
+    VpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class TrainingSessionDetailTypeDef(TypedDict):
+    TrainingSessionArn: str
+    TrainingSessionName: str
+    TrainingSessionStatus: TrainingSessionStatusType
+    CreationTime: datetime
+    ModelPackageGroupArn: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    ErrorDetails: NotRequired[str]
+    LastReceivedSequenceNumber: NotRequired[int]
+    BillableTokenUsage: NotRequired[BillableTokenUsageTypeDef]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    RoleArn: NotRequired[str]
+    LoraConfig: NotRequired[LoraConfigTypeDef]
+    ModelConfig: NotRequired[TrainingSessionModelConfigTypeDef]
+    OutputConfig: NotRequired[TrainingSessionOutputConfigTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+
 class TransformInputTypeDef(TypedDict):
     DataSource: TransformDataSourceTypeDef
     ContentType: NotRequired[str]
@@ -11908,19 +12063,6 @@ class AutoMLProblemTypeConfigTypeDef(TypedDict):
     TimeSeriesForecastingJobConfig: NotRequired[TimeSeriesForecastingJobConfigTypeDef]
     TabularJobConfig: NotRequired[TabularJobConfigTypeDef]
     TextGenerationJobConfig: NotRequired[TextGenerationJobConfigTypeDef]
-
-class PipelineExecutionStepTypeDef(TypedDict):
-    StepName: NotRequired[str]
-    StepDisplayName: NotRequired[str]
-    StepDescription: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-    StepStatus: NotRequired[StepStatusType]
-    CacheHitResult: NotRequired[CacheHitResultTypeDef]
-    FailureReason: NotRequired[str]
-    Metadata: NotRequired[PipelineExecutionStepMetadataTypeDef]
-    AttemptCount: NotRequired[int]
-    SelectiveExecutionResult: NotRequired[SelectiveExecutionResultTypeDef]
 
 class DescribeAutoMLJobResponseTypeDef(TypedDict):
     AutoMLJobName: str
@@ -12187,6 +12329,20 @@ class SearchRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     CrossAccountFilterOption: NotRequired[CrossAccountFilterOptionType]
     VisibilityConditions: NotRequired[Sequence[VisibilityConditionsTypeDef]]
+
+class PipelineExecutionStepTypeDef(TypedDict):
+    StepName: NotRequired[str]
+    StepDisplayName: NotRequired[str]
+    StepDescription: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    StepStatus: NotRequired[StepStatusType]
+    CacheHitResult: NotRequired[CacheHitResultTypeDef]
+    FailureReason: NotRequired[str]
+    Metadata: NotRequired[PipelineExecutionStepMetadataTypeDef]
+    AttemptCount: NotRequired[int]
+    SelectiveExecutionResult: NotRequired[SelectiveExecutionResultTypeDef]
+    IterationContext: NotRequired[IterationContextTypeDef]
 
 class ListAssociationsResponseTypeDef(TypedDict):
     AssociationSummaries: list[AssociationSummaryTypeDef]
@@ -12717,6 +12873,10 @@ AlgorithmSpecificationUnionTypeDef = Union[
     AlgorithmSpecificationTypeDef, AlgorithmSpecificationOutputTypeDef
 ]
 
+class DescribeTrainingSessionResponseTypeDef(TypedDict):
+    TrainingSessionDetail: TrainingSessionDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateTransformJobRequestTypeDef(TypedDict):
     TransformJobName: str
     ModelName: str
@@ -12943,11 +13103,6 @@ AutoMLProblemTypeConfigUnionTypeDef = Union[
     AutoMLProblemTypeConfigTypeDef, AutoMLProblemTypeConfigOutputTypeDef
 ]
 
-class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
-    PipelineExecutionSteps: list[PipelineExecutionStepTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     CurrentCount: NotRequired[int]
     TargetCount: NotRequired[int]
@@ -13095,6 +13250,11 @@ class ListSpacesResponseTypeDef(TypedDict):
 
 class ListInferenceRecommendationsJobStepsResponseTypeDef(TypedDict):
     Steps: list[InferenceRecommendationsJobStepTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
+    PipelineExecutionSteps: list[PipelineExecutionStepTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

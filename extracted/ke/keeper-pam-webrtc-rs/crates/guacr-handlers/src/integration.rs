@@ -79,7 +79,7 @@ pub async fn handle_guacd_with_handlers(
                 Ok(())
             }
             Err(e) => {
-                error!("Protocol handler failed: {} - {}", protocol_name, e);
+                tracing::error!(target: "guacr_handlers::integration", operation = "lifecycle", outcome = "failed", "Protocol handler failed");
                 Err(e)
             }
         }
@@ -99,17 +99,6 @@ pub async fn handle_guacd_with_handlers(
 
                 // WebRTC -> Handler
                 Some(msg) = from_webrtc.recv() => {
-                    // Log clipboard/blob messages for debugging
-                    let msg_str = String::from_utf8_lossy(&msg);
-                    if msg_str.contains("clipboard") || msg_str.contains("blob") {
-                        debug!("WebRTC->Handler: Forwarding clipboard/blob message: {}",
-                            if msg_str.len() > 200 {
-                                format!("{}...", &msg_str[..200])
-                            } else {
-                                msg_str.to_string()
-                            }
-                        );
-                    }
 
                     if let Err(e) = webrtc_tx.send(msg).await {
                         error!("Failed to send to handler: {}", e);
@@ -132,14 +121,22 @@ pub async fn handle_guacd_with_handlers(
 
     match handler_result {
         Ok(Ok(())) => debug!("Handler task completed successfully"),
-        Ok(Err(e)) => error!("Handler task failed: {}", e),
-        Err(e) => error!("Handler task panicked: {}", e),
+        Ok(Err(_)) => {
+            tracing::error!(target: "guacr_handlers::integration", operation = "lifecycle", outcome = "failed", "Handler task failed")
+        }
+        Err(e) => {
+            tracing::error!(target: "guacr_handlers::integration", operation = "lifecycle", outcome = if e.is_cancelled() { "cancelled" } else { "failed" }, "Handler task ended abnormally")
+        }
     }
 
     match forward_result {
         Ok(Ok(())) => debug!("Forwarding task completed successfully"),
-        Ok(Err(e)) => error!("Forwarding task failed: {}", e),
-        Err(e) => error!("Forwarding task panicked: {}", e),
+        Ok(Err(_)) => {
+            tracing::error!(target: "guacr_handlers::integration", operation = "lifecycle", outcome = "failed", "Forwarding task failed")
+        }
+        Err(e) => {
+            tracing::error!(target: "guacr_handlers::integration", operation = "lifecycle", outcome = if e.is_cancelled() { "cancelled" } else { "failed" }, "Forwarding task ended abnormally")
+        }
     }
 
     info!("Guacd session ended: {}", conversation_type);

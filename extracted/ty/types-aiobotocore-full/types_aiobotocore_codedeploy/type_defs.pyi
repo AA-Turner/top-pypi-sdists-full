@@ -24,6 +24,7 @@ from typing import Union
 from .literals import (
     ApplicationRevisionSortByType,
     AutoRollbackEventType,
+    AutoScalingGroupProcessType,
     BundleTypeType,
     ComputePlatformType,
     DeploymentCreatorType,
@@ -118,6 +119,9 @@ __all__ = (
     "DeploymentTargetTypeDef",
     "DeregisterOnPremisesInstanceInputTypeDef",
     "DiagnosticsTypeDef",
+    "EC2DeploymentOptionsOutputTypeDef",
+    "EC2DeploymentOptionsTypeDef",
+    "EC2DeploymentOptionsUnionTypeDef",
     "EC2TagFilterTypeDef",
     "EC2TagSetOutputTypeDef",
     "EC2TagSetTypeDef",
@@ -360,6 +364,9 @@ class DeleteGitHubAccountTokenInputTypeDef(TypedDict):
 class DeleteResourcesByExternalIdInputTypeDef(TypedDict):
     externalId: NotRequired[str]
 
+class EC2DeploymentOptionsOutputTypeDef(TypedDict):
+    autoScalingGroupProcessesToSuspend: NotRequired[list[AutoScalingGroupProcessType]]
+
 class LastDeploymentInfoTypeDef(TypedDict):
     deploymentId: NotRequired[str]
     status: NotRequired[DeploymentStatusType]
@@ -400,6 +407,9 @@ class DiagnosticsTypeDef(TypedDict):
     scriptName: NotRequired[str]
     message: NotRequired[str]
     logTail: NotRequired[str]
+
+class EC2DeploymentOptionsTypeDef(TypedDict):
+    autoScalingGroupProcessesToSuspend: NotRequired[Sequence[AutoScalingGroupProcessType]]
 
 class TargetGroupInfoTypeDef(TypedDict):
     name: NotRequired[str]
@@ -723,6 +733,10 @@ class LifecycleEventTypeDef(TypedDict):
     endTime: NotRequired[datetime]
     status: NotRequired[LifecycleEventStatusType]
 
+EC2DeploymentOptionsUnionTypeDef = Union[
+    EC2DeploymentOptionsTypeDef, EC2DeploymentOptionsOutputTypeDef
+]
+
 class ECSTaskSetTypeDef(TypedDict):
     identifer: NotRequired[str]
     desiredCount: NotRequired[int]
@@ -997,6 +1011,7 @@ class DeploymentGroupInfoTypeDef(TypedDict):
     onPremisesTagSet: NotRequired[OnPremisesTagSetOutputTypeDef]
     computePlatform: NotRequired[ComputePlatformType]
     ecsServices: NotRequired[list[ECSServiceTypeDef]]
+    ec2DeploymentOptions: NotRequired[EC2DeploymentOptionsOutputTypeDef]
     terminationHookEnabled: NotRequired[bool]
 
 class DeploymentInfoTypeDef(TypedDict):
@@ -1031,6 +1046,7 @@ class DeploymentInfoTypeDef(TypedDict):
     externalId: NotRequired[str]
     relatedDeployments: NotRequired[RelatedDeploymentsTypeDef]
     overrideAlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
+    ec2DeploymentOptions: NotRequired[EC2DeploymentOptionsOutputTypeDef]
 
 LoadBalancerInfoUnionTypeDef = Union[LoadBalancerInfoTypeDef, LoadBalancerInfoOutputTypeDef]
 
@@ -1051,6 +1067,7 @@ class CreateDeploymentInputTypeDef(TypedDict):
     fileExistsBehavior: NotRequired[FileExistsBehaviorType]
     deploymentMode: NotRequired[DeploymentModeType]
     overrideAlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
+    ec2DeploymentOptions: NotRequired[EC2DeploymentOptionsUnionTypeDef]
 
 class BatchGetDeploymentTargetsOutputTypeDef(TypedDict):
     deploymentTargets: list[DeploymentTargetTypeDef]
@@ -1096,6 +1113,7 @@ class CreateDeploymentGroupInputTypeDef(TypedDict):
     ecsServices: NotRequired[Sequence[ECSServiceTypeDef]]
     onPremisesTagSet: NotRequired[OnPremisesTagSetUnionTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
+    ec2DeploymentOptions: NotRequired[EC2DeploymentOptionsUnionTypeDef]
     terminationHookEnabled: NotRequired[bool]
 
 class UpdateDeploymentGroupInputTypeDef(TypedDict):
@@ -1117,4 +1135,5 @@ class UpdateDeploymentGroupInputTypeDef(TypedDict):
     ec2TagSet: NotRequired[EC2TagSetUnionTypeDef]
     ecsServices: NotRequired[Sequence[ECSServiceTypeDef]]
     onPremisesTagSet: NotRequired[OnPremisesTagSetUnionTypeDef]
+    ec2DeploymentOptions: NotRequired[EC2DeploymentOptionsUnionTypeDef]
     terminationHookEnabled: NotRequired[bool]

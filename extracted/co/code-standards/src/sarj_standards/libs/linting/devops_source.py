@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from sarj_standards.libs.linting.devops_tools import NativeTool
+    from sarj_standards.libs.linting.policy import Policy
 
 SUPPORTED: Final = frozenset({"actionlint", "hadolint", "terraform", "tflint", "compose"})
 _ACTION_FORMAT: Final = "{{json .}}"
@@ -44,7 +46,7 @@ class SourcePaths:
     workflows: tuple[Path, ...]
     dockerfiles: tuple[Path, ...]
     terraform: tuple[Path, ...]
-    compose: tuple[Path, ...]
+    terraform_format: tuple[Path, ...]
 
 
 def analyze_sources(
@@ -56,6 +58,8 @@ def analyze_sources(
     runner: ProcessRunner = run_process,
     compose_version: str | None = None,
     shared_shellcheck: bool = False,
+    scope: tuple[str, ...] | None = None,
+    policy: Policy | None = None,
 ) -> tuple[ToolReport, ...]:
     root = root.resolve()
     sources = _select_sources(root, paths)
@@ -81,12 +85,20 @@ def analyze_sources(
                 runner=runner,
             )
         )
-    if "terraform" in selected and sources.terraform:
-        reports.extend(_terraform_reports(root, sources.terraform, runner, trust_repository_code=trust_repository_code))
+    if "terraform" in selected and (sources.terraform or sources.terraform_format):
+        reports.extend(
+            _terraform_reports(
+                root,
+                sources.terraform,
+                runner,
+                formatting_paths=sources.terraform_format,
+                trust_repository_code=trust_repository_code,
+            )
+        )
     if "tflint" in selected and sources.terraform:
         reports.extend(_tflint_reports(root, sources.terraform, runner, trust_repository_code=trust_repository_code))
     if "compose" in selected:
-        reports.extend(_compose_reports(root, sources.compose, runner, version=compose_version))
+        reports.extend(_compose_reports(root, paths, runner, version=compose_version, scope=scope, policy=policy))
     return tuple(reports)
 
 
@@ -109,25 +121,64 @@ def _select_sources(root: Path, paths: tuple[str, ...]) -> SourcePaths:
             )
         ),
         terraform=tuple(path for path in inputs if path.suffix == ".tf" or path.name.endswith(".tf.json")),
-        compose=tuple(
-            path
-            for path in inputs
-            if path.name in {"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"}
-        ),
+        terraform_format=tuple(path for path in inputs if path.name.endswith((".tf", ".tfvars", ".tftest.hcl"))),
     )
 
 
 def _compose_reports(
-    root: Path, paths: tuple[Path, ...], runner: ProcessRunner, *, version: str | None
+    root: Path,
+    paths: tuple[str, ...],
+    runner: ProcessRunner,
+    *,
+    version: str | None,
+    scope: tuple[str, ...] | None,
+    policy: Policy | None,
 ) -> tuple[ToolReport, ...]:
-    if not paths:
+    if not paths and not scope:
         return ()
-    if version is None:
-        from sarj_standards.libs.adoption import manifest  # ruff: ignore[import-outside-top-level] -- resolve the consumer contract after adoption initialization.
+    from sarj_standards.libs.adoption import manifest  # ruff: ignore[import-outside-top-level] -- resolve the consumer contract after adoption initialization.
 
+    try:
         adopted = manifest.load(root)
-        version = None if adopted is None else adopted.compose_version
-    return tuple(_compose_report(root, path, runner, version=version) for path in paths)
+        declared = () if adopted is None else adopted.compose_projects
+        if version is None and adopted is not None:
+            version = adopted.compose_version
+        projects = _compose_inputs(root, paths, declared, scope=scope, policy=policy)
+    except (OSError, ValueError) as error:
+        return (_failed("compose-static", error, len(paths)),)
+    return tuple(_compose_report(root, project, runner, version=version) for project in projects)
+
+
+def _compose_inputs(
+    root: Path,
+    paths: tuple[str, ...],
+    declared: tuple[tuple[str, ...], ...],
+    *,
+    scope: tuple[str, ...] | None,
+    policy: Policy | None,
+) -> tuple[tuple[Path, ...], ...]:
+    scopes = tuple((root / name).resolve() for name in (paths if scope is None else scope))
+    members: set[Path] = set()
+    projects: list[tuple[Path, ...]] = []
+    for files in declared:
+        project = tuple((root / name).resolve() for name in files)
+        members.update(project)
+        if _compose_selected(project, scopes, policy=policy):
+            projects.append(tuple(_contained(root, name) for name in files))
+    projects.extend(
+        (path,)
+        for path in sorted({(root / name).resolve() for name in paths} - members)
+        if path.name in {"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"}
+    )
+    return tuple(projects)
+
+
+def _compose_selected(project: tuple[Path, ...], scopes: tuple[Path, ...], *, policy: Policy | None) -> bool:
+    return any(
+        (policy is None or policy.allows_path(path))
+        and any(path == selected or (selected.is_dir() and path.is_relative_to(selected)) for selected in scopes)
+        for path in project
+    )
 
 
 def _actionlint_report(
@@ -350,10 +401,14 @@ def _project_inputs(paths: tuple[Path, ...]) -> tuple[tuple[Path, tuple[Path, ..
 
 
 def _terraform_reports(
-    root: Path, paths: tuple[Path, ...], runner: ProcessRunner, *, trust_repository_code: bool
+    root: Path,
+    paths: tuple[Path, ...],
+    runner: ProcessRunner,
+    *,
+    formatting_paths: tuple[Path, ...],
+    trust_repository_code: bool,
 ) -> tuple[ToolReport, ...]:
     reports: list[ToolReport] = []
-    formatting_paths = tuple(path for path in paths if path.suffix == ".tf")
     try:  # ruff: ignore[too-many-statements-in-try-clause] -- one boundary owns read-only formatting protocol.
         tool = checked_tool("terraform", root=root, runner=runner)
         output = (
@@ -450,15 +505,26 @@ def _tflint_report(root: Path, project: Path, paths: tuple[Path, ...], runner: P
     )
 
 
-def _compose_report(root: Path, path: Path, runner: ProcessRunner, *, version: str | None) -> ToolReport:
+def _compose_report(root: Path, paths: tuple[Path, ...], runner: ProcessRunner, *, version: str | None) -> ToolReport:
     try:  # ruff: ignore[too-many-statements-in-try-clause] -- one boundary owns static Compose output coverage.
         if version is None:
             message = "Compose static validation requires an explicit manifest [devops].compose_version consumer pin"
             raise NativeToolError(message)
         tool = checked_tool("docker", root=root, runner=runner, expected_version=version)
+        files = tuple(argument for path in paths for argument in ("-f", str(path)))
         output = invoke(
             replace(tool, finding_exits=frozenset()),
-            ("compose", "-f", str(path), "config", "--no-interpolate", "--no-env-resolution", "--format", "json"),
+            (
+                "compose",
+                "--env-file",
+                os.devnull,
+                *files,
+                "config",
+                "--no-interpolate",
+                "--no-env-resolution",
+                "--format",
+                "json",
+            ),
             root=root,
             runner=runner,
         )
@@ -466,9 +532,9 @@ def _compose_report(root: Path, path: Path, runner: ProcessRunner, *, version: s
         if not is_object_mapping(report.get("services")):
             message = "Compose static output must contain a services mapping"
             raise NativeToolError(message)
-        return ToolReport("compose-static", Completion.COMPLETE, version=tool.version, file_count=1)
+        return ToolReport("compose-static", Completion.COMPLETE, version=tool.version, file_count=len(paths))
     except (OSError, ValueError, subprocess.SubprocessError) as error:
-        return _failed("compose-static", error, 1)
+        return _failed("compose-static", error, len(paths))
 
 
 def _diagnostic(

@@ -41,10 +41,12 @@ class BatchModel(BaseModel):
     batch_id: Optional[StrictStr] = Field(default=None, description="OPTIONAL (auto-generated if not provided). Unique identifier for this batch. Format: 'btch_' prefix followed by 12-character secure token. Generated using generate_secure_token() from shared.utilities.helpers. Used to query batch status and track processing across tiers. Immutable after creation.")
     bucket_id: StrictStr = Field(description="REQUIRED. Unique identifier of the bucket containing the objects to process. Must be a valid bucket ID that exists in the system. All object_ids must belong to this bucket. Format: Bucket ID as defined when bucket was created.")
     namespace_id: Optional[StrictStr] = Field(default=None, description="Namespace this batch belongs to. Stored at creation time.")
+    batch_name: Optional[Annotated[str, Field(strict=True, max_length=256)]] = Field(default=None, description="OPTIONAL. Human-readable name given when the batch was created. Not unique; batch_id identifies the batch.")
     status: Optional[TaskStatusEnum] = Field(default=None, description="OPTIONAL (defaults to DRAFT). Current processing status of the batch. Lifecycle: DRAFT → PENDING → IN_PROGRESS → COMPLETED/FAILED. DRAFT: Batch created but not yet submitted. PENDING: Batch submitted and queued for processing. IN_PROGRESS: Batch currently processing (one or more tiers active). COMPLETED: All tiers successfully completed. FAILED: One or more tiers failed. Aggregated from tier_tasks statuses during multi-tier processing.")
-    queue_context: Optional[Dict[str, Any]] = Field(default=None, description="Populated on GET while the batch is PENDING/PROCESSING: how many earlier active batches are ahead in this namespace's queue and how long this batch has been waiting, so an in-flight status is never opaque.")
+    queue_context: Optional[Dict[str, Any]] = Field(default=None, description="The batch's wait for a processing slot. While the batch is PENDING/PROCESSING, a GET adds how many earlier active batches are ahead in this namespace's queue (batches_ahead) and its age (waiting_seconds). Once a batch that queued is admitted, the record keeps the wait for good: waited_seconds (total seconds spent queued, across tiers), reason (why it waited) and admitted_at; queued_at is set while it is waiting.")
     object_ids: Optional[Annotated[List[StrictStr], Field(min_length=0)]] = Field(default=None, description="List of object IDs to include in this batch. All objects must exist in the specified bucket_id. These objects are the source data for tier 0 processing. Collection-sourced batches may have empty object_ids. Objects are processed in parallel within each tier.")
     dedup_strategy: Optional[DedupStrategy] = Field(default=None, description="Controls how objects already processed in prior batches are handled. Scoped to (bucket, collection). 'skip': Don't reprocess objects that already have documents. 'replace': Delete existing documents and reprocess. 'force': Process regardless, allowing duplicates.")
+    effective_dedup_strategy: Optional[DedupStrategy] = Field(default=None, description="The dedup strategy the batch actually ran with, when it differs from dedup_strategy. Set when the organization's spend policy blocks re-extraction, so a requested 'replace' or 'force' runs as 'skip'; progress.status_warnings carries the reason. Read-only, null when the requested strategy ran.")
     submitted_by_key_id: Optional[StrictStr] = Field(default=None, description="key_id of the API key that submitted this batch, resolved server-side at creation. None for async/system-created batches with no request actor context. Audit only.")
     submitted_by_key_prefix: Optional[StrictStr] = Field(default=None, description="Display prefix of the submitting API key. Audit only.")
     submitted_by_is_internal: Optional[StrictBool] = Field(default=None, description="Whether the submitting key was server-verified internal AT SUBMIT TIME. None = no actor context (unattributable); never used for billing decisions (those read the live key marker).")
@@ -55,7 +57,9 @@ class BatchModel(BaseModel):
     error_summary: Optional[Dict[str, StrictInt]] = Field(default=None, description="OPTIONAL. Aggregated summary of errors across ALL tiers in the batch. Maps error_type (category) to total count of affected DOCUMENTS across all tiers. None has THREE causes, not two: the batch succeeded, it is still processing, OR a tier FAILED AT TIER LEVEL and wrote zero documents, so no individual document carries an error and this histogram is legitimately empty. So None does NOT mean 'no errors', and None alongside COMPLETED_WITH_ERRORS is NOT a contradiction — read `failure_reason` and `tier_tasks[].error` for tier-level diagnosis. Provides quick batch-wide overview of error distribution. Example: {'dependency': 15, 'authentication': 25, 'validation': 5} means across all tiers, 15 documents failed with dependency errors, 25 with auth errors, 5 with validation errors. Automatically aggregated from tier_tasks[].error_summary. Used for batch health dashboard and error trend analysis.")
     failure_category: Optional[FailureCategory] = Field(default=None, description="OPTIONAL. Machine-readable classification of the batch failure. None if batch succeeded or is still processing. Auto-derived from `failure_reason` if not explicitly set, so existing writers that only populate `failure_reason` still get a category on read. Categories: timeout (stall/no-progress), infrastructure (OOM, workers died, spot preemption), orphaned (RayJob CRD gone), pipeline (genuine extractor/pipeline failure), validation (submission/schema errors), unknown (uncategorized). Use this instead of parsing failure_reason.")
     failed_objects: Optional[List[FailedObjectRecord]] = Field(default=None, description="OPTIONAL. List of per-object failure records from batch processing. Populated when individual objects fail while others succeed. Each record includes the object_id, error message, error classification (transient/permanent/resource), and timestamp. When this list is non-empty and some objects succeeded, batch status is COMPLETED_WITH_ERRORS. Enables targeted resubmission of only failed objects.")
-    failed_object_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="OPTIONAL. Count of objects that failed during batch processing. Shorthand for len(failed_objects). Stored separately for efficient queries and sorting without loading full failed_objects array.")
+    failed_object_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="OPTIONAL. Count of objects that failed during batch processing and wrote no documents (an object whose documents were written but one feature failed is in partial_objects instead). Shorthand for len(failed_objects). Stored separately for efficient queries and sorting without loading full failed_objects array.")
+    partial_objects: Optional[List[Dict[str, Any]]] = Field(default=None, description="Objects that wrote documents while one of their features failed, for example a transcription error on a video whose scenes, descriptions and embeddings were written. Each entry carries the object_id, the error and missing_feature, the feature the object has no documents for. These objects are searchable and are not counted in failed_object_count.")
+    partial_object_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Number of objects in partial_objects.")
     unaccounted_object_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Objects that produced NEITHER a document NOR a failure entry — the per-tier balance audits' summed `lost` (submitted - processed - failed - skipped), rolled up at completion so the gap is STATED on the record instead of inferred by subtraction. None when every submitted object is accounted for; per-tier detail lives at tier_tasks[].audit.")
     type: Optional[BatchType] = Field(default=None, description="OPTIONAL (defaults to BUCKET). Type of batch. BUCKET: Standard batch processing bucket objects through collections. COLLECTION: Reserved for future collection-only batch processing. Currently only BUCKET type is supported.")
     manifest_key: Optional[StrictStr] = Field(default=None, description="OPTIONAL. S3 key where the batch manifest is stored. Contains metadata and row data (Parquet) for Engine processing. For tier 0, points to bucket object manifest. For tier N+, points to collection document manifest. Format: S3 path (e.g., 'namespace_id/internal_id/manifests/tier_0.parquet'). Generated during batch submission.")
@@ -70,10 +74,12 @@ class BatchModel(BaseModel):
     created_at: Optional[datetime] = Field(default=None, description="OPTIONAL (auto-set on creation). ISO 8601 timestamp when batch was created. Set using current_time() from shared.utilities.helpers. Immutable after creation. Used for batch age tracking and cleanup of old batches.")
     progress: Optional[BatchProgress] = Field(default=None, description="OPTIONAL. Live progress snapshot updated approximately every 10 seconds while the batch is IN_PROGRESS. Written by the Ray ProgressActor inside the engine job. None when status is DRAFT or PENDING (job not started), or after COMPLETED/FAILED. Use this to show real-time progress bars: processed/total objects, percent complete, throughput (items_per_second), and estimated time remaining (eta_seconds).")
     documents_written: Optional[StrictInt] = Field(default=None, description="OPTIONAL. Read-time aggregate of documents_written from tier_tasks and extractor_jobs. None means the completion callback has not reported write accounting yet.")
+    documents_replaced: Optional[StrictInt] = Field(default=None, description="OPTIONAL. For dedup_strategy replace: documents this batch wrote for the objects it replaced, summed over its tiers. Absent when the batch is not a replace.")
+    documents_deleted: Optional[StrictInt] = Field(default=None, description="OPTIONAL. For dedup_strategy replace: the replaced objects' existing documents removed after the new ones were written, summed over its tiers. A failed or cancelled batch removes none. Absent when the batch is not a replace.")
     pages_dropped: Optional[StrictInt] = Field(default=None, description="OPTIONAL. Read-time aggregate of pages NOT indexed across extractor jobs — multi-page inputs (PDFs) capped by max_document_pages or dropped by per-page failures. Only present when > 0: a COMPLETED batch with pages_dropped > 0 indexed its inputs PARTIALLY. See pages_dropped_reasons; raise the collection's max_document_pages to index more pages.")
     pages_dropped_reasons: Optional[Dict[str, StrictInt]] = Field(default=None, description="OPTIONAL. Read-time aggregate of dropped-page counts by reason: max_document_pages_cap (input exceeded the collection's max_document_pages) or page_processing_failure (per-page extract/embed errors).")
-    segments_dropped: Optional[StrictInt] = Field(default=None, description="OPTIONAL. Read-time aggregate of video segments NOT indexed across extractor jobs — videos capped by max_video_segments. Only present when > 0: a COMPLETED batch with segments_dropped > 0 indexed its videos PARTIALLY. See segments_dropped_reasons; raise max_video_segments to cover more of each video.")
-    segments_dropped_reasons: Optional[Dict[str, StrictInt]] = Field(default=None, description="OPTIONAL. Read-time aggregate of dropped-segment counts by reason: config_cap_max_video_segments (video exceeded the collection's max_video_segments).")
+    segments_dropped: Optional[StrictInt] = Field(default=None, description="OPTIONAL. Read-time aggregate of video segments NOT indexed across extractor jobs. Only present when > 0: a COMPLETED batch with segments_dropped > 0 indexed its videos PARTIALLY. segments_dropped_reasons says why: for config_cap_max_video_segments, raise max_video_segments to cover more of each video; segment_embedding_failure segments were not written because their embedding failed, which raising max_video_segments does not recover.")
+    segments_dropped_reasons: Optional[Dict[str, StrictInt]] = Field(default=None, description="OPTIONAL. Read-time aggregate of dropped-segment counts by reason: config_cap_max_video_segments (video exceeded the collection's max_video_segments) or segment_embedding_failure (a segment's embedding failed, so the segment was not written).")
     status_diagnostics: Optional[Dict[str, Any]] = Field(default=None, description="Read-time diagnostics explaining terminal status, error indicators, and document-write accounting.")
     documents_resolvable: Optional[StrictBool] = Field(default=False, description="ALWAYS PRESENT. True only after the server CONFIRMED this terminal batch's just-written documents are actually queryable via the filtered document get path: a confirmation, never a prediction, timestamp, or elapsed time. A COMPLETED batch with documents_resolvable=false is still finalizing: its documents may 404 on direct GET even though they are durable (Studio renders status==COMPLETED && documents_resolvable==false as a 'Finalizing, indexing your results' state and keeps polling). Batches created before the feature shipped emit true (historical, long since resolvable); post-ship batches with no stored value emit false (fail toward not-ready). If the bounded post-completion confirm cannot succeed, documents_resolvable_error is set and this flag stays false.")
     documents_resolvable_error: Optional[StrictStr] = Field(default=None, description="Terminal failure signal for the bounded resolvability confirm. Set when the post-completion confirm loop could not confirm this batch's documents were queryable within its bound, the case where documents may NEVER become resolvable. When set, documents_resolvable stays false and will not flip: stop polling and surface a 'taking longer than expected' state instead of a spinner. Null while the confirm is pending or after it succeeded.")
@@ -84,12 +90,18 @@ class BatchModel(BaseModel):
     max_retries: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=3, description="OPTIONAL (defaults to 3). Maximum number of automatic retries for transient failures. When retry_count reaches max_retries, the batch stays in FAILED state. Only transient/infrastructure failures trigger retries — validation and data errors do not.")
     last_retry_at: Optional[datetime] = Field(default=None, description="OPTIONAL. ISO 8601 timestamp of the most recent auto-retry attempt. None if the batch has never been retried. Used to calculate exponential backoff for subsequent retries.")
     retry_reason: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Human-readable reason for the most recent auto-retry. None if the batch has never been retried. Describes the transient failure that triggered the retry (e.g., 'Spot node preempted', 'Ray actor died', 'OOM killed').")
+    node_death_resubmit_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="OPTIONAL (defaults to 0). Number of times Mixpeek resubmitted this batch on its own after its job was lost to node loss (a spot preemption, a node that died, or the job reaped for its resources). Each resubmit resumes from the objects already finished, so completed work is not re-extracted. Compare with max_node_death_resubmits to see how many automatic resubmits remain.")
+    deploy_resubmit_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="OPTIONAL (defaults to 0). Number of times Mixpeek resubmitted this batch on its own after an engine deploy interrupted its job. Compare with max_deploy_resubmits to see how many automatic resubmits remain.")
     quota_block_first_seen_at: Optional[datetime] = Field(default=None, description="OPTIONAL. Set the first time this batch's Ray submission hit a quota-exhaustion or engine-deploy-lock gate (K8s admission 429/503), and cleared once a submission succeeds or the block's requeue window expires. Distinct from retry_count/last_retry_at above, which track the transient-infrastructure-failure retry mechanism (worker died, OOM, spot preemption) rather than this pre-submission gate. Used to bound the requeue loop to a fixed wall-clock window instead of retrying indefinitely.")
     webhook_url: Optional[StrictStr] = Field(default=None, description="OPTIONAL. URL to receive an HTTP POST notification when the batch reaches a terminal state (COMPLETED, FAILED, or CANCELED). Set at submit time via SubmitBatchRequest. The webhook is fire-and-forget: delivery failures are logged but never affect batch processing.")
     updated_at: Optional[datetime] = Field(default=None, description="OPTIONAL (auto-updated). ISO 8601 timestamp when batch was last modified. Updated using current_time() whenever batch status or tier_tasks change. Used to track batch activity and identify stale batches.")
     status_message: Optional[StrictStr] = Field(default=None, description="COMPUTED. Human-readable description of the current batch state. Examples: 'Processing 724/50,000 objects (1.4%)', 'Queued — 2 batches ahead', 'Completed in 5m 23s', 'Loading model (stage 1/3)'. Computed on read, not stored in the database.")
     estimated_completion: Optional[datetime] = Field(default=None, description="COMPUTED. Estimated completion timestamp based on current throughput. Derived from progress.eta_seconds + now. None if throughput data is unavailable. Computed on read, not stored in the database.")
-    __properties: ClassVar[List[str]] = ["batch_id", "bucket_id", "namespace_id", "status", "queue_context", "object_ids", "dedup_strategy", "submitted_by_key_id", "submitted_by_key_prefix", "submitted_by_is_internal", "dedup_audit", "collection_ids", "error", "failure_reason", "error_summary", "failure_category", "failed_objects", "failed_object_count", "unaccounted_object_count", "type", "manifest_key", "task_id", "loaded_object_ids", "internal_metadata", "metadata", "tier_tasks", "current_tier", "total_tiers", "dag_tiers", "created_at", "progress", "documents_written", "pages_dropped", "pages_dropped_reasons", "segments_dropped", "segments_dropped_reasons", "status_diagnostics", "documents_resolvable", "documents_resolvable_error", "health", "cost", "last_activity_at", "retry_count", "max_retries", "last_retry_at", "retry_reason", "quota_block_first_seen_at", "webhook_url", "updated_at", "status_message", "estimated_completion"]
+    max_node_death_resubmits: StrictInt = Field(description="Most times Mixpeek resubmits a batch on its own after node loss. Once node_death_resubmit_count reaches this number, Mixpeek stops resubmitting and the batch needs a manual resubmit.")
+    max_deploy_resubmits: StrictInt = Field(description="Most times Mixpeek resubmits a batch on its own after an engine deploy interrupted it. Once deploy_resubmit_count reaches this number, Mixpeek stops resubmitting and the batch needs a manual resubmit.")
+    lifecycle: Optional[StrictStr] = Field(description="Where the batch is in its life, one word: 'accepted' (created, not submitted), 'queued' (submitted, waiting for a processing slot), 'admitted' (has a slot, the extraction job has not started), 'extracting' (the extraction job is running), 'indexed' (finished, documents written), 'failed' or 'canceled'. status alone reads PENDING for both queued and admitted batches; this field tells them apart. lifecycle_reason says why the batch is where it is.")
+    lifecycle_reason: Optional[StrictStr] = Field(description="Why the batch is in its current lifecycle state, in a sentence: the queue reason while queued, the failure reason once failed. Null when there is nothing to add.")
+    __properties: ClassVar[List[str]] = ["batch_id", "bucket_id", "namespace_id", "batch_name", "status", "queue_context", "object_ids", "dedup_strategy", "effective_dedup_strategy", "submitted_by_key_id", "submitted_by_key_prefix", "submitted_by_is_internal", "dedup_audit", "collection_ids", "error", "failure_reason", "error_summary", "failure_category", "failed_objects", "failed_object_count", "partial_objects", "partial_object_count", "unaccounted_object_count", "type", "manifest_key", "task_id", "loaded_object_ids", "internal_metadata", "metadata", "tier_tasks", "current_tier", "total_tiers", "dag_tiers", "created_at", "progress", "documents_written", "documents_replaced", "documents_deleted", "pages_dropped", "pages_dropped_reasons", "segments_dropped", "segments_dropped_reasons", "status_diagnostics", "documents_resolvable", "documents_resolvable_error", "health", "cost", "last_activity_at", "retry_count", "max_retries", "last_retry_at", "retry_reason", "node_death_resubmit_count", "deploy_resubmit_count", "quota_block_first_seen_at", "webhook_url", "updated_at", "status_message", "estimated_completion", "max_node_death_resubmits", "max_deploy_resubmits", "lifecycle", "lifecycle_reason"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -121,8 +133,16 @@ class BatchModel(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
+            "max_node_death_resubmits",
+            "max_deploy_resubmits",
+            "lifecycle",
+            "lifecycle_reason",
         ])
 
         _dict = self.model_dump(
@@ -153,6 +173,16 @@ class BatchModel(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of cost
         if self.cost:
             _dict['cost'] = self.cost.to_dict()
+        # set to None if lifecycle (nullable) is None
+        # and model_fields_set contains the field
+        if self.lifecycle is None and "lifecycle" in self.model_fields_set:
+            _dict['lifecycle'] = None
+
+        # set to None if lifecycle_reason (nullable) is None
+        # and model_fields_set contains the field
+        if self.lifecycle_reason is None and "lifecycle_reason" in self.model_fields_set:
+            _dict['lifecycle_reason'] = None
+
         return _dict
 
     @classmethod
@@ -168,10 +198,12 @@ class BatchModel(BaseModel):
             "batch_id": obj.get("batch_id"),
             "bucket_id": obj.get("bucket_id"),
             "namespace_id": obj.get("namespace_id"),
+            "batch_name": obj.get("batch_name"),
             "status": obj.get("status"),
             "queue_context": obj.get("queue_context"),
             "object_ids": obj.get("object_ids"),
             "dedup_strategy": obj.get("dedup_strategy"),
+            "effective_dedup_strategy": obj.get("effective_dedup_strategy"),
             "submitted_by_key_id": obj.get("submitted_by_key_id"),
             "submitted_by_key_prefix": obj.get("submitted_by_key_prefix"),
             "submitted_by_is_internal": obj.get("submitted_by_is_internal"),
@@ -183,6 +215,8 @@ class BatchModel(BaseModel):
             "failure_category": obj.get("failure_category"),
             "failed_objects": [FailedObjectRecord.from_dict(_item) for _item in obj["failed_objects"]] if obj.get("failed_objects") is not None else None,
             "failed_object_count": obj.get("failed_object_count") if obj.get("failed_object_count") is not None else 0,
+            "partial_objects": obj.get("partial_objects"),
+            "partial_object_count": obj.get("partial_object_count"),
             "unaccounted_object_count": obj.get("unaccounted_object_count"),
             "type": obj.get("type"),
             "manifest_key": obj.get("manifest_key"),
@@ -197,6 +231,8 @@ class BatchModel(BaseModel):
             "created_at": obj.get("created_at"),
             "progress": BatchProgress.from_dict(obj["progress"]) if obj.get("progress") is not None else None,
             "documents_written": obj.get("documents_written"),
+            "documents_replaced": obj.get("documents_replaced"),
+            "documents_deleted": obj.get("documents_deleted"),
             "pages_dropped": obj.get("pages_dropped"),
             "pages_dropped_reasons": obj.get("pages_dropped_reasons"),
             "segments_dropped": obj.get("segments_dropped"),
@@ -211,11 +247,17 @@ class BatchModel(BaseModel):
             "max_retries": obj.get("max_retries") if obj.get("max_retries") is not None else 3,
             "last_retry_at": obj.get("last_retry_at"),
             "retry_reason": obj.get("retry_reason"),
+            "node_death_resubmit_count": obj.get("node_death_resubmit_count") if obj.get("node_death_resubmit_count") is not None else 0,
+            "deploy_resubmit_count": obj.get("deploy_resubmit_count") if obj.get("deploy_resubmit_count") is not None else 0,
             "quota_block_first_seen_at": obj.get("quota_block_first_seen_at"),
             "webhook_url": obj.get("webhook_url"),
             "updated_at": obj.get("updated_at"),
             "status_message": obj.get("status_message"),
-            "estimated_completion": obj.get("estimated_completion")
+            "estimated_completion": obj.get("estimated_completion"),
+            "max_node_death_resubmits": obj.get("max_node_death_resubmits"),
+            "max_deploy_resubmits": obj.get("max_deploy_resubmits"),
+            "lifecycle": obj.get("lifecycle"),
+            "lifecycle_reason": obj.get("lifecycle_reason")
         })
         return _obj
 

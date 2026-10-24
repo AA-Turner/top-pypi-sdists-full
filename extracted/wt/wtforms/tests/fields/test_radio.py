@@ -1,6 +1,7 @@
 from tests.common import DummyPostData
 from wtforms import validators
 from wtforms.fields import RadioField
+from wtforms.fields.choices import SelectChoice
 from wtforms.form import Form
 
 
@@ -9,10 +10,14 @@ def make_form(name="F", **fields):
 
 
 class F(Form):
-    a = RadioField(choices=[("a", "hello"), ("b", "bye")], default="a")
-    b = RadioField(choices=[(1, "Item 1"), (2, "Item 2")], coerce=int)
+    a = RadioField(
+        choices=[SelectChoice("a", "hello"), SelectChoice("b", "bye")], default="a"
+    )
+    b = RadioField(
+        choices=[SelectChoice(1, "Item 1"), SelectChoice(2, "Item 2")], coerce=int
+    )
     c = RadioField(
-        choices=[("a", "Item 1"), ("b", "Item 2")],
+        choices=[SelectChoice("a", "Item 1"), SelectChoice("b", "Item 2")],
         validators=[validators.InputRequired()],
     )
 
@@ -22,6 +27,7 @@ def test_radio_field():
     assert form.a.data == "a"
     assert form.b.data is None
     assert form.validate() is False
+    assert form.a.label() == "<label>A</label>"
     assert form.a() == (
         '<ul id="a">'
         '<li><input checked id="a-0" name="a" type="radio" value="a"> '
@@ -44,11 +50,16 @@ def test_radio_field():
     ]
 
 
+def test_radio_field_label_for_can_be_overridden():
+    form = F()
+    assert form.a.label(for_="custom-id") == '<label for="custom-id">A</label>'
+
+
 def test_text_coercion():
     # Regression test for text coercion scenarios where the value is a boolean.
     F = make_form(
         a=RadioField(
-            choices=[(True, "yes"), (False, "no")],
+            choices=[SelectChoice(True, "yes"), SelectChoice(False, "no")],
             coerce=lambda x: False if x == "False" else bool(x),
         )
     )
@@ -65,7 +76,7 @@ def test_text_coercion():
 
 def test_callable_choices():
     def choices():
-        return [("a", "hello"), ("b", "bye")]
+        return [SelectChoice("a", "hello"), SelectChoice("b", "bye")]
 
     class F(Form):
         a = RadioField(choices=choices, default="a")
@@ -106,7 +117,8 @@ def test_required_validator():
 def test_render_kw_preserved():
     F = make_form(
         a=RadioField(
-            choices=[(True, "yes"), (False, "no")], render_kw=dict(disabled=True)
+            choices=[SelectChoice(True, "yes"), SelectChoice(False, "no")],
+            render_kw=dict(disabled=True),
         )
     )
     form = F()
@@ -117,3 +129,20 @@ def test_render_kw_preserved():
         '<input disabled id="a-1" name="a" type="radio" value="False"> '
         '<label for="a-1">no</label></li></ul>'
     )
+
+
+def test_callable_choices_are_lazy():
+    """The callable runs on the first read and its result is cached."""
+    calls = {"n": 0}
+
+    def choices(form, field):
+        calls["n"] += 1
+        return ["a", "b"]
+
+    F = make_form(a=RadioField(choices=choices))
+    form = F(DummyPostData(a=["a"]))
+    assert calls["n"] == 0
+
+    assert form.validate()
+    assert 'value="b"' in form.a()
+    assert calls["n"] == 1

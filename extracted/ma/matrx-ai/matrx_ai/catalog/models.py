@@ -99,6 +99,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from matrx_graph.content_ir.model import KindSubModel
 from pydantic import BaseModel, ConfigDict, RootModel, model_validator
 
 from matrx_ai.providers.resolved_capabilities import ResolvedModelCapabilities
@@ -115,14 +116,26 @@ AliasKind = Literal["alias", "deprecated", "latest"]
 ApiTransport = Literal["sdk", "http", "websocket"]
 
 
-class ClampSpec(BaseModel):
+class _RuleMap(KindSubModel):
+    """Open metadata maps that accept a root kind marker without claiming a kind."""
+
+    model_config = ConfigDict(
+        extra="allow",
+        frozen=True,
+        populate_by_name=False,
+        validate_by_alias=True,
+        validate_by_name=False,
+    )
+
+
+class ClampSpec(KindSubModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     min: float | None = None
     max: float | None = None
 
 
-class OffSpec(BaseModel):
+class OffSpec(KindSubModel):
     """K6 ``off`` — how an intensity setting's explicit OFF reaches the wire,
     distinct from UNSET. Exactly one form: ``{"send": <provider value>}``,
     ``{"floor": true}`` (the nearest-lowest value the model accepts) or
@@ -156,7 +169,7 @@ class OffSpec(BaseModel):
         return self
 
 
-class FromNumberStep(BaseModel):
+class FromNumberStep(KindSubModel):
     """One K6 ``from_number`` cut-off: numbers ``<= lte`` become ``to``
     (``lte: null`` = everything above the previous step; ``to: null`` = a
     declared, silent drop)."""
@@ -167,7 +180,7 @@ class FromNumberStep(BaseModel):
     to: Any = None
 
 
-class ControlRule(BaseModel):
+class ControlRule(KindSubModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     provider_key: str | None = None
@@ -217,6 +230,23 @@ class ControlRule(BaseModel):
     # declared (Adjustment expected); a list emptied by them is omitted.
     max_items: int | None = None
     drop_items_matching: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_kind_markers_in_rule_maps(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = value.copy()
+        for field in ("value_map", "to_number", "context", "processor_config"):
+            payload = value.get(field)
+            if not isinstance(payload, dict):
+                continue
+            mapped = _RuleMap.model_validate(payload).model_dump()
+            if "__kind" in payload and not mapped:
+                normalized.pop(field, None)
+            else:
+                normalized[field] = mapped
+        return normalized
 
     @model_validator(mode="after")
     def _validate_field_combos(self) -> ControlRule:

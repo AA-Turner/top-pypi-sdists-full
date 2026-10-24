@@ -40,6 +40,7 @@ from .literals import (
     ContentBlockTypeType,
     CryptoWalletNetworkType,
     DescriptorTypeType,
+    FindingTargetTypeType,
     HarnessBedrockApiFormatType,
     HarnessConversationRoleType,
     HarnessHookDecisionType,
@@ -302,6 +303,8 @@ __all__ = (
     "InlineGroundTruthTypeDef",
     "InlineMemoryContentTypeDef",
     "InputContentBlockTypeDef",
+    "InsightResultTypeDef",
+    "InsightRootCauseTypeDef",
     "InsightTypeDef",
     "InsightsFailureSignalTypeDef",
     "InternalServerExceptionTypeDef",
@@ -436,6 +439,7 @@ __all__ = (
     "RecommendationResultConfigurationBundleTypeDef",
     "RecommendationResultTypeDef",
     "RecommendationSummaryTypeDef",
+    "RecordExpirySpecificationTypeDef",
     "RegistryRecordSummaryTypeDef",
     "ResourceContentTypeDef",
     "ResourceLocationTypeDef",
@@ -450,6 +454,7 @@ __all__ = (
     "RuntimeClientErrorTypeDef",
     "S3FilesConfigurationTypeDef",
     "S3LocationTypeDef",
+    "SampleSessionTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
     "ScreenshotArgumentsTypeDef",
@@ -463,6 +468,7 @@ __all__ = (
     "SessionFilterConfigOutputTypeDef",
     "SessionFilterConfigTypeDef",
     "SessionFilterTypeDef",
+    "SessionFindingTypeDef",
     "SessionLimitsTypeDef",
     "SessionMetadataShapeTypeDef",
     "SessionSummaryTypeDef",
@@ -600,6 +606,11 @@ class AutomationStreamUpdateTypeDef(TypedDict):
 
 class BasicAuthTypeDef(TypedDict):
     secretArn: str
+
+
+class RecordExpirySpecificationTypeDef(TypedDict):
+    recordExpiryDurationDays: NotRequired[int]
+    action: NotRequired[Literal["REMOVE"]]
 
 
 class MemoryRecordOutputTypeDef(TypedDict):
@@ -1550,6 +1561,14 @@ class S3FilesConfigurationTypeDef(TypedDict):
     fileSystemArn: str
 
 
+class SessionFindingTypeDef(TypedDict):
+    description: str
+    targetId: NotRequired[str]
+    targetType: NotRequired[FindingTargetTypeType]
+    category: NotRequired[str]
+    confidence: NotRequired[float]
+
+
 class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
     profileIdentifier: str
     browserIdentifier: str
@@ -2274,6 +2293,7 @@ class MemoryRecordSummaryTypeDef(TypedDict):
     namespaces: list[str]
     createdAt: datetime
     score: NotRequired[float]
+    timestamp: NotRequired[datetime]
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
 
 
@@ -2283,7 +2303,9 @@ class MemoryRecordTypeDef(TypedDict):
     memoryStrategyId: str
     namespaces: list[str]
     createdAt: datetime
+    timestamp: NotRequired[datetime]
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
+    expiresAt: NotRequired[datetime]
 
 
 class PaymentInputTypeDef(TypedDict):
@@ -2329,6 +2351,12 @@ class ResourceLocationTypeDef(TypedDict):
 class ToolsFileSystemConfigurationTypeDef(TypedDict):
     s3FilesConfiguration: NotRequired[S3FilesConfigurationTypeDef]
     efsConfiguration: NotRequired[EfsConfigurationTypeDef]
+
+
+class SampleSessionTypeDef(TypedDict):
+    sessionId: str
+    lastSeenAt: NotRequired[datetime]
+    findings: NotRequired[list[SessionFindingTypeDef]]
 
 
 class SystemPromptConfigTypeDef(TypedDict):
@@ -2709,6 +2737,14 @@ class BrowserExtensionTypeDef(TypedDict):
     location: ResourceLocationTypeDef
 
 
+class InsightRootCauseTypeDef(TypedDict):
+    name: str
+    explanation: str
+    affectedSessionCount: NotRequired[int]
+    suggestedFix: NotRequired[str]
+    sampleSessions: NotRequired[list[SampleSessionTypeDef]]
+
+
 class VariantTypeDef(TypedDict):
     name: str
     weight: int
@@ -2981,6 +3017,18 @@ class InlineMemoryContentTypeDef(TypedDict):
 
 
 PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
+InsightResultTypeDef = TypedDict(
+    "InsightResultTypeDef",
+    {
+        "type": Literal["FAILURE"],
+        "name": str,
+        "description": str,
+        "createdAt": datetime,
+        "affectedSessionCount": NotRequired[int],
+        "sampleSessions": NotRequired[list[SampleSessionTypeDef]],
+        "rootCauses": NotRequired[list[InsightRootCauseTypeDef]],
+    },
+)
 
 
 class CreateABTestRequestTypeDef(TypedDict):
@@ -3058,6 +3106,7 @@ class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
     records: Sequence[MemoryRecordCreateInputTypeDef]
     clientToken: NotRequired[str]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 MemoryMetadataFilterExpressionTypeDef = TypedDict(
@@ -3073,6 +3122,7 @@ MemoryMetadataFilterExpressionTypeDef = TypedDict(
 class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
     records: Sequence[MemoryRecordUpdateInputTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class DataSourceConfigTypeDef(TypedDict):
@@ -3481,6 +3531,7 @@ class GetBatchEvaluationResponseTypeDef(TypedDict):
     dataSourceConfig: DataSourceConfigOutputTypeDef
     outputConfig: OutputConfigTypeDef
     evaluationResults: EvaluationJobResultsTypeDef
+    insightResults: list[InsightResultTypeDef]
     failureAnalysisResult: FailureAnalysisResultContentTypeDef
     userIntentResult: UserIntentClusteringResultContentTypeDef
     executionSummaryResult: ExecutionSummaryClusteringResultContentTypeDef

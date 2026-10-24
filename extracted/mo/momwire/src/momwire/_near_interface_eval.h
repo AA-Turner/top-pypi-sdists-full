@@ -35,10 +35,22 @@ using cd = std::complex<double>;
 constexpr int N_KEYS = 6;  // U, V, W, dzW, dzpV, dzpW
 using Six = std::array<cd, N_KEYS>;
 
+// A cone sheet's plan entry (`_cone_census`, momwire#1595 option A): the
+// surface family z' = zf + beta * u, its fan [blo, bhi], its corner size d
+// the observer heights it is tabulated at (sorted, distinct) and its fan
+// correction's nodes a cell.
+struct Cone {
+    double zf, blo, bhi, d;
+    std::vector<double> zs;
+    int p_fan = 0;  // the fan correction's nodes a cell (0: a fan of one slope)
+};
+
 struct SheetPlan {
     std::vector<double> planes;           // sorted z' < 0
     std::vector<double> heights, depths;  // sorted z > 0, each one's reach
-    bool any() const { return !planes.empty() || !heights.empty(); }
+    std::vector<Cone> cones;              // in the census's order
+    double fold = 0.0;                    // the cones' rows' fold radius
+    bool any() const { return !planes.empty() || !heights.empty() || !cones.empty(); }
 };
 
 // `sheet_plan(eps_t, k2, specs, wire_radius)`: specs are (above nodes, below
@@ -131,9 +143,23 @@ void designed_index(const Evaluator &ev, Memo &memo, const double *rho, const do
                     const double *zp, size_t n, const int64_t *labels, uint32_t *idx,
                     int n_threads = 1);
 
+// `_point_radius_tables_folded` (momwire#1653): the point-observer family
+// (POINT_KEYS) at m rows (m, 3) of (rho already folded, z, z'), out (m, 4):
+// the rows on the plan's planes and heights from the point sheets, the rest
+// exact through the point twin, grouped by rho. Memo-free, as the Python
+// route is.
+void point_tables(const Evaluator &ev, const SheetPlan *plan, const double *rows, size_t m, cd *out);
+
 // `_evaluate_fresh` over distinct rows (m, 3): (m, 6).
 void evaluate_fresh(const Evaluator &ev, const double *rows, size_t m, const int64_t *labels,
                     const SheetPlan *plan, ni_core::ColumnCache *cache, Six *out);
+
+// TEST-ONLY (momwire#1595 option A): one cone surface's table as the fills
+// build it (`ConeSheet`), grown to u_max: its u cell edges and its values,
+// [node][height][key].
+void cone_table(double k_p, cd k_m, double d, double zf, double beta, double a,
+                const std::vector<double> &zs, int p, double u_max, int n_threads,
+                std::vector<double> &u_edges, std::vector<cd> &vals);
 
 // Python's repr of a float (the refusals' numbers).
 std::string py_repr(double x);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-for-blender
-Version: 2.2.2
+Version: 2.2.4
 Summary: Open source Blender integration through the Model Context Protocol (not affiliated with Blender Foundation)
 Author-email: Siddharth Ahuja <ahujasid@gmail.com>
 License-Expression: MIT
@@ -697,6 +697,7 @@ Through Premium, Meshy uses its latest model and each model counts as one standa
 Your own API key needs a paid Meshy plan:
 [get a Meshy API key](https://www.meshy.ai/developers/keys?utm_source=mcp-for-blender&utm_medium=integration&utm_campaign=blender-addon).
 Tick **Meshy** under **AI Model Generation** in the sidebar, choose a **Model**, and paste the key.
+On your own key, ask for a character "in an A-pose" or "in a T-pose" and Meshy generates it in that pose, ready to rig.
 
 #### Poly Haven
 

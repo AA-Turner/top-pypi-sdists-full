@@ -232,12 +232,13 @@ class Geocif:
         else:
             self.use_yield_trend_as_feature = None
         # Per-admin Theil-Sen trend on ALL training years (mirrors the
-        # [trend_all] baseline model).  Default ON — cheap, leak-safe
-        # (df_train excludes the forecast year), and gives the model a
-        # strong long-horizon yield-trend signal that complements raw
-        # CIDs.  Set False in [ML] to disable.
+        # [trend_all] baseline model).  Default OFF: the held-out year is
+        # excluded, but the fit still uses years AFTER the forecast season,
+        # which a real forecast never has (same exposure as the "all" mode
+        # of use_yield_trend_as_feature, TODO 2.8).  Set True in [ML] to
+        # enable; it is skipped whenever check_yield_trend is on.
         self.use_trend_all_as_feature = self.parser.getboolean(
-            "ML", "use_trend_all_as_feature", fallback=True
+            "ML", "use_trend_all_as_feature", fallback=False
         )
         self.use_outlook_as_feature = self.parser.getboolean("ML", "use_outlook_as_feature")
         self.use_single_time_period_as_feature = self.parser.getboolean(

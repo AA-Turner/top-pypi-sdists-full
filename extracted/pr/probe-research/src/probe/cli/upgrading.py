@@ -14,6 +14,7 @@ machine whose plugin has not been refreshed yet.
 from __future__ import annotations
 
 import dataclasses
+import contextlib
 import os
 import time
 from collections.abc import Callable
@@ -53,6 +54,60 @@ def cli_left_alone(version: str) -> "updater.CliResult":
         ran=False, ok=True, changed=False, before=version, after=version,
         message=f"CLI {version} current; left as it is while daemon workers run",
     )
+
+
+@contextlib.contextmanager
+def _service_stopped_on_windows(install):
+    """Windows (R3): the Probe service runs from the CLI's own uv tool env, and
+    Windows cannot replace a file a running process holds. Stop it (its
+    recorders pause, saved) for the upgrade, and start it again after (they
+    resume). Yields False when it would not stop: the upgrade waits for the
+    next try rather than half-replace an env in use. Elsewhere, and for any
+    other install, nothing (True).
+
+    Held through the upgrade: `start.lock`, so no hook, tap or keeper starts
+    one meanwhile (`client.ensure` finds it taken and starts none), and
+    `service.lock`, so one started just before exits as a duplicate."""
+    if os.name != "nt" or install.method != updater.Method.UV_TOOL:
+        yield True
+        return
+    from probe.service import client, paths
+    from probe.service.protocol import Method
+
+    held: list[int] = []
+    asked = False
+    stopped = True
+    try:
+        paths.ensure_dirs()
+        with contextlib.suppress(Exception):  # none runs, or it cannot be asked
+            client.call(Method.STOP, {}, client="cli", client_version=__version__, timeout=5.0)
+            asked = True
+        for path in (paths.start_lock_path(), paths.lock_path()):
+            fd = os.open(path, os.O_RDWR | os.O_CREAT)
+            deadline = time.monotonic() + (15.0 if asked else 2.0)
+            while not paths.try_lock(fd):
+                if time.monotonic() >= deadline:
+                    os.close(fd)
+                    stopped = False
+                    break
+                time.sleep(0.2)
+            else:
+                held.append(fd)
+            if not stopped:
+                break
+    except OSError:
+        pass  # no folder for it: none runs
+    try:
+        yield stopped
+    finally:
+        for fd in reversed(held):
+            with contextlib.suppress(OSError):
+                paths.unlock(fd)
+            with contextlib.suppress(OSError):
+                os.close(fd)
+        if asked:
+            with contextlib.suppress(Exception):
+                client.ensure()
 
 
 def perform_update(
@@ -213,7 +268,15 @@ def _perform_update(
             # daemon workers run from its env, which is left as it is (plan D7).
             res = cli_left_alone(__version__)
         else:
-            res = updater.upgrade_cli(install, __version__, cli_target)
+            with _service_stopped_on_windows(install) as stopped:
+                if stopped:
+                    res = updater.upgrade_cli(install, __version__, cli_target)
+                else:
+                    res = updater.CliResult(
+                        ran=False, ok=False, changed=False, before=__version__, after=__version__,
+                        message="CLI upgrade waits: the Probe service did not stop, and Windows cannot "
+                                "replace the files it holds (the next update tries again)",
+                    )
         lines.append(f"  {res.message}")
         if res.changed:
             versions.record_installed_cli(res.after)
@@ -227,6 +290,9 @@ def _perform_update(
     pres: updater.PluginResult | None = None
     pi_update: _PiUpdate | None = None
     tap_behind = ""
+    # None of Probe's plugins in this agent, before or after: nothing to update,
+    # which is not a failure (`updater.nothing_installed`, the report's rule too).
+    nothing_installed = False
     source = agent_source()
     if include_plugin:
         # pi's Probe package is updated whatever agent runs this: an Update from
@@ -275,9 +341,12 @@ def _perform_update(
                 tap_behind = tap_line if behind else ""
             if pres.confirmed and (pres.changed or updater.tap_changed(pres)):
                 restart_needed = True
+            nothing_installed = updater.nothing_installed(pres, source)
             # A machine that cannot run git would fail these the same way; the
-            # failure printed above already says what to run first.
-            if (not pres.confirmed or tap_behind) and not pres.git_blocked:
+            # failure printed above already says what to run first. Nor when
+            # there was nothing to update: those commands would fail the same.
+            plugin_failed = not pres.confirmed and not nothing_installed
+            if (plugin_failed or tap_behind) and not pres.git_blocked:
                 agent = "Codex" if codex else "Kimi Code" if kimi else "Claude Code"
                 manual = (
                     updater.manual_codex_plugin_commands()
@@ -292,12 +361,21 @@ def _perform_update(
     # `attempted` is what separates "the plugin update failed" from "there was no
     # Claude Code to update" -- a CLI-only user has no `claude` on PATH, and
     # recording that as a failure every session would train everyone to ignore
-    # the one line that is supposed to mean something.
+    # the one line that is supposed to mean something. `nothing_installed` is
+    # the same for an agent that IS here with no Probe plugin in it: its update
+    # command fails because there is nothing to update.
     #
     # A tap still behind the manifest after the run fails the plugin half too:
-    # it is installed, `claude` was asked to move it, and it did not.
-    plugin_ok = (True if pres is None else (pres.confirmed or not pres.attempted)) and not tap_behind
-    if pres is not None and not pres.confirmed:
+    # it is installed, `claude` was asked to move it, and it did not. So does a
+    # tap the run removed (`tap_verdict`).
+    #
+    # EVERY way this half fails has a component in the server's report that
+    # says so (`update_report`'s rules read the same facts); a pass that failed
+    # with every component reading fine is what this used to send.
+    plugin_ok = (
+        True if pres is None else (pres.confirmed or not pres.attempted or nothing_installed)
+    ) and not tap_behind
+    if pres is not None and not pres.confirmed and not nothing_installed:
         plugin_detail = pres.message
     else:
         # Sessions on an older tap are not a failure, but `probe doctor` is
@@ -355,11 +433,20 @@ def _perform_update(
                 res, current=__version__, target=cli_target, refused=refused
             ),
             # No marketplace plugin ran (`pres`) although plugins were asked
-            # for: pi, whose package IS its plugin half.
+            # for: pi, whose package IS its plugin half. On another agent's
+            # pass pi's package moves too, and its failure fails the pass, so
+            # it is named there as well (`plugin_half`).
             plugin=(
                 update_report.pi_component(pi_update, target=plugin_target)
                 if include_plugin and pres is None
-                else update_report.plugin_component(pres, target=plugin_target, source=source)
+                else update_report.plugin_half(
+                    update_report.plugin_component(pres, target=plugin_target, source=source),
+                    update_report.pi_component(
+                        pi_update, target=plugin_target, harness=_package_harness()
+                    )
+                    if pi_update is not None and not pi_update.ok
+                    else None,
+                )
             ),
             tap=update_report.tap_component(pres, target=tap_target),
             legacy_ids=pres.legacy_ids if pres is not None else (),

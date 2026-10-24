@@ -619,6 +619,8 @@ DatasetsRetrieveResponseDataset = TypedDict(
         "sampleImages": NotRequired[list[DatasetsRetrieveResponseDatasetSampleImagesItem]],
         "integrationProvider": NotRequired[Literal["gcs", "s3", "azure", "on-premise"]],
         "integrationStatus": NotRequired[Literal["online", "offline", "disconnected"]],
+        "integrationProcessing": NotRequired[bool],
+        "integrationWritable": NotRequired[bool],
         "source": NotRequired[
             DatasetsRetrieveResponseDatasetSourceVariant1
             | DatasetsRetrieveResponseDatasetSourceVariant2
@@ -1360,6 +1362,8 @@ DatasetsListResponseDatasetsItem = TypedDict(
         "sampleImages": NotRequired[list[DatasetsListResponseDatasetsItemSampleImagesItem]],
         "integrationProvider": NotRequired[Literal["gcs", "s3", "azure", "on-premise"]],
         "integrationStatus": NotRequired[Literal["online", "offline", "disconnected"]],
+        "integrationProcessing": NotRequired[bool],
+        "integrationWritable": NotRequired[bool],
         "source": NotRequired[
             DatasetsListResponseDatasetsItemSourceVariant1
             | DatasetsListResponseDatasetsItemSourceVariant2
@@ -1447,6 +1451,23 @@ DatasetsPreviewRoboflowResponseNewDatasetsItem = TypedDict(
 )
 
 
+DatasetsPreviewRoboflowResponseImportedDatasetsItem = TypedDict(
+    "DatasetsPreviewRoboflowResponseImportedDatasetsItem",
+    {
+        "workspace": str,
+        "projectId": str,
+        "projectName": str,
+        "projectType": str,
+        "latestVersion": int,
+        "latestVersionName": NotRequired[str],
+        "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
+        "thumb": NotRequired[str],
+        "imageCount": NotRequired[int],
+        "sizeBytes": NotRequired[int],
+    },
+)
+
+
 DatasetsPreviewRoboflowResponseStorage = TypedDict(
     "DatasetsPreviewRoboflowResponseStorage", {"usedBytes": float, "limitBytes": float, "hasEnoughStorage": bool}
 )
@@ -1457,6 +1478,7 @@ DatasetsPreviewRoboflowResponse = TypedDict(
     {
         "workspace": DatasetsPreviewRoboflowResponseWorkspace,
         "newDatasets": list[DatasetsPreviewRoboflowResponseNewDatasetsItem],
+        "importedDatasets": list[DatasetsPreviewRoboflowResponseImportedDatasetsItem],
         "skippedCount": int,
         "missingVersionCount": int,
         "unsupportedCount": int,
@@ -2184,6 +2206,19 @@ ImagesUrlsResponse = TypedDict(
 )
 
 
+StorageIntegrationsUpdateResponse = TypedDict(
+    "StorageIntegrationsUpdateResponse",
+    {
+        "id": str,
+        "provider": Literal["gcs", "s3", "azure"],
+        "credentialIdentity": str,
+        "targets": list[str],
+        "processing": bool,
+        "createdAt": str,
+    },
+)
+
+
 StorageIntegrationsDeleteResponse = TypedDict("StorageIntegrationsDeleteResponse", {"success": Literal[True]})
 
 
@@ -2205,20 +2240,8 @@ StorageIntegrationsObjectsResponse = TypedDict(
 )
 
 
-StorageIntegrationsListResponseIntegrationsItem = TypedDict(
-    "StorageIntegrationsListResponseIntegrationsItem",
-    {
-        "id": str,
-        "provider": Literal["gcs", "s3", "azure"],
-        "credentialIdentity": str,
-        "targets": list[str],
-        "createdAt": str,
-    },
-)
-
-
 StorageIntegrationsListResponse = TypedDict(
-    "StorageIntegrationsListResponse", {"integrations": list[StorageIntegrationsListResponseIntegrationsItem]}
+    "StorageIntegrationsListResponse", {"integrations": list[StorageIntegrationsUpdateResponse]}
 )
 
 
@@ -2229,6 +2252,7 @@ StorageIntegrationsCreateResponse = TypedDict(
         "provider": Literal["gcs", "s3", "azure"],
         "credentialIdentity": str,
         "targets": list[str],
+        "processing": bool,
         "createdAt": str,
     },
 )
@@ -3191,7 +3215,8 @@ ModelsListResponse = TypedDict(
 
 
 ModelsCreateResponse = TypedDict(
-    "ModelsCreateResponse", {"id": str, "owner": str, "project": str, "model": str, "region": Literal["us", "eu", "ap"]}
+    "ModelsCreateResponse",
+    {"id": str, "owner": str, "project": str, "model": str, "name": str, "region": Literal["us", "eu", "ap"]},
 )
 
 

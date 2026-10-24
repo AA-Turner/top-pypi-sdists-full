@@ -14,6 +14,7 @@ import logging
 import os
 import random
 import time
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,7 @@ class Workspace:
         self._last_changed_ref_step: str = ""
         self._lazy_mounts: dict[str, Any] = {}
         self._commit_lock = asyncio.Lock()
+        self._tree_changed = False
         # Gzipped agent-VM fuse worker configs, keyed by (manifest_md5,
         # credentials expiry, mountpoint, cache_dir, manifest_by_ref): the
         # manifest JSON for a large dataset is ~100 MB, so serialize+gzip once
@@ -349,6 +351,54 @@ class Workspace:
         self.transport = t
         return nfs_server
 
+    def live_mount(self) -> Any:
+        """This workspace's plato-fuse mount (``LazyDVCMount``) while it's mounted, else None."""
+        return self._lazy_mounts.get(self.path.name)
+
+    def adopt_mount(self, mountpoint: Path, cache_dir: Path, worker_pid: int | None) -> None:
+        """Take over the plato-fuse mount a previous world process left running at ``mountpoint`` (handover.py),
+        instead of ``init()``, which would unmount it under the agents using it. Checkpoints then commit through it as
+        through a mount of this process's own, reading the running worker's live metadata."""
+        from plato.worlds.dvc_models import DVCManifest, LazyDVCMount
+        from plato.worlds.handover import HandoffRefused, adopted_fuse_config
+        from plato.worlds.lazy_dvc import AdoptedWorker
+
+        if worker_pid is None or AdoptedWorker(worker_pid).returncode is not None:
+            raise HandoffRefused(f"workspace '{self.name}': the plato-fuse process serving it isn't running")
+        if mountpoint != self.path:
+            raise HandoffRefused(
+                f"workspace '{self.name}' was mounted at {mountpoint}, this version expects {self.path}"
+            )
+        if not os.path.ismount(mountpoint):
+            raise HandoffRefused(f"workspace '{self.name}': {mountpoint} isn't mounted any more")
+        config = adopted_fuse_config(cache_dir)
+        self._lazy_mounts[mountpoint.name] = LazyDVCMount(
+            mountpoint=mountpoint,
+            cache_dir=cache_dir,
+            manifest=DVCManifest.from_dict(config.manifest),
+            worker_proc=AdoptedWorker(worker_pid),
+            s3_config=S3Config.from_dict(config.s3_config),
+        )
+        logger.info(
+            "Workspace '%s': adopted the live mount at %s (plato-fuse pid %d)", self.name, mountpoint, worker_pid
+        )
+
+    def adopt_nfs_transport(
+        self, runtime_info: RuntimeInfo, nfs_server: NFSTransport | None, *, readonly: bool = False
+    ) -> NFSTransport | None:
+        """The NFS transport for an export the world VM's NFS server already serves (a handed-over workspace): the
+        handle new agents mount through, with nothing written to the server. Returns the server handle to share."""
+        if not runtime_info.hostname or not runtime_info.ssh_key_path:
+            return nfs_server
+        if nfs_server is None:
+            nfs_server = NFSTransport(
+                str(self.path), runtime_info.hostname, runtime_info.ssh_key_path, readonly=readonly
+            )
+        t = nfs_server.with_path(str(self.path), readonly=readonly, mount_options=self.nfs_mount_options)
+        t.mount_path = self.mount_path
+        self.transport = t
+        return nfs_server
+
     async def ensure_fuse_mount(self) -> None:
         """Mount FUSE overlay. Skips if already mounted."""
         if self._lazy_mounts:
@@ -471,9 +521,47 @@ class Workspace:
         if isinstance(self._transport, GitTransport):
             await self._transport.snapshot_to_mirror()
 
+    def mark_tree_changed(self) -> None:
+        """Make the next commit materialize the git-changed tree first, so merges need not checkpoint inline."""
+        self._tree_changed = True
+
+    async def _materialize_changed_tree(self) -> None:
+        if not self._tree_changed:
+            return
+        self._tree_changed = False
+        from plato.transports.git import GitTransport
+
+        # Under the git sync lock, so the rsync never copies a tree that a
+        # merge is resetting at the same time.
+        sync_lock = self._transport.sync_lock if isinstance(self._transport, GitTransport) else None
+        try:
+            await self.ensure_fuse_mount()
+            async with sync_lock or nullcontext():
+                await self.materialize_current_tree_into_overlay()
+        except BaseException:
+            self._tree_changed = True
+            raise
+
+    def _in_fuse_git_lock(self) -> asyncio.Lock | None:
+        """The git sync lock when repo/.git sits inside the mount, else None."""
+        from plato.transports.git import GitTransport
+
+        if not isinstance(self._transport, GitTransport):
+            return None
+        if self._transport.merge_config.worktree_git_off_fuse:
+            return None
+        return self._transport.sync_lock
+
     async def _commit_inner(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
+        await self._materialize_changed_tree()
         await self._snapshot_git_transport()
 
+        # A merge refresh rewrites in-mount repo/.git packs; a concurrent read
+        # can persist a truncated pack (see GitTransportConfig.worktree_git_off_fuse).
+        async with self._in_fuse_git_lock() or nullcontext():
+            return await self._commit_tree(step_name, message, trigger_span_id=trigger_span_id)
+
+    async def _commit_tree(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         if self.commit_strategy == "archive":
             return await self._archive_commit(step_name, message, trigger_span_id=trigger_span_id)
 

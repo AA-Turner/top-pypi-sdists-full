@@ -9,7 +9,7 @@ use crate::{
 	Input,
 	error::ParseError,
 	node::modifier::ModifierKind,
-	rule::{Rule, RuleSet},
+	syntax::{Syntax, SyntaxSet},
 };
 
 /// A byte offset in the input.
@@ -58,22 +58,49 @@ impl DelimChar {
 		}
 	}
 
-	/// The shortest run that is a delimiter: a lone `~` or `|` is text.
+	/// The shortest run that is a delimiter under `allowed`: a lone `~` or `|` is text, and so is a
+	/// lone `*` or `_` whose italic is not allowed.
 	#[must_use]
-	pub fn min_len(self) -> usize {
+	pub fn min_len(self, allowed: SyntaxSet) -> usize {
 		self.kinds()
 			.iter()
+			.filter(|&&kind| kind != ModifierKind::Italic || self.writes_italic(allowed))
 			.map(|kind| kind.delimiter_len())
 			.min()
 			.unwrap_or(1)
 	}
 
-	/// Whether any of its kinds is allowed.
+	/// The syntaxes its runs write.
 	#[must_use]
-	pub fn allowed(self, allowed: RuleSet) -> bool {
-		self.kinds()
-			.iter()
-			.any(|kind| allowed.contains(kind.rule()))
+	pub const fn syntaxes(self) -> SyntaxSet {
+		match self {
+			Self::Asterisk => enumset::enum_set!(Syntax::Bold | Syntax::AsteriskItalic),
+			Self::Underscore => enumset::enum_set!(Syntax::Underline | Syntax::UnderscoreItalic),
+			Self::Tilde => enumset::enum_set!(Syntax::Strikethrough),
+			Self::Pipe => enumset::enum_set!(Syntax::Spoiler),
+		}
+	}
+
+	/// The syntax a run of it writes an italic with, if any.
+	#[must_use]
+	pub const fn italic(self) -> Option<Syntax> {
+		match self {
+			Self::Asterisk => Some(Syntax::AsteriskItalic),
+			Self::Underscore => Some(Syntax::UnderscoreItalic),
+			Self::Tilde | Self::Pipe => None,
+		}
+	}
+
+	/// Whether its runs can write an italic under `allowed`.
+	#[must_use]
+	pub fn writes_italic(self, allowed: SyntaxSet) -> bool {
+		self.italic().is_some_and(|italic| allowed.contains(italic))
+	}
+
+	/// Whether any of its syntaxes is allowed.
+	#[must_use]
+	pub fn allowed(self, allowed: SyntaxSet) -> bool {
+		!self.syntaxes().is_disjoint(allowed)
 	}
 
 	/// What a run of `len` between `prev` and `next` can do.
@@ -114,9 +141,18 @@ impl DelimChar {
 
 	/// Whether a run of `remaining` that could open does so, rather than closing an opener with
 	/// `opener` left. `later` is the longest run after it that could close.
+	///
+	/// Only an italic yields like this, so without one allowed a run always closes: with
+	/// [`Syntax::AsteriskItalic`] off, `**a *b* c**` is a bold.
 	#[must_use]
-	pub fn opens_instead(self, remaining: usize, opener: usize, later: usize) -> bool {
-		if !self.kinds().contains(&ModifierKind::Italic) {
+	pub fn opens_instead(
+		self,
+		remaining: usize,
+		opener: usize,
+		later: usize,
+		allowed: SyntaxSet,
+	) -> bool {
+		if !self.writes_italic(allowed) {
 			return false;
 		}
 		// a lone `*` does not close a `**`, so `**a *b* c**` holds an italic -- though it closes
@@ -133,18 +169,26 @@ impl DelimChar {
 
 	/// The kind of range a pair of runs spends on. [`None`] if they cannot pair.
 	#[must_use]
-	pub fn spend(self, remaining: usize, opener: usize, allowed: RuleSet) -> Option<ModifierKind> {
+	pub fn spend(
+		self,
+		remaining: usize,
+		opener: usize,
+		allowed: SyntaxSet,
+	) -> Option<ModifierKind> {
 		let both = remaining.min(opener);
-		// `***foo***` is a bold around an italic, so an odd pair of runs spends one first
-		let odd = !remaining.is_multiple_of(2) && !opener.is_multiple_of(2);
+		// `***foo***` is a bold around an italic, so an odd pair of runs spends one first -- unless
+		// there is no italic to spend, when it is a bold with a `*` of text either side
+		let odd = !remaining.is_multiple_of(2)
+			&& !opener.is_multiple_of(2)
+			&& self.writes_italic(allowed);
 		Some(match self {
-			Self::Asterisk if both >= 2 && !odd && allowed.contains(Rule::Bold) => {
+			Self::Asterisk if both >= 2 && !odd && allowed.contains(Syntax::Bold) => {
 				ModifierKind::Bold
 			}
-			Self::Underscore if both >= 2 && allowed.contains(Rule::Underline) => {
+			Self::Underscore if both >= 2 && allowed.contains(Syntax::Underline) => {
 				ModifierKind::Underline
 			}
-			Self::Asterisk | Self::Underscore if allowed.contains(Rule::Italic) => {
+			Self::Asterisk | Self::Underscore if self.writes_italic(allowed) => {
 				ModifierKind::Italic
 			}
 			Self::Tilde if both >= 2 => ModifierKind::Strikethrough,
@@ -204,7 +248,7 @@ pub struct Delim {
 }
 
 /// The allowed delimiter character `text` begins with.
-fn first(text: &str, allowed: RuleSet) -> Option<DelimChar> {
+fn first(text: &str, allowed: SyntaxSet) -> Option<DelimChar> {
 	text.chars()
 		.next()
 		.and_then(DelimChar::from_char)
@@ -213,15 +257,15 @@ fn first(text: &str, allowed: RuleSet) -> Option<DelimChar> {
 
 /// Whether a delimiter run that [`delim`] would read begins `text`. Text stops here.
 #[must_use]
-pub fn starts_delimiter(text: &str, allowed: RuleSet) -> bool {
+pub fn starts_delimiter(text: &str, allowed: SyntaxSet) -> bool {
 	first(text, allowed).is_some_and(|ch| {
 		let run = text.chars().take_while(|&next| next == ch.char());
-		run.take(ch.min_len()).count() == ch.min_len()
+		run.take(ch.min_len(allowed)).count() == ch.min_len(allowed)
 	})
 }
 
 pub struct DelimParser<E> {
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	error: PhantomData<E>,
 }
 
@@ -251,7 +295,7 @@ where
 			})));
 		};
 		let len = input.chars().take_while(|&next| next == ch.char()).count();
-		if len < ch.min_len() {
+		if len < ch.min_len(self.allowed) {
 			return Err(Err::Error(OM::Error::bind(|| {
 				E::from_error_kind(input, ErrorKind::Char)
 			})));
@@ -276,7 +320,7 @@ where
 /// # Errors
 /// If the input does not begin with an allowed delimiter.
 #[must_use]
-pub fn delim<'data, E>(allowed: RuleSet) -> impl Parser<Input<'data>, Output = Delim, Error = E>
+pub fn delim<'data, E>(allowed: SyntaxSet) -> impl Parser<Input<'data>, Output = Delim, Error = E>
 where
 	E: ParseError<'data>,
 {
@@ -319,7 +363,13 @@ where
 				E::from_error_kind(rest, ErrorKind::Satisfy)
 			})));
 		}
-		let closable = rest.contains(&delim.ch.char().to_string().repeat(delim.ch.min_len()));
+		let closable = rest.contains(
+			&delim
+				.ch
+				.char()
+				.to_string()
+				.repeat(delim.ch.min_len(self.delim.allowed)),
+		);
 		if (self.disabled)(delim.start) || !closable {
 			return Err(Err::Error(OM::Error::bind(|| {
 				E::from_error_kind(input, ErrorKind::Verify)
@@ -346,7 +396,7 @@ where
 /// If the input does not begin with such a run.
 #[must_use]
 pub fn opener<'data, E>(
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	disabled: impl Fn(Offset) -> bool,
 ) -> impl Parser<Input<'data>, Output = Delim, Error = E>
 where

@@ -37,9 +37,10 @@ class CreateBatchRequest(BaseModel):
     limit: Optional[Annotated[int, Field(le=50000, strict=True, ge=1)]] = Field(default=None, description="Maximum number of objects to include when using filters. If omitted, all matching objects are included (up to 50,000).")
     dedup_strategy: Optional[DedupStrategy] = Field(default=None, description="Controls how objects that were already processed in prior batches are handled. Scoped to (bucket, collection): checks if the target collection already has documents from the same source object, regardless of which batch created them. 'skip' (default): Don't reprocess objects that already have documents. 'replace': Delete existing documents and reprocess from scratch. 'force': Process regardless, allowing duplicate documents.")
     metadata: Optional[BatchMetadata] = Field(default=None, description="User-defined metadata for the batch. Has typed fields (campaign_id, source, tags, notes) and also accepts arbitrary extra keys. Persisted with the batch and returned in API responses.")
+    batch_name: Optional[Annotated[str, Field(strict=True, max_length=256)]] = Field(default=None, description="Optional human-readable name for the batch. Stored on the batch and returned when you read it; batch_id stays the identifier.")
     auto_submit: Optional[StrictBool] = Field(default=None, description="Submit the batch for processing immediately after creation — same behavior as the ?auto_submit query parameter (the query parameter wins when both are supplied). Default false: the batch is created in DRAFT status and must be submitted with POST /submit before the draft TTL expires or the reaper cancels it. Accepted in the body because callers kept passing it here and it was silently ignored — the batch parked DRAFT and vanished ~30min later with no signal (FRUSTRATIONS L751).")
     trigger_processing: Optional[StrictBool] = Field(default=None, description="Deprecated alias of auto_submit (kept for callers taught by older docs/hints). auto_submit wins when both are supplied.")
-    __properties: ClassVar[List[str]] = ["object_ids", "filters", "collection_ids", "limit", "dedup_strategy", "metadata", "auto_submit", "trigger_processing"]
+    __properties: ClassVar[List[str]] = ["object_ids", "filters", "collection_ids", "limit", "dedup_strategy", "metadata", "batch_name", "auto_submit", "trigger_processing"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -104,6 +105,7 @@ class CreateBatchRequest(BaseModel):
             "limit": obj.get("limit"),
             "dedup_strategy": obj.get("dedup_strategy"),
             "metadata": BatchMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
+            "batch_name": obj.get("batch_name"),
             "auto_submit": obj.get("auto_submit"),
             "trigger_processing": obj.get("trigger_processing")
         })

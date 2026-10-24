@@ -60,6 +60,7 @@ from matrx_ai.graph_nodes.iteration_limit import (
     resolve_step_iteration_limit,
 )
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
+from matrx_ai.mandates import Offer
 
 if TYPE_CHECKING:
     pass
@@ -683,6 +684,44 @@ class StepWorkflowMandate:
     declared_output_kind: str | None
 
 
+#: The door a workflow step's mandate run is recorded under (``chat.user_request.door``).
+WORKFLOW_STEP_DOOR = "workflow_step"
+
+
+class StepOffer(Offer):
+    """The offer of a workflow AI step that runs its Holder on its OWN transport (the graph's agent
+    runner, or an authored step's own request).
+
+    Handed to the mandate runner's ``prepare`` (runner plan 25 step 9a), it asks for the step's
+    resolution rather than a held raw request: ``Prepared.held`` is the ``MandateResolution`` (Holder,
+    the binding's config, its consumption pipeline ``materialize``, the run stamp), resolved under the
+    explicit principal. The step applies the binding to the state it holds and its Holder's own run
+    writes the run row (door ``workflow_step``), so the step never calls ``finish``. A refusal is the
+    runner's: typed, recorded on its own run row, then raised."""
+
+
+async def prepare_step_mandate(mandate_key: str, *, consumer: str, door: str = WORKFLOW_STEP_DOOR) -> Any:
+    """THE ONE WAY a workflow AI step resolves its mandate: through the runner port's ``prepare``
+    (runner plan 25 step 9a), for the principal the step's carried request names. Returns the
+    ``MandateResolution``; raises the runner's typed refusal (already recorded) or
+    ``MandateRunnerUnavailable`` when the host installed no runner — never a fallback."""
+    from matrx_ai.mandates import RunOptions, carried_principal, get_mandate_runner
+
+    prepared = await get_mandate_runner().prepare(
+        mandate_key,
+        StepOffer(),
+        who=carried_principal(),
+        opts=RunOptions(door=door, consumer=consumer),
+    )
+    resolution = getattr(prepared, "held", None)
+    if resolution is None:
+        raise ValueError(
+            f"{consumer}: the mandate runner prepared {mandate_key!r} with no step resolution — the host's "
+            "prepare does not serve a workflow step (StepOffer)."
+        )
+    return resolution
+
+
 async def resolve_step_agent(
     inputs: AgentRunCommonInput, *, consumer: str
 ) -> tuple[str, bool, dict[str, Any] | None]:
@@ -710,8 +749,8 @@ async def resolve_step_agent_full(
     legitimately declare both (``ai.agent.produce``,
     ``ai.agent.assignment_batch``).
 
-    On the mandate path the step resolves on EVERY run through the ONE door
-    (`matrx_ai.mandates.resolve_mandate_by_key`), so an org/user Binding
+    On the mandate path the step resolves on EVERY run through the mandate
+    runner's port (:func:`prepare_step_mandate`), so an org/user Binding
     swapping the Holder takes effect on the next run with no edit to the
     workflow — and an unresolvable mandate REFUSES rather than running
     something nobody chose (there is no seed fallback, anywhere).
@@ -731,9 +770,9 @@ async def resolve_step_agent_full(
             f"mandate is, the id is vestigial and removing it changes nothing."
         )
     if mandate_key:
-        from matrx_ai.mandates import resolve_mandate_by_key
-
-        resolution = await resolve_mandate_by_key(mandate_key, consumer=consumer)
+        # THROUGH THE RUNNER PORT (runner plan 25 step 9a): the explicit principal, a typed and
+        # recorded refusal — never the old resolver seam.
+        resolution = await prepare_step_mandate(mandate_key, consumer=consumer)
         if resolution.holder_type == "workflow":
             # SPEC §6.3 STEP-SIDE LIFT: a workflow step MAY name a
             # workflow-held mandate — it executes as a durable child workflow

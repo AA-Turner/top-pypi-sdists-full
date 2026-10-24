@@ -103,8 +103,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -180,8 +182,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -257,8 +261,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -400,8 +406,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -477,8 +485,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -554,8 +564,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -652,7 +664,7 @@ class DocumentLineageApi:
     ) -> Dict[str, object]:
         """Get all documents derived from an object
 
-        Get all documents created from a specific root object. Useful for finding all processing outputs across multiple collections.
+        Get all documents your collections created from a specific root object. The object's own record in its bucket is not listed or counted, so an object no collection has processed yet returns total_documents 0. Useful for finding all processing outputs across multiple collections.
 
         :param object_id: Root object ID to find all derived documents (required)
         :type object_id: str
@@ -695,8 +707,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -729,7 +743,7 @@ class DocumentLineageApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Get all documents derived from an object
 
-        Get all documents created from a specific root object. Useful for finding all processing outputs across multiple collections.
+        Get all documents your collections created from a specific root object. The object's own record in its bucket is not listed or counted, so an object no collection has processed yet returns total_documents 0. Useful for finding all processing outputs across multiple collections.
 
         :param object_id: Root object ID to find all derived documents (required)
         :type object_id: str
@@ -772,8 +786,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -806,7 +822,7 @@ class DocumentLineageApi:
     ) -> RESTResponseType:
         """Get all documents derived from an object
 
-        Get all documents created from a specific root object. Useful for finding all processing outputs across multiple collections.
+        Get all documents your collections created from a specific root object. The object's own record in its bucket is not listed or counted, so an object no collection has processed yet returns total_documents 0. Useful for finding all processing outputs across multiple collections.
 
         :param object_id: Root object ID to find all derived documents (required)
         :type object_id: str
@@ -849,8 +865,10 @@ class DocumentLineageApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

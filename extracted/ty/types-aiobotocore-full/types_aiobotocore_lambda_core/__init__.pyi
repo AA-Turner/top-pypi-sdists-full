@@ -12,6 +12,7 @@ Usage::
     from types_aiobotocore_lambda_core import (
         Client,
         LambdaCoreClient,
+        ListNetworkConnectorVersionsPaginator,
         ListNetworkConnectorsPaginator,
     )
 
@@ -21,13 +22,19 @@ Usage::
         ...
 
 
+    list_network_connector_versions_paginator: ListNetworkConnectorVersionsPaginator = client.get_paginator("list_network_connector_versions")
     list_network_connectors_paginator: ListNetworkConnectorsPaginator = client.get_paginator("list_network_connectors")
     ```
 """
 
 from .client import LambdaCoreClient
-from .paginator import ListNetworkConnectorsPaginator
+from .paginator import ListNetworkConnectorsPaginator, ListNetworkConnectorVersionsPaginator
 
 Client = LambdaCoreClient
 
-__all__ = ("Client", "LambdaCoreClient", "ListNetworkConnectorsPaginator")
+__all__ = (
+    "Client",
+    "LambdaCoreClient",
+    "ListNetworkConnectorVersionsPaginator",
+    "ListNetworkConnectorsPaginator",
+)

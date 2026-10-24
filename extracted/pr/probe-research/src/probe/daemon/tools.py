@@ -72,7 +72,7 @@ from typing import Any, Callable, Literal
 from probe.daemon import approvals as appr
 from probe.daemon import precheck
 from probe.daemon import scope
-from probe.daemon.events import Kind
+from probe.daemon.events import PEER_TOOL, Kind
 from probe.daemon.store import CUT_SHORT, FAILED_WHILE_RUNNING, UNRECORDED_BITE, Store, scrub
 from probe.sdk.key_refusal import KEY_REFUSED_LINE
 from probe.sdk.write_outcome import was_queued
@@ -2760,7 +2760,8 @@ def session_search(deps: Deps, query: str, kind: str | None = None, turn_from: i
         return f"no event matches {query!r}" + (f" (kind {kind})" if kind else "")
     out = []
     for ev in hits:
-        text = ev.command or ev.text
+        # A peer agent's message keeps its sender in `command`: its text is the message.
+        text = ev.text if ev.tool == PEER_TOOL else (ev.command or ev.text)
         at = text.lower().find(query.split()[0].lower()) if query.split() else 0
         start = max(0, at - 200)
         snippet = text[start:start + 500].replace("\n", " ⏎ ")
@@ -2803,7 +2804,7 @@ def session_open(deps: Deps, event_id: str | None = None, turn: int | None = Non
         call = deps.store.call_for(ev.call_id, recorded=recorded)
         head = f"output of: {call.command or ' '.join(filter(None, (call.tool, call.text)))}\n" if call else ""
         text = head + text
-    elif ev.command:
+    elif ev.command and ev.tool != PEER_TOOL:  # a peer agent's message: its text, never its sender
         text = ev.command
     return _page(scrub(text), page, event_id)
 

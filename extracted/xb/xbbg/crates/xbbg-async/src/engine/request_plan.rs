@@ -10,7 +10,7 @@ use std::str::FromStr;
 use crate::errors::BlpAsyncError;
 use crate::request_builder::RequestBuilder;
 use crate::schema::SchemaCache;
-use crate::services::{ExtractorType, Operation};
+use crate::services::{ExtractorType, Format, Operation, Service};
 
 use super::state::{LongMode, OutputFormat};
 use super::{OverridePairs, RequestParams, SecurityOverridePairs};
@@ -50,29 +50,29 @@ pub(crate) struct PlannedOutput {
 
 impl PlannedOutput {
     fn parse(format: Option<&str>) -> Result<Self, BlpAsyncError> {
-        match format {
-            None | Some("long") => Ok(Self {
+        let format = format
+            .map(Format::from_str)
+            .transpose()
+            .map_err(|detail| BlpAsyncError::ConfigError { detail })?
+            .unwrap_or_default();
+        Ok(match format {
+            Format::Long => Self {
                 format: OutputFormat::Long,
                 long_mode: LongMode::String,
-            }),
-            Some("semi_long" | "wide") => Ok(Self {
+            },
+            Format::SemiLong => Self {
                 format: OutputFormat::Wide,
                 long_mode: LongMode::String,
-            }),
-            Some("long_typed" | "typed") => Ok(Self {
+            },
+            Format::LongTyped => Self {
                 format: OutputFormat::Long,
                 long_mode: LongMode::Typed,
-            }),
-            Some("long_metadata" | "metadata" | "with_metadata") => Ok(Self {
+            },
+            Format::LongWithMetadata => Self {
                 format: OutputFormat::Long,
                 long_mode: LongMode::WithMetadata,
-            }),
-            Some(other) => Err(BlpAsyncError::ConfigError {
-                detail: format!(
-                    "unknown output format '{other}' (expected long, long_typed, long_metadata, or semi_long; aliases: typed, metadata, with_metadata, or wide)"
-                ),
-            }),
-        }
+            },
+        })
     }
 }
 
@@ -227,6 +227,26 @@ impl PreparedRequestBuilder {
         &self.params
     }
 
+    pub(crate) fn apply_bql_app_name(&mut self, app_name: Option<&str>) {
+        let Some(app_name) = app_name else {
+            return;
+        };
+        if !matches!(self.operation, Operation::BqlSendQuery)
+            || self.params.service != Service::BqlSvc.as_str()
+            || self.params.elements.as_ref().is_some_and(|elements| {
+                elements
+                    .iter()
+                    .any(|(key, _)| key == "clientContext.appName")
+            })
+        {
+            return;
+        }
+        self.params
+            .elements
+            .get_or_insert_with(Vec::new)
+            .push(("clientContext.appName".to_string(), app_name.to_owned()));
+    }
+
     pub(crate) fn set_field_types(&mut self, field_types: HashMap<String, String>) {
         self.params.field_types = Some(field_types);
     }
@@ -301,6 +321,7 @@ impl PreparedRequest {
                 field_types: params.field_types.clone(),
                 include_security_errors: params.include_security_errors,
                 return_eids: params.return_eids,
+                on_delayed: params.on_delayed,
                 validate_fields: params.validate_fields,
                 search_spec: params.search_spec.clone(),
                 field_ids: params.field_ids.clone(),
@@ -377,6 +398,7 @@ fn validate_request_params_with_operation(
     validate_field_metadata_aliases(params, operation)?;
     validate_security_overrides(params, operation, raw)?;
     validate_return_eids(params, operation)?;
+    validate_on_delayed(params, operation, raw)?;
     PlannedRequestShape::from_params(operation, raw, params)?;
 
     if raw {
@@ -427,6 +449,39 @@ fn validate_return_eids(
             ),
         }),
     }
+}
+
+/// `on_delayed` qualifies per-security price data: bdp (status fields added
+/// inline) and bdh/bdib/bdtick (separate status lookup). Reject it elsewhere so
+/// a requested check is never silently skipped.
+fn validate_on_delayed(
+    params: &RequestParams,
+    operation: &Operation,
+    raw: bool,
+) -> Result<(), BlpAsyncError> {
+    if params.on_delayed.is_none() {
+        return Ok(());
+    }
+    let detail = match operation {
+        Operation::HistoricalData | Operation::IntradayBar | Operation::IntradayTick => {
+            return Ok(());
+        }
+        Operation::ReferenceData => {
+            if matches!(
+                PlannedRequestShape::from_params(operation, raw, params)?,
+                PlannedRequestShape::RefData(_)
+            ) {
+                return Ok(());
+            }
+            "on_delayed is not supported for bulk (BDS) or generic reference data requests"
+                .to_string()
+        }
+        other => format!(
+            "on_delayed is only supported for ReferenceData (bdp), HistoricalData, IntradayBar, \
+             and IntradayTick requests (got {other})"
+        ),
+    };
+    Err(BlpAsyncError::ConfigError { detail })
 }
 
 fn route_request_params(
@@ -503,16 +558,14 @@ fn validate_field_metadata_aliases(
                         .to_string(),
                 });
             }
-            if !has_search_spec {
-                if let Some(field_values) =
+            if !has_search_spec
+                && let Some(field_values) =
                     params.fields.as_ref().filter(|values| !values.is_empty())
-                {
-                    if field_values.len() != 1 {
-                        return Err(BlpAsyncError::ConfigError {
+                && field_values.len() != 1
+            {
+                return Err(BlpAsyncError::ConfigError {
                             detail: "FieldSearchRequest requires exactly one field value when fields is used as a search alias".to_string(),
                         });
-                    }
-                }
             }
         }
         _ => {}
@@ -926,6 +979,117 @@ mod tests {
         }
     }
 
+    fn bql_params() -> RequestParams {
+        RequestParams {
+            service: Service::BqlSvc.to_string(),
+            operation: Operation::BqlSendQuery.to_string(),
+            elements: Some(vec![(
+                "expression".to_string(),
+                "get(name()) for('SYNTH US Equity')".to_string(),
+            )]),
+            ..Default::default()
+        }
+    }
+
+    fn selected_bql_app(request: &PreparedRequestBuilder) -> Option<&str> {
+        request
+            .params()
+            .elements
+            .as_ref()
+            .and_then(|elements| {
+                elements
+                    .iter()
+                    .find(|(key, _)| key == "clientContext.appName")
+            })
+            .map(|(_, value)| value.as_str())
+    }
+
+    #[test]
+    fn engine_bql_default_is_scoped_to_query_requests_and_keeps_omission() {
+        for raw in [false, true] {
+            let mut params = bql_params();
+            if raw {
+                params.operation = Operation::RawRequest.to_string();
+                params.request_operation = Some(Operation::BqlSendQuery.to_string());
+            }
+            let mut request = PreparedRequestBuilder::prepare(params, &empty_schema()).unwrap();
+            request.apply_bql_app_name(None);
+            assert_eq!(selected_bql_app(&request), None);
+            request.apply_bql_app_name(Some("ENGINE_APP"));
+            assert_eq!(selected_bql_app(&request), Some("ENGINE_APP"));
+        }
+
+        for params in [
+            refdata_params(),
+            RequestParams {
+                service: "//synthetic/service".to_string(),
+                ..bql_params()
+            },
+            RequestParams {
+                service: Service::BqlSvc.to_string(),
+                operation: "syntheticOtherOperation".to_string(),
+                ..Default::default()
+            },
+        ] {
+            let mut request = PreparedRequestBuilder::prepare(params, &empty_schema()).unwrap();
+            request.apply_bql_app_name(Some("ENGINE_APP"));
+            assert_eq!(selected_bql_app(&request), None);
+        }
+    }
+
+    #[test]
+    fn explicit_bql_elements_and_routed_kwargs_override_the_engine_default() {
+        for raw in [false, true] {
+            for kwargs in [false, true] {
+                let mut params = bql_params();
+                if raw {
+                    params.operation = Operation::RawRequest.to_string();
+                    params.request_operation = Some(Operation::BqlSendQuery.to_string());
+                }
+                if kwargs {
+                    params.kwargs = Some(HashMap::from([(
+                        "clientContext.appName".to_string(),
+                        "CALL_APP".to_string(),
+                    )]));
+                } else {
+                    params
+                        .elements
+                        .as_mut()
+                        .unwrap()
+                        .push(("clientContext.appName".to_string(), "CALL_APP".to_string()));
+                }
+                let mut request = PreparedRequestBuilder::prepare(params, &empty_schema()).unwrap();
+                request.apply_bql_app_name(Some("ENGINE_APP"));
+                assert_eq!(selected_bql_app(&request), Some("CALL_APP"));
+                assert_eq!(
+                    request
+                        .params()
+                        .elements
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .filter(|(key, _)| key == "clientContext.appName")
+                        .count(),
+                    1
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn explicit_empty_raw_bql_context_is_not_replaced_by_an_engine_default() {
+        let mut params = bql_params();
+        params.operation = Operation::RawRequest.to_string();
+        params.request_operation = Some(Operation::BqlSendQuery.to_string());
+        params.kwargs = Some(HashMap::from([(
+            "clientContext.appName".to_string(),
+            String::new(),
+        )]));
+        let mut request = PreparedRequestBuilder::prepare(params, &empty_schema()).unwrap();
+        request.apply_bql_app_name(Some("ENGINE_APP"));
+        assert_eq!(selected_bql_app(&request), Some(""));
+    }
+
     #[test]
     fn prepares_reference_data_defaults_and_preserves_flags() {
         let mut field_types = HashMap::new();
@@ -971,35 +1135,76 @@ mod tests {
     }
 
     #[test]
-    fn prepares_historical_formats_with_current_output_semantics() {
+    fn prepares_reference_and_historical_formats_with_current_output_semantics() {
         for (format, expected) in [
-            ("long", (OutputFormat::Long, LongMode::String)),
-            ("long_typed", (OutputFormat::Long, LongMode::Typed)),
+            (None, (OutputFormat::Long, LongMode::String)),
+            (Some(""), (OutputFormat::Long, LongMode::String)),
+            (Some("long"), (OutputFormat::Long, LongMode::String)),
+            (Some("long_typed"), (OutputFormat::Long, LongMode::Typed)),
+            (Some("typed"), (OutputFormat::Long, LongMode::Typed)),
             (
-                "long_metadata",
+                Some("long_metadata"),
                 (OutputFormat::Long, LongMode::WithMetadata),
             ),
-            ("wide", (OutputFormat::Wide, LongMode::String)),
-            ("semi_long", (OutputFormat::Wide, LongMode::String)),
+            (
+                Some("metadata"),
+                (OutputFormat::Long, LongMode::WithMetadata),
+            ),
+            (
+                Some("with_metadata"),
+                (OutputFormat::Long, LongMode::WithMetadata),
+            ),
+            (Some("wide"), (OutputFormat::Wide, LongMode::String)),
+            (Some("semi_long"), (OutputFormat::Wide, LongMode::String)),
         ] {
-            let params = RequestParams {
-                service: Service::RefData.to_string(),
+            let reference = RequestParams {
+                format: format.map(str::to_string),
+                ..refdata_params()
+            };
+            let historical = RequestParams {
                 operation: Operation::HistoricalData.to_string(),
-                securities: Some(vec!["AAPL US Equity".to_string()]),
-                fields: Some(vec!["PX_LAST".to_string()]),
                 start_date: Some("20240101".to_string()),
                 end_date: Some("20240131".to_string()),
-                format: Some(format.to_string()),
-                ..Default::default()
+                ..reference.clone()
+            };
+            let expected = PlannedOutput {
+                format: expected.0,
+                long_mode: expected.1,
             };
 
-            let prepared = PreparedRequest::prepare(params, &empty_schema()).unwrap();
-            assert_eq!(
-                prepared.shape(),
-                PlannedRequestShape::HistData(PlannedOutput {
-                    format: expected.0,
-                    long_mode: expected.1,
-                })
+            for (params, expected_shape) in [
+                (reference, PlannedRequestShape::RefData(expected)),
+                (historical, PlannedRequestShape::HistData(expected)),
+            ] {
+                let prepared = PreparedRequest::prepare(params, &empty_schema()).unwrap();
+                assert_eq!(prepared.shape(), expected_shape, "format: {format:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn output_format_errors_come_from_generated_parser() {
+        for format in [
+            "sideways",
+            "LONG",
+            " long",
+            "long ",
+            "long_with_metadata",
+            "arrow",
+            "json",
+        ] {
+            let params = RequestParams {
+                format: Some(format.to_string()),
+                ..refdata_params()
+            };
+            let error = PreparedRequest::prepare(params, &empty_schema()).unwrap_err();
+            assert!(
+                matches!(
+                    error,
+                    BlpAsyncError::ConfigError { detail }
+                        if detail == Format::from_str(format).unwrap_err()
+                ),
+                "format: {format}"
             );
         }
     }

@@ -19,9 +19,11 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.model_registry_identity import ModelRegistryIdentity
 from mixpeek.models.model_resource_requirements import ModelResourceRequirements
+from mixpeek.models.model_tiering_view import ModelTieringView
 from mixpeek.models.org_model_deployment_info import OrgModelDeploymentInfo
 from typing import Optional, Set
 from typing_extensions import Self
@@ -37,21 +39,27 @@ class OrgModelDocument(BaseModel):
     description: Optional[StrictStr] = Field(default=None, description="Model description")
     source: Optional[StrictStr] = Field(default='customer', description="Who created this model: 'customer' (org-uploaded), 'mixpeek' (professional services), or 'system' (globally available)")
     exportable: Optional[StrictBool] = Field(default=True, description="Whether the model archive can be downloaded by the customer. Auto-set to False for source='mixpeek'.")
+    license: Optional[StrictStr] = Field(default=None, description="License of a model imported from the Hugging Face Hub, as its model card declares it ('unspecified' when the card names none).")
     s3_archive_url: StrictStr = Field(description="S3 URL to model archive")
     model_format: StrictStr = Field(description="Model format/framework")
     model_hash: StrictStr = Field(description="SHA256 hash of model archive")
     validation_status: StrictStr = Field(description="Validation status")
     validation_errors: Optional[List[StrictStr]] = Field(default=None, description="Validation error messages")
+    validation_traceback: Optional[StrictStr] = Field(default=None, description="When the validation job failed: the end of the traceback from loading the model or running its sample inference.")
+    validation: Optional[Dict[str, Any]] = Field(default=None, description="What the validation job measured when it passed: validated_at, the engine_revision it ran on, the digest of the weights, peak_rss_bytes of the replica, and deploy_s, first_inference_s and cold_start_s.")
     deployed: Optional[StrictBool] = Field(default=False, description="Whether model has been deployed to any namespace")
     deployment_info: Optional[OrgModelDeploymentInfo] = Field(default=None, description="Deployment details")
     framework: Optional[StrictStr] = Field(default=None, description="ML framework (e.g., sentence-transformers)")
     task_type: Optional[StrictStr] = Field(default=None, description="Task type (e.g., embedding, classification)")
+    embedding_dim: Optional[StrictInt] = Field(default=None, description="Output dimension of an embedding model, measured by its validation job's sample inference. A collection on an extractor that serves it needs it before its vector index can be built.")
     input_schema: Optional[Dict[str, Any]] = Field(default=None, description="Input schema JSON")
     output_schema: Optional[Dict[str, Any]] = Field(default=None, description="Output schema JSON")
     resource_requirements: Optional[ModelResourceRequirements] = Field(default=None, description="Resource requirements for deployment")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp")
-    __properties: ClassVar[List[str]] = ["model_id", "organization_id", "name", "version", "description", "source", "exportable", "s3_archive_url", "model_format", "model_hash", "validation_status", "validation_errors", "deployed", "deployment_info", "framework", "task_type", "input_schema", "output_schema", "resource_requirements", "created_at", "updated_at"]
+    tiering: Optional[ModelTieringView] = Field(default=None, description="The model's tier on the tiering ladder and its wake cost and time.")
+    registry: ModelRegistryIdentity = Field(description="The ids this entry derives: registry id, shared model key, service id.")
+    __properties: ClassVar[List[str]] = ["model_id", "organization_id", "name", "version", "description", "source", "exportable", "license", "s3_archive_url", "model_format", "model_hash", "validation_status", "validation_errors", "validation_traceback", "validation", "deployed", "deployment_info", "framework", "task_type", "embedding_dim", "input_schema", "output_schema", "resource_requirements", "created_at", "updated_at", "tiering", "registry"]
 
     @field_validator('source')
     def source_validate_enum(cls, value):
@@ -107,8 +115,10 @@ class OrgModelDocument(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
+            "registry",
         ])
 
         _dict = self.model_dump(
@@ -122,6 +132,12 @@ class OrgModelDocument(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of resource_requirements
         if self.resource_requirements:
             _dict['resource_requirements'] = self.resource_requirements.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of tiering
+        if self.tiering:
+            _dict['tiering'] = self.tiering.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of registry
+        if self.registry:
+            _dict['registry'] = self.registry.to_dict()
         return _dict
 
     @classmethod
@@ -141,20 +157,26 @@ class OrgModelDocument(BaseModel):
             "description": obj.get("description"),
             "source": obj.get("source") if obj.get("source") is not None else 'customer',
             "exportable": obj.get("exportable") if obj.get("exportable") is not None else True,
+            "license": obj.get("license"),
             "s3_archive_url": obj.get("s3_archive_url"),
             "model_format": obj.get("model_format"),
             "model_hash": obj.get("model_hash"),
             "validation_status": obj.get("validation_status"),
             "validation_errors": obj.get("validation_errors"),
+            "validation_traceback": obj.get("validation_traceback"),
+            "validation": obj.get("validation"),
             "deployed": obj.get("deployed") if obj.get("deployed") is not None else False,
             "deployment_info": OrgModelDeploymentInfo.from_dict(obj["deployment_info"]) if obj.get("deployment_info") is not None else None,
             "framework": obj.get("framework"),
             "task_type": obj.get("task_type"),
+            "embedding_dim": obj.get("embedding_dim"),
             "input_schema": obj.get("input_schema"),
             "output_schema": obj.get("output_schema"),
             "resource_requirements": ModelResourceRequirements.from_dict(obj["resource_requirements"]) if obj.get("resource_requirements") is not None else None,
             "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at")
+            "updated_at": obj.get("updated_at"),
+            "tiering": ModelTieringView.from_dict(obj["tiering"]) if obj.get("tiering") is not None else None,
+            "registry": ModelRegistryIdentity.from_dict(obj["registry"]) if obj.get("registry") is not None else None
         })
         return _obj
 

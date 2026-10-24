@@ -15,8 +15,12 @@ export declare class ScrollToEvent extends ModelEvent {
 export declare class ColumnView extends BkColumnView {
     model: Column;
     _updating: boolean;
+    protected _stylesheet_listener: boolean;
+    protected _initial_scroll_pending: boolean;
+    protected _auto_scroll_pending: boolean;
     scroll_down_button_el: HTMLElement;
     connect_signals(): void;
+    get is_scroll_container(): boolean;
     get distance_from_latest(): number;
     scroll_to_index(index: number): void;
     scroll_to_position(): void;
@@ -26,6 +30,7 @@ export declare class ColumnView extends BkColumnView {
     toggle_scroll_button(): void;
     _update_layout(): void;
     render(): void;
+    _apply_initial_scroll(): void;
     update_children(): Promise<void>;
     after_render(): void;
 }

@@ -43,9 +43,9 @@ NAMES = tuple(sorted(CONTEXT_ENV))
 MAX_OUTPUT = 1024 * 1024
 
 
-def script() -> str:
-    fields = FIELD_MARKER.join(["%s"] * len(NAMES))
-    values = " ".join(f'"${name}"' for name in NAMES)
+def script(names: tuple = NAMES) -> str:
+    fields = FIELD_MARKER.join(["%s"] * len(names))
+    values = " ".join(f'"${name}"' for name in names)
     return f"printf '{PATH_MARKER}%s{PATH_MARKER}' \"$PATH\"; printf '{ENV_MARKER}{fields}{ENV_MARKER}' {values}"
 
 
@@ -58,10 +58,10 @@ def _marked(output: str, marker: str) -> str | None:
     return None if end < 0 else output[start:end]
 
 
-def parse(output: str) -> tuple[str, dict] | None:
-    """`(PATH, {name: value})` from what the shell printed, or None unless it
-    printed a PATH with at least one absolute directory. A value that is empty,
-    or is its own name unexpanded, was not set."""
+def parse(output: str, names: tuple = NAMES) -> tuple[str, dict] | None:
+    """`(PATH, {name: value})` from what the shell printed (`script(names)`), or
+    None unless it printed a PATH with at least one absolute directory. A value
+    that is empty, or is its own name unexpanded, was not set."""
     path = _marked(output, PATH_MARKER)
     if path is None or not any(part.startswith("/") for part in path.split(":")):
         return None
@@ -69,8 +69,8 @@ def parse(output: str) -> tuple[str, dict] | None:
     fields = _marked(output, ENV_MARKER)
     if fields is not None:
         parts = fields.split(FIELD_MARKER)
-        if len(parts) == len(NAMES):
-            for name, value in zip(NAMES, parts):
+        if len(parts) == len(names):
+            for name, value in zip(names, parts):
                 if value and value != f"${name}" and "\0" not in value:
                     values[name] = value
     return path, values
@@ -91,18 +91,21 @@ def build_path(login: str | None, inherited: str | None, home: Path) -> str:
     return ":".join(out)
 
 
-async def read(*, timeout: float = TIMEOUT_S) -> tuple[str, dict] | None:
-    """Ask the login shell. None when there is no shell, it printed no PATH,
-    or it could not start. Never raises."""
+async def read(*, timeout: float = TIMEOUT_S, names: tuple = NAMES) -> tuple[str, dict] | None:
+    """Ask the login shell for PATH and `names` (default: the context
+    variables; the watch asks for a report's consent variables). None when
+    there is no shell, it printed no PATH, or it could not start (and on
+    Windows, which has no login shell to ask: Git Bash's would print a POSIX
+    PATH). Never raises."""
     shell = os.environ.get("SHELL") or ""
-    if not shell or not os.path.isabs(shell):
+    if os.name == "nt" or not shell or not os.path.isabs(shell):
         return None
     home = Path.home()
     try:
         child = await asyncio.create_subprocess_exec(
             shell,
             "-ilc",
-            script(),
+            script(names),
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
@@ -133,13 +136,17 @@ async def read(*, timeout: float = TIMEOUT_S) -> tuple[str, dict] | None:
             os.killpg(child.pid, signal.SIGKILL)
         with contextlib.suppress(Exception):
             await asyncio.wait_for(child.wait(), 2.0)
-    return parse(b"".join(chunks).decode("utf-8", "replace"))
+    return parse(b"".join(chunks).decode("utf-8", "replace"), names)
 
 
 async def child_env(*, vars: bool) -> dict:
     """What a child gets from the login shell: PATH merged as the app merges it,
     and, with `vars`, the context variables it sets. `{}`-plus-PATH when the
     shell gives nothing (the service's own PATH, merged the same way)."""
+    if os.name == "nt":
+        # The service's own PATH as it is (`;`-separated, drive letters): the
+        # merge above is POSIX-only.
+        return {"PATH": os.environ.get("PATH", "")}
     found = await read()
     login_path, values = found if found is not None else (None, {})
     env = {"PATH": build_path(login_path, os.environ.get("PATH"), Path.home())}

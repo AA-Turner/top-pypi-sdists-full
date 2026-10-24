@@ -13,8 +13,8 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::Grammar,
 	node::{Element, Sequence, block::inline_block},
+	scope::Scope,
 	span::Span,
 	unparse::Unparse,
 };
@@ -71,7 +71,7 @@ where
 			separated_pair(
 				fold_many_m_n(1, MAX_HEADING_LEVEL, char('#'), || 0u8, |acc, _| acc + 1),
 				space1, // TODO: should this be exactly 1 space?
-				inline_block(context.with_grammar(Grammar::Block)),
+				inline_block(context.with_scope(Scope::Block)),
 			),
 			many0(blank_line),
 		),

@@ -92,10 +92,20 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
         "pid": int | null,
         "state": str | null,
         "started_at": float | null,
-        "sessions": [{"sid": str, "harness": str, "mode": str, "alive": bool}],
+        "sessions": [{"sid": str, "harness": str, "mode": str, "alive": bool,
+                      "receipts": {"last_line": int | null, "received_bytes": int | null,
+                                   "received_at": float | null, "pending_bytes": int | null,
+                                   "pending_lines": int | null, "pending_batch": bool | null,
+                                   "finalized": bool | null, "retrying": bool | null,
+                                   "scope": {"backend": str | null, "customer": str | null}}}],
+        "harnesses": [{"harness": str, "scope": {"backend": str | null, "customer": str | null},
+                       "sessions": int | null, "alive": int | null,
+                       "received_at": float | null, "pending_bytes": int | null,
+                       "pending_lines": int | null, "pending_batches": int | null}],
         "recorders": [{"sid": str, "alive": bool, "last": str, "failures": int}],
         "hook_hosts": [{"root": str, "pid": int}],
         "runs": [{"run": str, "pid": int, "since": float}],
+        "imports": [{"job_id": str, "pid": int, "since": float}],
         "update": {
           "enabled": bool | null,
           "in_progress": bool | null,
@@ -169,11 +179,22 @@ What the values mean:
   false when none runs (it starts with the next coding-agent session, or
   `probe service start`), null when that could not be told (`error` says
   why). `state`: discovering | running | grace. `sessions`: every session it
-  has registered, with its Probe `mode` (daemon | inline | off) and whether it
-  is `alive`. `recorders`: the sessions it records itself (`last`: how its
+  has registered, with its Probe `mode` (daemon | inline | off), whether it
+  is `alive`, and its delivery `receipts` from its recorder's transcript
+  journal (null when no live recorder holds the session in one): the server's receipt cursor
+  (`last_line`, `received_bytes`), when it last took the transcript
+  (`received_at`, epoch seconds; null from a tap before 0.10.6), and what waits
+  (`pending_bytes` and `pending_lines` past that cursor, `pending_batch` staged),
+  and `scope`: the account of the journal it came from (`backend`, the base
+  URL's host; `customer`), to show only the signed-in account's.
+  `harnesses`: the same per agent and scope (null for sessions without receipts), over its listed sessions
+  (sums over the sessions where they are known, the latest `received_at`).
+  `recorders`: the sessions it records itself (`last`: how its
   recorder last ended, `failures`: restarts after a failure). `hook_hosts`: its
   warm hook hosts, one per plugin folder. `runs`: the runs a `probe exec` holds
-  (the updater does not update under them). `update`: its updater -- a cycle
+  (the updater does not update under them). `imports`: the approved imports
+  whose worker it started and watches (`probe wizard --action imports` has
+  their progress). `update`: its updater -- a cycle
   `in_progress` (its `step`), the last check and whether it was ok, the next
   one, and the reason the last cycle was deferred (`deferred_reason`, since
   `deferred_since`). Everything but `reach` is null or empty unless it answered.

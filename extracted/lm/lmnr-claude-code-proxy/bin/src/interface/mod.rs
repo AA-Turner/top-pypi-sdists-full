@@ -22,27 +22,6 @@ impl ServerState {
         }
     }
 
-    pub fn shutdown(&mut self, timeout_secs: u64) -> Result<(), String> {
-        // Send shutdown signal with timeout value
-        if let Some(tx) = self.shutdown_tx.take() {
-            let _ = tx.send(timeout_secs);
-        } else {
-            return Err("Server already shutting down or shut down".to_string());
-        }
-
-        // Take ownership of the thread handle
-        let handle = self
-            .thread_handle
-            .take()
-            .ok_or("Server thread handle already consumed".to_string())?;
-
-        handle
-            .join()
-            .map_err(|_| "Failed to join server thread".to_string())?;
-
-        Ok(())
-    }
-
     pub fn shutdown_with_timeout(&mut self, timeout_secs: u64) -> Result<(), String> {
         // Send shutdown signal with timeout value
         if let Some(tx) = self.shutdown_tx.take() {
@@ -109,21 +88,6 @@ pub fn run(target_url: String, port: u16) -> Result<(), String> {
 
             Ok(())
         }
-    }
-}
-
-#[deprecated(since = "0.1.12", note = "Use stop_with_timeout instead")]
-pub fn stop(port: u16) -> Result<(), String> {
-    match SERVERS.entry(port) {
-        Entry::Occupied(mut entry) => {
-            let result = entry.get_mut().shutdown(DEFAULT_TIMEOUT);
-            // Only remove from map if shutdown succeeded
-            if result.is_ok() {
-                entry.remove();
-            }
-            result.map_err(|_| format!("Failed to join server thread on port {port}"))
-        }
-        Entry::Vacant(_) => Err(format!("No server is currently running on port {port}.")),
     }
 }
 

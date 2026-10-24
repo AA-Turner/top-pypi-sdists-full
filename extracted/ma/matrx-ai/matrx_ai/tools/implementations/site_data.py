@@ -15,6 +15,7 @@ from typing import Any
 from matrx_ai.tools.arg_models.web_args import SiteDataArgs
 from matrx_ai.tools.implementations._dataset_door import is_chat_door, slower_dataset_line
 from matrx_ai.tools.implementations._web_read_caps import RESULT_BUDGET_CHARS
+from matrx_ai.tools.kinds.data_fetch import DataFetchNotStarted
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 from matrx_ai.tools.streaming import ToolStreamManager
 
@@ -74,9 +75,13 @@ async def site_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     # Chat never starts a slow dataset (owner ruling 2026-10-16): one line back, nothing fetched or billed.
     if is_chat_door(unknown_is_chat=True):
+        model = DataFetchNotStarted
+        legacy_output = {"status": "not_started", "message": slower_dataset_line(parsed.site or parsed.url)}
+        typed_output = model.model_validate({"__kind": model.kind_slug, **legacy_output})
         return ToolResult(
             success=True,
-            output={"status": "not_started", "message": slower_dataset_line(parsed.site or parsed.url)},
+            output=typed_output.model_dump(mode="json", by_alias=True, exclude_unset=True),
+            output_kind=model.kind_slug,
             started_at=started_at, completed_at=time.time(), tool_name="site_data", call_id=ctx.call_id,
         )
 

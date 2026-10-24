@@ -24,6 +24,7 @@ else:
 __all__ = (
     "ApplicationRevisionSortByType",
     "AutoRollbackEventType",
+    "AutoScalingGroupProcessType",
     "BundleTypeType",
     "CodeDeployServiceName",
     "ComputePlatformType",
@@ -78,6 +79,9 @@ __all__ = (
 ApplicationRevisionSortByType = Literal["firstUsedTime", "lastUsedTime", "registerTime"]
 AutoRollbackEventType = Literal[
     "DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM", "DEPLOYMENT_STOP_ON_REQUEST"
+]
+AutoScalingGroupProcessType = Literal[
+    "AZRebalance", "InstanceRefresh", "ScheduledActions", "Terminate"
 ]
 BundleTypeType = Literal["JSON", "YAML", "tar", "tgz", "zip"]
 ComputePlatformType = Literal["ECS", "Lambda", "Server"]
@@ -348,13 +352,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -422,6 +425,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -556,6 +560,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -606,7 +611,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

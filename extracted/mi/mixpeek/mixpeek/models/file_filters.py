@@ -30,8 +30,8 @@ class FileFilters(BaseModel):
     """
     Filter rules controlling which files are synced from storage providers.  All filters are optional and combined with AND logic. Files must pass ALL specified filters to be synced.  **Pattern Matching:** Uses glob patterns (*, ?, [abc], etc.) **Size Filtering:** Bytes-based, inclusive bounds **Time Filtering:** ISO 8601 datetime, based on provider's modified timestamp
     """ # noqa: E501
-    include_patterns: Optional[List[StrictStr]] = Field(default=None, description="Glob patterns to include (e.g. ['*.mp4', '*.mov']).")
-    exclude_patterns: Optional[List[StrictStr]] = Field(default=None, description="Glob patterns to exclude (e.g. ['*/drafts/*', '*_temp.*']).")
+    include_patterns: Optional[List[StrictStr]] = Field(default=None, description="Glob patterns to include (e.g. ['*.mp4', '*.mov']). A pattern without '/' matches the file name in any folder; a pattern with '/' matches the path from the sync's source root (e.g. 'videos/*.mp4').")
+    exclude_patterns: Optional[List[StrictStr]] = Field(default=None, description="Glob patterns to exclude (e.g. ['*/drafts/*', '*_temp.*']). Matched like include_patterns: without '/' against the file name, with '/' against the path from the sync's source root.")
     min_size_bytes: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Minimum file size (bytes). Files smaller are skipped.")
     max_size_bytes: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Maximum file size (bytes). Files larger are skipped.")
     modified_after: Optional[datetime] = Field(default=None, description="Only sync files modified after this timestamp.")

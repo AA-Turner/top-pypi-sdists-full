@@ -19,6 +19,7 @@ from schemachange.session.Script import (
     VersionedCLIScript,
     VersionedScript,
 )
+from schemachange.sql_splitter import split_sql_statements
 from schemachange.version import max_alphanumeric
 
 
@@ -215,10 +216,18 @@ class SnowflakeSession:
         )
 
         try:
-            res = self.con.execute_string(query)
+            statements = split_sql_statements(query)
+            res = []
+            for stmt in statements:
+                # cursor.execute() sends the fragment as-is. connection.execute_string() would
+                # re-split it on every ';' and cut BEGIN...END blocks apart (issue #421).
+                # The cursor stays open: callers iterate the returned cursors for rows.
+                cursor = self.con.cursor()
+                cursor.execute(stmt)
+                res.append(cursor)
             if not self.autocommit:
                 self.con.commit()
-            logger.debug("Query executed")
+            logger.debug("Query executed", statement_count=len(statements))
             return res
 
         except snowflake.connector.errors.ProgrammingError as e:
@@ -246,6 +255,38 @@ class SnowflakeSession:
             # Unexpected errors
             logger.error("Unexpected query error", error_type=type(e).__name__, error_msg=str(e))
             logger.debug("Failed query", query=indent(query, prefix="\t"))
+            if not self.autocommit:
+                self.con.rollback()
+            raise
+
+    def _execute_parameterized(self, query: str, params: tuple, logger: structlog.BoundLogger):
+        """Execute a single parameterized query with bind variables.
+
+        Unlike execute_snowflake_query (which splits raw SQL with split_sql_statements and
+        runs each fragment with cursor.execute), this method binds values as parameters
+        to safely pass them without SQL injection risk.
+        """
+        logger.debug("Executing parameterized query", query_preview=query[:200])
+
+        try:
+            with self.con.cursor() as cur:
+                cur.execute(query, params)
+            if not self.autocommit:
+                self.con.commit()
+
+        except snowflake.connector.errors.ProgrammingError as e:
+            logger.error(
+                "SQL execution error",
+                error_code=getattr(e, "errno", None),
+                sql_state=getattr(e, "sqlstate", None),
+                error_msg=str(e),
+            )
+            if not self.autocommit:
+                self.con.rollback()
+            raise
+
+        except snowflake.connector.errors.DatabaseError as e:
+            logger.error("Database error", error_type=type(e).__name__, error_msg=str(e))
             if not self.autocommit:
                 self.con.rollback()
             raise
@@ -458,7 +499,9 @@ class SnowflakeSession:
         if extra_tag:
             query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger)
+        # Escape single quotes to prevent SQL injection via user-controlled config values
+        safe_query_tag = query_tag.replace("'", "''")
+        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{safe_query_tag}'", logger=logger)
 
     def apply_change_script(
         self,
@@ -472,6 +515,7 @@ class SnowflakeSession:
         dry_run: bool,
         logger: structlog.BoundLogger,
         out_of_order: bool = False,
+        checksum: str | None = None,
     ) -> None:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
@@ -485,7 +529,8 @@ class SnowflakeSession:
             logger.info(f"Applying {script.type_desc} change script")
         # Define a few other change related variables
         # noinspection PyTypeChecker
-        checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
+        if checksum is None:
+            checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
 
         # Execute the contents of the script
@@ -641,16 +686,17 @@ class SnowflakeSession:
                 STATUS,
                 INSTALLED_BY,
                 INSTALLED_ON
-            ) VALUES (
-                '{getattr(script, "version", "")}',
-                '{script.description}',
-                '{script.name}',
-                '{script.type}',
-                '{checksum}',
-                {execution_time},
-                '{status}',
-                '{self.user}',
-                CURRENT_TIMESTAMP
-            );
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
-        self.execute_snowflake_query(dedent(query), logger=logger)
+        params = (
+            getattr(script, "version", ""),
+            script.description,
+            script.name,
+            script.type,
+            checksum,
+            execution_time,
+            status,
+            self.user,
+        )
+        logger.debug("Recording change history", params=params)
+        self._execute_parameterized(dedent(query), params, logger)

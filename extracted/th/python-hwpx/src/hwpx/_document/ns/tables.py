@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`doc.tables` — 표 탐색·매핑·병합·경로 채움.
+"""`doc.tables` — 표 탐색·매핑·병합·구조 편집·경로 채움.
 
 표를 **만드는** 것은 루트에 남았다(`doc.add_table` — python-docx 대응이자
 automation 최다 사용 저작 동사 중 하나). 만든 다음에 하는 일들이 여기 모인다.
@@ -11,7 +11,7 @@ automation 최다 사용 저작 동사 중 하나). 만든 다음에 하는 일�
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Iterable, Mapping, overload
 
 from ._base import _Namespace
 
@@ -28,7 +28,7 @@ __all__ = ["TablesNamespace"]
 
 
 class TablesNamespace(_Namespace):
-    """표 탐색·매핑·병합·경로 채움."""
+    """표 탐색·매핑·병합·구조 편집·경로 채움."""
 
     __slots__ = ()
     _path = "doc.tables"
@@ -47,6 +47,20 @@ class TablesNamespace(_Namespace):
 
     def __iter__(self):
         return iter(self.all)
+
+    @overload
+    def __getitem__(self, index: int) -> "Table": ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list["Table"]: ...
+
+    def __getitem__(self, index: int | slice) -> "Table | list[Table]":
+        """문서 순서의 ``index`` 번째 표(``doc.tables[0]``, ``doc.tables[-1]``, ``doc.tables[1:3]``).
+
+        ``doc.tables.all[index]``와 같다. 범위 밖이면 ``IndexError``.
+        """
+
+        return self.all[index]
 
     def map(self) -> "TableMapResult":
         """모든 표의 위치·모양·헤더 미리보기를 담은 간결 지도."""
@@ -78,3 +92,35 @@ class TablesNamespace(_Namespace):
         """
 
         return table.merge_cells(cell_range)
+
+    def insert_rows(
+        self, table: "Table", ref_row: int, count: int = 1, *, side: str = "below", blank: bool = False
+    ) -> None:
+        """``ref_row`` 행을 복제해 그 아래(``side="above"``면 위)에 ``count`` 행을 넣는다.
+
+        새 칸은 같은 열 기준 칸의 서식과 글을 받고, ``blank=True``면 한/글처럼 빈 문단 하나만 둔다.
+        """
+
+        table.insert_rows(ref_row, count, side=side, blank=blank)
+
+    def insert_columns(
+        self, table: "Table", ref_col: int, count: int = 1, *, side: str = "right", blank: bool = False
+    ) -> None:
+        """``ref_col`` 열을 복제해 그 오른쪽(``side="left"``면 왼쪽)에 ``count`` 열을 넣는다(표가 넓어진다)."""
+
+        table.insert_columns(ref_col, count, side=side, blank=blank)
+
+    def delete_rows(self, table: "Table", rows: int | Iterable[int]) -> None:
+        """행을 지운다. 모든 행은 지울 수 없다(표 삭제를 쓴다)."""
+
+        table.delete_rows(rows)
+
+    def delete_columns(self, table: "Table", cols: int | Iterable[int]) -> None:
+        """열을 지우고 그 폭을 남은 열에 나눈다. 모든 열은 지울 수 없다."""
+
+        table.delete_columns(cols)
+
+    def split_cell(self, table: "Table", row: int, col: int, *, rows: int = 1, cols: int = 1) -> None:
+        """(``row``, ``col``) 칸을 ``rows`` 줄 × ``cols`` 칸으로 나눈다(한/글의 셀 나누기)."""
+
+        table.split_cell(row, col, rows=rows, cols=cols)

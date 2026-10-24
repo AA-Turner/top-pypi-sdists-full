@@ -1407,9 +1407,17 @@ class BSplineSolver(
         gap's width is the mesh's; a fixed geometric gap is two facing wire
         ends driven through `junction_ports`.
 
-        Not served: buried wires, a complex wavenumber or permittivity,
-        `use_singular_enrichment`, `rotational_symmetry` and the
-        H-matrix/array subclasses (refused by name). A junction of three or
+        **Buried wires** (momwire#1619 stage 1): served IN PART
+        (`_exact_kernel_seam.BURIED_ABOVE_ONLY`). The correction acts on the
+        coaxial pairs whose two segments are both above the ground -- the
+        upper medium, where k is real -- after the buried fill, and every
+        pair that touches a buried segment keeps the fill's kernel; "auto"
+        reads the above-ground segments only. The lower medium's complex
+        wavenumber is stage 2. A wholly buried deck is refused.
+
+        Not served: a wholly buried deck, a complex wavenumber or
+        permittivity, `use_singular_enrichment`, `rotational_symmetry` and
+        the H-matrix/array subclasses (refused by name). A junction of three or
         more wires is not excluded: its collinear through-pair takes the
         exact kernel, though the ring-uniform current it assumes is no
         better there than for the thin-wire kernels.
@@ -1417,8 +1425,9 @@ class BSplineSolver(
         **"auto"** (momwire#1408 follow-up) resolves once, at construction,
         to True iff (i) this route serves the kernel -- not a subclass that
         refuses it, not `use_singular_enrichment`, not `rotational_symmetry`,
-        no buried wire, no complex wavenumber or permittivity -- and (ii)
-        some segment is fat for its length, h/a < `EXACT_KERNEL_AUTO_H_OVER_A`
+        some wire above ground, no complex wavenumber or permittivity -- and
+        (ii) some segment it can correct (an above-ground one, on a buried
+        deck) is fat for its length, h/a < `EXACT_KERNEL_AUTO_H_OVER_A`
         (3). Every segment is in a coaxial group (its own, at least), so
         (ii) is "the correction would act on a segment that short". The
         threshold is the kernel-error table's: the extended kernel's error
@@ -2137,15 +2146,19 @@ class BSplineSolver(
         # not running: the fill raises before any number comes out
         # (`_exact_kernel_resolved`).
         exact_runs, servable = self._exact_kernel_resolved()
+        gaps = _wire_spec.solver_gaps(self, end_ports_are_gaps=not exact_runs)
+        short_ek, gap_ek = self._exact_kernel_advisory_kernels(
+            exact_runs, servable, gaps
+        )
         # momwire#1378: any segment under two radii, anywhere (not only at a gap).
         # Advisory, once per solver, on the final mesh; silent where the exact
-        # ring kernel runs.
+        # ring kernel runs (on a buried deck, on the wires it reaches).
         _wire_spec.advise_short_segments(
             type(self).__name__,
             self.wires_polylines,
             self.n_per_edge_per_wire,
             self._radius_per_wire,
-            exact_kernel=exact_runs,
+            exact_kernel=short_ek,
         )
         # momwire#959: segments below the radius AT A GAP. Advisory, once per
         # solver; its text follows the kernel (thin-wire collapse, or the
@@ -2157,9 +2170,9 @@ class BSplineSolver(
             self.n_per_edge_per_wire,
             self._radius_per_wire,
             self.extended_kernel,
-            _wire_spec.solver_gaps(self, end_ports_are_gaps=not exact_runs),
+            gaps,
             gap_model="point",
-            exact_kernel=True if exact_runs else (False if servable else None),
+            exact_kernel=gap_ek,
             fixed_gap_feed=self.EXACT_KERNEL_FIXED_GAP_FEED,
         )
         if (
@@ -2185,13 +2198,24 @@ class BSplineSolver(
     def _exact_kernel_buried(self):
         return self.ground_z is not None and self._has_buried_wires()
 
+    # momwire#1619 stage 1: the coaxial pairs whose two segments are both
+    # above the ground take the correction after the buried fill.
+    _serves_exact_kernel_above_buried = True
+
+    def _exact_kernel_any_above(self):
+        return any(m != _medium_spec.BELOW for m in self._wire_media())
+
     def _exact_kernel_lossy(self):
         return bool(np.iscomplexobj(self.k) or np.iscomplexobj(self.eps))
 
     def _exact_kernel_h_and_a(self):
         geom = self._build_geometry()
         h = norm3(geom["seg_r"] - geom["seg_l"])
-        return h, self._seg_radius(geom)
+        a = self._seg_radius(geom)
+        if self._exact_kernel_buried():
+            above = ~np.asarray(self._below_segments(geom), dtype=bool)
+            return h[above], a[above]
+        return h, a
 
     def _rotational_ground_kind(self):
         """The ground's name for the rotational-symmetry rule (momwire#1029
@@ -2620,14 +2644,10 @@ class BSplineSolver(
         if self.ground_z is None or not self.junctions:
             return None
         media = self._wire_media()
-        if _medium_spec.BELOW not in media or not self._crossing_junctions():
+        if _medium_spec.BELOW not in media:
             return None
-        return _below_interface.crossing_side_radii(
-            media,
-            radii,
-            _below_interface.crossing_above_member(
-                self._crossing_junctions(), self.junctions, media
-            ),
+        return _below_interface.two_radius_crossing(
+            media, radii, self._crossing_junctions(), self.junctions
         )
 
     @property
@@ -7401,7 +7421,7 @@ class BSplineSolver(
         (d+1, d+1, N, N) moment tensor would blow the `swept_mem_mb`
         budget. `compute_y_matrix` used to bypass that dispatch and
         materialise the full tensor unconditionally — a flat ~12x n²·16 B
-        peak on exactly the entry point the SimNEC portal and the array
+        peak on exactly the entry point the NEC-2 launcher and the array
         benchmarks drive (issue #235).
         """
         # "auto" never refuses: an unserved route skips the correction, and
@@ -7414,7 +7434,15 @@ class BSplineSolver(
             # An all-above deck never reaches it, which is what keeps the
             # shipped path byte-identical.
             if rows is None and not compact:
-                return self._compute_Z_operator_buried(geom, supp_seg, polys)
+                Z = self._compute_Z_operator_buried(geom, supp_seg, polys)
+                if use_exact:
+                    # momwire#1619 stage 1: the above/above coaxial pairs,
+                    # after the whole buried fill (its loading included).
+                    self._checkpoint()
+                    self._add_exact_kernel_correction(
+                        Z, geom, supp_seg, polys, self.k, above_only=True
+                    )
+                return Z
             return self._compute_Z_operator_buried(
                 geom, supp_seg, polys, rows=rows, compact=compact
             )
@@ -7536,16 +7564,37 @@ class BSplineSolver(
                 edges.setdefault(i, []).append((sl, arc, a_w))
         return [(S, lab, edges[i]) for i, (S, lab) in enumerate(lines)]
 
-    def _exact_kernel_jobs(self, geom):
+    def _exact_kernel_jobs(self, geom, above_only=False):
         """[(segment indices, edges, radius labels or None)]: every coaxial
         group (labels None), then every stepped line's cross job
         (momwire#1438). The two own disjoint pairs, so their corrections
-        add; a deck with no step has no cross job."""
+        add; a deck with no step has no cross job.
+
+        `above_only` (momwire#1619 stage 1, a deck with buried wires): each
+        job cut to its above-ground segments, so no pair touching a buried
+        one is corrected. Media are per wire and an edge lies on one wire,
+        so an edge is kept or dropped whole. A job left empty is dropped,
+        and so is a cross job left with one radius: its pairs were the step
+        into the buried wire."""
         jobs = [(S, g_edges, None) for S, g_edges in self._exact_kernel_groups(geom)]
         jobs += [
             (S, g_edges, lab) for S, lab, g_edges in self._exact_kernel_lines(geom)
         ]
-        return jobs
+        if not above_only:
+            return jobs
+        above = ~np.asarray(self._below_segments(geom), dtype=bool)
+        out = []
+        for S, g_edges, lab in jobs:
+            keep = above[S]
+            if not keep.any():
+                continue
+            if lab is not None:
+                lab = lab[keep]
+                if np.unique(lab).size < 2:
+                    continue
+            edges = [e for e in g_edges if above[e[0].start]]
+            out.append((S[keep], edges, lab))
+        return out
 
     def _exact_kernel_base_J(self, geom, S, g_edges, k, rows=None, fill=None):
         """The (d+1, d+1, n, n) moments the free-space fill put on the
@@ -7612,9 +7661,17 @@ class BSplineSolver(
             )
         return J
 
-    def _exact_kernel_fill_spec(self, geom, k):
+    def _exact_kernel_fill_spec(self, geom, k, above_only=False):
         """(ek, ladder): the whole-mesh EK spec and pair-order ladder the
-        fill used, which the base moments must reproduce."""
+        fill used, which the base moments must reproduce. `above_only`
+        (momwire#1619): the buried fill's above/above blocks' spec
+        (`_ek_spec_above`, `_build_J_blocks_subset`'s ladder)."""
+        if above_only:
+            ek = self._ek_spec_above(geom) if self.extended_kernel else None
+            above = ~np.asarray(self._below_segments(geom), dtype=bool)
+            return ek, self._fill_ladder(
+                k, geom["seg_l"][above], geom["seg_r"][above], None
+            )
         ek = self._ek_spec(geom) if self.extended_kernel else None
         return ek, self._fill_ladder(k, geom["seg_l"], geom["seg_r"], ek)
 
@@ -7654,10 +7711,12 @@ class BSplineSolver(
         deduplicated inside its window and not remembered."""
         return int(self.swept_mem_mb * 1024 * 1024) // 16
 
-    def _add_exact_kernel_correction(self, Z, geom, supp_seg, polys, k):
+    def _add_exact_kernel_correction(
+        self, Z, geom, supp_seg, polys, k, above_only=False
+    ):
         """Z += Z_exact - Z_base over every coaxial group (momwire#1408),
         and over the cross-radius pairs of every line with a radius step
-        (momwire#1438: `_exact_kernel.CoaxialCrossRows`, its base the
+        (momwire#1438: `_exact_kernel.coaxial_cross_rows`, its base the
         `BaseRows` cross mode, which produces only those pairs).
 
         In place, by observer-row windows of each group (momwire#1411): a
@@ -7679,9 +7738,17 @@ class BSplineSolver(
         costs O(n) kernel work like its exact moments (5,999 pairs instead
         of 9,000,000 on the 3,000-segment wire), and pairs it cannot gather
         are recomputed as `_exact_kernel_base_J` does, which stays behind
-        `_EXACT_KERNEL_BASE_DEDUP` as the reference."""
+        `_EXACT_KERNEL_BASE_DEDUP` as the reference.
+
+        `above_only` (momwire#1619 stage 1): a deck with buried wires, Z its
+        whole buried fill. Only the coaxial pairs whose two segments are
+        both above ground are corrected (`_exact_kernel_jobs`), against the
+        base the buried fill's above/above direct block put there
+        (`_exact_kernel_fill_spec`); the rest keeps the fill's kernel."""
         if not _EXACT_KERNEL_ROW_WINDOWS:
-            return self._add_exact_kernel_correction_whole(Z, geom, supp_seg, polys, k)
+            return self._add_exact_kernel_correction_whole(
+                Z, geom, supp_seg, polys, k, above_only
+            )
         d = self.degree
         nd = d + 1
         seg_l, seg_r = geom["seg_l"], geom["seg_r"]
@@ -7694,8 +7761,8 @@ class BSplineSolver(
             and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
             and not np.iscomplexobj(self.eps)
         )
-        fill = self._exact_kernel_fill_spec(geom, k)
-        for S, g_edges, lab in self._exact_kernel_jobs(geom):
+        fill = self._exact_kernel_fill_spec(geom, k, above_only)
+        for S, g_edges, lab in self._exact_kernel_jobs(geom, above_only):
             n = S.size
             _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
             budget = self.swept_mem_mb * 1024 * 1024
@@ -7710,8 +7777,9 @@ class BSplineSolver(
                     max_cached=max(1, budget // (nd * nd * 16 + 256)),
                 )
             else:
-                # numpy only, zero on the same-radius pairs (momwire#1438)
-                exact = _exact_kernel.CoaxialCrossRows(
+                # zero on the same-radius pairs (momwire#1438); C++ where it
+                # serves, the text the standalone bs2 route runs (momwire#1615)
+                exact = _exact_kernel.coaxial_cross_rows(
                     x0,
                     sgn,
                     h,
@@ -7838,7 +7906,9 @@ class BSplineSolver(
             1j * self.omega * self.eps
         )
 
-    def _add_exact_kernel_correction_whole(self, Z, geom, supp_seg, polys, k):
+    def _add_exact_kernel_correction_whole(
+        self, Z, geom, supp_seg, polys, k, above_only=False
+    ):
         """The pre-#1411 route: each group's whole (d+1)²·n² correction block
         at once, assembled by `_assemble_Z`. The reference the row-window
         route is gated against (`_EXACT_KERNEL_ROW_WINDOWS = False`)."""
@@ -7848,15 +7918,16 @@ class BSplineSolver(
         tang = geom["tangents"]
         seg_a = self._seg_radius(geom)
         n_total = int(geom["n_segs_total"])
-        for S, g_edges, lab in self._exact_kernel_jobs(geom):
+        fill = self._exact_kernel_fill_spec(geom, k, above_only)
+        for S, g_edges, lab in self._exact_kernel_jobs(geom, above_only):
             n = S.size
             _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
             if lab is None:
                 dJ = _exact_kernel.coaxial_block(x0, sgn, h, float(seg_a[S[0]]), k, nd)
-                dJ -= self._exact_kernel_base_J(geom, S, g_edges, k)
+                dJ -= self._exact_kernel_base_J(geom, S, g_edges, k, fill=fill)
             else:
                 dJ = _exact_kernel.coaxial_cross_block(x0, sgn, h, seg_a[S], lab, k, nd)
-                base = self._exact_kernel_base_J(geom, S, g_edges, k)
+                base = self._exact_kernel_base_J(geom, S, g_edges, k, fill=fill)
                 base[:, :, lab[:, None] == lab[None, :]] = 0.0
                 dJ -= base
                 del base

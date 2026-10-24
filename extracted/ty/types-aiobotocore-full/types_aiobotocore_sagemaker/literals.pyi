@@ -85,6 +85,7 @@ __all__ = (
     "ClarifyFeatureTypeType",
     "ClarifyTextGranularityType",
     "ClarifyTextLanguageType",
+    "CleanupFailureErrorCodeType",
     "ClusterAutoScalerTypeType",
     "ClusterAutoScalingModeType",
     "ClusterAutoScalingStatusType",
@@ -155,6 +156,7 @@ __all__ = (
     "FillingTypeType",
     "FlatInvocationsType",
     "FlowDefinitionStatusType",
+    "ForEachStatusType",
     "FrameworkType",
     "HomeEfsFileSystemCreationType",
     "HubContentSortByType",
@@ -295,6 +297,7 @@ __all__ = (
     "ListTrainingJobsForHyperParameterTuningJobPaginatorName",
     "ListTrainingJobsPaginatorName",
     "ListTrainingPlansPaginatorName",
+    "ListTrainingSessionsPaginatorName",
     "ListTransformJobsPaginatorName",
     "ListTrialComponentsPaginatorName",
     "ListTrialsPaginatorName",
@@ -484,6 +487,7 @@ __all__ = (
     "TrainingPlanSortOrderType",
     "TrainingPlanStatusType",
     "TrainingRepositoryAccessModeType",
+    "TrainingSessionStatusType",
     "TransformInstanceTypeType",
     "TransformJobCompletedOrStoppedWaiterName",
     "TransformJobStatusType",
@@ -962,6 +966,7 @@ ClarifyTextLanguageType = Literal[
     "yo",
     "zh",
 ]
+CleanupFailureErrorCodeType = Literal["ClientError", "InternalFailure"]
 ClusterAutoScalerTypeType = Literal["Karpenter"]
 ClusterAutoScalingModeType = Literal["Disable", "Enable"]
 ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
@@ -1031,6 +1036,7 @@ ClusterInstanceTypeType = Literal[
     "ml.c7g.large",
     "ml.c7g.medium",
     "ml.c7g.xlarge",
+    "ml.c8a.16xlarge",
     "ml.c8g.12xlarge",
     "ml.c8g.16xlarge",
     "ml.c8g.24xlarge",
@@ -1144,6 +1150,7 @@ ClusterInstanceTypeType = Literal[
     "ml.m7i.8xlarge",
     "ml.m7i.large",
     "ml.m7i.xlarge",
+    "ml.m8a.16xlarge",
     "ml.m8g.12xlarge",
     "ml.m8g.16xlarge",
     "ml.m8g.24xlarge",
@@ -1283,6 +1290,7 @@ FillingTypeType = Literal[
 ]
 FlatInvocationsType = Literal["Continue", "Stop"]
 FlowDefinitionStatusType = Literal["Active", "Deleting", "Failed", "Initializing"]
+ForEachStatusType = Literal["Failed", "Stopped", "Succeeded"]
 FrameworkType = Literal[
     "DARKNET", "KERAS", "MXNET", "ONNX", "PYTORCH", "SKLEARN", "TENSORFLOW", "TFLITE", "XGBOOST"
 ]
@@ -1667,6 +1675,7 @@ ListTrainingJobsForHyperParameterTuningJobPaginatorName = Literal[
 ]
 ListTrainingJobsPaginatorName = Literal["list_training_jobs"]
 ListTrainingPlansPaginatorName = Literal["list_training_plans"]
+ListTrainingSessionsPaginatorName = Literal["list_training_sessions"]
 ListTransformJobsPaginatorName = Literal["list_transform_jobs"]
 ListTrialComponentsPaginatorName = Literal["list_trial_components"]
 ListTrialsPaginatorName = Literal["list_trials"]
@@ -1901,7 +1910,9 @@ PartnerAppStatusType = Literal[
 ]
 PartnerAppTypeType = Literal["comet", "deepchecks-llm-evaluation", "fiddler", "lakera-guard"]
 PeftType = Literal["LORA"]
-PipelineExecutionStatusType = Literal["Executing", "Failed", "Stopped", "Stopping", "Succeeded"]
+PipelineExecutionStatusType = Literal[
+    "CompletedWithFailures", "Executing", "Failed", "Stopped", "Stopping", "Succeeded"
+]
 PipelineStatusType = Literal["Active", "Deleting"]
 PreemptTeamTasksType = Literal["LowerPriority", "Never"]
 ProblemTypeType = Literal["BinaryClassification", "MulticlassClassification", "Regression"]
@@ -2896,6 +2907,18 @@ TrainingPlanSortByType = Literal["StartTime", "Status", "TrainingPlanName"]
 TrainingPlanSortOrderType = Literal["Ascending", "Descending"]
 TrainingPlanStatusType = Literal["Active", "Expired", "Failed", "Pending", "Scheduled"]
 TrainingRepositoryAccessModeType = Literal["Platform", "Vpc"]
+TrainingSessionStatusType = Literal[
+    "Blocked",
+    "Created",
+    "Deleting",
+    "DeletionFailed",
+    "Expired",
+    "Failed",
+    "Running",
+    "Scheduled",
+    "Stopped",
+    "Stopping",
+]
 TransformInstanceTypeType = Literal[
     "ml.c4.2xlarge",
     "ml.c4.4xlarge",
@@ -3186,13 +3209,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -3260,6 +3282,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -3394,6 +3417,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -3444,7 +3468,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -3553,6 +3576,7 @@ PaginatorName = Literal[
     "list_training_jobs",
     "list_training_jobs_for_hyper_parameter_tuning_job",
     "list_training_plans",
+    "list_training_sessions",
     "list_transform_jobs",
     "list_trial_components",
     "list_trials",

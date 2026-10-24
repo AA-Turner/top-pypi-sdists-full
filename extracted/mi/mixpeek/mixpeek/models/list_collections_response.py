@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.collection_list_stats import CollectionListStats
 from mixpeek.models.collection_response import CollectionResponse
+from mixpeek.models.degraded_entry import DegradedEntry
 from mixpeek.models.pagination_response import PaginationResponse
 from typing import Optional, Set
 from typing_extensions import Self
@@ -34,7 +35,8 @@ class ListCollectionsResponse(BaseModel):
     pagination: PaginationResponse = Field(description="Pagination information")
     total_count: StrictInt = Field(description="Total number of collections matching the query")
     stats: Optional[CollectionListStats] = Field(default=None, description="Aggregate statistics across all collections in the result")
-    __properties: ClassVar[List[str]] = ["results", "pagination", "total_count", "stats"]
+    warnings: Optional[List[DegradedEntry]] = Field(default=None, description="Why this page may not be the whole answer. An entry with resource 'namespace' and reason 'unresolved' means X-Namespace did not resolve for this API key, so the empty list is not that namespace's contents (the same condition as the X-Namespace-Unresolved response header). Empty when the namespace resolved.")
+    __properties: ClassVar[List[str]] = ["results", "pagination", "total_count", "stats", "warnings"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,6 +90,13 @@ class ListCollectionsResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of stats
         if self.stats:
             _dict['stats'] = self.stats.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in warnings (list)
+        _items = []
+        if self.warnings:
+            for _item_warnings in self.warnings:
+                if _item_warnings:
+                    _items.append(_item_warnings.to_dict())
+            _dict['warnings'] = _items
         return _dict
 
     @classmethod
@@ -103,7 +112,8 @@ class ListCollectionsResponse(BaseModel):
             "results": [CollectionResponse.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None,
             "pagination": PaginationResponse.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None,
             "total_count": obj.get("total_count"),
-            "stats": CollectionListStats.from_dict(obj["stats"]) if obj.get("stats") is not None else None
+            "stats": CollectionListStats.from_dict(obj["stats"]) if obj.get("stats") is not None else None,
+            "warnings": [DegradedEntry.from_dict(_item) for _item in obj["warnings"]] if obj.get("warnings") is not None else None
         })
         return _obj
 

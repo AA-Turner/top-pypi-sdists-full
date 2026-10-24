@@ -4,10 +4,7 @@ use serde_json::Value;
 
 use super::conversion::json_value_to_any_value;
 use crate::{
-    anthropic::{
-        request::{MessageContent, MessageRole, PostMessagesRequest},
-        response::{MessageResponse, ResponseContentBlock},
-    },
+    anthropic::{request::PostMessagesRequest, response::MessageResponse},
     proto::opentelemetry_proto_common_v1::KeyValue as KeyValueInner,
     spans::{ResponseInfo, SpanError},
 };

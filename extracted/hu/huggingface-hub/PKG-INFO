@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huggingface_hub
-Version: 2.2.0
+Version: 2.3.0
 Summary: Client library to download and publish models, datasets and other repos on the huggingface.co hub
 Home-page: https://github.com/huggingface/huggingface_hub
 Author: Hugging Face, Inc.
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
@@ -66,7 +67,7 @@ Requires-Dist: urllib3<2.0; extra == "testing"
 Requires-Dist: soundfile; extra == "testing"
 Requires-Dist: Pillow; extra == "testing"
 Requires-Dist: numpy; extra == "testing"
-Requires-Dist: duckdb; extra == "testing"
+Requires-Dist: duckdb; python_version < "3.15" and extra == "testing"
 Requires-Dist: fastapi; extra == "testing"
 Provides-Extra: gradio
 Requires-Dist: gradio>=5.0.0; extra == "gradio"
@@ -101,7 +102,7 @@ Requires-Dist: urllib3<2.0; extra == "all"
 Requires-Dist: soundfile; extra == "all"
 Requires-Dist: Pillow; extra == "all"
 Requires-Dist: numpy; extra == "all"
-Requires-Dist: duckdb; extra == "all"
+Requires-Dist: duckdb; python_version < "3.15" and extra == "all"
 Requires-Dist: fastapi; extra == "all"
 Requires-Dist: ruff>=0.9.0; extra == "all"
 Requires-Dist: mypy==1.15.0; extra == "all"
@@ -131,7 +132,7 @@ Requires-Dist: urllib3<2.0; extra == "dev"
 Requires-Dist: soundfile; extra == "dev"
 Requires-Dist: Pillow; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
-Requires-Dist: duckdb; extra == "dev"
+Requires-Dist: duckdb; python_version < "3.15" and extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: ruff>=0.9.0; extra == "dev"
 Requires-Dist: mypy==1.15.0; extra == "dev"

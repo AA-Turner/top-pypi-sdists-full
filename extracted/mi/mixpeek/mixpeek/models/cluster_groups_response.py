@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.cluster_group import ClusterGroup
 from typing import Optional, Set
@@ -32,8 +32,9 @@ class ClusterGroupsResponse(BaseModel):
     run_id: Optional[StrictStr] = None
     total_groups: StrictInt
     total_documents: StrictInt
+    member_counts_stale: Optional[StrictBool] = Field(default=False, description="True when member documents were deleted after this run completed, so member_count counts some documents that no longer exist. Re-run the cluster for current counts.")
     groups: List[ClusterGroup]
-    __properties: ClassVar[List[str]] = ["cluster_id", "run_id", "total_groups", "total_documents", "groups"]
+    __properties: ClassVar[List[str]] = ["cluster_id", "run_id", "total_groups", "total_documents", "member_counts_stale", "groups"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -97,6 +98,7 @@ class ClusterGroupsResponse(BaseModel):
             "run_id": obj.get("run_id"),
             "total_groups": obj.get("total_groups"),
             "total_documents": obj.get("total_documents"),
+            "member_counts_stale": obj.get("member_counts_stale") if obj.get("member_counts_stale") is not None else False,
             "groups": [ClusterGroup.from_dict(_item) for _item in obj["groups"]] if obj.get("groups") is not None else None
         })
         return _obj

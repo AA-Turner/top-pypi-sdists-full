@@ -20,6 +20,9 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.backup_coverage import BackupCoverage
+from mixpeek.models.restore_report import RestoreReport
+from mixpeek.models.snapshot_frontier import SnapshotFrontier
 from mixpeek.models.snapshot_verify_issue import SnapshotVerifyIssue
 from typing import Optional, Set
 from typing_extensions import Self
@@ -35,7 +38,11 @@ class SnapshotVerifyResponse(BaseModel):
     collections_verified: Optional[StrictInt] = Field(default=0, description="Count of expected (non-empty) collection dumps found present")
     vector_source: Optional[StrictStr] = Field(default=None, description="Where vectors would restore from: 'self', the shard-representative prefix (coalesced), 'none', or null if unresolved")
     vector_capture: Optional[StrictStr] = Field(default='could_not_measure', description="Deep-verify per-point vector NON-emptiness verdict. 'measured_ok': captured points carry non-empty vectors. 'measured_degraded': a significant fraction carry EMPTY vectors — the Raw-absence signature (a raw-less point scrolls back with vectors=[] yet counts as captured), so a restore would be searchable-degraded even though the point-count guard passed. 'could_not_measure': not deep-verified, metadata-only, or unreadable. Three-valued by design — could_not_measure must never render as ok (a boolean would collapse incapacity into the healthy value).")
-    __properties: ClassVar[List[str]] = ["snapshot_id", "status", "restorable", "issues", "collections_verified", "vector_source", "vector_capture"]
+    frontier: Optional[SnapshotFrontier] = Field(default=None, description="The frontier read back from the stored manifest.json")
+    mongo_backup: Optional[BackupCoverage] = Field(default=None, description="Whether the plane's Mongo backups can restore to the snapshot's recorded cluster time, asked at verify time")
+    digests_verified: Optional[StrictInt] = Field(default=0, description="Artifacts whose sha256 was recomputed and matched the manifest (deep verify only)")
+    last_restore: Optional[RestoreReport] = Field(default=None, description="The report of the most recent restore from this snapshot: what each collection restored, the vector counts, and retriever parity. Absent until a restore from this snapshot finishes.")
+    __properties: ClassVar[List[str]] = ["snapshot_id", "status", "restorable", "issues", "collections_verified", "vector_source", "vector_capture", "frontier", "mongo_backup", "digests_verified", "last_restore"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,6 +90,15 @@ class SnapshotVerifyResponse(BaseModel):
                 if _item_issues:
                     _items.append(_item_issues.to_dict())
             _dict['issues'] = _items
+        # override the default output from pydantic by calling `to_dict()` of frontier
+        if self.frontier:
+            _dict['frontier'] = self.frontier.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of mongo_backup
+        if self.mongo_backup:
+            _dict['mongo_backup'] = self.mongo_backup.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of last_restore
+        if self.last_restore:
+            _dict['last_restore'] = self.last_restore.to_dict()
         return _dict
 
     @classmethod
@@ -101,7 +117,11 @@ class SnapshotVerifyResponse(BaseModel):
             "issues": [SnapshotVerifyIssue.from_dict(_item) for _item in obj["issues"]] if obj.get("issues") is not None else None,
             "collections_verified": obj.get("collections_verified") if obj.get("collections_verified") is not None else 0,
             "vector_source": obj.get("vector_source"),
-            "vector_capture": obj.get("vector_capture") if obj.get("vector_capture") is not None else 'could_not_measure'
+            "vector_capture": obj.get("vector_capture") if obj.get("vector_capture") is not None else 'could_not_measure',
+            "frontier": SnapshotFrontier.from_dict(obj["frontier"]) if obj.get("frontier") is not None else None,
+            "mongo_backup": BackupCoverage.from_dict(obj["mongo_backup"]) if obj.get("mongo_backup") is not None else None,
+            "digests_verified": obj.get("digests_verified") if obj.get("digests_verified") is not None else 0,
+            "last_restore": RestoreReport.from_dict(obj["last_restore"]) if obj.get("last_restore") is not None else None
         })
         return _obj
 

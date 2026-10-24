@@ -1,4 +1,6 @@
 mod logger;
+#[cfg(feature = "python-support")]
+mod operational_diagnostics;
 pub mod resource_manager;
 pub mod webrtc_core;
 

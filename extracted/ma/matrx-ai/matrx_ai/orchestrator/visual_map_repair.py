@@ -13,8 +13,12 @@ is persisted:
    ``visual_maps.diagram_repair`` mandate when an agent is bound to it; when none is, the AUTHORING
    model itself gets the diagnostics as a host-written turn in a muted child call and answers with a
    corrected spec. Every call point invocation is captured as a Provision window by the host;
-3. stop at the first of: no errors · the round knob (default 4) · errors did not fall for the stall
-   knob's number of rounds (default 2) · a repair answer that holds no readable spec;
+   Before any model call, ``visual_map_fixes.mechanical_fixes`` applies what the engine's evidence fully
+   determines. The repairer sees ONE diagnostic group when the list is long and answers with a PATCH that
+   code applies to the BEST spec. The loop is MONOTONE: a round is adopted only with fewer errors than the
+   best so far, and the next round restarts from the best spec (the notice says so);
+3. stop at the first of: no errors · the round knob (default 4) · the stall knob's number of answers in a
+   row (default 2) that were not adopted;
 4. the LAST round calls **deliver** on the best spec seen (render, headless inspection, screenshot,
    ``render_inspection`` row); every earlier round is saved as a diagnostics-only row;
 5. the ``visual_maps.diagram_review`` call point (an image-reading agent) may ADD findings — it can
@@ -43,6 +47,15 @@ from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 from uuid import uuid4
+
+from matrx_ai.orchestrator.visual_map_fixes import (
+    PATCH_INSTRUCTIONS,
+    apply_patch,
+    mechanical_fixes,
+    parse_patch,
+    patch_from_whole_spec,
+    prompt_diagnostics,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +91,8 @@ UNVERIFIED_CODE = "visual_map_unverified"
 KNOB_MAX_ROUNDS = "repair_max_rounds"
 KNOB_STALL_ROUNDS = "repair_stall_rounds"
 KNOB_QUALITY = "quality"
+KNOB_GROUP_MAX = "repair_group_max"
+KNOB_REPAIR_MODEL = "repair_model"
 
 
 @dataclass(frozen=True)
@@ -85,6 +100,11 @@ class RepairKnobs:
     max_rounds: int
     stall_rounds: int
     quality: str
+    #: More errors than this → the repairer gets one diagnostic group per round. The default is the
+    #: package's declared starting value; the host's ``repair_group_max`` knob row governs.
+    group_max: int = 6
+    #: The model the authoring-model fallback repairs with; "" = the authoring model itself.
+    repair_model: str = ""
 
 
 #: The package's standalone defaults — used ONLY for a key the host's knob rows did not answer
@@ -112,7 +132,12 @@ def knobs_from(values: dict[str, Any] | None) -> tuple[RepairKnobs, list[str]]:
     if not isinstance(quality, str) or not quality.strip():
         missing.append(KNOB_QUALITY)
         quality = DECLARED_KNOBS.quality
-    return RepairKnobs(max_rounds, stall_rounds, quality.strip()), missing
+    group_max = _int(KNOB_GROUP_MAX, DECLARED_KNOBS.group_max, 1)
+    repair_model = values.get(KNOB_REPAIR_MODEL)
+    if not isinstance(repair_model, str):
+        missing.append(KNOB_REPAIR_MODEL)
+        repair_model = ""
+    return RepairKnobs(max_rounds, stall_rounds, quality.strip(), group_max, repair_model.strip()), missing
 
 
 def error_count(diagnostics: Any) -> int:
@@ -151,6 +176,8 @@ class RoundRecord:
     repair_snapshot_id: str | None = None
     persisted_id: str | None = None
     note: str | None = None
+    #: True when this round's spec became the best so far (the loop only ever moves to a better spec).
+    adopted: bool = True
 
     def summary(self) -> dict[str, Any]:
         out = asdict(self)
@@ -165,6 +192,16 @@ class RepairOutcome:
     stop_reason: str
     notes: list[str] = field(default_factory=list)
     review: dict[str, Any] | None = None
+    #: Labels of first-draft items the delivered spec still does not draw (content/dropped at delivery).
+    dropped: list[str] = field(default_factory=list)
+
+    def adopted_counts(self) -> list[int]:
+        out: list[int] = []
+        for r in self.rounds:
+            if r.stage in ("validate", "mechanical"):
+                current = r.error_count if (r.adopted or not out) else out[-1]
+                out.append(min(current, out[-1]) if out else current)
+        return out
 
     @property
     def verified(self) -> bool:
@@ -175,6 +212,9 @@ class RepairOutcome:
             "stop_reason": self.stop_reason,
             "rounds": [r.summary() for r in self.rounds],
             "error_counts": [r.error_count for r in self.rounds if r.stage == "validate"],
+            # The best-so-far error count after each checked round: never rises (the loop is monotone).
+            "adopted_counts": self.adopted_counts(),
+            "dropped": list(self.dropped),
             "notes": list(self.notes),
             "review": self.review,
         }
@@ -215,6 +255,10 @@ class VisualMapDelivery(Protocol):
     # Optional: the type's authoring card (essential schema rules + one real example) as text. A host
     # without it leaves the repair notice to the diagnostics alone.
     async def authoring_card(self, type: str) -> str | None: ...
+
+    # Optional: the engine's CURRENT ``schema_version`` for a type. A spec that omits ``schema_version``
+    # gets it from here before validation; a host without it fills only ``diagram_type``.
+    async def schema_version(self, type: str) -> int | None: ...
 
 
 FallbackRepair = Callable[[dict[str, Any]], Awaitable[Any]]
@@ -264,6 +308,139 @@ def find_visual_maps(text: str) -> list[tuple[int, int, dict[str, Any]]]:
             continue
         if isinstance(value, dict):
             out.append((start, end, value))
+    return out
+
+
+#: What each diagram type draws (its required top-level lists): how a value with no usable ``type`` is read.
+_TYPE_SIGNATURES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("architecture", ("components",)),
+    ("sequence", ("participants", "messages")),
+    ("dataflow", ("stages", "flows")),
+    ("lifecycle", ("states", "transitions")),
+    ("erd", ("entities",)),
+    ("class", ("types",)),
+    ("timeline", ("events",)),
+    ("waterfall", ("spans",)),
+    ("workflow", ("nodes", "edges")),
+    ("tree", ("nodes",)),
+)
+
+
+def infer_identity(value: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None, str | None]:
+    """(type, spec, what was inferred) for a visual_map value whose ``type`` is missing or unknown.
+
+    2026-10-23 S5: Haiku wrote ``"type": null`` with a full dataflow spec; the loop answered "unreadable" and
+    nothing was checked. The spec's own ``diagram_type``, else the lists it draws, name the type."""
+    spec = value.get("spec") if isinstance(value.get("spec"), dict) else None
+    type_ = value.get("type") if value.get("type") in DIAGRAM_TYPES else None
+    if type_ is not None or spec is None:
+        return type_, spec, None
+    if spec.get("diagram_type") in DIAGRAM_TYPES:
+        return spec["diagram_type"], spec, f"type {spec['diagram_type']} (the spec's diagram_type)"
+    for name, keys in _TYPE_SIGNATURES:
+        if all(isinstance(spec.get(k), list) for k in keys):
+            return name, spec, f"type {name} (the spec draws {', '.join(keys)})"
+    return None, spec, None
+
+
+async def fill_identity(
+    delivery: VisualMapDelivery, type_: str, spec: dict[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
+    """``spec`` with ``diagram_type`` and ``schema_version`` filled from the value's ``type`` when the model
+    left them out (2026-10-23 S3: Haiku omitted both; every repair round chased the schema instead of the
+    layout). Deterministic, never overwrites a written value. Returns (spec, names filled)."""
+    filled: list[str] = []
+    out = dict(spec)
+    if not out.get("diagram_type"):
+        out["diagram_type"] = type_
+        filled.append("diagram_type")
+    if out.get("schema_version") in (None, ""):
+        reader = getattr(delivery, "schema_version", None)
+        version = None
+        if reader is not None:
+            try:
+                version = await reader(type_)
+            except Exception:  # noqa: BLE001 — an unknown version leaves the field to the validator
+                logger.exception("[visual_map] schema_version for %s could not be read", type_)
+        if isinstance(version, int):
+            out["schema_version"] = version
+            filled.append("schema_version")
+    if filled:
+        # The engine reads these two first; keep them at the top of the spec, as the examples write them.
+        head = {k: out[k] for k in ("schema_version", "diagram_type") if k in out}
+        out = {**head, **{k: v for k, v in out.items() if k not in head}}
+    return (out if filled else spec), filled
+
+
+#: Top-level spec lists that hold geometry or prose about the drawing, not the drawing's content.
+_NOT_CONTENT = frozenset({"meta", "layout", "cards", "mainPath", "semanticChecks", "views", "legend",
+                          # Grouping containers: regrouping (two stages merged into one) moves content, it
+                          # does not drop it (2026-10-23 S5: dataflow allows at most 5 stages).
+                          "stages", "lanes", "phases", "groups", "boundaries", "segments", "activations"})
+
+
+def _item_name(item: dict[str, Any]) -> str | None:
+    for key in ("id", "label", "name", "title", "text"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if item.get("from") is not None and item.get("to") is not None:
+        return f"{item.get('from')}->{item.get('to')}"
+    return None
+
+
+def content_inventory(spec: Any) -> dict[str, dict[str, str]]:
+    """What a spec draws: per top-level list (nodes, edges, states, transitions, messages, ...), each item's
+    identity (its id, else its label) mapped to its readable label."""
+    out: dict[str, dict[str, str]] = {}
+    if not isinstance(spec, dict):
+        return out
+    for key, value in spec.items():
+        if key in _NOT_CONTENT or not isinstance(value, list):
+            continue
+        items: dict[str, str] = {}
+        for item in value:
+            if isinstance(item, dict):
+                name = _item_name(item)
+                if name:
+                    label = item.get("label") or item.get("name") or item.get("title") or name
+                    items[name] = str(label)
+        if items:
+            out[key] = items
+    return out
+
+
+def _explained_in_spec(spec: Any, ident: str, label: str) -> bool:
+    """A drop is explained when the spec's own visible notes (its ``cards``) name the dropped item."""
+    cards = spec.get("cards") if isinstance(spec, dict) else None
+    if not cards:
+        return False
+    text = json.dumps(cards, ensure_ascii=False).lower()
+    return any(t and t.lower() in text for t in (ident, label))
+
+
+def dropped_content(draft: dict[str, dict[str, str]], spec: Any) -> list[dict[str, Any]]:
+    """Error diagnostics for every item of the FIRST draft that ``spec`` no longer draws and its notes do
+    not explain (2026-10-23 S4: "verified" with 9 of the 11 states; repair had dropped two to pass layout)."""
+    now = content_inventory(spec)
+    out: list[dict[str, Any]] = []
+    for key, items in draft.items():
+        kept = now.get(key, {})
+        missing = [(i, label) for i, label in items.items() if i not in kept and not _explained_in_spec(spec, i, label)]
+        if not missing:
+            continue
+        names = ", ".join(label for _, label in missing)
+        out.append({
+            "code": "content/dropped",
+            "severity": "error",
+            "message": f"content dropped: {key}: {names} (the first draft drew {len(items)} {key}, this one {len(kept)})",
+            "subject": {"list": key, "ids": [i for i, _ in missing]},
+            "evidence": {"draft_count": len(items), "count": len(kept)},
+            "supportedFixes": [
+                f"put back {names} in {key}; fix the layout by moving, shortening or regrouping, never by removing content",
+                "if the item truly must go, say so in a card of the spec (cards[].items) so the reader is told",
+            ],
+        })
     return out
 
 
@@ -319,14 +496,30 @@ def repair_notice(provision: dict[str, Any]) -> str:
         "Prefer deleting hand-set geometry (via, channelX/channelY, labelDx/labelDy, bias, pos) over adding "
         "more: the engine routes and places what you leave out.",
     ]
+    total = provision.get("error_count")
+    if provision.get("group") and isinstance(total, int) and total > len(errors):
+        parts.append(
+            f"The diagram has {total} errors in all; this round fixes ONE group of them ({provision['group']}). "
+            "The others come in later rounds: leave them alone now."
+        )
     prior = [r for r in provision.get("prior_rounds") or [] if isinstance(r, dict) and r.get("stage") == "validate"]
     if prior:
-        history = "; ".join(f"round {r.get('round')}: {r.get('error_count')} errors" for r in prior)
+        history = "; ".join(
+            f"round {r.get('round')}: {r.get('error_count')} errors" + ("" if r.get("adopted", True) else " (not adopted)")
+            for r in prior
+        )
         current = f"round {provision.get('round')}: {len(errors)} errors"
         stuck = prior[-1].get("error_count") is not None and len(errors) >= int(prior[-1]["error_count"])
         parts.append(
             f"Earlier rounds: {history}; now {current}."
             + (" Your last change did not reduce the errors: read the rules below and do something different." if stuck else "")
+        )
+    last = provision.get("last_attempt_errors")
+    if isinstance(last, int) and isinstance(total, int) and last >= total:
+        parts.append(
+            f"Your last answer made it worse ({last} errors, the best is {total}), so it was NOT used. You are "
+            f"starting again from the best version (round {provision.get('best_round')}), shown above as your "
+            "previous answer. Make a smaller, different change."
         )
     before = {_diag_key(d) for d in provision.get("previous_errors") or [] if isinstance(d, dict)}
     caused = [d for d in errors if before and _diag_key(d) not in before]
@@ -346,11 +539,75 @@ def repair_notice(provision: dict[str, Any]) -> str:
     card = provision.get("authoring_card")
     if isinstance(card, str) and card.strip():
         parts.append(card.strip())
-    parts.append(
-        'Answer with ONLY the corrected value: {"__kind": "visual_map", "type": ..., "spec": {...}, '
-        '"verified": false, "issues": 0}. No prose.'
-    )
+    parts.append(PATCH_INSTRUCTIONS)
     return "\n\n".join(parts)
+
+
+class _Unavailable(Exception):
+    """The diagram service could not be reached while checking a round."""
+
+
+@dataclass
+class _Checked:
+    """One spec's check: its errors (validate, or the measured render when validate is clean, plus drops)."""
+
+    type: str
+    spec: dict[str, Any]
+    errors: int
+    diagnostics: list[dict[str, Any]]
+    sha: str
+    round: int
+    note: str | None = None
+    canvas_width: float | None = None
+
+
+def _canvas_width(delivered: dict[str, Any] | None) -> float | None:
+    view = ((delivered or {}).get("receipt") or {}).get("viewBox")
+    if isinstance(view, list) and len(view) == 4 and isinstance(view[2], (int, float)) and view[2] > 0:
+        return float(view[2])
+    return None
+
+
+async def _check(
+    delivery: VisualMapDelivery, cache: dict[str, dict[str, Any]], type_: str, spec: dict[str, Any], n: int,
+    draft_content: dict[str, dict[str, str]], organization_id: str | None, subject_ref: str, quality: str,
+    notes: list[str],
+) -> _Checked:
+    checked = await delivery.validate(type_, spec, quality=quality)
+    if not isinstance(checked, dict) or checked.get("unavailable"):
+        raise _Unavailable()
+    diags = [d for d in checked.get("diagnostics") or [] if isinstance(d, dict)]
+    errors = error_count(diags)
+    note: str | None = None
+    width: float | None = None
+    if errors == 0:
+        # The validator is clean: render and MEASURE it now. A clipped label or an overlap only shows in the
+        # measured render (2026-10-21 S1: validate [1, 0], delivered with 4 issues and no round left to
+        # repair them), so measured defects drive the next repair.
+        delivered = await _deliver_once(delivery, cache, type_, spec, organization_id, subject_ref, n, quality, notes)
+        width = _canvas_width(delivered)
+        if not delivered.get("unavailable") and not delivered.get("verified"):
+            measured = [d for d in delivered.get("diagnostics") or []
+                        if isinstance(d, dict) and d.get("severity") == "error"]
+            measured += [d for d in delivered.get("measured_diagnostics") or [] if isinstance(d, dict)]
+            if measured:
+                diags = measured
+                errors = len(measured)
+                note = "the spec validated clean; these errors were measured in the rendered diagram"
+    drops = dropped_content(draft_content, spec)
+    if drops:
+        diags = diags + drops
+        errors += len(drops)
+    return _Checked(type_, spec, errors, diags, spec_sha(spec), n, note, width)
+
+
+def _record(c: _Checked, stage: str, adopted: bool, note: str | None = None) -> RoundRecord:
+    notes = [x for x in (c.note, note) if x]
+    return RoundRecord(
+        round=c.round, stage=stage, error_count=c.errors,
+        warning_count=sum(1 for d in c.diagnostics if d.get("severity") == "warning"),
+        diagnostics=c.diagnostics, spec_sha256=c.sha, adopted=adopted, note="; ".join(notes) or None,
+    )
 
 
 async def run_repair_loop(
@@ -363,120 +620,175 @@ async def run_repair_loop(
     user_request: str,
     fallback_repair: FallbackRepair | None,
 ) -> RepairOutcome:
-    """Validate → repair → … → deliver → review → stamp. Never raises (a failure is an unverified, stated value)."""
-    type_ = value.get("type") if value.get("type") in DIAGRAM_TYPES else None
-    spec = value.get("spec") if isinstance(value.get("spec"), dict) else None
+    """Check → mechanical fixes → one diagnostic group to the repairer as a patch → … → deliver → review → stamp.
+
+    MONOTONE: a round is adopted only when it has FEWER errors than the best so far; every repair starts from
+    the best spec (and the notice says so), and the delivered spec is always the best one. Never raises (a
+    failure is an unverified, stated value)."""
     rounds: list[RoundRecord] = []
     notes: list[str] = []
+    type_, spec, inferred = infer_identity(value)
+    if inferred:
+        notes.append(f"filled from the spec before checking: {inferred}")
     if type_ is None or spec is None:
         notes.append("the value has no known diagram type or no spec object; nothing could be checked")
         return RepairOutcome(_stamp(value, type_, spec, None, False, 0), rounds, "unreadable", notes)
 
-    counts: list[int] = []
+    spec, filled = await fill_identity(delivery, type_, spec)
+    if filled:
+        notes.append(f"filled from the value's type before checking: {', '.join(filled)}")
+    draft_content = content_inventory(spec)
     delivered_by_sha: dict[str, dict[str, Any]] = {}  # a spec is rendered + measured at most once
-    best: tuple[int, str, dict[str, Any], int] | None = None  # (errors, type, spec, round)
+    best: _Checked | None = None
     reason = "clean"
-    unavailable = False
-    try:
-        for n in range(1, knobs.max_rounds + 1):
-            checked = await delivery.validate(type_, spec, quality=knobs.quality)
-            if not isinstance(checked, dict) or checked.get("unavailable"):
-                unavailable = True
-                reason = "unavailable"
-                notes.append("the diagram service could not be reached; the layout was not checked")
-                break
-            diags = [d for d in checked.get("diagnostics") or [] if isinstance(d, dict)]
-            errors = error_count(diags)
-            measured_note: str | None = None
-            if errors == 0:
-                # The validator is clean: render and MEASURE it now. A clipped label or an overlap only
-                # shows in the measured render (2026-10-21 S1: validate [1, 0], delivered with 4 issues
-                # and no round left to repair them), so measured defects drive the next repair.
-                delivered = await _deliver_once(delivery, delivered_by_sha, type_, spec, organization_id,
-                                                subject_ref, n, knobs.quality, notes)
-                if not delivered.get("unavailable") and not delivered.get("verified"):
-                    measured = [d for d in delivered.get("diagnostics") or []
-                                if isinstance(d, dict) and d.get("severity") == "error"]
-                    measured += [d for d in delivered.get("measured_diagnostics") or [] if isinstance(d, dict)]
-                    if measured:
-                        diags = measured
-                        errors = len(measured)
-                        measured_note = "the spec validated clean; these errors were measured in the rendered diagram"
-            counts.append(errors)
-            sha = spec_sha(spec)
-            rec = RoundRecord(
-                round=n, stage="validate", error_count=errors,
-                warning_count=sum(1 for d in diags if d.get("severity") == "warning"),
-                diagnostics=diags, spec_sha256=sha, note=measured_note,
+    n = 0  # validate rounds that count against the round knob (the first check + one per repair answer)
+    rejected_streak = 0
+    last_attempt: _Checked | None = None
+    tried_mechanical: set[str] = set()  # a mechanical candidate is checked once
+
+    async def check(t: str, s: dict[str, Any], rnd: int) -> _Checked:
+        return await _check(delivery, delivered_by_sha, t, s, rnd, draft_content, organization_id, subject_ref,
+                            knobs.quality, notes)
+
+    async def persist(rec: RoundRecord, c: _Checked) -> None:
+        if c.sha in delivered_by_sha:
+            rec.persisted_id = delivered_by_sha[c.sha].get("inspection_id")
+        else:
+            rec.persisted_id = await delivery.persist_round(
+                organization_id=organization_id, subject_ref=subject_ref, round=c.round, spec=c.spec,
+                diagnostics=c.diagnostics,
             )
-            rounds.append(rec)
-            if best is None or errors <= best[0]:
-                best = (errors, type_, spec, n)
-            stop = stop_reason(counts, knobs)
-            if stop:
-                reason = stop
+
+    try:
+        n = 1
+        best = await check(type_, spec, n)
+        rec = _record(best, "validate", True)
+        rounds.append(rec)
+        while True:
+            if best.errors == 0:
+                reason = "clean"
                 break
-            if sha in delivered_by_sha:
-                rec.persisted_id = delivered_by_sha[sha].get("inspection_id")
-            else:
-                rec.persisted_id = await delivery.persist_round(
-                    organization_id=organization_id, subject_ref=subject_ref, round=n, spec=spec,
-                    diagnostics=diags,
-                )
+            # 1. Mechanical: what the engine's own evidence fully determines, no model involved.
+            fixed, edits = mechanical_fixes(best.type, best.spec, best.diagnostics)
+            if edits and spec_sha(fixed) not in tried_mechanical:
+                tried_mechanical.add(spec_sha(fixed))
+                candidate = await check(best.type, fixed, best.round)
+                # Fewer errors, or as many but every one of them new: the engine reports one route-preset
+                # conflict at a time, so clearing it reveals the next (2026-10-23 S3/S6: 1 → 1, a different
+                # edge). Never more errors; tried candidates are never re-checked, so this cannot cycle.
+                moved_past = candidate.errors == best.errors and not (
+                    {_diag_key(d) for d in candidate.diagnostics} & {_diag_key(d) for d in best.diagnostics})
+                better = candidate.errors < best.errors or moved_past
+                mrec = _record(candidate, "mechanical", better,
+                               ("applied: " + "; ".join(edits)) + ("" if better else
+                               f"; not adopted ({candidate.errors} errors, best is {best.errors})"))
+                if better:
+                    # The mechanical spec's own row is written below when it is not the final round.
+                    await persist(rounds[-1], best) if rounds[-1].persisted_id is None and rounds[-1].stage != "deliver" else None
+                    best = candidate
+                    rounds.append(mrec)
+                    notes.append(f"mechanical fixes: {'; '.join(edits)}")
+                    continue
+                rounds.append(mrec)
+                await persist(mrec, candidate)
+            if n >= knobs.max_rounds:
+                reason = "max_rounds"
+                break
+            if rejected_streak >= knobs.stall_rounds:
+                reason = "stalled"
+                break
+            # 2. Judgment: one diagnostic group to the repairer, starting from the BEST spec.
+            await persist(rounds[-1], best) if rounds[-1].persisted_id is None else None
+            shown, group = prompt_diagnostics(best.diagnostics, canvas_width=best.canvas_width,
+                                              group_max=knobs.group_max)
             provision = {
                 "user_request": user_request,
-                "diagram_type": type_,
-                "spec": spec,
-                "diagnostics": diags,
-                "error_count": errors,
+                "diagram_type": best.type,
+                "spec": best.spec,
+                "diagnostics": shown,
+                "error_count": best.errors,
+                "group": group,
                 "measurements": None,
                 "receipt": None,
                 "round": n,
+                "best_round": best.round,
                 "max_rounds": knobs.max_rounds,
                 "quality": knobs.quality,
-                "prior_rounds": [r.summary() for r in rounds[:-1]],
+                "repair_model": knobs.repair_model or None,
+                "prior_rounds": [r.summary() for r in rounds],
                 "subject_ref": subject_ref,
-                "authoring_card": await _authoring_card(delivery, type_),
-                "previous_errors": [d for d in rounds[-2].diagnostics if d.get("severity") == "error"]
-                if len(rounds) > 1 else [],
+                "authoring_card": await _authoring_card(delivery, best.type),
+                "previous_errors": [d for d in (last_attempt.diagnostics if last_attempt else [])
+                                    if d.get("severity") == "error"],
+                "last_attempt_errors": last_attempt.errors if last_attempt else None,
             }
             answer = await delivery.repair(provision, organization_id=organization_id)
-            rec.repair_snapshot_id = answer.snapshot_id
+            asking = rounds[-1]
+            asking.repair_snapshot_id = answer.snapshot_id
             if answer.bound:
-                rec.repaired_by = "agent"
+                asking.repaired_by = "agent"
                 repaired = answer.value
             elif fallback_repair is not None:
-                rec.repaired_by = "authoring_model"
+                asking.repaired_by = "authoring_model"
                 repaired = await fallback_repair(provision)
             else:
-                rec.note = "no agent bound to the repair call point and no authoring model to fall back on"
+                asking.note = "no agent bound to the repair call point and no authoring model to fall back on"
                 reason = "no_repairer"
                 break
-            parsed = coerce_visual_map(repaired, type_)
-            if parsed is None:
-                rec.note = "the repair answer held no readable spec"
-                reason = "repair_unreadable"
-                break
-            type_, spec = parsed
-        else:  # pragma: no cover — the range ends only through max_rounds, which breaks above
-            reason = "max_rounds"
+            n += 1
+            try:
+                candidate_spec, how = _apply_answer(repaired, best, shown)
+            except Exception as exc:  # noqa: BLE001 — one malformed answer is a rejected round, not a lost loop
+                logger.exception("[visual_map] repair answer could not be applied")
+                candidate_spec, how = None, f"the answer could not be applied: {exc}"
+            if candidate_spec is None:
+                rounds.append(RoundRecord(round=n, stage="validate", error_count=best.errors, warning_count=0,
+                                          note=how if how != "unreadable" else "the repair answer held no readable patch or spec",
+                                          adopted=False))
+                rejected_streak += 1
+                last_attempt = None
+                continue
+            candidate_spec, filled = await fill_identity(delivery, best.type, candidate_spec)
+            if filled:
+                how = how + f"; filled {', '.join(filled)}"
+            attempt = await check(best.type, candidate_spec, n)
+            better = attempt.errors < best.errors
+            arec = _record(attempt, "validate", better, how + ("" if better else
+                           f"; not adopted ({attempt.errors} errors, best is round {best.round} with {best.errors});"
+                           " the next round restarts from the best spec"))
+            rounds.append(arec)
+            last_attempt = attempt
+            if better:
+                best = attempt
+                rejected_streak = 0
+            else:
+                rejected_streak += 1
+                await persist(arec, attempt)
+    except _Unavailable:
+        reason = "unavailable"
+        notes.append("the diagram service could not be reached; the layout was not checked")
     except Exception as exc:  # noqa: BLE001 — a check failure is stated on the value, never raised
         logger.exception("[visual_map] repair loop failed")
         notes.append(f"the layout check failed: {exc}")
         reason = "failed"
 
-    if unavailable or best is None:
+    if reason == "unavailable" or best is None:
+        counts = [r.error_count for r in rounds]
         return RepairOutcome(
             _stamp(value, type_, spec, None, False, counts[-1] if counts else 0), rounds, reason, notes
         )
 
-    errors, d_type, d_spec, d_round = best
-    deliver_round = rounds[-1].round if rounds else 1
+    d_type, d_spec, errors, d_round = best.type, best.spec, best.errors, best.round
+    deliver_round = max(r.round for r in rounds) if rounds else 1
     if d_round != deliver_round:
         notes.append(f"round {d_round} had the fewest errors ({errors}); its spec is the one delivered")
     delivered = await _deliver_once(delivery, delivered_by_sha, d_type, d_spec, organization_id, subject_ref,
                                     deliver_round, knobs.quality, notes)
     d_diags = [d for d in delivered.get("diagnostics") or [] if isinstance(d, dict)]
+    if isinstance(delivered.get("measured_diagnostics"), list):
+        # Distinct defects, the same count the loop compared rounds by (the client's ``issues`` counts a
+        # defect once per width x theme capture: S4 2026-10-23 read 14 in the loop and 28 at delivery).
+        delivered = {**delivered, "issues": error_count(d_diags) + len(delivered["measured_diagnostics"])}
     rounds.append(
         RoundRecord(
             round=deliver_round, stage="deliver",
@@ -484,7 +796,7 @@ async def run_repair_loop(
             else (error_count(d_diags) if d_diags else errors),
             warning_count=sum(1 for d in d_diags if d.get("severity") == "warning"),
             diagnostics=d_diags, spec_sha256=spec_sha(d_spec),
-            persisted_id=delivered.get("inspection_id"),
+            persisted_id=delivered.get("inspection_id"), adopted=True,
             note="the diagram service could not be reached at delivery" if delivered.get("unavailable") else None,
         )
     )
@@ -495,6 +807,19 @@ async def run_repair_loop(
     verified = bool(delivered.get("verified"))
     issues = delivered.get("issues")
     issues = int(issues) if isinstance(issues, (int, float)) else errors
+    drops = dropped_content(draft_content, d_spec)
+    dropped_labels: list[str] = []
+    if drops:
+        # Layout passing by removing content is not a verified diagram of what was asked.
+        verified = False
+        issues += len(drops)
+        rounds[-1].diagnostics = rounds[-1].diagnostics + drops
+        rounds[-1].error_count += len(drops)
+        notes.extend(d["message"] for d in drops)
+        for d in drops:
+            ids = (d.get("subject") or {}).get("ids") or []
+            labels = draft_content.get((d.get("subject") or {}).get("list"), {})
+            dropped_labels.extend(labels.get(i, i) for i in ids)
 
     review_log: dict[str, Any] | None = None
     shot = delivered.get("screenshot_file_id")
@@ -535,7 +860,31 @@ async def run_repair_loop(
         notes.append("review skipped: delivery returned no screenshot")
 
     stamped = _stamp(value, d_type, d_spec, delivered, verified, issues)
-    return RepairOutcome(stamped, rounds, reason, notes, review_log)
+    return RepairOutcome(stamped, rounds, reason, notes, review_log, dropped=dropped_labels)
+
+
+def _apply_answer(
+    repaired: Any, best: _Checked, shown: list[dict[str, Any]],
+) -> tuple[dict[str, Any] | None, str]:
+    """The repairer's answer applied to the BEST spec: a patch is applied as written; a whole spec is diffed
+    and only the changes the shown diagnostics justify are kept (2026-10-23: whole-spec rewrites turned
+    S2 1 error into 11). Returns (candidate spec or None, how it was applied)."""
+    changes = parse_patch(repaired)
+    how = "patch"
+    reverted: list[str] = []
+    if changes is None:
+        parsed = coerce_visual_map(repaired, best.type)
+        if parsed is None:
+            return None, "unreadable"
+        changes, reverted = patch_from_whole_spec(best.spec, parsed[1], shown)
+        how = "whole spec answer, diffed"
+    spec, applied, refused = apply_patch(best.spec, changes)
+    parts = [f"{how}: {len(applied)} change(s) applied"]
+    if reverted:
+        parts.append(f"reverted {len(reverted)} change(s) to items no diagnostic named ({', '.join(reverted[:6])})")
+    if refused:
+        parts.append(f"refused {'; '.join(refused[:4])}")
+    return spec, "; ".join(parts)
 
 
 async def _deliver_once(
@@ -719,6 +1068,13 @@ def _repair_budget(config: Any) -> None:
     config.max_output_tokens = max(int(current or 0), REPAIR_MIN_OUTPUT_TOKENS)
 
 
+def _repair_model(config: Any, provision: dict[str, Any]) -> None:
+    """The organization's ``repair_model`` knob, when set, repairs instead of the authoring model."""
+    model = provision.get("repair_model")
+    if isinstance(model, str) and model.strip():
+        config.model = model.strip()
+
+
 def authoring_model_repairer(current_request: Any) -> FallbackRepair:
     """The authoring model repairs its own diagram: a muted child call on a copy of this turn's
     conversation plus one host-written turn holding the diagnostics. The child shares the parent's
@@ -762,25 +1118,34 @@ def authoring_model_repairer(current_request: Any) -> FallbackRepair:
             tool_choice=None,
         )
         _repair_budget(config)
+        _repair_model(config, provision)
         child_id = str(uuid4())
 
         async def _run() -> Any:
-            parent = get_app_context()
-            child = parent.fork_for_child_agent(child_id)
-            set_app_context(child.with_overrides(
-                emitter=SilentEmitter(),
-                # The child's answer IS a visual_map: the gate must not check it again inside the
-                # child (that recursion re-ran the whole loop per repair round, 2026-10-21 live run).
-                metadata={**dict(child.metadata or {}), REPAIR_CHILD_KEY: True},
-            ))
-            completed = await execute_ai_request(
-                config,
-                max_iterations=1,
-                metadata={"visual_map_repair_round": provision.get("round")},
-                conversation_id=child_id,
-                store=True,
-                mandate_key=REPAIR_MANDATE_KEY,
-            )
+            from matrx_connect.context.app_context import child_agent_context
+
+            # Through THE child funnel: its own conversation AND its own turn (the fork mints
+            # the request id; cost cap, admission and stop key on the tree root), its own write
+            # scope (the coordinator fork hook) — never a hand-made fork that skips them.
+            async with child_agent_context(
+                "visual_map_repair", emit_lifecycle=False, conversation_id=child_id
+            ):
+                child = get_app_context()
+                set_app_context(child.with_overrides(
+                    emitter=SilentEmitter(),
+                    source_feature="visual_map_repair",
+                    # The child's answer IS a visual_map: the gate must not check it again inside
+                    # the child (that recursion re-ran the whole loop per repair round, 2026-10-21).
+                    metadata={**dict(child.metadata or {}), REPAIR_CHILD_KEY: True},
+                ))
+                completed = await execute_ai_request(
+                    config,
+                    max_iterations=1,
+                    metadata={"visual_map_repair_round": provision.get("round")},
+                    conversation_id=child_id,
+                    store=True,
+                    mandate_key=REPAIR_MANDATE_KEY,
+                )
             return _assistant_text_from_response(getattr(completed, "final_response", None))
 
         # A task copies the context, so the child context never leaks into the parent turn.
@@ -819,15 +1184,19 @@ async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: A
         fallback = authoring_model_repairer(current_request)
 
         outcomes: list[RepairOutcome] = []
-        index = 0
-        for part in parts:
-            found = find_visual_maps(part.text)
+        # Document order across the turn's text parts: ``ordinal`` is how a client finds the drawn draft
+        # the checked value replaces (the n-th visual_map of this answer), and the subject_ref suffix.
+        located = [(part, find_visual_maps(part.text)) for part in parts]
+        total = sum(len(found) for _, found in located)
+        first = 0
+        for part, found in located:
             if not found:
                 continue
             text = part.text
-            for start, end, value in reversed(found):  # right to left keeps earlier offsets valid
-                subject_ref = f"request:{request_id}#{index}"
-                index += 1
+            not_drawn: list[str] = []
+            for offset, (start, end, value) in reversed(list(enumerate(found))):  # right to left keeps offsets
+                ordinal = first + offset
+                subject_ref = f"request:{request_id}#{ordinal}"
                 await _info(emitter, CHECKING_CODE, "Checking the diagram's layout", {
                     "subject_ref": subject_ref, "max_rounds": knobs.max_rounds, "quality": knobs.quality,
                 })
@@ -839,9 +1208,12 @@ async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: A
                     outcome.notes.append(f"knob row(s) missing, declared default used: {', '.join(missing)}")
                 mark_server_stamped(outcome.value)
                 text = text[:start] + _render_like(text[start:end], outcome.value) + text[end:]
+                if outcome.dropped:
+                    not_drawn[:0] = [d for d in outcome.dropped if d not in not_drawn]
                 outcomes.append(outcome)
                 await _info(emitter, CHECKED_CODE, "Diagram layout checked", {
-                    "subject_ref": subject_ref, "value": outcome.value, "log": outcome.log(),
+                    "subject_ref": subject_ref, "ordinal": ordinal, "total": total,
+                    "value": outcome.value, "log": outcome.log(),
                 })
                 if not outcome.verified:
                     issues = outcome.value.get("issues", 0)
@@ -851,6 +1223,11 @@ async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: A
                         f"Layout not verified · {issues} issues" if checked else "Layout not checked",
                         {"subject_ref": subject_ref, "issues": issues, "checked": checked, "log": outcome.log()},
                     )
+            first += len(found)
+            if not_drawn:
+                # D9: the prose around a diagram can promise what the diagram no longer draws ("eleven
+                # states" over nine). One plain line says what is missing, so the turn never overclaims.
+                text = text.rstrip() + "\n\n" + not_drawn_note(not_drawn)
             part.text = text
             meta = getattr(part, "metadata", None)
             if isinstance(meta, dict):
@@ -859,6 +1236,11 @@ async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: A
     except Exception as exc:  # noqa: BLE001 — the turn is never lost to its diagram check
         logger.exception("[visual_map] gate failed: %s", exc)
         return []
+
+
+def not_drawn_note(labels: list[str]) -> str:
+    """The one plain line a turn gets when its delivered diagram still leaves out first-draft content."""
+    return f"Not drawn in this diagram: {', '.join(labels)}."
 
 
 async def _info(emitter: Any, code: str, message: str, metadata: dict[str, Any]) -> None:

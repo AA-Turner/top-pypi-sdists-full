@@ -63,6 +63,7 @@ __all__ = (
     "ContactParticipantRoleType",
     "ContactRecordingTypeType",
     "ContactStateType",
+    "ContentDispositionType",
     "CurrentMetricNameType",
     "DataTableAttributeValueTypeType",
     "DataTableLockLevelType",
@@ -130,6 +131,7 @@ __all__ = (
     "ListBotsPaginatorName",
     "ListChildHoursOfOperationsPaginatorName",
     "ListContactEvaluationsPaginatorName",
+    "ListContactFlowAliasesPaginatorName",
     "ListContactFlowModuleAliasesPaginatorName",
     "ListContactFlowModuleVersionsPaginatorName",
     "ListContactFlowModulesPaginatorName",
@@ -282,6 +284,7 @@ __all__ = (
     "SearchWorkspaceAssociationsPaginatorName",
     "SearchWorkspacesPaginatorName",
     "SearchableQueueTypeType",
+    "SecurityProfileTypeType",
     "ServiceName",
     "SingleSelectQuestionRuleCategoryAutomationConditionType",
     "SlaAssignmentTypeType",
@@ -426,6 +429,7 @@ ContactStateType = Literal[
     "PENDING",
     "REJECTED",
 ]
+ContentDispositionType = Literal["ATTACHMENT", "INLINE"]
 CurrentMetricNameType = Literal[
     "AGENTS_AFTER_CONTACT_WORK",
     "AGENTS_AVAILABLE",
@@ -532,7 +536,7 @@ FailureReasonCodeType = Literal[
     "MISSING_QUEUE_ID_AND_SYSTEM_ENDPOINT",
     "REQUEST_THROTTLED",
 ]
-FileStatusTypeType = Literal["APPROVED", "FAILED", "PROCESSING", "REJECTED"]
+FileStatusTypeType = Literal["APPROVED", "DRAFTING", "FAILED", "PROCESSING", "REJECTED"]
 FileUseCaseTypeType = Literal[
     "ATTACHMENT",
     "CONTACT_ANALYSIS",
@@ -661,6 +665,7 @@ ListAuthenticationProfilesPaginatorName = Literal["list_authentication_profiles"
 ListBotsPaginatorName = Literal["list_bots"]
 ListChildHoursOfOperationsPaginatorName = Literal["list_child_hours_of_operations"]
 ListContactEvaluationsPaginatorName = Literal["list_contact_evaluations"]
+ListContactFlowAliasesPaginatorName = Literal["list_contact_flow_aliases"]
 ListContactFlowModuleAliasesPaginatorName = Literal["list_contact_flow_module_aliases"]
 ListContactFlowModuleVersionsPaginatorName = Literal["list_contact_flow_module_versions"]
 ListContactFlowModulesPaginatorName = Literal["list_contact_flow_modules"]
@@ -1135,6 +1140,7 @@ SearchVocabulariesPaginatorName = Literal["search_vocabularies"]
 SearchWorkspaceAssociationsPaginatorName = Literal["search_workspace_associations"]
 SearchWorkspacesPaginatorName = Literal["search_workspaces"]
 SearchableQueueTypeType = Literal["STANDARD"]
+SecurityProfileTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 SingleSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 SlaAssignmentTypeType = Literal["CASES"]
 SlaTypeType = Literal["CaseField"]
@@ -1389,13 +1395,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -1463,6 +1468,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1597,6 +1603,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1647,7 +1654,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -1683,6 +1689,7 @@ PaginatorName = Literal[
     "list_bots",
     "list_child_hours_of_operations",
     "list_contact_evaluations",
+    "list_contact_flow_aliases",
     "list_contact_flow_module_aliases",
     "list_contact_flow_module_versions",
     "list_contact_flow_modules",

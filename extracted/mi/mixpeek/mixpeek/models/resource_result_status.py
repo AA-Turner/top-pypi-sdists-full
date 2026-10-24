@@ -33,6 +33,8 @@ class ResourceResultStatus(str, Enum):
     EXISTS = 'exists'
     DRIFTED = 'drifted'
     UPDATED = 'updated'
+    WOULD_CREATE = 'would_create'
+    PENDING = 'pending'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

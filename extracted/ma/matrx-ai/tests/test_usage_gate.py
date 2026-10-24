@@ -223,10 +223,12 @@ def test_crossing_the_line_mid_request_never_stops_it(memory: _Memory) -> None:
     async def _run() -> BaseException | None:
         ctx = _ctx(_rid(6))
         child = ctx.fork_for_child_agent(new_conversation_id="11111111-1111-4111-8111-111111111111")
-        assert child.request_id == ctx.request_id
+        # The child owns its own turn, and is admitted by its TREE.
+        assert child.request_id != ctx.request_id and child.tree_request_id == ctx.request_id
         await _paid_call(ctx, spent)  # admitted while ok
         memory.put(USER, "over", enforced=True)  # a settle mid-run flips the cache
         await asyncio.gather(_paid_call(ctx, spent), _paid_call(child, spent))
+        spent[:] = [_rid(6) if rid == child.request_id else rid for rid in spent]
         return await _refused(_ctx(_rid(7)), spent)  # the NEXT request is stopped
 
     refused = asyncio.run(_run())
@@ -248,6 +250,7 @@ def test_a_resume_on_another_process_is_never_refused(memory: _Memory) -> None:
         resumed = _ctx(_rid(20)).with_overrides(usage_admitted=True)
         child = resumed.fork_for_child_agent(new_conversation_id="22222222-2222-4222-8222-222222222222")
         await asyncio.gather(_paid_call(resumed, spent), _paid_call(child, spent))
+        spent[:] = [_rid(20) if rid == child.request_id else rid for rid in spent]
         token = set_app_context(resumed)
         try:
             gate.precheck_usage()  # ensure_user_request_exists on the resume
@@ -413,6 +416,9 @@ def test_a_paid_call_with_no_context_is_ungated_and_announced(
 ) -> None:
     said: list[str] = []
     monkeypatch.setattr(gate, "vcprint", lambda msg, **_k: said.append(str(msg)))
+    # The matrx-ai test conftest supplies a system AppContext to otherwise bare
+    # tests; make this case exercise the no-context paid-call path explicitly.
+    monkeypatch.setattr("matrx_ai.context.app_context.try_get_app_context", lambda: None)
     memory.put(USER, "over", enforced=True)
     ran: list[int] = []
 

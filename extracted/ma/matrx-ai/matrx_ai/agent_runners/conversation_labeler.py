@@ -11,9 +11,11 @@ no deploy.
 This used to be a deliberate exception (Arman, 2026-06-07): a direct ``AsyncGroq``
 call with an inline prompt, to keep a per-request background job cheap. Arman's
 2026-09-25 law supersedes it — nothing works around the mandate system. The call
-stays as light as it was: one turn, no tools, not streamed (``HeldCall.send``). Its run
-is kept as a hidden ``system_process`` conversation linked to the one it names — never a
-helper in that chat's sidebar, never in any list. The day-one Holders are the old prompt verbatim
+stays as light as it was: one turn, no tools, not streamed (``HeldCall.send``). Its run is
+UNSAVED (``store=False``): the ONE named exemption to "every run is recorded like a chat" (owner
+ruling 2026-10-23, ``matrx_ai/orchestrator/unsaved_runs.py`` ``UNSAVED_RUN_EXEMPTION``). Only its
+OUTPUT persists — the title, description and keywords written onto the conversation it names; the
+cost spine still meters the call. The day-one Holders are the old prompt verbatim
 on the same model (``openai/gpt-oss-20b`` served by Groq, reasoning effort low,
 JSON object mode, 2048 output tokens).
 
@@ -214,8 +216,8 @@ LABEL_PROCESS_KEY = "conversation.name"
 def system_process_scope(conversation_id: str | None) -> Any:
     """The platform identity a system process runs as (host seam), or a no-op when unset.
 
-    Inside it the held call is billed to the platform and its run becomes a hidden
-    ``system_process`` conversation linked to ``conversation_id`` (Arman, 2026-10-18).
+    Inside it the held call is billed to the platform (Arman, 2026-10-18); the labeler's run itself
+    is unsaved (the one exemption), so no conversation is written for it.
     """
     import contextlib
 
@@ -247,7 +249,9 @@ async def _run_labeler(
             )
             held = prepared.held_call()
             model = held.model
-            result = await held.send()
+            # THE ONE UNSAVED RUN (owner ruling 2026-10-23): the labeler is the only call that is
+            # not recorded; the executor admits store=False for these mandate keys alone.
+            result = await held.send(store=False)
         return LabelResult(success=True, output=result.final_text or "")
     except asyncio.CancelledError as exc:
         await _capture_labeler_failure(

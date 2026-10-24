@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipmaster
-Version: 1.1.13
+Version: 1.2.0
 Summary: A versatile Python package manager utility for simplifying package installation, updates, checks, and environment management.
 Author-email: ParisNeo <parisneoai@gmail.com>
 License-Expression: Apache-2.0
@@ -53,6 +53,10 @@ Dynamic: license-file
 [![Documentation Status](https://readthedocs.org/projects/pipmaster/badge/?version=latest)](https://parisneo.github.io/pipmaster/) 
 [![Code Coverage](https://img.shields.io/codecov/c/github/ParisNeo/pipmaster)](https://codecov.io/gh/ParisNeo/pipmaster)
 [![Code Quality](https://img.shields.io/codacy/grade/your-project-id)](https://www.codacy.com/app/your-username/pipmaster)
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/82aab33c-785c-4539-a5de-a0dc9376b00d" />
+
+
 
 **🎉 Now available on [PyPI](https://pypi.org/project/pipmaster/)! Install with: `pip install pipmaster`**
 

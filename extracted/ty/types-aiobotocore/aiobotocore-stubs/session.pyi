@@ -170,13 +170,12 @@ from types_aiobotocore_elementalinference.client import ElementalInferenceClient
 from types_aiobotocore_emr.client import EMRClient
 from types_aiobotocore_emr_containers.client import EMRContainersClient
 from types_aiobotocore_emr_serverless.client import EMRServerlessClient
+from types_aiobotocore_endusermessaging.client import EndUserMessagingClient
 from types_aiobotocore_entityresolution.client import EntityResolutionClient
 from types_aiobotocore_es.client import ElasticsearchServiceClient
 from types_aiobotocore_eventbridgev2.client import EventBridgeV2Client
 from types_aiobotocore_events.client import EventBridgeClient
 from types_aiobotocore_evs.client import EVSClient
-from types_aiobotocore_finspace.client import FinspaceClient
-from types_aiobotocore_finspace_data.client import FinSpaceDataClient
 from types_aiobotocore_firehose.client import FirehoseClient
 from types_aiobotocore_fis.client import FISClient
 from types_aiobotocore_fms.client import FMSClient
@@ -246,6 +245,7 @@ from types_aiobotocore_lakeformation.client import LakeFormationClient
 from types_aiobotocore_lambda.client import LambdaClient
 from types_aiobotocore_lambda_core.client import LambdaCoreClient
 from types_aiobotocore_lambda_microvms.client import LambdaMicroVMsClient
+from types_aiobotocore_lambda_web.client import LambdaWebClient
 from types_aiobotocore_launch_wizard.client import LaunchWizardClient
 from types_aiobotocore_lex_models.client import LexModelBuildingServiceClient
 from types_aiobotocore_lex_runtime.client import LexRuntimeServiceClient
@@ -392,6 +392,9 @@ from types_aiobotocore_sagemaker_geospatial.client import SageMakergeospatialcap
 from types_aiobotocore_sagemaker_metrics.client import SageMakerMetricsClient
 from types_aiobotocore_sagemaker_runtime.client import SageMakerRuntimeClient
 from types_aiobotocore_sagemakerjobruntime.client import SagemakerJobRuntimeServiceClient
+from types_aiobotocore_sagemakertrainingsessionruntime.client import (
+    SageMakerTrainingSessionRuntimeClient,
+)
 from types_aiobotocore_savingsplans.client import SavingsPlansClient
 from types_aiobotocore_scheduler.client import EventBridgeSchedulerClient
 from types_aiobotocore_schemas.client import SchemasClient
@@ -442,7 +445,6 @@ from types_aiobotocore_textract.client import TextractClient
 from types_aiobotocore_timestream_influxdb.client import TimestreamInfluxDBClient
 from types_aiobotocore_timestream_query.client import TimestreamQueryClient
 from types_aiobotocore_timestream_write.client import TimestreamWriteClient
-from types_aiobotocore_tnb.client import TelcoNetworkBuilderClient
 from types_aiobotocore_transcribe.client import TranscribeServiceClient
 from types_aiobotocore_transfer.client import TransferClient
 from types_aiobotocore_translate.client import TranslateClient
@@ -3405,6 +3407,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["endusermessaging"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[EndUserMessagingClient]:
+        """
+        Create client for EndUserMessaging service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["entityresolution"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -3495,44 +3516,6 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[EVSClient]:
         """
         Create client for EVS service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["finspace"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[FinspaceClient]:
-        """
-        Create client for Finspace service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["finspace-data"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[FinSpaceDataClient]:
-        """
-        Create client for FinSpaceData service.
         """
 
     @overload  # type: ignore[override]
@@ -4806,6 +4789,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[LambdaMicroVMsClient]:
         """
         Create client for LambdaMicroVMs service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["lambda-web"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[LambdaWebClient]:
+        """
+        Create client for LambdaWeb service.
         """
 
     @overload  # type: ignore[override]
@@ -7357,6 +7359,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["sagemakertrainingsessionruntime"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SageMakerTrainingSessionRuntimeClient]:
+        """
+        Create client for SageMakerTrainingSessionRuntime service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["savingsplans"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -8302,25 +8323,6 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[TimestreamWriteClient]:
         """
         Create client for TimestreamWrite service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["tnb"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[TelcoNetworkBuilderClient]:
-        """
-        Create client for TelcoNetworkBuilder service.
         """
 
     @overload  # type: ignore[override]

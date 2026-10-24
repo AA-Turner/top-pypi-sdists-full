@@ -6,7 +6,7 @@
 //! **Zero allocation**: Messages are borrowed from the event's message
 //! iterator and provide zero-cost access to their contents.
 
-use crate::{ffi, CorrelationId, Element, Name};
+use crate::{CorrelationId, Element, Name, ffi};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -165,16 +165,6 @@ impl<'a> Message<'a> {
 
         let hpdt = crate::HighPrecisionDatetime(unsafe { dt.assume_init() });
         Some(hpdt.to_micros())
-    }
-
-    /// Get raw pointer for FFI calls (internal use).
-    ///
-    /// This is used internally by other xbbg-core types that need to call
-    /// Bloomberg C API functions.
-    #[inline(always)]
-    #[allow(dead_code)] // Used in integration, not unit tests
-    pub(crate) fn as_ptr(&self) -> *mut ffi::blpapi_Message_t {
-        self.ptr
     }
 
     /// Get the number of correlation IDs on this message.

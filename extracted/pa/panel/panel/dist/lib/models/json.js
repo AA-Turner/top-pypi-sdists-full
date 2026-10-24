@@ -3,7 +3,6 @@ import { Markup } from "@bokehjs/models/widgets/markup";
 import JSONFormatter from "json-formatter-js";
 import { PanelMarkupView } from "./layout";
 export class JSONView extends PanelMarkupView {
-    static __name__ = "JSONView";
     connect_signals() {
         super.connect_signals();
         const { depth, hover_preview, text, theme } = this.model.properties;
@@ -36,7 +35,6 @@ export class JSONView extends PanelMarkupView {
 }
 export const JSONTheme = Enum("dark", "light");
 export class JSON extends Markup {
-    static __name__ = "JSON";
     constructor(attrs) {
         super(attrs);
     }

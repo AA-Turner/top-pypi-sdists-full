@@ -96,6 +96,27 @@ def _checked_out(tmp_path, monkeypatch) -> tuple[Probe, object]:
     return probe, note
 
 
+def test_a_peer_agents_message_opens_and_is_found_as_its_text_not_its_sender(tmp_path):
+    """A peer agent's message keeps its sender in `command` (plan probe-hints
+    T4): `session` open and search still show the message, as for any META line."""
+    from probe.daemon.adapters.base import peer_message
+    from probe.daemon.events import PEER_TOOL
+
+    deps = _deps(tmp_path)
+    ev = peer_message("main", 7, text="Benchmark NVIDIA RFD4-Proteina on the held-out set",
+                      sender_from="uds:/tmp/cc-socks/11957.sock", sender_name="Unconditional Generation")
+    with deps.store.tx():
+        deps.store.add([ev])
+    stored = deps.store.get(ev.event_id)
+    assert (stored.kind.value, stored.tool) == ("meta", PEER_TOOL)
+    assert stored.command == "Unconditional Generation (uds:/tmp/cc-socks/11957.sock)"
+    opened = tools.session_open(deps, event_id=ev.event_id)
+    assert opened.endswith("\nBenchmark NVIDIA RFD4-Proteina on the held-out set") and "uds:" not in opened
+    found = tools.session_search(deps, "RFD4")
+    assert "Benchmark NVIDIA RFD4-Proteina" in found and "uds:" not in found and PEER_TOOL in found
+    assert "Benchmark NVIDIA" in tools.session_search(deps, "Unconditional"), "found by its sender too"
+
+
 def test_two_pushes_of_one_note_with_new_text_send_new_keys(tmp_path, monkeypatch):
     """[T1] the server answers a key it has seen with another body with 422: the
     second push of a note in one bite failed. A, B, then A again are three keys

@@ -387,6 +387,74 @@ def test_version_is_what_a_fresh_process_imports(tmp_path):
     assert refused.returncode == 2
 
 
+@pytest.mark.parametrize("stdin", [
+    '{"op": "analytics_policy"}', '{"op": "shell"}', '{"op": "jobs", "extra": 1}', '{"op": "jobs", "op": "jobs"}',
+    "not json", "", '{"op": "set_capture", "source": "pi", "enabled": false}',
+], ids=["ok", "unknown-op", "unknown-field", "repeated-field", "not-json", "empty", "unsupported"])
+def test_desktop_is_byte_for_byte_probe_desktop_request(tmp_path, stdin):
+    """`probe.core.run desktop`: the Probe service's `desktop.request` child.
+    The same envelope and exit status as the command the app runs today."""
+    cli = _child(tmp_path, "cli", "cli", ["desktop", "request", "--json"], stdin=stdin, bare=True)
+    core = _child(tmp_path, "core", "core", ["desktop"], stdin=stdin, bare=True)
+    assert (core.returncode, core.stdout) == (cli.returncode, cli.stdout), core.stderr
+    envelope = json.loads(core.stdout)
+    assert envelope["v"] == 1 and isinstance(envelope["ok"], bool)
+
+
+def test_desktop_waits_out_an_update_barrier_then_answers_busy(monkeypatch, capfd):
+    """As `probe` itself (`probe._entry`): nothing is imported from files an
+    update is replacing; the app reads the busy envelope and asks again."""
+    import io
+
+    from probe.core import run
+    from probe.service import barrier
+
+    monkeypatch.setattr(barrier, "wait", lambda timeout=None: False)
+    assert run.main(["desktop"], stdin=io.StringIO('{"op": "jobs"}')) == barrier.BUSY_EXIT_CODE == 75
+    out, _ = capfd.readouterr()
+    assert json.loads(out) == {"v": 1, "ok": False, "error": f"{barrier.MESSAGE}."}
+
+
+def test_desktop_refuses_what_the_cli_refuses_in_a_daemon_session(monkeypatch, capfd):
+    """Codex P1: the entry point applies the CLI's own gate (`write_gate`), so
+    a session the daemon records cannot reach a backfill, a job change or the
+    onboarding acknowledgement through it, registered with the service or not."""
+    import io
+
+    from probe.cli import desktop, write_gate
+    from probe.core import run
+    from probe.sdk import session_marker
+
+    session_marker.mark_session_profile(AGENT_SESSION, session_marker.RECORDER_DAEMON)
+    session_marker.set_session_state(AGENT_SESSION, session_marker.STATE_DAEMON)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", AGENT_SESSION)
+    monkeypatch.setattr(desktop, "dispatch", lambda request: pytest.fail(f"ran {request}"))
+    expected = write_gate.refusal(["desktop", "request", "--json"], directed=False)
+    assert expected and "probe desktop" in expected
+    code = run.main(["desktop"], stdin=io.StringIO('{"op": "onboarding_complete", "userId": "u", "customerId": "c"}'))
+    out, err = capfd.readouterr()
+    assert (code, json.loads(out)) == (write_gate.EXIT_REFUSED, {"v": 1, "ok": False, "error": expected})
+    assert expected in err
+
+
+def test_desktop_stdout_is_the_envelope_alone(monkeypatch, capfd):
+    """What a request's code prints goes to stderr: the reader parses stdout whole."""
+    import io
+
+    from probe.cli import desktop
+    from probe.core import run
+
+    def noisy(request):
+        print("a library said hello")
+        return {"seen": request}
+
+    monkeypatch.setattr(desktop, "dispatch", noisy)
+    assert run.main(["desktop"], stdin=io.StringIO('{"op": "jobs"}')) == 0
+    out, err = capfd.readouterr()
+    assert json.loads(out) == {"v": 1, "ok": True, "data": {"seen": {"op": "jobs"}}}
+    assert out.count("\n") == 1 and "a library said hello" in err
+
+
 #: `probe status` for a person, on a fresh device: captured from origin/main
 #: (cd807ea4b) with this same environment. Its read now goes through
 #: `probe.core.reads`; what it prints did not change. The CLI's version and

@@ -2,7 +2,7 @@
 //!
 //! Exposes high-performance Rust implementations to Python.
 
-use crate::native_arrow::{record_batch_to_arrow_record_batch, ArrowRecordBatch};
+use crate::native_arrow::{ArrowRecordBatch, record_batch_to_arrow_record_batch};
 use chrono::Datelike;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -10,26 +10,26 @@ use pyo3::types::{PyDict, PyList};
 #[cfg(feature = "stub-gen")]
 use pyo3_stub_gen::derive::*;
 
-use xbbg_ext::auction::{field_group, field_group_names, imbalance_side, ZERO_PRICE_FIELDS};
+use xbbg_ext::auction::{ZERO_PRICE_FIELDS, field_group, field_group_names, imbalance_side};
 use xbbg_ext::constants::{DVD_TYPES, FUTURES_MONTHS, MONTH_CODES};
 use xbbg_ext::resolvers::cdx::{
     cdx_series_from_ticker, gen_to_specific, parse_cdx_ticker, previous_series_ticker,
 };
 use xbbg_ext::resolvers::futures::{
-    contract_index, filter_candidates_by_cycle, filter_valid_contracts,
-    generate_futures_candidates, validate_generic_ticker, RollFrequency,
+    RollFrequency, contract_index, filter_candidates_by_cycle, filter_valid_contracts,
+    generate_futures_candidates, validate_generic_ticker,
 };
 use xbbg_ext::transforms::bql::{
     build_corporate_bonds_query, build_etf_holdings_query, build_preferreds_query,
 };
 use xbbg_ext::transforms::currency::{build_fx_pair, currencies_needing_conversion, same_currency};
-use xbbg_ext::transforms::fixed_income::{build_yas_overrides, YieldType};
+use xbbg_ext::transforms::fixed_income::{YieldType, build_yas_overrides};
 use xbbg_ext::transforms::historical::{
     build_earning_header_rename, calculate_level_percentages, rename_dividend_columns,
     rename_etf_columns,
 };
 use xbbg_ext::utils::date::{default_bqr_datetimes, default_turnover_dates, fmt_date, parse_date};
-use xbbg_ext::utils::pivot::{is_long_format, pivot_to_wide};
+use xbbg_ext::utils::pivot::pivot_to_wide;
 use xbbg_ext::utils::ticker::{
     build_futures_ticker, filter_equity_tickers, is_specific_contract, normalize_tickers,
     parse_ticker_parts,
@@ -94,14 +94,6 @@ fn ext_pivot_to_wide(py: Python<'_>, batch: PyRef<'_, ArrowRecordBatch>) -> PyRe
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     record_batch_to_arrow_record_batch(py, result)
-}
-
-/// Check if a RecordBatch is in long format (ticker, field, value).
-#[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
-#[pyfunction]
-fn ext_is_long_format(py: Python<'_>, batch: PyRef<'_, ArrowRecordBatch>) -> PyResult<bool> {
-    let rust_batch = batch.batch().clone();
-    Ok(py.detach(move || is_long_format(&rust_batch)))
 }
 
 // =============================================================================
@@ -507,20 +499,18 @@ fn ext_build_preferreds_query(equity_ticker: &str, extra_fields: Vec<String>) ->
 ///     ticker: Company ticker without suffix (e.g., "AAPL").
 ///     ccy: Currency filter (None for all currencies).
 ///     extra_fields: Additional fields beyond default (id).
-///     active_only: If true, only return active bonds.
 ///
 /// Returns: Complete BQL query string.
 #[cfg_attr(feature = "stub-gen", gen_stub_pyfunction)]
 #[pyfunction]
-#[pyo3(signature = (ticker, ccy=None, extra_fields=vec![], active_only=true))]
+#[pyo3(signature = (ticker, ccy=None, extra_fields=vec![]))]
 fn ext_build_corporate_bonds_query(
     ticker: &str,
     ccy: Option<&str>,
     extra_fields: Vec<String>,
-    active_only: bool,
 ) -> String {
     let refs = string_refs(&extra_fields);
-    build_corporate_bonds_query(ticker, ccy, &refs, active_only)
+    build_corporate_bonds_query(ticker, ccy, &refs)
 }
 
 /// Build a BQL query for ETF holdings.
@@ -581,13 +571,12 @@ fn ext_default_bqr_datetimes(
 // =============================================================================
 
 /// Register ext functions with the module.
-pub fn register_ext_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register_ext_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_pyfunctions!(
         m;
         ext_parse_date,
         ext_fmt_date,
         ext_pivot_to_wide,
-        ext_is_long_format,
         ext_parse_ticker,
         ext_is_specific_contract,
         ext_build_futures_ticker,

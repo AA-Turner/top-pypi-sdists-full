@@ -22,6 +22,9 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qsl, quote, unquote, urlencode
 
 _log = logging.getLogger("testmu")
+logging.getLogger("httpx").setLevel(logging.ERROR)  # its INFO line prints the resolved URL, secrets included
+
+from testmu._v3._helpers._api_log import log_api_call, log_not_sent  # noqa: E402
 
 # Binding-internal record of agent/test-executed API calls. Read by
 # api_calls_query in exported-test runtime (mirrors how devtools capture is
@@ -129,6 +132,10 @@ def _do_request(method, url, headers, body, params, authorization, timeout, veri
     from testmu import _config
 
     # -- Resolve variable templates ------------------------------------------
+    # The request as authored, so the API log can name its values and mask secrets
+    authored = {"url": url, "headers": headers, "body": body, "params": params, "authorization": authorization}
+    auth_keys = set()
+
     url = _resolve_templates(url)
 
     # -- Parse string inputs -------------------------------------------------
@@ -189,7 +196,10 @@ def _do_request(method, url, headers, body, params, authorization, timeout, veri
     # -- Validate URL --------------------------------------------------------
     parsed = urlparse(url)
     if not all([parsed.scheme, parsed.netloc]):
-        raise RuntimeError(f"Invalid URL: {url!r}")
+        error = RuntimeError(f"Invalid URL: {url!r}")
+        log_api_call(method.upper(), url, authored=authored, sent_headers=_headers, body=body,
+                     auth_keys=auth_keys, elapsed_ms=0, error=error)
+        raise error
     if url.startswith("wss://") or url.startswith("ws://"):
         raise RuntimeError("Websockets not supported")
     for hval in (_headers or {}).values():
@@ -278,12 +288,14 @@ def _do_request(method, url, headers, body, params, authorization, timeout, veri
         auth_data = _auth.get("data", {})
         if auth_type == "bearer" and auth_data.get("token"):
             _headers["Authorization"] = f"Bearer {auth_data['token']}"
+            auth_keys.add("authorization")
         elif auth_type == "basic" and auth_data.get("username"):
             import base64 as _b64
             cred = _b64.b64encode(
                 f"{auth_data['username']}:{auth_data.get('password', '')}".encode()
             ).decode()
             _headers["Authorization"] = f"Basic {cred}"
+            auth_keys.add("authorization")
         elif auth_type == "aws-signature":
             try:
                 from botocore.awsrequest import AWSRequest
@@ -319,6 +331,7 @@ def _do_request(method, url, headers, body, params, authorization, timeout, veri
                 else:
                     SigV4Auth(credentials, service_name, region).add_auth(aws_req)
                     _headers.update(dict(aws_req.headers))
+                    auth_keys.update(str(k).lower() for k in aws_req.headers)
             except Exception as e:
                 # A failed signature must fail the step loudly — swallowing it
                 # sends the request unsigned, which surfaces as an AWS 403
@@ -365,6 +378,15 @@ def _do_request(method, url, headers, body, params, authorization, timeout, veri
             data_kwarg = _body
 
     start = time.time()
+
+    def _log_call(response=None, error=None):
+        log_api_call(_method, url, authored=authored, sent_headers=_headers,
+                     body=data_kwarg if files_kwarg is None else files_kwarg, auth_keys=auth_keys,
+                     elapsed_ms=(time.time() - start) * 1000, error=error,
+                     status=response.status_code if response is not None else None,
+                     reason=getattr(response, "reason_phrase", "") if response is not None else "",
+                     size=len(getattr(response, "content", b"") or b"") if response is not None else 0,
+                     params=_params, response=response)
 
     # V2: name the cause when the server was never reached.
     # Scoped to proxy/connect only — other failures keep the existing handling.
@@ -414,16 +436,21 @@ def _do_request(method, url, headers, body, params, authorization, timeout, veri
         else:
             raise RuntimeError(f"Unsupported HTTP method: {_method!r}")
     except _httpx.ProxyError as e:
+        _log_call(error=e)
         raise _httpx.ProxyError(
             f"API request failed — proxy could not reach the server: {e}"
         ) from e
     except _httpx.ConnectError as e:
+        _log_call(error=e)
         raise _httpx.ConnectError(
             f"API request failed — could not connect to the server: {e}"
         ) from e
+    except _httpx.HTTPError as e:
+        _log_call(error=e)
+        raise
 
     elapsed_ms = (time.time() - start) * 1000
-    _log.info("    [execute_api] status=%d time=%.0fms", response.status_code, elapsed_ms)
+    _log_call(response=response)
 
     # -- Build response dict -------------------------------------------------
     resp = {
@@ -548,6 +575,13 @@ def _reencode_urlencoded_body(body: str) -> str:
     not die in the encoder.
     """
     try:
+        # the generated test passes the body through json.dumps(); unwrap it once, as the Appium binding does
+        unwrapped = json.loads(body)
+        if isinstance(unwrapped, str):
+            body = unwrapped
+    except (json.JSONDecodeError, TypeError):
+        pass
+    try:
         out_pairs = []
         for pair in body.split("&"):
             if not pair:
@@ -602,7 +636,7 @@ async def execute_api(
         RuntimeError: On invalid URL or unsupported method (input validation), or —
             on the default path only — any request failure (fail-closed contract).
     """
-    _log.info("    [execute_api] %s %s", method, url[:80])
+    _log.info("    [execute_api] %s %s", method, url)
     try:
         resp = await asyncio.to_thread(
             _do_request, method, url, headers, body, params,
@@ -614,9 +648,11 @@ async def execute_api(
         except Exception:
             pass  # recording must never fail the call
         return resp
-    except RuntimeError:
+    except RuntimeError as e:
+        log_not_sent(method, url, e)
         raise
     except Exception as e:
+        log_not_sent(method, url, e)
         import httpx as _httpx
         # V2: proxy and connect failures mean the server was
         # never reached, so there is no response for a status assertion to

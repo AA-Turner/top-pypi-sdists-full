@@ -34,6 +34,7 @@ class ListObjectsRequest(BaseModel):
     search: Optional[StrictStr] = Field(default=None, description="Search term to filter objects by key or metadata")
     select: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. List of fields to include in the response. Supports dot notation for nested fields (e.g., 'metadata.title', 'status'). When specified, only the selected fields will be returned in the object results, reducing response size. System fields like 'object_id' and 'bucket_id' are always included. Use this to optimize response size when working with large objects.")
     return_presigned_urls: Optional[StrictBool] = Field(default=False, description="Generate fresh presigned download URLs for all blobs with S3 storage. When true, each blob will include a 'presigned_url' in its properties. URLs expire after 1 hour.")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["filters", "sort", "search", "select", "return_presigned_urls"]
 
     model_config = ConfigDict(
@@ -66,8 +67,10 @@ class ListObjectsRequest(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -81,6 +84,11 @@ class ListObjectsRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of sort
         if self.sort:
             _dict['sort'] = self.sort.to_dict()
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -99,6 +107,11 @@ class ListObjectsRequest(BaseModel):
             "select": obj.get("select"),
             "return_presigned_urls": obj.get("return_presigned_urls") if obj.get("return_presigned_urls") is not None else False
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

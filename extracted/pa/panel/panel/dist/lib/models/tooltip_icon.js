@@ -4,7 +4,6 @@ import { div, label } from "@bokehjs/core/dom";
 import inputs_css, * as inputs from "@bokehjs/styles/widgets/inputs.css";
 import icons_css from "@bokehjs/styles/icons.css";
 export class TooltipIconView extends LayoutDOMView {
-    static __name__ = "TooltipIconView";
     desc_el;
     get child_models() {
         if (this.model.description == null) {
@@ -72,7 +71,6 @@ export class TooltipIconView extends LayoutDOMView {
     }
 }
 export class TooltipIcon extends LayoutDOM {
-    static __name__ = "TooltipIcon";
     static __module__ = "panel.models.widgets";
     constructor(attrs) {
         super(attrs);

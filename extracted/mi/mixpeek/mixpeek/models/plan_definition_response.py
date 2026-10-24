@@ -30,7 +30,7 @@ class PlanDefinitionResponse(BaseModel):
     product: StrictStr = Field(description="Product line this plan belongs to")
     tier: StrictStr = Field(description="Tier identifier (free, build, scale, ...)")
     name: StrictStr = Field(description="Human-readable plan name")
-    monthly_price_cents: StrictInt = Field(description="Recurring monthly minimum in cents. This is a MINIMUM spend, not an allowance: metered usage draws against usage_pool_usd.")
+    monthly_price_cents: StrictInt = Field(description="Flat recurring monthly fee in cents. Metered usage is billed on top of it; on plans with a usage_pool_usd, only usage beyond that pool is billed.")
     self_serve: StrictBool = Field(description="True when the plan can be bought without sales contact")
     features: Optional[List[StrictStr]] = Field(default=None, description="Feature flags enabled on this plan")
     included_credits: Optional[StrictInt] = Field(default=None, description="Prepaid credit entitlement in v1 semantics (1 credit = $0.001). This is NOT the metered usage allowance; read usage_pool_usd for that. See included_credits_semantics, which states the same thing in the payload so no caller has to infer it.")

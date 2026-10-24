@@ -20,6 +20,7 @@ this module and ``FinishedMaterial.pbr`` pull it in).
 
 from __future__ import annotations
 
+import importlib
 from typing import TYPE_CHECKING, Any
 
 import webcolors
@@ -155,11 +156,13 @@ def _normalize_color(color: Color | None) -> _Rgb | None:
 
 
 def _rgb_from_ocp(color: Any) -> tuple[float, float, float]:
-    """0..1 sRGB from a duck-typed OCP ``Quantity_ColorRGBA`` (via ``GetRGB``).
+    """0..1 sRGB from a duck-typed OCCT ``Quantity_ColorRGBA`` (via ``GetRGB``).
 
-    Kept as an ``Any``-typed helper so the OCP color -- which this package cannot name
-    (build123d/OCP depend on us) -- is handled without a cast, and so ``OCP`` is imported
-    only if a raw OCP color is actually passed.
+    Kept as an ``Any``-typed helper so the OCCT color -- which this package cannot name
+    (build123d/OCP depend on us) -- is handled without a cast, and so the binding is
+    imported only if a raw OCCT color is actually passed. The color may come from OCP
+    or nanocct: the binding is the top-level package of its class (``OCP.OCP.Quantity``,
+    ``nanocct.Quantity``), and ``Quantity_TypeOfColor`` is taken from that binding.
 
     Args:
         color: An object exposing OCCT's ``GetRGB()`` (a ``Quantity_ColorRGBA``).
@@ -169,9 +172,9 @@ def _rgb_from_ocp(color: Any) -> tuple[float, float, float]:
     """
     rgb = color.GetRGB()
     if hasattr(rgb, "Values"):
-        from OCP.Quantity import Quantity_TypeOfColor  # lazy: only for OCP colors
-
-        r, g, b = rgb.Values(Quantity_TypeOfColor.Quantity_TOC_sRGB)
+        binding = type(rgb).__module__.partition(".")[0]  # "OCP" or "nanocct"
+        quantity = importlib.import_module(f"{binding}.Quantity")  # lazy: only for OCCT colors
+        r, g, b = rgb.Values(quantity.Quantity_TypeOfColor.Quantity_TOC_sRGB)
     else:
         r, g, b = rgb.Red(), rgb.Green(), rgb.Blue()
     return (float(r), float(g), float(b))

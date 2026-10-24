@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyTurboJPEG
-Version: 2.5.0
+Version: 2.6.1
 Summary: A Python wrapper of libjpeg-turbo for decoding and encoding JPEG image.
 Home-page: https://github.com/lilohuang/PyTurboJPEG
 Author: Lilo Huang
@@ -162,6 +162,12 @@ with open('input.jpg', 'rb') as f:
 
 ### YUV Decoding
 
+`decode_header()` can return `TJSAMP_UNKNOWN` (`-1`) for a valid JPEG with
+unusual sampling factors. Such images can still be decoded to packed pixels
+with `decode()` or `decode_12bit()`, according to their precision. Planar YUV
+operations, `scale_with_quality()`, and cropping require known subsampling
+and raise `ValueError` for these images.
+
 ```python
 # Decode to a YUV buffer
 with open('input.jpg', 'rb') as f:
@@ -205,6 +211,15 @@ raise `ValueError` instead of being silently ignored. For example,
 planar YUV calls reject it. Progressive and DCT flags are rejected for lossless
 JPEG because those modes have no corresponding lossless semantics.
 
+With `TJFLAG_STOPONWARNING`, a native warning raises `OSError` because the
+operation stops before its output is necessarily complete. Without that flag,
+recognized recoverable warnings emit `UserWarning` and return the completed
+result. Fatal errors following a warning, and unrecognized native warning
+messages, raise `OSError` as well: some native versions retain warning severity
+after a fatal error.
+If decoding into `dst` fails, the destination may have been partially written
+and must not be treated as a complete image.
+
 ### Encoding
 
 ```python
@@ -231,6 +246,85 @@ with open('output_gray.jpg', 'wb') as f:
     f.write(jpeg.encode(bgr_array, lossless=True))
 ```
 
+### JPEG Storage Colorspace
+
+`pixel_format` describes the input array's channel order. The optional
+`jpeg_colorspace` argument selects the colorspace stored in the JPEG.
+Its default, `None`, preserves automatic selection: ordinary RGB/BGR inputs
+are encoded as YCbCr in lossy mode, even with `TJSAMP_444`.
+
+`TJCS_DEFAULT` (`-1`) is an explicit alternative to `None` in `encode()`,
+`encode_12bit()`, and `encode_16bit()`:
+
+```python
+from turbojpeg import TJCS_DEFAULT
+
+encoded = jpeg.encode(bgr_array, jpeg_colorspace=TJCS_DEFAULT)
+```
+
+Although the native setter accepts `TJCS_DEFAULT` only in libjpeg-turbo 3.2
+or later, PyTurboJPEG supports this option with every supported version
+(3.0+). Each encoding call creates a new native handle, so automatic selection
+is preserved by leaving its colorspace setting untouched.
+
+To compress three independent channels (for example, distinct stain signals)
+without an RGB-to-YCbCr conversion, select RGB storage. The recommended 4:4:4
+setting retains the full sampling resolution of every channel:
+
+```python
+from turbojpeg import TJPF_RGB, TJCS_RGB, TJSAMP_444
+
+encoded = jpeg.encode(
+    three_channel_array,  # uint8, shape (height, width, 3)
+    pixel_format=TJPF_RGB,
+    jpeg_colorspace=TJCS_RGB,
+    jpeg_subsample=TJSAMP_444,
+    quality=90,
+)
+decoded = jpeg.decode(encoded, pixel_format=TJPF_RGB)
+assert jpeg.decode_header(encoded)[3] == TJCS_RGB
+```
+
+This avoids mixing the channels during color conversion; lossy JPEG still
+introduces DCT/quantization error within each channel. The same arguments work
+with `encode_12bit()` for `uint16` input containing values from 0 to 4095.
+This feature requires libjpeg-turbo 3.0 or later, the project's existing minimum.
+
+Explicit colorspace selection uses these rules for lossy encoding:
+
+| `jpeg_colorspace` | Supported input pixel formats | Required `jpeg_subsample` |
+| --- | --- | --- |
+| `TJCS_RGB` | RGB/BGR and their four-channel variants | Any except `TJSAMP_GRAY` |
+| `TJCS_YCbCr` | RGB/BGR and their four-channel variants | Any except `TJSAMP_GRAY` |
+| `TJCS_GRAY` | RGB/BGR variants or `TJPF_GRAY` | `TJSAMP_GRAY` |
+| `TJCS_CMYK` | `TJPF_CMYK` | `TJSAMP_444` |
+| `TJCS_YCCK` | `TJPF_CMYK` | Any except `TJSAMP_GRAY` |
+
+Conflicting settings raise `ValueError`. Specifying `jpeg_colorspace=TJCS_RGB`
+alone uses the existing default subsampling, `TJSAMP_422`. RGB storage supports
+4:4:4, 4:2:2, 4:2:0, 4:4:0, 4:1:1, and 4:4:1. Modes other than 4:4:4 reduce
+the spatial resolution of G and B while retaining R at full resolution; they
+still avoid RGB-to-YCbCr conversion and do not mix the channels. Use 4:4:4 when
+each independent channel needs its full sampling resolution.
+
+Four-channel RGB formats retain their existing behavior: the alpha/unused
+channel is not stored in the JPEG. When reusing an output buffer for lossy
+encoding, pass the same `jpeg_subsample` to `buffer_size()` and `encode()`.
+For example, use `jpeg.buffer_size(image, jpeg_subsample=TJSAMP_444)` with the
+4:4:4 example above. Lossless encoding still uses 4:4:4 regardless of the
+requested subsampling.
+
+Lossless encoding already preserves the input colorspace without conversion.
+With `lossless=True`, or when using `encode_16bit()`, `None` and `TJCS_DEFAULT`
+select the input's native colorspace automatically. Any other explicit
+`jpeg_colorspace` must match the input: `TJCS_RGB` for RGB/BGR variants,
+`TJCS_GRAY` for grayscale, or `TJCS_CMYK` for CMYK. Other selections raise
+`ValueError`; quality and subsampling remain ignored in lossless mode.
+
+RGB JPEGs use the packed-pixel `encode()`/`decode()` APIs. The native codec
+does not support encoding them from, or decoding them to, planar YUV;
+`encode_from_yuv()` does not accept `jpeg_colorspace`.
+
 ### Advanced Operations
 
 ```python
@@ -254,13 +348,158 @@ with open('optimized_output.jpg', 'wb') as f:
     f.write(optimized_data)
 ```
 
-Lossless crop origins must be aligned to the JPEG iMCU grid. The default
+`crop()` aligns crop origins to the JPEG iMCU grid. The default
 `preserve=False` rounds the origin down and expands the result to retain the
 whole requested area. `preserve=True` rounds it up so the result stays inside
 the requested area. In both modes, valid partial iMCUs at the right and bottom
 image edges are retained.
 
+#### Batch cropping and background extension
+
+`crop_multiple()` accepts an iterable of `(x, y, w, h)` tuples and returns JPEG
+byte strings in the same order, using one native batch transform. The iterable
+may contain just one tuple. Each axis is interpreted separately:
+
+- If `w`/`h` is no larger than the corresponding source dimension, `x`/`y` is
+  a crop origin inside the source image.
+- `w=0` or `h=0` keeps everything from that origin to the source's right or
+  bottom edge. The output dimensions need not be multiples of the iMCU size.
+- If `w`/`h` is larger than the source dimension, that axis is extended.
+  `x`/`y` then places the source in the output canvas. The complete source must
+  fit along that axis: `x + source_width <= w` or `y + source_height <= h`.
+  Placement offsets may be larger than the source dimensions.
+
+For a 505x731 JPEG with 4:2:0 subsampling (16x16 iMCUs), remove a 16-pixel left
+black bar and retain the entire remaining image, including partial edge blocks:
+
+```python
+with open('input.jpg', 'rb') as f:
+    data = f.read()
+
+# Both forms produce the same 489x731 JPEG as
+# jpeg.crop(data, 16, 0, 489, 731, preserve=True).
+cropped = jpeg.crop_multiple(data, [(16, 0, 0, 0)])[0]
+explicit = jpeg.crop_multiple(data, [(16, 0, 489, 731)])[0]
+```
+
+The keyword-only `align` option controls **pure crops** (operations that do not
+extend either axis):
+
+| `align` | Behavior |
+| --- | --- |
+| `"strict"` (default) | Require aligned origins and an in-bounds rectangle. |
+| `"expand"` | Round origins down, retaining the requested area within the source; matches `crop(preserve=False)`. |
+| `"shrink"` | Round origins up, keeping the result inside the requested area; matches `crop(preserve=True)`. |
+
+For `expand` and `shrink`, the requested right/bottom edges stay fixed and are
+clipped to the source image. A zero dimension is resolved to the remaining
+source extent before alignment. If inward alignment leaves no pixels, the
+operation raises `ValueError`.
+
+```python
+# On the same 4:2:0 image, request (x=10, y=10, w=20, h=20).
+expanded = jpeg.crop_multiple(data, [(10, 10, 20, 20)], align='expand')[0]
+# Actual source rectangle: (0, 0, 30, 30)
+
+contained = jpeg.crop_multiple(data, [(10, 10, 20, 20)], align='shrink')[0]
+# Actual source rectangle: (16, 16, 14, 14)
+```
+
+Operations extending either axis always require aligned `x` **and** `y`, even
+with `align='expand'` or `'shrink'`. Their placement and crop offsets are never
+automatically shifted. Pure crops and extensions can be mixed in the same batch.
+Choosing an alignment mode does not change a requested extension into a crop.
+
+Background extension supports grayscale, YCbCr, and RGB JPEGs, with
+`background_luminance` from 0 (black) to 1 (white). RGB backgrounds use each
+channel's own quantization table. CMYK/YCCK JPEGs support cropping but not
+background extension. For example, center a 64x64 image in a 320x320 white canvas:
+
+```python
+import numpy as np
+from turbojpeg import TJPF_RGB, TJSAMP_420
+
+image = np.full((64, 64, 3), (30, 90, 160), dtype=np.uint8)
+source = jpeg.encode(image, pixel_format=TJPF_RGB, jpeg_subsample=TJSAMP_420)
+centered = jpeg.crop_multiple(
+    source, [(128, 128, 320, 320)], background_luminance=1.0)[0]
+```
+
+An extension requires the source dimension on each extended axis to be a
+multiple of its iMCU size; otherwise `ValueError` is raised consistently on
+all supported library versions. With YCbCr-to-grayscale conversion, this source
+dimension check uses the grayscale output's 8x8 blocks; origins still follow the
+source JPEG's iMCU grid. Partial edges on an axis that is not extended are
+preserved. Alignment modes do not remove this source-dimension requirement.
+This prevents older libjpeg-turbo releases from silently discarding source
+pixels during extension. These operations do not decode and recompress pixels.
+
+Region validation errors identify the **zero-based** batch index, parameter,
+source dimensions, subsampling, and iMCU size. For example, an unaligned `x` in
+the third region raises (wrapped here for readability):
+
+```text
+crop_parameters[2]: x=10 is not aligned; x must be a multiple of 16;
+use align='expand' (keeps the requested in-bounds pixels but may include extra area),
+or align='shrink' (discards unaligned edges of the requested area and may be empty);
+source=505x731, subsampling=4:2:0, iMCU=16x16
+```
+
+Geometry errors suggest remedies and explain their costs:
+
+| Problem | Explicit remedy | Tradeoff |
+|---|---|---|
+| Unaligned origin in a pure crop | Choose `align='expand'` or `'shrink'`. | `expand` includes extra source area; `shrink` discards the unaligned part of the requested area and can leave no pixels. Neither recompresses the image. |
+| `shrink` leaves no pixels | Increase the requested extent to include the next aligned origin, using the minimum in the error. At a partial right/bottom edge with no later aligned origin, move the origin back or use `expand`. | Enlarging the request or moving back includes pixels outside the original request. Exact unaligned pixel bounds require decoding, cropping, and re-encoding, which adds lossy compression. |
+| A crop exceeds the right/bottom edge | Use the suggested maximum `w`/`h`, or `0` for the remaining extent. | The output becomes smaller than requested. An origin outside the source must also be moved inside, which selects a different source region. |
+| The source does not fit at the requested canvas offset | Move it to the suggested aligned `x`/`y`, or enlarge the canvas enough to fit the whole source at an aligned offset. | Moving changes placement; enlarging changes output dimensions. An unaligned offset still requires a manual adjustment for extensions. |
+| An extended source dimension has a partial iMCU | First crop the **source** dimension to the suggested multiple, or decode, pad, and re-encode. | Cropping discards the stated number of right-edge columns or bottom-edge rows without recompressing retained coefficients. Pixel padding preserves the full source area but re-encoding adds lossy compression. Changing output `w`/`h` or `align` cannot fix this source constraint. |
+| CMYK/YCCK background extension | Use a pixel-padding workflow supporting the source colorspace, then re-encode. | Re-encoding adds lossy compression. Preserve color profiles explicitly; this RGB example below is not a CMYK/YCCK workflow. |
+
+For example, extending a **100x64, 4:2:0** source to 128x64 requires a choice.
+If losing its four rightmost columns is acceptable, explicitly crop the source
+width to 96 (a multiple of 16) first:
+
+```python
+# data is the original 100x64, 4:2:0 JPEG.
+trimmed = jpeg.crop(data, 0, 0, 96, 64)
+padded = jpeg.crop_multiple(trimmed, [(0, 0, 128, 64)])[0]
+# Retains the first 96 source columns; adds 32 white columns on the right.
+```
+
+If every source column is required, pad decoded pixels instead. This 8-bit RGB
+example retains all 100 columns before re-encoding and adds 28 white columns:
+
+```python
+pixels = jpeg.decode(data, pixel_format=TJPF_RGB)
+canvas = np.full((64, 128, 3), 255, dtype=np.uint8)
+canvas[:, :100] = pixels
+padded = jpeg.encode(canvas, pixel_format=TJPF_RGB,
+                     jpeg_subsample=TJSAMP_420, quality=95)
+```
+
+This second approach performs an additional lossy compression pass: pixels can
+change even at `quality=100`, and ICC/EXIF metadata is not copied automatically.
+For 12-bit data, use `decode_12bit()`/`encode_12bit()`, `np.uint16`, and white
+value 4095. A source smaller than one iMCU on the extended axis cannot be fixed
+by cropping to a positive aligned dimension; use the pixel-padding approach.
+Remedies address the reported axis or constraint; the other axis and remaining
+batch entries must also be valid. The wrapper never silently trims the source,
+moves its placement, or falls back to recompression.
+
+All regions are validated before the native batch transform runs. Invalid region
+geometry raises `ValueError`, and invalid numeric types raise `TypeError`, without
+returning a partially completed list. Out-of-bounds crops or placements that
+previously raised a native `OSError` now raise a contextual `ValueError`.
+Errors in the JPEG itself or batch-wide options are reported for the whole call.
+
 ### In-Place Operations
+
+`dst` reuses an allocation. Its memory must not overlap the input: overlapping
+buffers raise `ValueError` before writing. Use a separate destination, or copy
+the input with `img_array.copy()` for encoding or `bytes(jpeg_buf)` for decoding.
+Copying uses additional memory proportional to the input size. Disjoint views
+of the same allocation are supported.
 
 ```python
 import numpy as np
@@ -279,6 +518,25 @@ with open('output.jpg', 'wb') as f:
     f.write(dest_buf[:n_bytes])
 # result is the same as dest_buf: id(result) == id(dest_buf)
 ```
+
+When embedding an ICC profile, include it in the size calculation so the buffer
+also has room for the APP2 segment headers:
+
+```python
+with open('profile.icc', 'rb') as f:
+    icc_profile = f.read()
+
+dest_buf = bytearray(jpeg.buffer_size(img_array, icc_profile=icc_profile))
+result, n_bytes = jpeg.encode(img_array, dst=dest_buf, icc_profile=icc_profile)
+```
+
+Use the same subsampling in `buffer_size()` and `encode()`. For lossless
+encoding, pass `TJSAMP_444` to `buffer_size()`. Adding only `len(icc_profile)` to
+the ordinary JPEG buffer size does not account for the segment headers.
+JPEG supports at most **16,707,345 bytes** of ICC data across 255 APP2 segments;
+larger profiles raise `ValueError`. Use a smaller profile, or omit it if the
+output does not need to retain that color profile. Embedding/extracting ICC
+profiles requires libjpeg-turbo 3.1 or later.
 
 ### EXIF Orientation Handling
 

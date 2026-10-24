@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiomisc
-Version: 18.0.35
+Version: 18.0.37
 Summary: aiomisc - miscellaneous utils for asyncio
 Author-email: Dmitry Orlov <me@mosquito.su>
 License-Expression: MIT
@@ -383,7 +383,7 @@ following things.
 
 Should be installed:
 
-* Python 3.7+ as ``python3``
+* Python 3.11+ as ``python3``
 * Installed Poetry_ as ``poetry``
 
 .. _Poetry: https://python-poetry.org/docs/

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import dataclasses
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -20,7 +21,7 @@ from plato.agents.desktop import provision_agent_desktop
 from plato.agents.login_backends import resolve_login_backend
 from plato.agents.mounts import AgentWorkspaceMount
 from plato.agents.tool_context import write_tool_execution_context
-from plato.runtimes.base import Runtime, RuntimeInfo
+from plato.runtimes.base import Runtime, RuntimeInfo, VMMetadata
 from plato.runtimes.config import VMRuntimeConfig
 from plato.sims.ubuntu_vm.client import (
     _api_base_url_from_environment,
@@ -72,6 +73,13 @@ def create_agent_runtime(
     return create_runtime(runtime_cfg, session=session, ssh_key_path=ssh_key_path)
 
 
+@dataclasses.dataclass(frozen=True)
+class _Adopted:
+    """An agent ``AgentTask.adopt`` took over: its running daemon job, or None when it was between turns."""
+
+    job_id: str | None
+
+
 class AgentTask:
     """Builder for running agents with optional lifecycle hooks.
 
@@ -116,6 +124,9 @@ class AgentTask:
         # lazily on the first leased run. The manager path keeps its own
         # per-task leases — this one is only for tasks given a pool directly.
         self._runtime_lease: RuntimeLease | None = None
+        # An adopted VM ``adopt`` couldn't remove from the session (its job id):
+        # ``release_runtime`` tries again.
+        self._unremoved_adopted_vm: str | None = None
         self._world_runtime_info = world_runtime_info
         # Set during _run_on_runtime so exit conditions / hooks can access the agent VM
         self.runtime_info: RuntimeInfo | None = None
@@ -143,6 +154,17 @@ class AgentTask:
         self._trigger_server_url: str | None = None
         # Populated after run() completes — hex span ID of the agent.execution.output span
         self.last_execution_span_id: str = ""
+        # The agent job running now on the task's VM (RPC path only), from the
+        # moment the daemon starts it until it exits; None otherwise. Keep it
+        # with the VM's RuntimeInfo to wait on the job again later, from another
+        # process too (vm_setup.attach_agent).
+        self.agent_job_id: str | None = None
+        # True while the agent is between turns: its last turn has ended and
+        # the exit condition (or the next turn's instruction) is being worked
+        # out. Like a running job, a world can hand it over then
+        # (plato.worlds.handover): the next process carries on with the exit
+        # condition, in the same conversation on the same VM.
+        self.between_turns: bool = False
         # Shared executor — set by BaseWorld.agent() when AgentConfig.max_parallel is set
         self._execution_manager: AgentExecutionManager | None = None
         # Per-task review gate settings (set by BaseWorld.agent())
@@ -455,6 +477,59 @@ class AgentTask:
             )
         )
 
+    async def adopt(self, info: RuntimeInfo, agent_job_id: str | None, display_name: str | None = None) -> str:
+        """Take over an agent that a previous world process started (``plato.worlds.handover``): ``info`` is its VM,
+        ``agent_job_id`` its running daemon job, or None when it was between turns (``between_turns``). Runs as ``run``
+        does from that point: the prepare hooks (so the world's observers attach again), then the wait on the job, or
+        for an agent between turns the exit condition, then the continuations (the next turn resumes its
+        conversation, on the same VM) and post-run hooks, and the VM is removed from the session at the end. Nothing
+        is installed, mounted or instructed again.
+
+        Returns the runtime_id (VM alias), as ``run`` does.
+        """
+        if self._agent.computer_use_artifact_id is not None:
+            raise ValueError("an agent with a provisioned desktop can't be adopted: the desktop went with its world")
+        if agent_job_id is None and self._exit_condition is None:
+            raise ValueError("an agent between turns needs an exit condition to adopt: its next turn comes from it")
+        mounts = [mount.clone_for_run() for mount in self._all_mounts()]
+        try:
+            return await self._run_on_runtime(
+                info,
+                "",
+                display_name=display_name,
+                mounts=mounts,
+                skip_vm_setup=True,
+                adopted=_Adopted(job_id=agent_job_id),
+            )
+        finally:
+            await self._remove_adopted_vm(info.metadata.job_id if isinstance(info.metadata, VMMetadata) else None)
+
+    async def _remove_adopted_vm(self, job_id: str | None, attempts: int = 3) -> bool:
+        """An adopted VM isn't in this process's runtime (another process added it): remove it from the session by
+        its job id, as ``run`` stops its own VM when it ends. Tried ``attempts`` times; if it still isn't removed,
+        ``release_runtime`` tries again later (the session's end removes it in any case). True once it's removed."""
+        if not job_id:
+            logger.error("Adopted agent VM: no job id to remove it with")
+            return False
+        for attempt in range(1, attempts + 1):
+            try:
+                removed = await asyncio.shield(self._runtime.remove_job(job_id))
+            except Exception:
+                logger.warning("Removing adopted agent VM %s failed (attempt %d)", job_id, attempt, exc_info=True)
+                removed = False
+            if removed:
+                self._unremoved_adopted_vm = None
+                return True
+            if attempt < attempts:
+                await asyncio.sleep(2.0 * attempt)
+        self._unremoved_adopted_vm = job_id
+        logger.error("Adopted agent VM %s is still in the session: release_runtime() tries again", job_id)
+        return False
+
+    def _job_started(self, agent_job_id: str) -> None:
+        self.agent_job_id = agent_job_id
+        logger.info("Agent job %s started", agent_job_id)
+
     async def run(
         self,
         instruction: str,
@@ -495,6 +570,8 @@ class AgentTask:
     async def release_runtime(self) -> None:
         """End this task's runtime lease now, destroying its bound idle VM
         (see ``AgentExecutionManager.release``). A no-op without a lease."""
+        if self._unremoved_adopted_vm is not None:
+            await self._remove_adopted_vm(self._unremoved_adopted_vm)
         if self._execution_manager is not None:
             await self._execution_manager.release(self)
             return
@@ -772,6 +849,7 @@ class AgentTask:
         display_name: str | None,
         mounts: list[AgentWorkspaceMount],
         skip_vm_setup: bool = False,
+        adopted: _Adopted | None = None,
     ) -> str:
         # Resource cleanup also runs if audit collection or a post-run hook
         # raises, and finishes before the agent runtime returns to its pool.
@@ -783,6 +861,7 @@ class AgentTask:
                 mounts=mounts,
                 skip_vm_setup=skip_vm_setup,
                 resources=resources,
+                adopted=adopted,
             )
 
     async def _run_on_runtime_with_resources(
@@ -794,7 +873,11 @@ class AgentTask:
         mounts: list[AgentWorkspaceMount],
         skip_vm_setup: bool,
         resources: contextlib.AsyncExitStack,
+        adopted: _Adopted | None = None,
     ) -> str:
+        """``adopted``: the agent already runs on ``info`` (``adopt``). Nothing is installed, mounted or signed in
+        again; the prepare hooks run, and the first execution is the wait on its job, or none at all when it was
+        between turns (the exit condition comes first)."""
         self.runtime_info = info
         self._current_runtime_info = info
         current_display_name = display_name or self._display_name
@@ -857,7 +940,9 @@ class AgentTask:
             # Mount workspaces. A sandbox_tools_only agent reads and writes files
             # with tools that run on the sandbox VM, so its workspaces mount there
             # instead — same transports, same sync-back, just a different host.
-            await self._setup_workspaces(info, mounts, sandbox_host=sandbox_host)
+            # An adopted agent's workspaces are mounted already, in use by it.
+            if adopted is None:
+                await self._setup_workspaces(info, mounts, sandbox_host=sandbox_host)
 
             # Prepare hooks
             for hook in self._prepare_hooks:
@@ -866,7 +951,7 @@ class AgentTask:
             # Declarative pre-agent login — runs after world-specific setup
             # (display resize, recorder) so hooks can finish any groundwork
             # the login backend depends on.
-            if self._agent.browser_tooling:
+            if self._agent.browser_tooling and adopted is None:
                 await self._run_pre_login(info)
                 # agent-browser login stores each env's cookies under
                 # --session <env.alias>. The model only knows to pass that
@@ -947,13 +1032,29 @@ class AgentTask:
                             self._max_continuations,
                         )
 
-                    logger.info("Executing agent on VM %s...", info.runtime_id)
-                    span_id = await vm_setup.execute_agent(info, exec_ctx, runner_path, workdir)
-                    self.last_execution_span_id = span_id
-                    logger.info("Agent execution completed on VM %s", info.runtime_id)
+                    between_turns = attempt == 0 and adopted is not None and adopted.job_id is None
+                    if between_turns:
+                        # Adopted between turns: its last turn ended in the previous process, so the exit
+                        # condition decides first whether it gets another.
+                        logger.info("Adopted agent on VM %s between turns", info.runtime_id)
+                    else:
+                        logger.info("Executing agent on VM %s...", info.runtime_id)
+                        try:
+                            if attempt == 0 and adopted is not None and adopted.job_id is not None:
+                                # The adopted agent's turn in progress: wait for it like an execution of our own.
+                                self.agent_job_id = adopted.job_id
+                                span_id = await vm_setup.attach_agent(info, adopted.job_id)
+                            else:
+                                span_id = await vm_setup.execute_agent(
+                                    info, exec_ctx, runner_path, workdir, on_job_started=self._job_started
+                                )
+                        finally:
+                            self.agent_job_id = None
+                        self.last_execution_span_id = span_id
+                        logger.info("Agent execution completed on VM %s", info.runtime_id)
 
-                    # Sync workspaces back after execution
-                    await self._sync_back_workspaces(info, mounts, sandbox_host=sandbox_host)
+                        # Sync workspaces back after execution
+                        await self._sync_back_workspaces(info, mounts, sandbox_host=sandbox_host)
 
                     # If no exit condition configured, one-shot — break immediately
                     if self._exit_condition is None:
@@ -965,7 +1066,8 @@ class AgentTask:
                     # attempt and makes the compaction's own summarization call
                     # cheap (it reads cache-hot context). Best-effort — a
                     # compaction failure must not abort the build/review loop.
-                    if self._compaction_instruction is not None:
+                    # Adopted between turns: the previous process compacted after that turn already.
+                    if self._compaction_instruction is not None and not between_turns:
                         await self._run_session_compaction(
                             info=info,
                             run_agent_config=run_agent_config,
@@ -1012,7 +1114,12 @@ class AgentTask:
                             )
 
                     # Check exit condition (workspace is synced back after execute())
-                    if await self._exit_condition():
+                    self.between_turns = True
+                    try:
+                        exit_now = await self._exit_condition()
+                    finally:
+                        self.between_turns = False
+                    if exit_now:
                         logger.info("Exit condition met after attempt %d", attempt + 1)
                         break
 

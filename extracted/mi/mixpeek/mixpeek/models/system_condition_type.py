@@ -39,6 +39,10 @@ class SystemConditionType(str, Enum):
     TASK_QUEUE_DEGRADED = 'task_queue_degraded'
     DLQ_GROWTH = 'dlq_growth'
     PROVIDER_QUOTA_EXHAUSTED = 'provider_quota_exhausted'
+    RETRIEVER_NO_INTERACTIONS = 'retriever_no_interactions'
+    COLLECTION_STALE = 'collection_stale'
+    BUDGET_THRESHOLD = 'budget_threshold'
+    INGEST_STALLED = 'ingest_stalled'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

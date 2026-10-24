@@ -101,6 +101,8 @@ __all__ = (
     "ListWorkspaceInstancesRequestTypeDef",
     "ListWorkspaceInstancesResponseTypeDef",
     "ManagedInstanceRequestTypeDef",
+    "ModifyVolumeRequestTypeDef",
+    "ModifyVolumeResponseTypeDef",
     "PaginatorConfigTypeDef",
     "PlacementTypeDef",
     "PrivateDnsNameOptionsRequestTypeDef",
@@ -282,6 +284,14 @@ class PrivateDnsNameOptionsRequestTypeDef(TypedDict):
 class RunInstancesMonitoringEnabledTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
+class ModifyVolumeRequestTypeDef(TypedDict):
+    VolumeId: str
+    SizeInGB: NotRequired[int]
+    VolumeType: NotRequired[VolumeTypeEnumType]
+    Iops: NotRequired[int]
+    Throughput: NotRequired[int]
+    ClientToken: NotRequired[str]
+
 TimestampTypeDef = Union[datetime, str]
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -304,6 +314,14 @@ class CreateVolumeResponseTypeDef(TypedDict):
 
 class CreateWorkspaceInstanceResponseTypeDef(TypedDict):
     WorkspaceInstanceId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyVolumeResponseTypeDef(TypedDict):
+    VolumeId: str
+    TargetSize: int
+    TargetVolumeType: VolumeTypeEnumType
+    TargetIops: int
+    TargetThroughput: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):

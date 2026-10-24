@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyundai_kia_connect_api
-Version: 4.39.0
+Version: 4.40.0
 Summary: Python API for Hyundai, Kia, and Genesis car infotainment systems
 Home-page: https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api
 Author: Fuat Akgun
@@ -22,7 +22,7 @@ Requires-Dist: beautifulsoup4>=4.15.0
 Requires-Dist: requests
 Requires-Dist: certifi>=2026.7.22
 Requires-Dist: tzdata>=2026.5
-Requires-Dist: pycryptodome>=3.24.0
+Requires-Dist: pycryptodome>=4.0.0
 Provides-Extra: google
 Requires-Dist: geopy>=2.2.0; extra == "google"
 Provides-Extra: image
@@ -190,6 +190,8 @@ Example of getting trip info of the current month and day (vm is VehicleManager 
                 if vehicle.day_trip_info is not None:
                     for trip in reversed(vehicle.day_trip_info.trip_list):  # show oldest first
                         print(f"{day.yyyymmdd},{trip.hhmmss},{trip.drive_time},{trip.idle_time},{trip.distance},{trip.avg_speed},{trip.max_speed}")
+
+In India the day trip list only carries start/end times, so each trip's figures come from a per-trip detail call (cached per trip). India trips also report ``trip.end_hhmmss`` and the driving-behaviour counters ``trip.hard_braking_count``, ``trip.rapid_acceleration_count`` and ``trip.excessive_speed_count``.
 
 CLI Usage
 =========

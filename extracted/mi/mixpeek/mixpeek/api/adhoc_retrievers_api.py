@@ -46,7 +46,7 @@ class AdhocRetrieversApi:
     @validate_call
     def execute_adhoc_retriever(
         self,
-        adhoc_execute_request: AdhocExecuteRequest,
+        adhoc_execute_request: Annotated[AdhocExecuteRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Optional[StrictBool] = None,
         return_vectors: Optional[StrictBool] = None,
         _request_timeout: Union[
@@ -66,7 +66,7 @@ class AdhocRetrieversApi:
 
         Execute a retriever ad-hoc without persisting the configuration.  This endpoint allows you to execute a retriever without saving it to the database. Useful for one-time queries, testing configurations, or temporary searches.  Caching: this route does not use the retriever-level execute cache, so ``cache_status`` is always ``disabled`` and there is no ``skip_cache`` parameter.  That does NOT mean every response is freshly computed. Individual stages keep their own caches, which this route cannot switch off, so a stage may serve a cached result and report ``cache_hit: true`` under ``stage_statistics.stages[*]`` on a response whose top-level ``cache_status`` reads ``disabled``. The two fields describe different caches. If you need a guaranteed fresh execution, persist the retriever (``POST /retrievers``) and call ``/retrievers/{id}/execute`` with ``skip_cache``, which this route lacks and which does reach the stages.  Streaming Execution (stream=True):     Response uses Server-Sent Events (SSE) format with Content-Type: text/event-stream.     Each stage emits events as it executes, formatted as: data: {json}\\n\\n      Event Types (StreamEventType):     - stage_start: Emitted when a stage begins (includes stage_name, stage_index, total_stages)     - stage_complete: Emitted when a stage finishes (includes documents, statistics, budget_used)     - stage_error: Emitted if a stage fails (includes error message)     - execution_complete: Final event with complete results and pagination     - execution_error: Emitted if entire execution fails      StreamStageEvent Fields:     - event_type: Type of event     - execution_id: Unique execution identifier     - stage_name/stage_index/total_stages: Stage progress info     - documents: Intermediate results (stage_complete only)     - statistics: Stage metrics (duration_ms, input_count, output_count, efficiency)     - budget_used: Cumulative consumption (credits_used, time_elapsed_ms, tokens_used)      Response Headers:     - Content-Type: text/event-stream     - Cache-Control: no-cache     - Connection: keep-alive     - X-Execution-Mode: adhoc  Standard Execution (stream=False, default):     - Returns ExecuteRetrieverResponse after all stages complete     - Includes X-Execution-Mode: adhoc header     - execution_metadata.retriever_persisted = False  Use Cases:     - One-time queries without saving retriever configuration     - Testing stage configurations before persisting     - Dynamic retrieval with varying parameters     - Real-time progress tracking with streaming
 
-        :param adhoc_execute_request: (required)
+        :param adhoc_execute_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type adhoc_execute_request: AdhocExecuteRequest
         :param return_presigned_urls:
         :type return_presigned_urls: bool
@@ -110,8 +110,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -127,7 +129,7 @@ class AdhocRetrieversApi:
     @validate_call
     def execute_adhoc_retriever_with_http_info(
         self,
-        adhoc_execute_request: AdhocExecuteRequest,
+        adhoc_execute_request: Annotated[AdhocExecuteRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Optional[StrictBool] = None,
         return_vectors: Optional[StrictBool] = None,
         _request_timeout: Union[
@@ -147,7 +149,7 @@ class AdhocRetrieversApi:
 
         Execute a retriever ad-hoc without persisting the configuration.  This endpoint allows you to execute a retriever without saving it to the database. Useful for one-time queries, testing configurations, or temporary searches.  Caching: this route does not use the retriever-level execute cache, so ``cache_status`` is always ``disabled`` and there is no ``skip_cache`` parameter.  That does NOT mean every response is freshly computed. Individual stages keep their own caches, which this route cannot switch off, so a stage may serve a cached result and report ``cache_hit: true`` under ``stage_statistics.stages[*]`` on a response whose top-level ``cache_status`` reads ``disabled``. The two fields describe different caches. If you need a guaranteed fresh execution, persist the retriever (``POST /retrievers``) and call ``/retrievers/{id}/execute`` with ``skip_cache``, which this route lacks and which does reach the stages.  Streaming Execution (stream=True):     Response uses Server-Sent Events (SSE) format with Content-Type: text/event-stream.     Each stage emits events as it executes, formatted as: data: {json}\\n\\n      Event Types (StreamEventType):     - stage_start: Emitted when a stage begins (includes stage_name, stage_index, total_stages)     - stage_complete: Emitted when a stage finishes (includes documents, statistics, budget_used)     - stage_error: Emitted if a stage fails (includes error message)     - execution_complete: Final event with complete results and pagination     - execution_error: Emitted if entire execution fails      StreamStageEvent Fields:     - event_type: Type of event     - execution_id: Unique execution identifier     - stage_name/stage_index/total_stages: Stage progress info     - documents: Intermediate results (stage_complete only)     - statistics: Stage metrics (duration_ms, input_count, output_count, efficiency)     - budget_used: Cumulative consumption (credits_used, time_elapsed_ms, tokens_used)      Response Headers:     - Content-Type: text/event-stream     - Cache-Control: no-cache     - Connection: keep-alive     - X-Execution-Mode: adhoc  Standard Execution (stream=False, default):     - Returns ExecuteRetrieverResponse after all stages complete     - Includes X-Execution-Mode: adhoc header     - execution_metadata.retriever_persisted = False  Use Cases:     - One-time queries without saving retriever configuration     - Testing stage configurations before persisting     - Dynamic retrieval with varying parameters     - Real-time progress tracking with streaming
 
-        :param adhoc_execute_request: (required)
+        :param adhoc_execute_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type adhoc_execute_request: AdhocExecuteRequest
         :param return_presigned_urls:
         :type return_presigned_urls: bool
@@ -191,8 +193,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -208,7 +212,7 @@ class AdhocRetrieversApi:
     @validate_call
     def execute_adhoc_retriever_without_preload_content(
         self,
-        adhoc_execute_request: AdhocExecuteRequest,
+        adhoc_execute_request: Annotated[AdhocExecuteRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Optional[StrictBool] = None,
         return_vectors: Optional[StrictBool] = None,
         _request_timeout: Union[
@@ -228,7 +232,7 @@ class AdhocRetrieversApi:
 
         Execute a retriever ad-hoc without persisting the configuration.  This endpoint allows you to execute a retriever without saving it to the database. Useful for one-time queries, testing configurations, or temporary searches.  Caching: this route does not use the retriever-level execute cache, so ``cache_status`` is always ``disabled`` and there is no ``skip_cache`` parameter.  That does NOT mean every response is freshly computed. Individual stages keep their own caches, which this route cannot switch off, so a stage may serve a cached result and report ``cache_hit: true`` under ``stage_statistics.stages[*]`` on a response whose top-level ``cache_status`` reads ``disabled``. The two fields describe different caches. If you need a guaranteed fresh execution, persist the retriever (``POST /retrievers``) and call ``/retrievers/{id}/execute`` with ``skip_cache``, which this route lacks and which does reach the stages.  Streaming Execution (stream=True):     Response uses Server-Sent Events (SSE) format with Content-Type: text/event-stream.     Each stage emits events as it executes, formatted as: data: {json}\\n\\n      Event Types (StreamEventType):     - stage_start: Emitted when a stage begins (includes stage_name, stage_index, total_stages)     - stage_complete: Emitted when a stage finishes (includes documents, statistics, budget_used)     - stage_error: Emitted if a stage fails (includes error message)     - execution_complete: Final event with complete results and pagination     - execution_error: Emitted if entire execution fails      StreamStageEvent Fields:     - event_type: Type of event     - execution_id: Unique execution identifier     - stage_name/stage_index/total_stages: Stage progress info     - documents: Intermediate results (stage_complete only)     - statistics: Stage metrics (duration_ms, input_count, output_count, efficiency)     - budget_used: Cumulative consumption (credits_used, time_elapsed_ms, tokens_used)      Response Headers:     - Content-Type: text/event-stream     - Cache-Control: no-cache     - Connection: keep-alive     - X-Execution-Mode: adhoc  Standard Execution (stream=False, default):     - Returns ExecuteRetrieverResponse after all stages complete     - Includes X-Execution-Mode: adhoc header     - execution_metadata.retriever_persisted = False  Use Cases:     - One-time queries without saving retriever configuration     - Testing stage configurations before persisting     - Dynamic retrieval with varying parameters     - Real-time progress tracking with streaming
 
-        :param adhoc_execute_request: (required)
+        :param adhoc_execute_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type adhoc_execute_request: AdhocExecuteRequest
         :param return_presigned_urls:
         :type return_presigned_urls: bool
@@ -272,8 +276,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -429,8 +435,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -502,8 +510,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -575,8 +585,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -661,7 +673,7 @@ class AdhocRetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_adhoc_executions_request: Optional[ListAdhocExecutionsRequest] = None,
+        list_adhoc_executions_request: Annotated[Optional[ListAdhocExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -695,7 +707,7 @@ class AdhocRetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_adhoc_executions_request:
+        :param list_adhoc_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_adhoc_executions_request: ListAdhocExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -741,8 +753,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -766,7 +780,7 @@ class AdhocRetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_adhoc_executions_request: Optional[ListAdhocExecutionsRequest] = None,
+        list_adhoc_executions_request: Annotated[Optional[ListAdhocExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -800,7 +814,7 @@ class AdhocRetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_adhoc_executions_request:
+        :param list_adhoc_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_adhoc_executions_request: ListAdhocExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -846,8 +860,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -871,7 +887,7 @@ class AdhocRetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_adhoc_executions_request: Optional[ListAdhocExecutionsRequest] = None,
+        list_adhoc_executions_request: Annotated[Optional[ListAdhocExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -905,7 +921,7 @@ class AdhocRetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_adhoc_executions_request:
+        :param list_adhoc_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_adhoc_executions_request: ListAdhocExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -951,8 +967,10 @@ class AdhocRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

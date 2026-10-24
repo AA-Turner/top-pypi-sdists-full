@@ -227,7 +227,7 @@ def get_coordinator() -> Coordinator | None:
         if state is not None and getattr(state, "writes", None) is None:
             state.writes = coord  # type: ignore[attr-defined]
         # Keep failure-row correlation aligned with the live AppContext.
-        # A late request_id override (independent_request fork, test harness
+        # A late request_id override (a forked child's own turn, test harness
         # reuse) must not leave system_write_failure.request_id pointing at
         # a different UUID than tool_call.user_request_id.
         ctx_live = _resolve_app_context()

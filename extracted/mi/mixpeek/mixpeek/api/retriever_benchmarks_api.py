@@ -45,7 +45,7 @@ class RetrieverBenchmarksApi:
     @validate_call
     def create_benchmark_retrievers(
         self,
-        create_benchmark_request: CreateBenchmarkRequest,
+        create_benchmark_request: Annotated[CreateBenchmarkRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -63,7 +63,7 @@ class RetrieverBenchmarksApi:
 
         Create a new benchmark run to compare retriever pipelines. The benchmark will replay historical sessions and measure alignment with observed user behavior.
 
-        :param create_benchmark_request: (required)
+        :param create_benchmark_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_benchmark_request: CreateBenchmarkRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -96,13 +96,15 @@ class RetrieverBenchmarksApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "BenchmarkResponse",
+            '200': "BenchmarkResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -118,7 +120,7 @@ class RetrieverBenchmarksApi:
     @validate_call
     def create_benchmark_retrievers_with_http_info(
         self,
-        create_benchmark_request: CreateBenchmarkRequest,
+        create_benchmark_request: Annotated[CreateBenchmarkRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -136,7 +138,7 @@ class RetrieverBenchmarksApi:
 
         Create a new benchmark run to compare retriever pipelines. The benchmark will replay historical sessions and measure alignment with observed user behavior.
 
-        :param create_benchmark_request: (required)
+        :param create_benchmark_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_benchmark_request: CreateBenchmarkRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -169,13 +171,15 @@ class RetrieverBenchmarksApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "BenchmarkResponse",
+            '200': "BenchmarkResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -191,7 +195,7 @@ class RetrieverBenchmarksApi:
     @validate_call
     def create_benchmark_retrievers_without_preload_content(
         self,
-        create_benchmark_request: CreateBenchmarkRequest,
+        create_benchmark_request: Annotated[CreateBenchmarkRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -209,7 +213,7 @@ class RetrieverBenchmarksApi:
 
         Create a new benchmark run to compare retriever pipelines. The benchmark will replay historical sessions and measure alignment with observed user behavior.
 
-        :param create_benchmark_request: (required)
+        :param create_benchmark_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_benchmark_request: CreateBenchmarkRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -242,13 +246,15 @@ class RetrieverBenchmarksApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "BenchmarkResponse",
+            '200': "BenchmarkResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -394,8 +400,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -467,8 +475,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -540,8 +550,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -674,8 +686,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -747,8 +761,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -820,8 +836,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -966,8 +984,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1051,8 +1071,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1136,8 +1158,10 @@ class RetrieverBenchmarksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

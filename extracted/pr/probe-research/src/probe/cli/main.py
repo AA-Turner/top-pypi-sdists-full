@@ -703,6 +703,19 @@ _WIZARD_COMMANDS = frozenset({"wizard", "install"})
 #: must not start updates or emit output around their bounded JSON replies.
 _READ_ONLY_COMMANDS = frozenset({"status", "desktop"})
 
+#: Where the Probe service is the updater, the every-command check hands it an
+#: available update at most this often: the service's own `update.check_now`
+#: cooldown (`probe.service.updater.CHECK_NOW_COOLDOWN_S`), inside which it
+#: answers `recent` anyway. A coding agent's hooks and the daemon run `probe`
+#: off a terminal dozens of times an hour (Bucket's laptop: 293 in three hours,
+#: 2026-10-23), so this is one asking process per window, not one per command.
+_SERVICE_ASK_EVERY_S = 15 * 60
+#: Its stamp (an empty file whose mtime is the last ask), beside `autoupdate.json`.
+_SERVICE_ASK_STAMP = "service-update-ask"
+#: `probe service ...` talks to the service itself: `probe service check-now` IS
+#: the SessionStart hook's ask, and `probe service stop` must not start it again.
+_SERVICE_COMMAND = "service"
+
 #: How old the wizard's held server answer may be when Diagnose reports it.
 _DIAGNOSE_MAX_AGE_S = 30.0
 
@@ -770,6 +783,18 @@ def _version_notice() -> None:
 
     A skip at any of the last three is RECORDED, so `probe doctor` can tell a box
     that is correctly deferring from an auto-updater that has silently died.
+
+    WHERE THE PROBE SERVICE IS THE UPDATER (POSIX, `_service_owns_updates`) the
+    last three gates are not this command's: they guard an update THIS process
+    would start in place, and here it only asks the service, which applies an
+    update beside the running version or on a quiet machine and records its own
+    deferral when it waits. So the CLI hands the update over
+    (`_hand_update_to_service`) and records nothing. Applying the old gates
+    there refused nothing real and said the wrong thing: every hook and daemon
+    `probe` recorded "not an interactive terminal" (293 times in three hours on
+    one laptop, 2026-10-23, the SessionStart hook's own `probe service
+    check-now` among them), each one overwriting the service's real reason in
+    `last_skip`, which is what the server's update report carries.
     """
     try:
         from probe import version_policy
@@ -800,6 +825,14 @@ def _version_notice() -> None:
             err=True,
         )
 
+        if _service_owns_updates():
+            if _extension_session_start():
+                _spawn_session_start_update()
+            else:
+                _hand_update_to_service(_invoked_command())
+            return
+        # The CLI's own updater (Windows, an install with no service
+        # interpreter): these gates guard the in-place update it would start.
         if not sys.stdout.isatty() and not _extension_session_start():
             autoupdate.record_skip(autoupdate.SKIP_NOT_A_TTY, available=latest)
             return
@@ -963,16 +996,27 @@ def _spawn_detached(argv: list[str], env: dict[str, str]) -> None:
     So the target daemonizes -- it forks and its first stage exits immediately
     (see version_refresh.main) -- and we reap that first stage right here. The
     real work is carried by the grandchild, which init adopts.
+
+    Windows has no fork, so the child does its work inline and there is no
+    first stage to reap (nor a zombie to leave): return at once. A `--apply`
+    child waits for THIS process to exit, so waiting on it here held every
+    command that found an update for the full 10 s. `start_new_session` means
+    nothing there: a new process group with no console window keeps the child
+    out of the terminal's Ctrl-C (an upgrade killed halfway) and shows nothing.
     """
+    windows = os.name == "nt"
     child = subprocess.Popen(  # noqa: S603 -- our own interpreter, our own module
         argv,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,
         close_fds=True,
         env=env,
+        # CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW, as the Probe service's own start
+        **({"creationflags": 0x00000200 | 0x08000000} if windows else {"start_new_session": True}),
     )
+    if windows:
+        return
     try:
         # The first stage forks and exits at once, so this returns immediately.
         # The timeout is a backstop, not a wait: if the fork ever fails and the
@@ -1098,6 +1142,58 @@ def _ask_service_to_update(trigger: str) -> None:
     )
 
 
+def _hand_update_to_service(command: str | None) -> None:
+    """The every-command check's update, where the Probe service is the
+    updater: ask it (`_ask_service_to_update`, trigger `cli`) at most once per
+    `_SERVICE_ASK_EVERY_S`, from any command, terminal or not, a run live or
+    not -- the service decides, and records why when it waits. Records nothing.
+
+    Not from `probe service` (it talks to the service itself), nor from a
+    run-scoped command (`_UPDATE_HOT_PATH_COMMANDS`): no process is started
+    from inside a training loop. Those machines still update on the service's
+    own schedule and at each coding agent's session start. Nor from a command
+    the service itself runs (`paths.SERVICE_CHILD_ENV`: its team-note sync):
+    the service is the updater, and an ask from its first command would land
+    while the rest of that job still runs from the CLI's files.
+
+    The window is claimed under an exclusive, non-blocking lock on the stamp,
+    so a burst of commands starting together asks once; a command that finds
+    the lock taken leaves the ask to its holder. A stamp that cannot be opened
+    or locked asks nothing: one asking process per command is worse than none.
+    Never raises."""
+    if command == _SERVICE_COMMAND or command in _UPDATE_HOT_PATH_COMMANDS:
+        return
+    try:
+        # `paths`, not `children`: loaded already by `_service_owns_updates`,
+        # where `children` would import asyncio on every command (~7 ms).
+        from probe.service.paths import SERVICE_CHILD_ENV
+
+        if os.environ.get(SERVICE_CHILD_ENV):
+            return
+        from probe._shared import oscompat
+
+        from . import autoupdate
+        stamp = autoupdate.state_dir() / _SERVICE_ASK_STAMP
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        with open(stamp, "a+b") as handle:
+            try:
+                oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+            except OSError:
+                return  # another command is claiming this window
+            # A stamp just created by this open has no ask behind it yet: its
+            # size is the mark (one byte is written once an ask is claimed).
+            age = time.time() - os.fstat(handle.fileno()).st_mtime
+            if os.fstat(handle.fileno()).st_size and 0 <= age < _SERVICE_ASK_EVERY_S:
+                return
+            handle.truncate(0)
+            handle.write(b"1")
+            handle.flush()
+            os.utime(stamp)
+        _ask_service_to_update("cli")
+    except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
+        pass
+
+
 def _spawn_session_start_update() -> None:
     """Apply an update found at an extension harness's session start (pi's), NOW.
 
@@ -1208,10 +1304,14 @@ def _apply_deferred_update() -> None:
 
 
 def _outbox_notice() -> None:
-    """The every-command outbox banner (2B) + drainer re-kick (3A).
+    """The every-command outbox banner (2B) + drainer re-kick (3A) + the
+    automatic rescue of writes stranded under a dead credential.
 
     One stat/read of status.json, no locks, never raises: this runs before
-    every command, including `probe log` inside training loops.
+    every command, including `probe log` inside training loops. The rescue
+    check is one more stat; once per 10 minutes at most it claims its interval
+    under a lock, reads the queues' status files and may start a process
+    (`outbox_worker.maybe_rescue`).
     """
     try:
         from ..sdk.journal import Journal, auth_blocked_since
@@ -1227,13 +1327,17 @@ def _outbox_notice() -> None:
             parts.append(f"auth-blocked since {blocked} — sign in again ({session_marker.WIZARD_HINT})")
         if failed:
             parts.append(f"{failed} dead-lettered")
-        if parts or (pending and status.get("paused")):
+        banner = bool(parts) or bool(pending and status.get("paused"))
+        if banner:
             if pending:
                 parts.append(f"{pending} pending")
             if status.get("paused"):
                 parts.append("paused")
             typer.echo(f"outbox: {'; '.join(parts)} — see `probe outbox status`", err=True)
-            # Same condition as the banner, on purpose: whatever is worth
+        if banner or status.get("blocked_oldest_pending"):
+            # The banner's condition, plus writes one queue holds for a
+            # credential nothing here has (no banner: a fresh hold clears
+            # itself; `stuck_status` reports it once it is an hour old). Whatever is worth
             # interrupting a human for is worth the fleet knowing. This is the
             # only place the STANDING condition is ever observed. A worker
             # already running reports the TRANSITION into paused/auth-blocked
@@ -1263,6 +1367,15 @@ def _outbox_notice() -> None:
                 )
             except Exception:  # noqa: BLE001 -- never let a report block the kick
                 pass
+        if not status.get("paused"):
+            # Writes stranded under a dead credential of this account are
+            # rescued by themselves (`outbox_worker.maybe_rescue`: one stat,
+            # at most a process every 10 minutes), even with this outbox empty
+            # (a distributed job's `rank-*` ones). Here, on the CLI's path,
+            # never on the SDK's write path.
+            from ..sdk import outbox_worker
+
+            outbox_worker.maybe_rescue(Journal(_conn.spool_dir), status)
         if pending and not status.get("paused") and not blocked:
             _kick_drainer()
     except Exception:  # noqa: BLE001 -- a broken banner must never break a command
@@ -1714,16 +1827,21 @@ def _login(
 
         # The login this one replaces keeps its record where writes queued under
         # it can still find it (#2041 round 3): the context holds one identity.
-        previous = load_context(context).get("identity")
+        before = load_context(context)
+        previous = before.get("identity")
         if isinstance(previous, dict) and previous.get("fingerprint"):
             record_account(
                 str(previous["fingerprint"]),
                 (previous.get("customer_id"), previous.get("user_id")),
+                # It was this context's login: a job holding a copy of it in
+                # PROBE_TOKEN is taken for the login (`Client._is_the_login`).
+                login_of=before.get("base_url") or DEFAULT_BASE_URL,
             )
         if isinstance(who, dict) and who.get("customer_id") and who.get("user_id"):
             record_account(
                 credential_fingerprint(settings.token, settings.ingest_token),
                 (str(who["customer_id"]), str(who["user_id"])),
+                login_of=settings.base_url,
             )
         updates["identity"] = (
             {
@@ -2023,13 +2141,45 @@ def doctor(
         "--fix",
         help="turn retired folder defaults (`<folder>/.probe/config.json`) into `.probe.config` files",
     ),
+    send: bool = typer.Option(
+        False,
+        "--send",
+        help="send the Probe team a diagnostic report of this machine (logs, versions, the service's "
+        "state; no credentials, no conversation) and print its id; with --bundle, send the debug log",
+    ),
+    bundle: bool = typer.Option(
+        False,
+        "--bundle",
+        help="save the full debug log (a zip of Probe's logs, settings and this system's state, "
+        "credentials and conversations left out) and print where; --send also sends it",
+    ),
+    out: Path = typer.Option(
+        None, "--out", help="--bundle: the folder to save the zip in (default: Probe's own debug folder)"
+    ),
+    as_json: bool = typer.Option(
+        False, "--json", help="--bundle: the last stdout line is one JSON object, for a program"
+    ),
 ) -> None:
     """Diagnostic: what is installed, on, and whether auto-update works.
 
     Prints the LAST UPDATE ATTEMPT, which is the only way to notice a detached
     auto-updater that has been silently failing. Read-only, except `--fix`,
-    which converts retired folder defaults.
+    which converts retired folder defaults. `--send` sends the Probe team a
+    small diagnostic report; `--bundle` saves (and with `--send` sends) the
+    full debug log.
     """
+    if bundle:
+        if fix:
+            raise typer.BadParameter("--fix does not combine with --bundle")
+        _doctor_bundle(send=send, out=out, as_json=as_json)
+        return
+    if out is not None or as_json:
+        raise typer.BadParameter("--out and --json go with --bundle")
+    if send:
+        if fix:
+            raise typer.BadParameter("--fix does not combine with --send")
+        _doctor_send()
+        return
     # Imported inside the body, not at module scope: cli/__init__ eagerly loads
     # this module, and `probe log` runs inside training loops.
     from probe.cli import doctor as doctor_impl
@@ -2040,6 +2190,12 @@ def doctor(
 
     refresh_mcp_token_verdict()  # one /v1/me: a refused read token reads "login needed"
     caps = doctor_impl.collect()
+    # `probe doctor` fixes what it can: writes stranded under a dead credential
+    # of this account are rescued now (never from `collect`, which `probe
+    # status` runs on every focus of the desktop app).
+    rescue = doctor_impl.rescue_outbox()
+    if rescue and isinstance(caps.outbox_status, dict):
+        caps.outbox_status = {**caps.outbox_status, "rescue": rescue}
     print(
         doctor_impl.render(
             caps, codex_hooks=doctor_impl.codex_hook_rows(caps), service=service_calls.view()
@@ -2050,6 +2206,74 @@ def doctor(
     rows = probe_config_cli.doctor_rows(fix=fix)
     if rows:
         print("\n".join(["", "Retired folder defaults", *rows]))
+
+
+#: What `probe doctor --send` says for each reason a report did not land.
+_REPORT_FAILURES = {
+    "offline": "Probe could not be reached",
+    "rate_limited": "too many reports were sent from this account in the last hour",
+    "too_large": "the report was too large",
+    "server": "the server could not take it",
+    "unauthorized": "this machine is not signed in to Probe (`probe login`)",
+}
+
+
+def _doctor_send() -> None:
+    """`probe doctor --send`: one manual diagnostic report (`probe.core.report`)."""
+    from probe.core import report
+
+    answer = report.send(auto=False, family=report.MANUAL_FAMILY, reason=report.MANUAL_REASON)
+    if answer.sent:
+        print(f"Sent diagnostic report {answer.id} to the Probe team")
+        return
+    why = _REPORT_FAILURES.get(answer.skipped or "", answer.skipped or "it was not sent")
+    print(f"Could not send the diagnostic report: {why}.", file=sys.stderr)
+    if answer.path:
+        print(f"A copy is at {answer.path}", file=sys.stderr)
+    raise typer.Exit(1)
+
+
+def _doctor_bundle(*, send: bool, out: Path | None, as_json: bool) -> None:
+    """`probe doctor --bundle [--send] [--out DIR] [--json]`: the debug log
+    (`probe.core.debug_bundle`). With `--json`, every other line goes to stderr
+    and the last stdout line is the contract's one object."""
+    from probe.core import debug_bundle, events
+
+    def human(size: int) -> str:
+        return f"{size / (1024 * 1024):.1f} MB" if size >= 1024 * 1024 else f"{max(1, size // 1024)} KB"
+
+    with contextlib.ExitStack() as stack:
+        stream = stack.enter_context(events.redirect_stdout()) if as_json else sys.stdout
+        try:
+            built = debug_bundle.build(out_dir=out)
+        except Exception as exc:  # noqa: BLE001 -- the app still gets its last line
+            if as_json:
+                stream.write(json.dumps({"error": "server", "status": None, "retry_after": None, "path": None})
+                             + "\n")
+            print(f"Could not write the debug log: {type(exc).__name__}: {exc}", file=sys.stderr)
+            raise typer.Exit(1) from None
+        if not send:
+            if as_json:
+                stream.write(json.dumps({"id": None, "bytes": built.bytes, "files": built.files,
+                                         "skipped": built.skipped, "path": str(built.path)}) + "\n")
+            else:
+                print(f"Saved the debug log to {built.path} ({human(built.bytes)}, {built.files} files)")
+                if built.skipped:
+                    print(f"Skipped: {', '.join(built.skipped)} (README.txt says why)")
+            return
+        result, stage = debug_bundle.send_with_stage(built)
+        if as_json:
+            stream.write(json.dumps(result) + "\n")
+        if "id" in result:
+            if not as_json:
+                print(f"Sent debug log {result['id']} ({human(result['bytes'])}) to the Probe team")
+                print(f"A copy is at {result['path']}")
+            return
+        why = _REPORT_FAILURES.get(result["error"], result["error"])
+        if stage is debug_bundle.Stage.UPLOAD and result["status"] == 401:
+            why = "the upload expired; try again"  # a 401 on the slot, not the login
+        print(f"Could not send the debug log: {why}. It is saved at {result['path']}", file=sys.stderr)
+        raise typer.Exit(1)
 
 
 @app.command("status")
@@ -2385,6 +2609,18 @@ def wizard(
     from probe.cli import capture as capture_mod
     from probe.cli import json_events, tui
 
+    # An action the Probe service can run for this terminal runs there, as the
+    # desktop app's do (`wizard_service`: which, and when not); its text
+    # streams here and its exit status is this command's.
+    hosted = _wizard_on_service(
+        action=action, yes=yes, json_output=json_output, agent=agent, tracking=tracking, capture=capture,
+        auto_update=auto_update, agent_rules=agent_rules, reinstall=reinstall, who_records=who_records,
+        folder=folder, uninstall=uninstall, auth_code=auth_code,
+        sign_in_flags=any((token, base_url, context, ingest_token, hmac_secret, endpoint_only, no_browser)),
+    )
+    if hosted is not None:
+        raise typer.Exit(hosted)
+
     # `--json`: stdout carries only events, and the last is `done` however the
     # run ends (`json_events`). A no-op without the flag.
     with json_events.session(json_output is True):
@@ -2498,6 +2734,33 @@ def wizard(
                 auth_code=auth_code,
                 who_records=who_records,
             )
+
+
+def _wizard_on_service(*, action, yes, json_output, agent, reinstall, **flags) -> int | None:
+    """`wizard`'s run on the Probe service (`wizard_service`): its exit status,
+    or None to run it here. A flag this cannot read (an agent typo) is the
+    in-process path's to report, as it always has."""
+    from probe.cli import wizard_service
+
+    if json_output is True or yes is not True:
+        return None  # the common interactive case: nothing to look up
+    try:
+        agents = _explicit_agent_sources(agent)
+    except typer.BadParameter:
+        return None
+    trigger = None
+    if action == "update":
+        try:
+            trigger = _update_action_trigger(yes).value
+        except Exception:  # noqa: BLE001 -- the service's default (manual) then
+            trigger = None
+    routed = wizard_service.plan(
+        action=action, yes=yes, json_output=json_output, agents=agents, reinstall=reinstall is True,
+        update_trigger=trigger, **flags,
+    )
+    if not isinstance(routed, wizard_service.Routed):
+        return None
+    return wizard_service.run(routed)
 
 
 @contextlib.contextmanager
@@ -14140,6 +14403,16 @@ def _drain_foreground(run_ref: str | None = None, *, every_dir: bool = False) ->
             ),
             err=True,
         )
+        try:
+            from ..sdk.journal import Journal
+
+            held_ops = [
+                op for journal in journals for q in journal.namespaces() for _, op in q.pending()
+            ]
+            status = Journal.read_status(journals[0].dir) or {}
+            _print_held_credentials(_held_credentials(held_ops, status, network=True))
+        except Exception:  # noqa: BLE001 -- advice only; the counts above stand
+            pass
     if report.auth_blocked:
         typer.echo(
             f"auth-blocked: {report.errors[-1] if report.errors else '401/403'} "
@@ -14161,6 +14434,157 @@ def _auth_blocked_since(status: dict) -> str | None:
     from ..sdk.journal import auth_blocked_since
 
     return auth_blocked_since(status)
+
+
+def _stored_login(name: str | None):
+    """Settings carrying context ``name``'s stored login alone (never an env
+    token), or None when it stores no token."""
+    from ..sdk.config import DEFAULT_BASE_URL, Settings, load_context
+
+    try:
+        stored = load_context(name)
+    except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
+        return None
+    if not stored.get("token"):
+        return None
+    return Settings(
+        base_url=(stored.get("base_url") or DEFAULT_BASE_URL).rstrip("/"),
+        token=stored["token"],
+        ingest_token=stored.get("ingest_token"),
+    )
+
+
+def _login_account(name: str | None, *, network: bool) -> tuple[str, str] | None:
+    """(customer_id, user_id) of context ``name``'s stored login: as the
+    sign-in recorded it for THIS token, else (``network``) `GET /v1/me`.
+    None when unknown. Raises what `/v1/me` raised."""
+    from ..sdk.config import load_context
+    from ..sdk.journal import _identity_of, credential_fingerprint
+
+    login = _stored_login(name)
+    if login is None:
+        return None
+    recorded = load_context(name).get("identity")
+    if (
+        isinstance(recorded, dict)
+        and recorded.get("fingerprint") == credential_fingerprint(login.token, None)
+        and recorded.get("customer_id")
+        and recorded.get("user_id")
+    ):
+        return str(recorded["customer_id"]), str(recorded["user_id"])
+    return _identity_of(login) if network else None
+
+
+def _credentials_here(name: str | None) -> set[str]:
+    """The credentials this shell sends with: its environment's and the stored login."""
+    from ..sdk import outbox_worker
+    from ..sdk.journal import credential_fingerprint
+
+    here = set(outbox_worker.env_fingerprints())
+    login = _stored_login(name)
+    if login is not None:
+        here.add(credential_fingerprint(login.token, None))
+    return here
+
+
+def _held_credentials(ops: list, status: dict, *, network: bool) -> list[dict]:
+    """Per env/code credential whose queued writes nothing here holds: how
+    many, its latest refusal, who holds it (`journal.credential_holders`) and
+    what to do next -- restart its process, `adopt` its writes (only when
+    that would pass: the same team and user as the login stored here), or
+    `discard` them. ``network``: ask `/v1/me` when the login's account was not
+    recorded at sign-in."""
+    from ..sdk.config import current_context_name
+    from ..sdk.journal import HolderState, Refusal, credential_holders, held_credentials
+
+    name = current_context_name() or None
+    entries = held_credentials(ops, here=_credentials_here(name))
+    if not entries:
+        return []
+    try:
+        mine = _login_account(name, network=network)
+    except Exception:  # noqa: BLE001 -- unknown: adopt checks it itself
+        mine = None
+    refused = status.get("refused_fingerprints") if isinstance(status, dict) else None
+    refused = refused if isinstance(refused, dict) else {}
+    out = []
+    for entry in entries:
+        fp = entry["fingerprint"]
+        account = entry.get("account")
+        holders = [
+            {key: h.get(key) for key in ("pid", "state", "program", "script", "sdk")}
+            for h in credential_holders(fp)
+        ]
+        alive = [h for h in holders if h["state"] == HolderState.ALIVE]
+        refused_at = refused.get(fp)
+        if entry.get("adopted"):
+            step = (
+                "adopted: its writes go out with your login. Still queued means that login is "
+                "another account's or server's, its token was refused, or these are DELETEs or "
+                "writes refused for scope, which go only with their own credential: "
+                "`probe outbox drain` says which"
+            )
+        elif entry.get("refusal") == Refusal.SCOPE:
+            step = (
+                "Probe refused its writes for a missing scope: they may not be sent with a "
+                "login that has it. Give the job a token with that scope, or "
+                f"`probe outbox discard --held --credential {fp}` drops them"
+            )
+        elif alive and not refused_at:
+            step = f"pid {alive[-1]['pid']} holds it and sends them itself"
+        elif account is None:
+            step = (
+                "the account behind it was never recorded here, so nothing can match it to "
+                f"your login: `probe outbox discard --held --credential {fp}` drops them"
+            )
+        elif mine is not None and account != mine:
+            step = (
+                "another account's (team or user): sign in as it here, or "
+                f"`probe outbox discard --held --credential {fp}` drops them"
+            )
+        else:
+            step = (
+                f"`probe outbox adopt --credential {fp}` sends them with your login"
+                + ("" if mine is not None else " (it checks the account first)")
+            )
+        if alive and refused_at and entry.get("refusal") != Refusal.SCOPE:
+            step = (
+                f"its token was refused: restart pid {alive[-1]['pid']} with a valid token. "
+                f"For what it queued: {step}"
+            )
+        out.append(
+            {
+                "fingerprint": fp,
+                "source": entry.get("source"),
+                "writes": entry["writes"],
+                "refused_at": refused_at,
+                "account_known": account is not None,
+                "same_account": None if (account is None or mine is None) else account == mine,
+                "holders": holders,
+                "next": step,
+            }
+        )
+    return out
+
+
+def _print_held_credentials(entries: list[dict]) -> None:
+    for entry in entries:
+        holders = entry["holders"]
+        who = (
+            "; ".join(
+                f"pid {h['pid']} ({' '.join(x for x in (h.get('program'), h.get('script')) if x)}"
+                f", sdk {h.get('sdk') or '?'}) {h['state']}"
+                for h in holders[-3:]
+            )
+            if holders
+            else "holder unknown (its release records none)"
+        )
+        refused = f", refused {entry['refused_at']}" if entry.get("refused_at") else ""
+        typer.echo(
+            f"  credential {entry['fingerprint']} ({entry['source']}): {entry['writes']} write(s)"
+            f"{refused}; {who}\n    next: {entry['next']}",
+            err=True,
+        )
 
 
 @outbox_app.command("status")
@@ -14199,6 +14623,14 @@ def outbox_status(
         # operator should be able to see rather than infer from a dead letter.
         "unstaged_low_disk": status.get("unstaged_low_disk"),
     }
+    try:
+        # Writes that wait for a credential no process here holds: whose,
+        # who holds it, and the command that moves them (#2041 follow-up).
+        held = _held_credentials([op for _, op in pending], status, network=False)
+    except Exception:  # noqa: BLE001 -- advice only; the counts stand
+        held = []
+    if held:
+        summary["held_credentials"] = held
     producers = journal.producer_report()
     if producers:
         summary["producers"] = [
@@ -14368,6 +14800,169 @@ def outbox_discard(
     print(f"discarded {moved} op(s)")
     if op_id is not None and moved == 0:
         raise typer.Exit(1)
+
+
+#: How long `outbox adopt` waits for another drain's pass, per queue.
+_ADOPT_LOCK_TIMEOUT_S = 10.0
+
+
+@outbox_app.command("adopt")
+def outbox_adopt(
+    credential: str = typer.Option(
+        ...,
+        "--credential",
+        help="the credential fingerprint `probe outbox status` or `drain` names",
+    ),
+) -> None:
+    """Send the writes another credential queued with YOUR login.
+
+    For a job that ran with its own `PROBE_TOKEN` (or a token in code) and is
+    gone, or whose token was revoked: nothing else can ever send what it
+    queued. Allowed only when that credential was your own account -- the
+    same team and user as the login stored here, checked with the server --
+    and never for `/ingest` writes. Recorded for good (a later sign-in does
+    not undo it), then delivered now, in the foreground."""
+    from ..sdk import outbox_worker
+    from ..sdk.config import current_context_name
+    from ..sdk.journal import (
+        Journal,
+        NotAdoptable,
+        adopt_credential,
+        adoption_account,
+        credential_fingerprint,
+        now_iso,
+        op_credential,
+        queued_ops,
+        write_text_atomic,
+    )
+
+    fp = credential.strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{16}", fp):
+        raise typer.BadParameter(
+            "a credential fingerprint is 16 hex characters, as `probe outbox status` prints it"
+        )
+    if fp in outbox_worker.env_fingerprints():
+        typer.echo(
+            f"this shell holds credential {fp} (PROBE_TOKEN): `probe outbox drain` here sends "
+            "its writes with it",
+            err=True,
+        )
+        raise typer.Exit(1)
+    name = current_context_name() or None
+    login = _stored_login(name)
+    if login is None:
+        typer.echo(
+            f"no login is stored here to send them with; {session_marker.WIZARD_HINT}", err=True
+        )
+        raise typer.Exit(1)
+    if credential_fingerprint(login.token, None) == fp:
+        typer.echo(
+            f"credential {fp} is the login stored here: its writes go out with it already",
+            err=True,
+        )
+        raise typer.Exit(1)
+    queues: set = set()
+    ops: list = []
+    for root in _outbox_journals():
+        for queue in root.namespaces():
+            for _path, op in queued_ops(queue):
+                stamp = (op.get("context") or {}).get("principal")
+                if isinstance(stamp, dict) and stamp.get("fingerprint") == fp:
+                    ops.append(op)
+                    queues.add(queue.dir)
+    writes = len(ops)
+    if not writes:
+        typer.echo(f"nothing is queued with credential {fp}", err=True)
+        raise typer.Exit(1)
+    account, why, context_name = adoption_account(fp, ops)
+    label = context_name or "<default>"
+    refusals = {
+        NotAdoptable.UNKNOWN_ACCOUNT: (
+            f"the account credential {fp} belongs to was never recorded on this machine, so "
+            "it cannot be matched to your login and its writes cannot be sent with it. "
+            f"`probe outbox discard --held --credential {fp}` drops them."
+        ),
+        NotAdoptable.NO_LOGIN: (
+            f"context {label} stores no login to send them with; sign in to it first"
+        ),
+        NotAdoptable.OTHER_SERVER: (
+            f"credential {fp}'s writes are for another server than the login stored for "
+            f"context {label}; sign in to that server in that context first"
+        ),
+        NotAdoptable.UNCONFIRMED: (
+            f"could not confirm the account of context {label}'s login with the server; "
+            "nothing was changed, try again"
+        ),
+        NotAdoptable.OTHER_ACCOUNT: (
+            f"credential {fp} queued its writes as another account than the one logged in "
+            f"to context {label}; sign in as that account, or "
+            f"`probe outbox discard --held --credential {fp}` drops them"
+        ),
+        NotAdoptable.SCOPE: (
+            f"credential {fp} may not do what its writes ask (Probe refused them for scope, "
+            "or its recorded scopes lack it); your login may, and must not do it in its place. "
+            f"`probe outbox discard --held --credential {fp}` drops them"
+        ),
+    }
+    if why is not None or account is None:
+        typer.echo(refusals.get(why, refusals[NotAdoptable.OTHER_ACCOUNT]), err=True)
+        raise typer.Exit(1)
+    adopt_credential(fp, account)
+    for directory in queues:
+        try:  # a worker sleeping on held runs looks again now
+            write_text_atomic(directory / ".wake", now_iso() + "\n", mode=0o600)
+        except OSError:
+            pass
+    typer.echo(
+        f"adopted credential {fp}: its {writes} queued write(s), and any it queues later, go "
+        f"out with your login (team {account[0]})"
+    )
+    delivered, _dead, _remaining, busy = outbox_worker.drain_adopted(
+        queues, lock_timeout=_ADOPT_LOCK_TIMEOUT_S
+    )
+    left = [
+        op
+        for directory in queues
+        for _, op in queued_ops(Journal(directory))
+        if ((op.get("context") or {}).get("principal") or {}).get("fingerprint") == fp
+    ]
+    typer.echo(f"delivered {delivered}; {len(left)} of credential {fp} left")
+    if not left:
+        return
+    ingest = sum(1 for op in left if op_credential(op)[1])
+    if ingest:
+        typer.echo(
+            f"  {ingest} of them are /ingest writes, which go out only with their own ingest "
+            "token: adoption never sends those",
+            err=True,
+        )
+    try:
+        import probe as _probe
+
+        ours = str(getattr(_probe, "__version__", "") or "")
+    except Exception:  # noqa: BLE001
+        ours = ""
+    for directory in sorted(queues):
+        holder = outbox_worker.worker_holder(Journal(directory))
+        if holder is None:
+            continue
+        pid, version = holder
+        if version and version == ours:
+            typer.echo(
+                f"  a worker (pid {pid}) of this release is delivering {directory} now", err=True
+            )
+            continue
+        typer.echo(
+            f"  an older Probe worker (pid {pid or '?'}, release {version or 'unknown'}) holds "
+            f"delivery of {directory} and cannot send adopted writes. Restart the job that "
+            "started it (or stop that pid), then run `probe outbox drain`.",
+            err=True,
+        )
+    if busy:
+        typer.echo(
+            "  another drain held a queue's lock; `probe outbox drain` tries again", err=True
+        )
+    raise typer.Exit(2)
 
 
 @outbox_app.command("pause")

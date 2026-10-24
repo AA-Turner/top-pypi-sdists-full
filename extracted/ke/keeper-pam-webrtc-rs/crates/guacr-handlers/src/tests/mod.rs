@@ -9,6 +9,7 @@ mod integration_tests;
 mod kubernetes_tests;
 mod mock_tests;
 mod multi_channel_tests;
+mod operational_diagnostics_tests;
 mod params_tests;
 mod pipe_tests;
 mod registry_tests;

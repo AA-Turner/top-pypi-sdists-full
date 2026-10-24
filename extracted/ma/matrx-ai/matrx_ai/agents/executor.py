@@ -52,7 +52,6 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import uuid
 from typing import Any, Generic, Literal, TypeVar
 
 from matrx_connect.context.app_context import child_agent_context
@@ -73,14 +72,6 @@ ParsedT = TypeVar("ParsedT", bound=BaseModel)
 # the caller task: otherwise the already-open utility remains RUNNING until its
 # lease expires and the reaper falsely reports it abandoned.
 _SPINE_SETTLE_TASKS: set[asyncio.Task[Any]] = set()
-
-
-def _is_uuid_text(value: object) -> bool:
-    try:
-        uuid.UUID(str(value))
-    except (ValueError, TypeError, AttributeError):
-        return False
-    return bool(value)
 
 
 def _discard_spine_settle(task: asyncio.Task[Any]) -> None:
@@ -470,7 +461,6 @@ async def run_agent(
     json_schema: type[ParsedT] | dict[str, Any] | None = None,
     extra_client_tools: list[str] | None = None,
     conversation_id: str | None = None,
-    independent_request: bool = False,
     suppress_stream: bool = False,
     allow_client_delegation: bool = True,
     emit_lifecycle: bool = True,
@@ -509,9 +499,10 @@ async def run_agent(
       * isolating the reservation tracker
       * (optional) extending the forked ``ctx.client_tools`` with
         ``extra_client_tools`` so client-delegated tool dispatch works
-      * (optional) stamping a fresh ``request_id`` on the forked context
-        when ``independent_request=True`` so the call is rooted as its
-        own user-level unit instead of a sub-step of the parent request
+      * the child's OWN turn: the fork mints its ``request_id`` (its own
+        ``chat.user_request``, ``parent_request_id`` = the caller's turn,
+        ``root_request_id`` = the tree's root — cost cap, admission and stop
+        key on the root); the row is ensured here before any tool runs
       * translating ``AgentExecuteResult`` -> ``AgentRunResult``
       * optional JSON parsing + Pydantic validation, with a loud red dump
         of the full unaltered response on failure
@@ -549,16 +540,6 @@ async def run_agent(
                             created for this run) is reused and the child's new
                             turns append to it. The caller owns the access
                             check — this executor never widens access.
-        independent_request: When True, the forked child context gets a
-                            FRESH ``request_id`` (uuid4) so this call is
-                            persisted as its own ``cx_user_request`` row
-                            rather than a sub-step of the caller. Use for
-                            fan-out workloads where each call is a
-                            standalone user-level unit (e.g. concurrent
-                            per-page summaries in the research pipeline)
-                            that must not race on the parent's
-                            ``cx_user_request`` id. Defaults to False —
-                            the normal sub-agent rooting.
         system_run: When True, this is an INTERNAL machine call (fan-out
                             derivations, pipelines, mandates). The forked
                             context gets ``system_run=True``. A stored system
@@ -603,6 +584,16 @@ async def run_agent(
         ``parsed`` / ``parse_error`` cover JSON validation when requested.
     """
     refuse_both(user_input, host_turn)
+    if store is False:
+        # Every run is recorded like a chat; only the conversation labeler may
+        # stay unsaved (owner ruling 2026-10-23, orchestrator/unsaved_runs.py).
+        from matrx_ai.orchestrator.unsaved_runs import refuse_machine_unsaved_run
+
+        refuse_machine_unsaved_run(
+            door="run_agent",
+            mandate_key=getattr(agent, "mandate_key", None),
+            metadata=metadata,
+        )
     if json_schema is not None:
         try:
             bind_structured_output(agent, json_schema)
@@ -647,7 +638,6 @@ async def run_agent(
 
             from matrx_ai.db.conversation_gate import (
                 CONVERSATION_STEP_LABEL_KEY,
-                PARENT_REQUEST_ID_KEY,
                 resolve_step_label_for_title,
             )
 
@@ -727,53 +717,8 @@ async def run_agent(
                 overrides["client_tools"] = list(
                     dict.fromkeys(list(child_ctx.client_tools or []) + list(extra_client_tools))
                 )
-            if independent_request:
-                # Its own request record, LINKED to the request it ran under: the
-                # fresh user_request row carries ``metadata.parent_request_id``, so
-                # per-run joins work and lineage is never lost (Agent Factory review
-                # 4 N4-7: sequential mandate runs shared the first run's id and only
-                # the first got a user_request row).
-                parent_request_id = child_ctx.request_id
-                overrides["request_id"] = str(uuid.uuid4())
-                # R38: its own record, the TREE's cap — spend keys on the root request.
-                from matrx_ai.orchestrator.cost_budget import link_tree_request
-
-                link_tree_request(overrides["request_id"], parent_request_id)
-                from matrx_ai.db.conversation_gate import canonical_request_id, request_has_record
-
-                if parent_request_id and _is_uuid_text(parent_request_id) and not request_has_record(parent_request_id):
-                    # N4-7: a link names a REAL row or nothing — an ambient synthetic
-                    # request (a machine context, an MCP call) has no record to point at.
-                    # The tree cap link above still holds (in memory, not a row).
-                    vcprint(
-                        f"[run_agent] independent run {overrides['request_id']} under request "
-                        f"{parent_request_id}, which has no record here — no lineage link written "
-                        "(the tree cap still applies)",
-                        color="yellow",
-                    )
-                    parent_request_id = None
-                if parent_request_id and _is_uuid_text(parent_request_id):
-                    parent_request_id = canonical_request_id(parent_request_id)
-                    child_metadata[PARENT_REQUEST_ID_KEY] = str(parent_request_id)
-                    # The completion write REPLACES the row's metadata with the
-                    # agent's request metadata (requests.py to_user_request), so
-                    # the link rides there too or it is lost at completion.
-                    if isinstance(getattr(agent, "request_metadata", None), dict):
-                        agent.request_metadata = {
-                            **agent.request_metadata,
-                            PARENT_REQUEST_ID_KEY: str(parent_request_id),
-                        }
-                else:
-                    child_metadata.pop(PARENT_REQUEST_ID_KEY, None)
             if store is not None and bool(getattr(child_ctx, "store", True)) != store:
                 overrides["store"] = store
-                if store and not _is_uuid_text(overrides.get("request_id", child_ctx.request_id)):
-                    # A stored run needs a UUID request id (the executor refuses
-                    # otherwise); a synthetic machine context may carry none.
-                    overrides["request_id"] = str(uuid.uuid4())
-                    from matrx_ai.orchestrator.cost_budget import link_tree_request
-
-                    link_tree_request(overrides["request_id"], child_ctx.request_id)
             if system_run:
                 # A system run keeps its full history like any chat; the flag
                 # only skips non-history ceremony (title LLM call, cache_state
@@ -822,18 +767,19 @@ async def run_agent(
             # None. Captured here; setdefault'd onto result.metadata below.
             _child_conversation_id = getattr(child_ctx, "conversation_id", None)
             _child_request_id = getattr(get_app_context(), "request_id", None) or None
-            if independent_request:
-                # Fresh request_id ⇒ fresh cx_user_request. execute_ai_request
-                # also ensures this, but tools can run before that gate; mint
-                # the parent here so tool_call FKs never orphan.
-                from matrx_ai.db.conversation_gate import ensure_user_request_exists
+            # The child's OWN turn (the fork minted its request id). execute_ai_request
+            # also ensures this, but tools can run before that gate; mint it here so
+            # tool_call FKs never orphan.
+            from matrx_ai.db.conversation_gate import _is_valid_uuid, ensure_user_request_exists
 
-                _fresh = get_app_context()
-                if _fresh.request_id and _fresh.user_id and _fresh.store:
-                    await ensure_user_request_exists(
-                        request_id=_fresh.request_id,
-                        user_id=_fresh.user_id,
-                    )
+            _fresh = get_app_context()
+            # A non-UUID principal never reaches a stored row: the executor's own gate
+            # refuses it loudly; this early ensure only runs for a real one.
+            if _fresh.request_id and _is_valid_uuid(_fresh.user_id) and _fresh.store:
+                await ensure_user_request_exists(
+                    request_id=_fresh.request_id,
+                    user_id=_fresh.user_id,
+                )
 
             # Spine tracking (host-injected, mandatory when configured): every internal agent
             # run — MCP agent-service, NamedAgent research fan-out, podcast

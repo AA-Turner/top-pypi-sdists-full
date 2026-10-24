@@ -2,7 +2,6 @@ import { Tooltip } from "@bokehjs/models/ui/tooltip";
 import { build_view } from "@bokehjs/core/build_views";
 import { Button as BkButton, ButtonView as BkButtonView } from "@bokehjs/models/widgets/button";
 export class ButtonView extends BkButtonView {
-    static __name__ = "ButtonView";
     tooltip;
     *children() {
         yield* super.children();
@@ -53,7 +52,6 @@ export class ButtonView extends BkButtonView {
     }
 }
 export class Button extends BkButton {
-    static __name__ = "Button";
     static __module__ = "panel.models.widgets";
     constructor(attrs) {
         super(attrs);

@@ -3,6 +3,7 @@ import { Column as BkColumn, ColumnView as BkColumnView } from "@bokehjs/models/
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import type { StyleSheetLike } from "@bokehjs/core/dom";
 import type { Attrs } from "@bokehjs/core/types";
+import type { ResourceSpec } from "./resources";
 declare type A11yDialogView = {
     on(event: string, listener: () => void): void;
     show(): void;
@@ -20,6 +21,7 @@ export declare class ModalView extends BkColumnView {
     modal: A11yDialogView;
     close_button: HTMLButtonElement;
     content: HTMLElement;
+    lazy_initialize(): Promise<void>;
     connect_signals(): void;
     render(): void;
     stylesheets(): StyleSheetLike[];
@@ -33,6 +35,7 @@ export declare namespace Modal {
         open: p.Property<boolean>;
         show_close_button: p.Property<boolean>;
         background_close: p.Property<boolean>;
+        external_resources: p.Property<ResourceSpec | null>;
     };
 }
 export interface Modal extends Modal.Attrs {
@@ -41,6 +44,7 @@ export declare class Modal extends BkColumn {
     properties: Modal.Props;
     constructor(attrs?: Partial<Modal.Attrs>);
     static __module__: string;
+    initialize(): void;
 }
 export {};
 //# sourceMappingURL=modal.d.ts.map

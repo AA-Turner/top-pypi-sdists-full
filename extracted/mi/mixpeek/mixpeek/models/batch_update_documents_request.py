@@ -32,7 +32,7 @@ class BatchUpdateDocumentsRequest(BaseModel):
     """ # noqa: E501
     updates: Optional[Annotated[List[BatchDocumentUpdate], Field(min_length=1, max_length=1000)]] = Field(default=None, description="OPTIONAL. List of document updates with explicit document IDs. Each entry specifies document_id and update_data. Use this mode when you know exact document IDs and want per-document control. Mutually exclusive with filters + update_data mode. Maximum 1000 documents per batch request.")
     filters: Optional[LogicalOperatorInput] = Field(default=None, description="OPTIONAL. Filter conditions to match documents for update. Must be used with 'update_data' field. Mutually exclusive with 'updates' array. If provided, applies same update_data to all matching documents.")
-    update_data: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Update data to apply when using filters mode. Must be used with 'filters' field. All matched documents receive the same updates. Can update any document field except vectors.")
+    update_data: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Update data to apply when using filters mode. Must be used with 'filters' field. All matched documents receive the same updates. Can update any document field except vectors. A dotted key sets one nested field and keeps its siblings: {'metadata.status': 'processed'} changes only metadata.status. A key without a dot replaces that whole top-level field, so {'metadata': {'status': 'processed'}} replaces the entire metadata object and drops its other keys.")
     __properties: ClassVar[List[str]] = ["updates", "filters", "update_data"]
 
     model_config = ConfigDict(

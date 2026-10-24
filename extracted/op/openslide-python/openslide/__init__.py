@@ -164,7 +164,6 @@ class AbstractSlide(metaclass=ABCMeta):
         This class does not support caching, so this method does nothing.
 
         cache: an OpenSlideCache object."""
-        pass
 
     def get_thumbnail(self, size: tuple[int, int]) -> Image.Image:
         """Return a PIL.Image containing an RGB thumbnail of the image.
@@ -393,7 +392,8 @@ class ImageSlide(AbstractSlide):
         If the file format is not recognized, return None."""
         try:
             with Image.open(filename) as img:
-                return img.format
+                # mypy will think img is Any until we drop Python 3.10
+                return img.format  # type: ignore[no-any-return]
         except OSError:
             return None
 

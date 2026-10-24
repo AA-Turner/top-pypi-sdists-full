@@ -17,6 +17,7 @@ from matrx_ai.tools._sandbox_proxy import (
 )
 from matrx_ai.tools._sandbox_runtime import sandbox_mode_active, scoped_base_for
 from matrx_ai.tools.arg_models.shell_args import ShellExecuteArgs, ShellPythonArgs
+from matrx_ai.tools.error_remedy import shell_recovery_hint
 from matrx_ai.tools.kinds.execution import ShellExecution
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
@@ -208,72 +209,11 @@ def _build_exit_error_message(
         # — some tools write everything to stdout (npm, docker, etc.).
         parts.append(f"\nstdout:\n{stdout}")
 
-    hint = _recovery_hint_for(stderr or stdout, command)
+    hint = shell_recovery_hint(stderr or stdout, command)
     if hint:
         parts.append(f"\nrecovery hint:\n{hint}")
 
     return "".join(parts)
-
-
-def _recovery_hint_for(error_text: str, command: str) -> str | None:
-    """Pattern-match common terminal failures and return a hint that tells
-    the agent EXACTLY how to recover. Pure additive — never replaces the
-    original error, just appends actionable guidance.
-    """
-    text = (error_text or "").lower()
-    cmd = (command or "").lower()
-
-    # Git HTTPS auth failure — the most common one we've seen.
-    if "could not read username for 'https://github.com'" in text or (
-        "fatal: authentication" in text and "github" in cmd
-    ):
-        return (
-            "Git is asking for HTTPS credentials but the sandbox has none. Two ways to fix:\n"
-            "  1. Register a GitHub token via the orchestrator's credentials API:\n"
-            '       POST /sandboxes/{id}/credentials  body: {"kind":"github","token":"<pat>"}\n'
-            "     The sandbox configures git's credential helper; subsequent clones/pulls work.\n"
-            "  2. OR clone via SSH: change the URL to git@github.com:<owner>/<repo>.git and ensure\n"
-            "     ~/.ssh/id_ed25519 is configured (the sandbox's ssh setup populates a key on\n"
-            "     boot for orchestrator-spawned sandboxes).\n"
-            "  3. OR for read-only public repos, append ``|| true`` to skip auth — but that\n"
-            "     only works for genuinely-public repos."
-        )
-
-    # SSH auth failure.
-    if "permission denied (publickey)" in text:
-        return (
-            "SSH key auth failed. The sandbox has no key registered for the target host. "
-            "Drop a private key in /home/agent/.ssh/id_ed25519 (chmod 600) and the matching "
-            "public key into the remote's authorized_keys. For GitHub specifically, prefer "
-            "the /credentials API (token-based) — it's simpler than SSH key plumbing."
-        )
-
-    # No internet egress (rare but happens during ops work).
-    if "could not resolve host" in text or "name or service not known" in text:
-        return (
-            "DNS resolution failed inside the sandbox. The sandbox network may be misconfigured "
-            "or the orchestrator's network policy may have changed. Try `cat /etc/resolv.conf` "
-            "and `curl -v https://1.1.1.1` to confirm; if both fail, ping the operator to "
-            "check the orchestrator's docker network."
-        )
-
-    # Out-of-disk on the sandbox volume.
-    if "no space left on device" in text:
-        return (
-            "The sandbox volume is full. List large directories with `du -sh /home/agent/* | sort -h` "
-            "and clean up. Reset the sandbox (FE Inspector → Reset, optionally with 'wipe volume') "
-            "if you want a fresh /home/agent."
-        )
-
-    # Python ModuleNotFoundError.
-    if "modulenotfounderror" in text:
-        return (
-            "Module not installed. Inside a sandbox, `pip install <pkg>` (or `uv pip install`) is "
-            "always available — go ahead and install it. The sandbox is the boundary; don't ask "
-            "the user to install for you."
-        )
-
-    return None
 
 
 def _workspace_dir(ctx: ToolContext, working_dir: str = ".") -> str:
@@ -363,8 +303,8 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if (binding := get_active_sandbox()) is not None:
         try:
             # The shell is a session, as a terminal is: with no working_dir the command runs where
-            # the previous one ended (``cd`` sticks), on a cloud box (per sandbox) and on a
-            # desktop (per conversation, X-Matrx-Shell-Session). A named folder still wins.
+            # the previous one ended (``cd`` sticks), per conversation (X-Matrx-Shell-Session) on a
+            # cloud box and a desktop. A named folder still wins.
             cwd_path = (
                 None
                 if parsed.working_dir in ("", ".", "./")

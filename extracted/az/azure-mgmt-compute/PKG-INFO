@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-compute
-Version: 38.4.0
+Version: 39.0.0
 Summary: Microsoft Azure Compute Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,21 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 39.0.0 (2026-10-15)
+
+### Features Added
+
+  - Model `VirtualMachineNetworkInterfaceIPConfigurationProperties` added property `private_ip_address_prefix_length`
+  - Model `VirtualMachineProperties` added property `flex_profile`
+  - Model `VirtualMachineScaleSetIPConfigurationProperties` added property `private_ip_address_prefix_length`
+  - Model `VirtualMachineScaleSetUpdateIPConfigurationProperties` added property `private_ip_address_prefix_length`
+  - Added model `FlexProfile`
+  - Model `CapacityReservationGroupsOperations` added method `begin_delete`
+
+### Breaking Changes
+
+  - Deleted or renamed method `CapacityReservationGroupsOperations.delete`
 
 ## 38.4.0 (2026-09-21)
 

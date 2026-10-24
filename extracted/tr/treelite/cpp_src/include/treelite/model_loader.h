@@ -120,6 +120,9 @@ namespace sklearn {
  *                  the i-th tree. This is only defined if node k is an internal (non-leaf) node.
  * \param value value[i][k] stores the leaf output of node k of the i-th tree. This is only defined
  *              if node k is a leaf node.
+ * \param missing_go_to_left missing_go_to_left[i][k] stores the default direction for the missing
+ *                           value at node k of the i-th tree. This is only defined if node k is an
+ *                           internal (non-leaf) node.
  * \param n_node_samples n_node_samples[i][k] stores the number of data samples associated with
  *                       node k of the i-th tree.
  * \param weighted_n_node_samples weighted_n_node_samples[i][k] stores the sum of weighted data
@@ -131,8 +134,9 @@ namespace sklearn {
 std::unique_ptr<treelite::Model> LoadRandomForestRegressor(int n_estimators, int n_features,
     int n_targets, std::int64_t const* node_count, std::int64_t const** children_left,
     std::int64_t const** children_right, std::int64_t const** feature, double const** threshold,
-    double const** value, std::int64_t const** n_node_samples,
-    double const** weighted_n_node_samples, double const** impurity);
+    double const** value, std::uint8_t const** missing_go_to_left,
+    std::int64_t const** n_node_samples, double const** weighted_n_node_samples,
+    double const** impurity);
 /*!
  * \brief Load a scikit-learn IsolationForest model from a collection of arrays. Refer to
  *        https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
@@ -150,19 +154,24 @@ std::unique_ptr<treelite::Model> LoadRandomForestRegressor(int n_estimators, int
  *                  the i-th tree. This is only defined if node k is an internal (non-leaf) node.
  * \param value value[i][k] stores the expected isolation depth of node k of the i-th tree. This is
  *              only defined if node k is a leaf node.
+ * \param missing_go_to_left missing_go_to_left[i][k] stores the default direction for the missing
+ *                           value at node k of the i-th tree. This is only defined if node k is an
+ *                           internal (non-leaf) node.
  * \param n_node_samples n_node_samples[i][k] stores the number of data samples associated with
  *                       node k of the i-th tree.
  * \param weighted_n_node_samples weighted_n_node_samples[i][k] stores the sum of weighted data
  *                                samples associated with node k of the i-th tree.
  * \param impurity Not used, but must be passed as array of arrays for each tree and node.
  * \param ratio_c Standardizing constant to use for calculation of the anomaly score.
+ * \param offset Offset used to define the decision function from the raw scores.
  * \return Loaded model
  */
 std::unique_ptr<treelite::Model> LoadIsolationForest(int n_estimators, int n_features,
     std::int64_t const* node_count, std::int64_t const** children_left,
     std::int64_t const** children_right, std::int64_t const** feature, double const** threshold,
-    double const** value, std::int64_t const** n_node_samples,
-    double const** weighted_n_node_samples, double const** impurity, double ratio_c);
+    double const** value, std::uint8_t const** missing_go_to_left,
+    std::int64_t const** n_node_samples, double const** weighted_n_node_samples,
+    double const** impurity, double ratio_c, double offset);
 /*!
  * \brief Load a scikit-learn RandomForestClassifier model from a collection of arrays. Refer to
  *        https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
@@ -183,6 +192,9 @@ std::unique_ptr<treelite::Model> LoadIsolationForest(int n_estimators, int n_fea
  *                  the i-th tree. This is only defined if node k is an internal (non-leaf) node.
  * \param value value[i][k] stores the leaf output of node k of the i-th tree. This is only defined
  *              if node k is a leaf node.
+ * \param missing_go_to_left missing_go_to_left[i][k] stores the default direction for the missing
+ *                           value at node k of the i-th tree. This is only defined if node k is an
+ *                           internal (non-leaf) node.
  * \param n_node_samples n_node_samples[i][k] stores the number of data samples associated with
  *                       node k of the i-th tree.
  * \param weighted_n_node_samples weighted_n_node_samples[i][k] stores the sum of weighted data
@@ -195,8 +207,8 @@ std::unique_ptr<treelite::Model> LoadRandomForestClassifier(int n_estimators, in
     int n_targets, int32_t const* n_classes, std::int64_t const* node_count,
     std::int64_t const** children_left, std::int64_t const** children_right,
     std::int64_t const** feature, double const** threshold, double const** value,
-    std::int64_t const** n_node_samples, double const** weighted_n_node_samples,
-    double const** impurity);
+    std::uint8_t const** missing_go_to_left, std::int64_t const** n_node_samples,
+    double const** weighted_n_node_samples, double const** impurity);
 /*!
  * \brief Load a scikit-learn GradientBoostingRegressor model from a collection of arrays. Refer
  *        to https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
@@ -295,6 +307,8 @@ std::unique_ptr<treelite::Model> LoadGradientBoostingClassifier(int n_iter, int 
  * \param base_scores Baseline predictions for outputs. At prediction, margin scores will be
  *                    adjusted by this amount before applying the post-processing (link)
  *                    function. Required shape: (1,)
+ * \param loss_function Name of the loss function used in the boosting progress. This information
+ *                      is used in selecting the postprocessor field in the imported Treelite model.
  * \return Loaded model
  */
 std::unique_ptr<treelite::Model> LoadHistGradientBoostingRegressor(int n_iter, int n_features,
@@ -302,7 +316,7 @@ std::unique_ptr<treelite::Model> LoadHistGradientBoostingRegressor(int n_iter, i
     std::uint32_t n_categorical_splits, std::uint32_t const** raw_left_cat_bitsets,
     std::uint32_t const* known_cat_bitsets, std::uint32_t const* known_cat_bitsets_offset_map,
     std::int32_t const* features_map, std::int64_t const** categories_map,
-    double const* base_scores);
+    double const* base_scores, std::string const& loss_function);
 
 /*!
  * \brief Load a scikit-learn HistGradientBoostingClassifier model from a collection of arrays.

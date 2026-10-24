@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.alert_channel_delivery import AlertChannelDelivery
 from mixpeek.models.alert_match_result import AlertMatchResult
 from typing import Optional, Set
 from typing_extensions import Self
@@ -38,7 +39,8 @@ class AlertExecutionResult(BaseModel):
     source_documents: Optional[List[StrictStr]] = Field(default=None, description="Document IDs that triggered the alert check")
     executed_at: StrictStr = Field(description="ISO 8601 timestamp when the alert was executed")
     duration_ms: Annotated[int, Field(strict=True, ge=0)] = Field(description="How long the execution took in milliseconds")
-    __properties: ClassVar[List[str]] = ["alert_id", "collection_id", "execution_id", "triggered", "match_count", "matches", "source_documents", "executed_at", "duration_ms"]
+    deliveries: Optional[List[AlertChannelDelivery]] = Field(default=None, description="What happened to each notification channel when the alert fired: delivered, failed (with the error), deferred to the end of the channel's delivery window, or not_configured. Null when the alert did not fire.")
+    __properties: ClassVar[List[str]] = ["alert_id", "collection_id", "execution_id", "triggered", "match_count", "matches", "source_documents", "executed_at", "duration_ms", "deliveries"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,6 +88,13 @@ class AlertExecutionResult(BaseModel):
                 if _item_matches:
                     _items.append(_item_matches.to_dict())
             _dict['matches'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in deliveries (list)
+        _items = []
+        if self.deliveries:
+            for _item_deliveries in self.deliveries:
+                if _item_deliveries:
+                    _items.append(_item_deliveries.to_dict())
+            _dict['deliveries'] = _items
         return _dict
 
     @classmethod
@@ -106,7 +115,8 @@ class AlertExecutionResult(BaseModel):
             "matches": [AlertMatchResult.from_dict(_item) for _item in obj["matches"]] if obj.get("matches") is not None else None,
             "source_documents": obj.get("source_documents"),
             "executed_at": obj.get("executed_at"),
-            "duration_ms": obj.get("duration_ms")
+            "duration_ms": obj.get("duration_ms"),
+            "deliveries": [AlertChannelDelivery.from_dict(_item) for _item in obj["deliveries"]] if obj.get("deliveries") is not None else None
         })
         return _obj
 

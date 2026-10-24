@@ -50,24 +50,24 @@ class AppResponse(BaseModel):
     version: StrictInt
     has_unpublished_changes: Optional[StrictBool] = False
     custom_domains: List[CustomDomainConfig]
-    auth_config: AuthConfigOutput
-    build_config: BuildConfig
+    auth_config: Optional[AuthConfigOutput]
+    build_config: Optional[BuildConfig]
     monitoring_config: Optional[MonitoringConfig] = None
     repo_url: Optional[StrictStr] = None
     repo_branch: Optional[StrictStr] = None
     github_installation_id: Optional[StrictInt] = None
     versions: Optional[List[VersionRecord]] = Field(default=None, description="Deploy version history with timestamps and environment info")
     environments: Dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
     template: StrictStr
     sections: List[SectionConfig]
-    custom_html: StrictStr
-    hero: HeroConfig
+    custom_html: Optional[StrictStr]
+    hero: Optional[HeroConfig]
     theme: ThemeConfig
-    seo: SEOConfig
+    seo: Optional[SEOConfig]
     stats: List[StatItem]
-    featured_gallery: FeaturedGalleryConfigOutput
+    featured_gallery: Optional[FeaturedGalleryConfigOutput]
     tabs: List[PageTabOutput]
     password_protected: StrictBool
     __properties: ClassVar[List[str]] = ["app_id", "slug", "url", "meta", "is_active", "warnings", "version", "has_unpublished_changes", "custom_domains", "auth_config", "build_config", "monitoring_config", "repo_url", "repo_branch", "github_installation_id", "versions", "environments", "created_at", "updated_at", "template", "sections", "custom_html", "hero", "theme", "seo", "stats", "featured_gallery", "tabs", "password_protected"]
@@ -170,6 +170,46 @@ class AppResponse(BaseModel):
                 if _item_tabs:
                     _items.append(_item_tabs.to_dict())
             _dict['tabs'] = _items
+        # set to None if auth_config (nullable) is None
+        # and model_fields_set contains the field
+        if self.auth_config is None and "auth_config" in self.model_fields_set:
+            _dict['auth_config'] = None
+
+        # set to None if build_config (nullable) is None
+        # and model_fields_set contains the field
+        if self.build_config is None and "build_config" in self.model_fields_set:
+            _dict['build_config'] = None
+
+        # set to None if created_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.created_at is None and "created_at" in self.model_fields_set:
+            _dict['created_at'] = None
+
+        # set to None if updated_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.updated_at is None and "updated_at" in self.model_fields_set:
+            _dict['updated_at'] = None
+
+        # set to None if custom_html (nullable) is None
+        # and model_fields_set contains the field
+        if self.custom_html is None and "custom_html" in self.model_fields_set:
+            _dict['custom_html'] = None
+
+        # set to None if hero (nullable) is None
+        # and model_fields_set contains the field
+        if self.hero is None and "hero" in self.model_fields_set:
+            _dict['hero'] = None
+
+        # set to None if seo (nullable) is None
+        # and model_fields_set contains the field
+        if self.seo is None and "seo" in self.model_fields_set:
+            _dict['seo'] = None
+
+        # set to None if featured_gallery (nullable) is None
+        # and model_fields_set contains the field
+        if self.featured_gallery is None and "featured_gallery" in self.model_fields_set:
+            _dict['featured_gallery'] = None
+
         return _dict
 
     @classmethod

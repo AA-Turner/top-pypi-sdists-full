@@ -781,13 +781,21 @@ def _launch(folder: Path) -> dict:
         error=None, finished_at=None, cancel_requested=False,
         progress=_progress_message(_read(folder)["progress"], "Queued to resume the approved import."),
     )
+    worker_env = dict(os.environ)
+    # Replay the approval's structured origin, not a blanket inherited
+    # human marker that would also reach the worker's coding agents.
+    worker_env.pop("PROBE_DESKTOP_HUMAN", None)
+    # The Probe service starts and watches the worker where one answers: it
+    # survives this process, a failed start is reported as below, and
+    # `probe status` lists it (`probe.service.imports`). Else it is ours.
+    from . import service_calls
+
+    hosted = service_calls.start_import(folder.name, str(folder.parent), pending["attempt"], worker_env)
+    if hosted is not None:
+        return _record_launch(folder, hosted["pid"])
     try:
         descriptor = os.open(folder / "output.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(descriptor, "ab", buffering=0) as output:
-            worker_env = dict(os.environ)
-            # Replay the approval's structured origin, not a blanket inherited
-            # human marker that would also reach the worker's coding agents.
-            worker_env.pop("PROBE_DESKTOP_HUMAN", None)
             child = subprocess.Popen(
                 [sys.executable, "-u", "-c",
                  "import sys; sys.path.insert(0, sys.argv.pop(1)); "
@@ -807,6 +815,21 @@ def _launch(folder: Path) -> dict:
         )
         _report_failure(folder, failed, failure_kind="launch")
         return failed
+    job = _record_launch(folder, child.pid)
+
+    # Reap direct children even if this wizard stays open for hours. All worker
+    # descriptors are detached; this thread owns no part of the worker's life.
+    def reap():
+        code = child.wait()
+        if code:
+            _launch_failed(folder, child.pid, pending["attempt"], code)
+
+    threading.Thread(target=reap, daemon=True).start()
+    return job
+
+
+def _record_launch(folder: Path, pid: int) -> dict:
+    """The worker `pid` was started for this job (here or by the service)."""
     # The worker may already have claimed the job. Never overwrite its newer
     # state (or a fast completion) with the parent's queued snapshot.
     with _job_lock(folder, "state.lock"):
@@ -814,34 +837,34 @@ def _launch(folder: Path) -> dict:
         # Keep launch ownership even if the worker claimed or finished before
         # Popen returned. Terminal worker writes clear pid before interpreter
         # shutdown, which can still need to be stopped by Cancel or sign-out.
-        identity = _process_identity(child.pid)
-        job.update(launch_pid=child.pid, launch_identity=identity, updated_at=now_iso())
+        identity = _process_identity(pid)
+        job.update(launch_pid=pid, launch_identity=identity, updated_at=now_iso())
         if job["state"] == State.QUEUED:
-            job.update(pid=child.pid, pid_identity=identity)
+            job.update(pid=pid, pid_identity=identity)
         _save(folder, job)
-    # Reap direct children even if this wizard stays open for hours. All worker
-    # descriptors are detached; this thread owns no part of the worker's life.
-    def reap():
-        code = child.wait()
-        if not code:
-            return
-        try:
-            with _lifecycle(folder.parent), _job_lock(folder, "state.lock"):
-                current = _read(folder)
-                if (current["state"] in (State.QUEUED, State.INTERRUPTED)
-                        and not current.get("cancel_requested")
-                        and current.get("launch_pid") == child.pid
-                        and current["attempt"] == pending["attempt"]):
-                    current.update(
-                        state=State.FAILED, pid=None, finished_at=now_iso(), updated_at=now_iso(),
-                        error=f"The import worker could not start (exit code {code}).",
-                    )
-                    _save(folder, current)
-        except (OSError, JobError):
-            pass  # The next status read reports an unreadable job record.
-
-    threading.Thread(target=reap, daemon=True).start()
     return job
+
+
+def _launch_failed(folder: Path, pid: int, attempt: int, code: int) -> None:
+    """The worker `pid`, launched for `attempt`, exited `code` (non-zero): the
+    job reads failed if it never claimed it (still queued or interrupted at
+    that attempt), so recovery does not start it again and again. Run by the
+    launching CLI's reaper, or by the Probe service's report of a worker it
+    started (`--launch-failed`)."""
+    try:
+        with _lifecycle(folder.parent), _job_lock(folder, "state.lock"):
+            current = _read(folder)
+            if (current["state"] in (State.QUEUED, State.INTERRUPTED)
+                    and not current.get("cancel_requested")
+                    and current.get("launch_pid") == pid
+                    and current["attempt"] == attempt):
+                current.update(
+                    state=State.FAILED, pid=None, finished_at=now_iso(), updated_at=now_iso(),
+                    error=f"The import worker could not start (exit code {code}).",
+                )
+                _save(folder, current)
+    except (OSError, JobError):
+        pass  # The next status read reports an unreadable job record.
 
 
 def enqueue(kind: str, payload: dict, label: str, *, directory: Path | None = None) -> dict:
@@ -1320,7 +1343,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job_id")
     parser.add_argument("--directory", type=Path)
+    # The Probe service's report of a worker it started that exited non-zero
+    # (`probe.service.imports`): `_launch_failed`, never a worker run.
+    parser.add_argument("--launch-failed", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--attempt", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--exit-code", type=int, default=None, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.launch_failed is not None:
+        if args.attempt is None or not args.exit_code or not _ID.fullmatch(args.job_id):
+            raise SystemExit(2)
+        _launch_failed(_directory(args.job_id, args.directory), args.launch_failed, args.attempt, args.exit_code)
+        raise SystemExit(0)
     raise SystemExit(run_worker(args.job_id, directory=args.directory))
 
 

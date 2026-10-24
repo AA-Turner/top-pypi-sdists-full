@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: WTForms
-Version: 3.2.2
+Version: 3.3.0
 Summary: Form validation and rendering for Python web development.
 Project-URL: Documentation, https://wtforms.readthedocs.io
 Project-URL: Changes, https://wtforms.readthedocs.io/changes
@@ -44,7 +44,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: markupsafe>=1.1.1
 Provides-Extra: email
 Requires-Dist: email-validator>=2.0; extra == 'email'

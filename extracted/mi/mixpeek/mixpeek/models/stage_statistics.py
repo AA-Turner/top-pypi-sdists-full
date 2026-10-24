@@ -32,13 +32,14 @@ class StageStatistics(BaseModel):
     output_count: Annotated[int, Field(strict=True, ge=0)] = Field(description="Number of documents emitted by the stage (REQUIRED).")
     duration_ms: Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]] = Field(description="Wall-clock duration in milliseconds (REQUIRED).")
     efficiency: Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]] = Field(description="Output/Input ratio. 0 when input_count is 0 (REQUIRED).")
-    cache_hit: Optional[StrictBool] = Field(default=None, description="Indicates whether the result originated from stage cache (OPTIONAL).")
+    cache_hit: Optional[StrictBool] = Field(default=None, description="Deprecated alias for stage_cache_hit, kept for existing callers (OPTIONAL). Despite the name, this describes only THIS stage's own cache, not the retriever-level execute cache reported by cache_hit on the top-level response -- the two fields have shared this name across different response levels and that has misled multiple verification passes. Prefer stage_cache_hit.")
+    stage_cache_hit: Optional[StrictBool] = Field(default=None, description="Indicates whether THIS stage served its result from its own stage cache (OPTIONAL). Distinct from cache_hit on the top-level retriever execution response, which describes a separate, retriever-level execute cache; a stage can report stage_cache_hit=true on a response whose top-level cache_hit is false, and that is not a contradiction.")
     cached_at: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Unix timestamp when this stage result was cached. Present only on cache hits.")
     error: Optional[StrictStr] = Field(default=None, description="Stage-specific error message if execution failed but retriever execution continued (OPTIONAL).")
     llm_calls: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Number of LLM invocations performed by the stage (OPTIONAL).")
     tokens_used: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Total tokens consumed by the stage (OPTIONAL, only for LLM stages).")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Stage-specific metadata containing additional execution details (OPTIONAL). For example, join stages include: join_strategy, join_type, matched_count, match_rate, etc. LLM stages may include: model_name, temperature, max_tokens, etc.")
-    __properties: ClassVar[List[str]] = ["input_count", "output_count", "duration_ms", "efficiency", "cache_hit", "cached_at", "error", "llm_calls", "tokens_used", "metadata"]
+    __properties: ClassVar[List[str]] = ["input_count", "output_count", "duration_ms", "efficiency", "cache_hit", "stage_cache_hit", "cached_at", "error", "llm_calls", "tokens_used", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,6 +97,7 @@ class StageStatistics(BaseModel):
             "duration_ms": obj.get("duration_ms"),
             "efficiency": obj.get("efficiency"),
             "cache_hit": obj.get("cache_hit"),
+            "stage_cache_hit": obj.get("stage_cache_hit"),
             "cached_at": obj.get("cached_at"),
             "error": obj.get("error"),
             "llm_calls": obj.get("llm_calls"),

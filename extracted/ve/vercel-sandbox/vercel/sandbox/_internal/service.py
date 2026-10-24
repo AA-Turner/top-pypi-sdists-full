@@ -1,7 +1,7 @@
 """Neutral orchestration for Sandbox operations."""
 
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Literal, cast
@@ -10,7 +10,11 @@ from vercel._internal.core.byte_stream import (
     StagingFileRuntime,
 )
 from vercel._internal.core.http import StreamingResponse
-from vercel.sandbox._internal.api_client import SandboxApiClient
+from vercel.sandbox._internal.api_client import (
+    SandboxApiClient,
+    _completed_process_state,
+    _RunProcessInterrupted,
+)
 from vercel.sandbox._internal.errors import (
     SandboxApiError,
     SandboxFilesystemCommandError,
@@ -19,7 +23,11 @@ from vercel.sandbox._internal.errors import (
     SandboxResponseError,
     SandboxUploadSizeMismatchError,
 )
-from vercel.sandbox._internal.log_stream import _parse_command_log_record
+from vercel.sandbox._internal.log_stream import (
+    AsyncSleep,
+    _iter_command_logs,
+    _with_transient_retries,
+)
 from vercel.sandbox._internal.models import (
     _OMITTED,
     NO_PRIVATE_PARAMETERS,
@@ -55,6 +63,8 @@ from vercel.sandbox._internal.options import (
     SyncSandboxServiceOptions,
 )
 from vercel.sandbox._internal.process_output import ProcessOutputRouter
+from vercel.sandbox._internal.process_stdin import feed_process_input
+from vercel.sandbox._internal.recovery import _lifecycle_stream_error
 from vercel.sandbox._internal.runtime_common import (
     _StreamUploadFileEntry,
 )
@@ -72,6 +82,7 @@ from vercel.sandbox._internal.state import (
     SnapshotSessionState,
     SnapshotsPageState,
     SnapshotState,
+    UpdateSandboxStep,
 )
 from vercel.sandbox._internal.streaming_archive import ArchiveRequestWriter
 
@@ -85,8 +96,10 @@ _TERMINAL_SANDBOX_STATUSES = frozenset(
 _TRANSITIONAL_SANDBOX_STATUSES = frozenset(
     {SandboxStatus.PENDING, SandboxStatus.STOPPING, SandboxStatus.SNAPSHOTTING}
 )
+_SESSION_STATUSES_WITHOUT_LIVE_POLICY = frozenset(
+    {SandboxStatus.STOPPED, SandboxStatus.STOPPING, SandboxStatus.ABORTED, SandboxStatus.FAILED}
+)
 _READY_POLL_INTERVAL_SECONDS = 0.5
-AsyncSleep = Callable[[float], Awaitable[None]]
 ProcessOutputCollector = Callable[[ProcessState], Awaitable[tuple[str, str]]]
 _MISSING_PATH_ERROR_CODES = frozenset({"not_found", "path_not_found", "file_not_found", "ENOENT"})
 _PREDICATE_SCRIPT = """\
@@ -229,6 +242,30 @@ def _listdir_entries(output: str) -> list[DirectoryEntry]:
             )
         )
     return sorted(entries, key=lambda entry: entry.path)
+
+
+def _is_session_gone_error(error: SandboxApiError) -> bool:
+    """Return whether a live update failed because its session is going away.
+
+    This matches the TypeScript SDK: any HTTP 410, and HTTP 422
+    ``sandbox_stopping``. It deliberately does not use lifecycle-recovery
+    classification, which also treats 409 ``sandbox_stopped`` as stopped and
+    excludes closed-stream 410s. HTTP 410 also covers failed sessions.
+    """
+    if error.status_code == 410:
+        return True
+    return error.status_code == 422 and error.code == "sandbox_stopping"
+
+
+def _require_same_session(
+    payload: SandboxRuntimeSessionState, session_id: str
+) -> SandboxRuntimeSessionState:
+    if payload.id != session_id:
+        raise SandboxResponseError(
+            "Sandbox current-session operation returned a different session identity",
+            data=payload,
+        )
+    return payload
 
 
 class SandboxService:
@@ -509,6 +546,7 @@ class SandboxService:
         *,
         name: str,
         project_id: str | None = None,
+        current_session: SandboxRuntimeSessionState | None = None,
         ports: list[int] | None = None,
         execution_time_limit: timedelta | None = None,
         resources: SandboxResources | None = None,
@@ -523,9 +561,49 @@ class SandboxService:
         current_snapshot_id: str | None = None,
         region: str | None = None,
         failover_regions: tuple[str, ...] | None = None,
-    ) -> SandboxState:
+    ) -> AsyncGenerator[UpdateSandboxStep, None]:
+        """Apply live session changes, then save the sandbox configuration.
+
+        ``current_session`` is the caller's latest cached session. Only that
+        session is changed, and stopped sandboxes are never resumed. Each live
+        step yields the updated session so callers keep the changes that
+        succeeded before a later step fails. The final step saves the
+        configuration and tags, only after every live change succeeds, and
+        yields the saved sandbox.
+        """
         self._ensure_open()
-        return await self._api_client.update_sandbox(
+        session = current_session
+        if (
+            session is not None
+            and execution_time_limit is not None
+            and session.status is SandboxStatus.RUNNING
+            and session.execution_time_limit is not None
+        ):
+            increment = execution_time_limit - session.execution_time_limit
+            if increment > timedelta(0):
+                try:
+                    extended = await self._api_client.extend_runtime_session_timeout(
+                        session_id=session.id, duration=increment
+                    )
+                except SandboxApiError as error:
+                    if not _is_session_gone_error(error):
+                        raise
+                else:
+                    session = _require_same_session(extended, session.id)
+                    yield session
+
+        if (
+            session is not None
+            and network_policy is not None
+            and session.status not in _SESSION_STATUSES_WITHOUT_LIVE_POLICY
+        ):
+            updated = await self._api_client.update_runtime_session_network_policy(
+                session_id=session.id, network_policy=network_policy
+            )
+            session = _require_same_session(updated, session.id)
+            yield session
+
+        yield await self._api_client.update_sandbox(
             name=name,
             project_id=project_id,
             ports=ports,
@@ -623,6 +701,10 @@ class SandboxService:
         self._ensure_open()
         return await self._api_client.create_snapshot(session_id=session_id, expiration=expiration)
 
+    async def fork_drive(self, *, name: str, fork_name: str) -> DriveState:
+        self._ensure_open()
+        return await self._api_client.fork_drive(name=name, fork_name=fork_name)
+
     async def get_drive(self, *, name_or_id: str) -> DriveState:
         self._ensure_open()
         return await self._api_client.get_drive(name_or_id=name_or_id)
@@ -698,6 +780,7 @@ class SandboxService:
         env: Mapping[str, str] | None = None,
         sudo: bool = False,
         kill_after: timedelta | None = None,
+        attach_stdin: bool = False,
         wait: bool,
     ) -> ProcessState:
         self._ensure_open()
@@ -709,13 +792,11 @@ class SandboxService:
             env=env,
             sudo=sudo,
             kill_after=kill_after,
+            attach_stdin=attach_stdin,
         )
         if not wait:
             return started
-        self._ensure_open()
-        return await self._api_client.get_command(
-            session_id=session_id, command_id=started.id, wait=True
-        )
+        return await self.get_process(session_id=session_id, process_id=started.id, wait=True)
 
     async def _wait_process(
         self,
@@ -750,18 +831,52 @@ class SandboxService:
         sudo: bool = False,
         kill_after: timedelta | None = None,
         output_router: ProcessOutputRouter,
+        input: bytes | None = None,
+        on_start: Callable[[ProcessState], None] | None = None,
     ) -> CompletedProcessState:
         self._ensure_open()
-        return await self._api_client.run_process(
-            session_id=session_id,
-            command=command,
-            args=args,
-            cwd=cwd,
-            env=env,
-            sudo=sudo,
-            kill_after=kill_after,
-            output_router=output_router,
-        )
+        on_started = None
+        if input is not None:
+
+            async def on_started(process: ProcessState) -> None:
+                await feed_process_input(self, process, input)
+
+        try:
+            return await self._api_client.run_process(
+                session_id=session_id,
+                command=command,
+                args=args,
+                cwd=cwd,
+                env=env,
+                sudo=sudo,
+                kill_after=kill_after,
+                output_router=output_router,
+                on_started=on_started,
+                on_start=on_start,
+            )
+        except _RunProcessInterrupted as interrupted:
+            started, delivered = interrupted.process, interrupted.delivered
+
+        # The process is already running, so follow the rest of its output
+        # from the logs endpoint and its exit through the wait endpoint.
+        try:
+            async with aclosing(
+                _iter_command_logs(
+                    lambda: self.process_logs_response(
+                        session_id=session_id, process_id=started.id
+                    ),
+                    sleep=self._sleep,
+                    delivered=delivered,
+                )
+            ) as logs:
+                async for event in logs:
+                    output_router.route(event)
+            final = await self.get_process(session_id=session_id, process_id=started.id, wait=True)
+        except Exception as error:
+            if (stream_error := _lifecycle_stream_error(error)) is not None:
+                raise stream_error from error
+            raise
+        return _completed_process_state(started, final, output_router)
 
     async def create_process(
         self,
@@ -773,6 +888,7 @@ class SandboxService:
         env: Mapping[str, str] | None = None,
         sudo: bool = False,
         kill_after: timedelta | None = None,
+        attach_stdin: bool = False,
     ) -> ProcessState:
         return await self._run_process(
             session_id=session_id,
@@ -782,6 +898,7 @@ class SandboxService:
             env=env,
             sudo=sudo,
             kill_after=kill_after,
+            attach_stdin=attach_stdin,
             wait=False,
         )
 
@@ -792,10 +909,13 @@ class SandboxService:
     async def get_process(
         self, *, session_id: str, process_id: str, wait: bool = False
     ) -> ProcessState:
-        self._ensure_open()
-        return await self._api_client.get_command(
-            session_id=session_id, command_id=process_id, wait=wait
-        )
+        async def get_command() -> ProcessState:
+            self._ensure_open()
+            return await self._api_client.get_command(
+                session_id=session_id, command_id=process_id, wait=wait
+            )
+
+        return await _with_transient_retries(get_command, sleep=self._sleep)
 
     async def query_processes(self, *, session_id: str) -> list[ProcessState]:
         self._ensure_open()
@@ -1108,24 +1228,38 @@ class SandboxService:
             session_id=session_id, command_id=process_id, signal=signal
         )
 
+    async def write_process_stdin(
+        self,
+        *,
+        session_id: str,
+        process_id: str,
+        data: bytes = b"",
+        offset: int | None = None,
+        close: bool = False,
+    ) -> int | None:
+        self._ensure_open()
+        return await self._api_client.write_command_stdin(
+            session_id=session_id,
+            command_id=process_id,
+            data=data,
+            offset=offset,
+            close=close,
+        )
+
+    async def sleep(self, seconds: float) -> None:
+        await self._sleep(seconds)
+
     async def process_logs_response(self, *, session_id: str, process_id: str) -> StreamingResponse:
         self._ensure_open()
         return await self._api_client.command_logs_response(
             session_id=session_id, command_id=process_id
         )
 
-    async def process_logs(
-        self, *, session_id: str, process_id: str
-    ) -> AsyncGenerator[ProcessLog, None]:
-        response = await self.process_logs_response(session_id=session_id, process_id=process_id)
-        try:
-            async for line in response.aiter_lines():
-                if line:
-                    event = _parse_command_log_record(line)
-                    if event is not None:
-                        yield event
-        finally:
-            await response.aclose()
+    def process_logs(self, *, session_id: str, process_id: str) -> AsyncGenerator[ProcessLog, None]:
+        return _iter_command_logs(
+            lambda: self.process_logs_response(session_id=session_id, process_id=process_id),
+            sleep=self._sleep,
+        )
 
 
 class SandboxArchiveUpload:

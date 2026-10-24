@@ -35,11 +35,13 @@ class WebhookInput(BaseModel):
     webhook_name: Annotated[str, Field(min_length=1, strict=True, max_length=200)] = Field(description="REQUIRED. Human-readable name for the webhook. Displayed in dashboards, logs, and notification metadata. Should describe the webhook's purpose or destination. Format: 1-200 characters.")
     internal_id: Optional[StrictStr] = Field(default=None, description="Organization internal identifier for multi-tenancy scoping. All webhook operations are scoped to this organization. Excluded from API responses for security. Format: int_{24-character secure token}.")
     event_types: Annotated[List[WebhookEventType], Field(min_length=1)] = Field(description="REQUIRED. List of event types that trigger this webhook. When any of these events occur, notifications are sent to all channels. Must contain at least one event type. Common patterns: - ['object.created', 'object.updated'] for object lifecycle tracking - ['cluster.execution.completed', 'cluster.execution.failed'] for job monitoring - ['*'] for all events (use cautiously, high volume)")
+    resource_types: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. Deliver only events whose resource_type is one of these, for example ['retriever', 'taxonomy']. Applies to every event type: for resource.executed and resource.execution_failed the resource_type is the primitive that ran (it travels in the payload); for the per-kind types it is the first segment of the event type. Omitted or empty: no resource_type filter.")
     channels: Annotated[List[WebhookChannelInput], Field(min_length=1)] = Field(description="REQUIRED. List of notification channels for event delivery. When an event occurs, notifications are sent to ALL configured channels. Must contain at least one channel. Multiple channels provide redundancy and multi-audience delivery. Example: Send to both Slack (team) and email (manager) for critical events.")
     is_active: Optional[StrictBool] = Field(default=True, description="Whether the webhook is currently active and should send notifications. True: Events trigger notifications to channels. False: Webhook is paused, no notifications sent but config preserved. Use to temporarily disable webhooks without losing configuration. Default: True")
+    delivery_health: Optional[Dict[str, Any]] = Field(default=None, description="Read-only delivery state written by the dispatcher: consecutive_failures, first_failure_at, last_failure_at and last_failure_cause for the current run of failed deliveries, and paused_at and paused_reason when the run paused the webhook (is_active false). Re-enable with an update setting is_active true, which clears it.")
     created_at: Optional[datetime] = Field(default=None, description="UTC timestamp when the webhook was created. Auto-generated at creation time. Immutable after creation. Format: ISO 8601 datetime.")
     updated_at: Optional[datetime] = Field(default=None, description="UTC timestamp of the most recent webhook update. Updated automatically when event_types, channels, or is_active changes. Tracks configuration modifications. Format: ISO 8601 datetime.")
-    __properties: ClassVar[List[str]] = ["webhook_id", "webhook_name", "internal_id", "event_types", "channels", "is_active", "created_at", "updated_at"]
+    __properties: ClassVar[List[str]] = ["webhook_id", "webhook_name", "internal_id", "event_types", "resource_types", "channels", "is_active", "delivery_health", "created_at", "updated_at"]
 
     @field_validator('webhook_id')
     def webhook_id_validate_regular_expression(cls, value):
@@ -113,8 +115,10 @@ class WebhookInput(BaseModel):
             "webhook_name": obj.get("webhook_name"),
             "internal_id": obj.get("internal_id"),
             "event_types": obj.get("event_types"),
+            "resource_types": obj.get("resource_types"),
             "channels": [WebhookChannelInput.from_dict(_item) for _item in obj["channels"]] if obj.get("channels") is not None else None,
             "is_active": obj.get("is_active") if obj.get("is_active") is not None else True,
+            "delivery_health": obj.get("delivery_health"),
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at")
         })

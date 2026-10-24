@@ -53,6 +53,7 @@ from sqlbuild.adapter.contract.exceptions import (
 from sqlbuild.adapter.contract.main.normalize_seed_csv_value import normalize_seed_csv_value
 from sqlbuild.adapter.contract.main.run_relation_read_probe import run_relation_read_probe
 from sqlbuild.adapter.contract.main.same_view_definition import same_view_definition
+from sqlbuild.adapter.contract.main.unsupported_relation_usage import unsupported_relation_usage
 from sqlbuild.adapter.contract.models import (
     ColumnInfo,
     CursorValue,
@@ -65,6 +66,7 @@ from sqlbuild.adapter.contract.models import (
     RelationInfo,
     RelationReadProbe,
     RelationRowCountEstimate,
+    RelationUsageReport,
     RowDiffColumnResult,
     RowDiffCoverage,
     RowDiffPreparedRelations,
@@ -182,6 +184,16 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         raise AdapterUserError(
             message=f"adapter '{self.adapter_name}' does not support table freshness metadata"
         )
+
+    def relation_usage(
+        self,
+        *,
+        connection: Any,
+        relations: tuple[RelationInfo, ...],
+        window_seconds: int,
+    ) -> RelationUsageReport:
+        del connection, relations, window_seconds
+        return unsupported_relation_usage()
 
     def get_tables_freshness_metadata(
         self,
@@ -308,6 +320,14 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         return (
             "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = "
             f"'{escaped_schema}') EXEC('CREATE SCHEMA {self.render_identifier(schema)}')",
+        )
+
+    def render_drop_schema(self, *, database: str | None, schema: str) -> tuple[str, ...]:
+        del database
+        raise AdapterUserError(
+            f"the {self.adapter_name} adapter cannot drop schema '{schema}' with its contents",
+            code="A714",
+            help="sqb review needs a warehouse that can drop a schema it created",
         )
 
     def render_create_fingerprint_table_sql(

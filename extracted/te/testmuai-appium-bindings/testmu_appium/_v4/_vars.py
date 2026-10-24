@@ -42,6 +42,33 @@ _global_cache: dict[str, Any] = {}
 
 _SENTINEL = object()
 
+# Values resolved from {{secrets.*}}, so they stay redacted wherever they are later logged,
+# even after set_var() copies one under an ordinary name (v3 parity). TOTP codes are not kept:
+# a {{totp.*}} field already logs as authored, and a 6-digit code would blank matching numbers.
+_SECRET_VALUES: set[str] = set()
+
+
+def _mark_secret(value: Any) -> Any:
+    """Record a credential value; 1-3 char values would redact ordinary log text into noise."""
+    if isinstance(value, str) and len(value) >= 4:
+        _SECRET_VALUES.update(_wire_forms(value))
+    return value
+
+
+def _wire_forms(value: str) -> set[str]:
+    """The value as a server can echo it back: as is, URL-encoded, JSON-escaped."""
+    import httpx
+    from urllib.parse import quote, quote_plus
+
+    forms = {value, quote(value, safe=""), quote_plus(value)}
+    try:
+        forms.add(httpx.URL(f"http://h/?{value}").query.decode())  # typed into the URL
+    except Exception:  # noqa: BLE001 — a value httpx can't put in a URL is never sent in one
+        pass
+    for _ in range(2):  # an echoed JSON body escapes the sent one again
+        forms |= {json.dumps(f, ensure_ascii=a)[1:-1] for f in forms for a in (True, False)}
+    return forms
+
 # Matches {{name}}, {{name|default}}, ${name}, ${name|default}.
 # ``lead`` captures the delimiter so ${...} can resolve from _test_params first
 # while {{...}} keeps the namespace-dispatch / store-only chain.
@@ -70,6 +97,9 @@ def set_var(name: str, value: Any) -> None:
     absent. Guarded on LT creds; the in-memory store is always written first so
     resolution is unaffected when the backend write is skipped.
     """
+    if isinstance(value, dict) and "request_sent" in value:
+        # execute_api's wire capture is for auteur's API console only, never a variable
+        value = {k: v for k, v in value.items() if k != "request_sent"}
     if name.startswith(_GLOBAL_PREFIX):
         bare = name[len(_GLOBAL_PREFIX):]
         _variable_store[bare] = value
@@ -164,7 +194,7 @@ def _resolve_single(name: str) -> Any:
     """
     parts = name.split(".")
     if parts[0] == "secrets" and len(parts) >= 2:
-        return os.getenv(parts[-1], "")
+        return _mark_secret(os.getenv(parts[-1], ""))
     if parts[0] == "global" and len(parts) >= 2:
         return record_read(name, _resolve_global(parts[1]))
     if parts[0] == "environment" and len(parts) >= 2:

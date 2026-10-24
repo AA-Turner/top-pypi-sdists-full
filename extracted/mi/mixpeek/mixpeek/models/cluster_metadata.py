@@ -38,6 +38,7 @@ class ClusterMetadata(BaseModel):
     description: Optional[StrictStr] = Field(default=None, description="Cluster description")
     namespace_id: StrictStr = Field(description="Namespace this cluster belongs to")
     input_collections: List[StrictStr] = Field(description="Source collection IDs that were clustered")
+    source_cluster_ids: Optional[List[StrictStr]] = Field(default=None, description="Set on a composite cluster: the clusters whose run centroids it groups. Executing it without a mode runs mode 'composite' over the newest completed run of each source cluster, one per partition.")
     source_bucket_ids: Optional[List[StrictStr]] = Field(default=None, description="Source bucket IDs that the input collections originated from. Enables bucket lineage tracking.")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Optional filters that were applied to pre-filter documents before clustering")
     cluster_type: StrictStr = Field(description="Type of clustering: vector (embedding-based) or attribute (metadata-based)")
@@ -56,7 +57,7 @@ class ClusterMetadata(BaseModel):
     clustered_attributes: Optional[List[StrictStr]] = Field(default=None, description="Attribute field names that were clustered. Only for attribute clustering.")
     hierarchical_grouping: Optional[StrictBool] = Field(default=None, description="Whether hierarchical clustering was used. Only for attribute clustering.")
     aggregation_method: Optional[StrictStr] = Field(default=None, description="Method for aggregating attributes (most_frequent/first/last). Only for attribute clustering.")
-    output_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collection IDs where cluster documents are stored. For single output: list with one collection ID. For per-feature output: list with one collection ID per feature.")
+    output_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collection IDs where cluster documents are stored. Each holds one centroid document (is_centroid=true) per cluster and one member document (is_centroid=false) per clustered source document. A member carries cluster_id, cluster_label and source_document_id, the ID of the document you clustered, so filter on source_document_id to find a source document's cluster. For single output: list with one collection ID. For per-feature output: list with one collection ID per feature. With enrich_source_collection=true no output collection is created: this lists the source collections, and each source document carries its assignment as fields.")
     output_collection_names: Optional[List[StrictStr]] = Field(default=None, description="Names of output collections. Corresponds to output_collection_ids.")
     algorithm: Optional[StrictStr] = Field(default=None, description="Clustering algorithm used (hdbscan, kmeans, attribute_based, etc.)")
     algorithm_params: Optional[Dict[str, Any]] = Field(default=None, description="Algorithm-specific parameters (not used for attribute_based)")
@@ -82,7 +83,7 @@ class ClusterMetadata(BaseModel):
     completed_at: Optional[datetime] = Field(default=None, description="When clustering completed successfully")
     llm_labeling_errors: Optional[List[StrictStr]] = Field(default=None, description="List of errors encountered during LLM labeling (if any). Stored in MongoDB cluster metadata only, NOT in vector store cluster documents. Used to track LLM failures while allowing fallback labels to work.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional user-defined metadata")
-    __properties: ClassVar[List[str]] = ["cluster_id", "cluster_name", "description", "namespace_id", "input_collections", "source_bucket_ids", "filters", "cluster_type", "feature_uris", "multi_feature_strategy", "learned_weights", "learning_quality_score", "effective_feature_method", "face_cluster_merge", "sample_size", "preprocessing_steps", "hierarchical_vector", "max_hierarchy_depth", "vis_n_components", "layout_stability", "clustered_attributes", "hierarchical_grouping", "aggregation_method", "output_collection_ids", "output_collection_names", "algorithm", "algorithm_params", "enrich_source", "source_enrichment_config", "llm_labeling", "num_clusters", "num_documents_clustered", "execution_time_seconds", "quality_metrics", "hierarchy_detected", "parent_cluster_id", "child_cluster_ids", "hierarchy_relationships", "status", "error", "failure_category", "last_execution_task_id", "last_run_id", "created_at", "updated_at", "last_executed_at", "completed_at", "llm_labeling_errors", "metadata"]
+    __properties: ClassVar[List[str]] = ["cluster_id", "cluster_name", "description", "namespace_id", "input_collections", "source_cluster_ids", "source_bucket_ids", "filters", "cluster_type", "feature_uris", "multi_feature_strategy", "learned_weights", "learning_quality_score", "effective_feature_method", "face_cluster_merge", "sample_size", "preprocessing_steps", "hierarchical_vector", "max_hierarchy_depth", "vis_n_components", "layout_stability", "clustered_attributes", "hierarchical_grouping", "aggregation_method", "output_collection_ids", "output_collection_names", "algorithm", "algorithm_params", "enrich_source", "source_enrichment_config", "llm_labeling", "num_clusters", "num_documents_clustered", "execution_time_seconds", "quality_metrics", "hierarchy_detected", "parent_cluster_id", "child_cluster_ids", "hierarchy_relationships", "status", "error", "failure_category", "last_execution_task_id", "last_run_id", "created_at", "updated_at", "last_executed_at", "completed_at", "llm_labeling_errors", "metadata"]
 
     @field_validator('cluster_type')
     def cluster_type_validate_enum(cls, value):
@@ -176,6 +177,7 @@ class ClusterMetadata(BaseModel):
             "description": obj.get("description"),
             "namespace_id": obj.get("namespace_id"),
             "input_collections": obj.get("input_collections"),
+            "source_cluster_ids": obj.get("source_cluster_ids"),
             "source_bucket_ids": obj.get("source_bucket_ids"),
             "filters": obj.get("filters"),
             "cluster_type": obj.get("cluster_type"),

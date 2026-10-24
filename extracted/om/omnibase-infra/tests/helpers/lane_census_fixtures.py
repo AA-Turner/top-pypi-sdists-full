@@ -17,6 +17,7 @@ they describe the lab, so they are checked where the lab's manifest lives.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -26,12 +27,12 @@ NEUTRAL_MANIFEST = NEUTRAL_CENSUS_DIR / "lane-manifest.yaml"
 NEUTRAL_SNAPSHOT = NEUTRAL_CENSUS_DIR / "census-snapshot.json"
 
 #: The required lane on :data:`NEUTRAL_HOSTNAME`, and its network.
-NEUTRAL_LANE = "judge"
-NEUTRAL_LANE_NETWORK = "example-judge-network"
+NEUTRAL_LANE = "dogfood"
+NEUTRAL_LANE_NETWORK = "example-dogfood-network"
 #: An optional lane on the same host.
 NEUTRAL_OPTIONAL_LANE = "dev"
 #: A lane declared for the other host only.
-NEUTRAL_OTHER_HOST_LANE = "dogfood"
+NEUTRAL_OTHER_HOST_LANE = "principal-issuer"
 #: The hostname a census on the first host reports, and the id it resolves to.
 NEUTRAL_HOSTNAME = "box-a"
 NEUTRAL_HOST_ID = "host-a"
@@ -101,3 +102,10 @@ def _lab_census_path(name: str) -> Path:
 #: loud.
 LAB_MANIFEST = _lab_census_path("lane-manifest.yaml")
 LAB_SNAPSHOT = _lab_census_path("census-snapshot.json")
+
+
+def lanes_declared_on_host(manifest: dict[str, Any], host_id: str) -> list[str]:
+    """Every lane the manifest declares for ``host_id``, sorted."""
+    return sorted(
+        name for name, spec in manifest["lanes"].items() if host_id in spec["hosts"]
+    )

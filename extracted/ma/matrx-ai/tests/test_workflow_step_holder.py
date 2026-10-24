@@ -150,8 +150,10 @@ async def test_resolver_failure_runs_and_screams(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_absorbed_resolution_failure_files_only_the_unheld_finding(monkeypatch) -> None:
-    """A seedless workflow step runs, so it must not also claim it refused."""
+async def test_absorbed_resolution_failure_is_a_recorded_refusal_and_the_step_runs(monkeypatch) -> None:
+    """Runner plan 25 step 9a: the step resolves through the runner port, so a failure to resolve is a
+    RECORDED refusal (the runner's record) — and the step still runs on its author's config, with the
+    unheld finding filed beside it."""
     rows: list[dict[str, Any]] = []
 
     def _record_error(error, **fields):
@@ -166,7 +168,7 @@ async def test_absorbed_resolution_failure_files_only_the_unheld_finding(monkeyp
     held = await hold_step(dict(STEP), spec_type="ai.llm", consumer="ai.llm.chat")
 
     assert held.config["model"] == "author-model"
-    assert [row["kind"] for row in rows] == [MANDATE_HOLDER_UNBOUND_KIND]
+    assert [row["kind"] for row in rows] == ["mandate_resolution_failed", MANDATE_HOLDER_UNBOUND_KIND]
 
 
 @pytest.mark.asyncio

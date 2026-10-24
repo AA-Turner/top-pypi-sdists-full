@@ -69,7 +69,7 @@ async def test_the_held_call_runs_inside_the_platform_scope(monkeypatch: pytest.
         events.append("hold")
         return SimpleNamespace(model="m")
 
-    async def run(_held: Any) -> Any:
+    async def run(_held: Any, **_kw: Any) -> Any:
         events.append("run")
         return SimpleNamespace(final_text=OUTPUT)
 

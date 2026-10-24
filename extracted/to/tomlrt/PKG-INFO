@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tomlrt
-Version: 2.3.1
+Version: 2.3.2
 Summary: A format-preserving TOML reader and writer for Python.
 Keywords: config,configuration,format-preserving,pyproject,round-trip,toml,toml-parser,toml-writer,tomlrt
 Author-email: David Hotham <david.hotham@blueyonder.co.uk>

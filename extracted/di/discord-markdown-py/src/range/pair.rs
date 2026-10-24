@@ -1,7 +1,7 @@
 //! Pairing delimiter runs into ranges.
 
 use super::delim::{Delim, DelimCharStruct, Flanking, Neighbor, Offset, SpoilerState};
-use crate::{node::modifier::ModifierKind, rule::RuleSet};
+use crate::{node::modifier::ModifierKind, syntax::SyntaxSet};
 use tracing::Level;
 
 pub type RangeId = usize;
@@ -134,7 +134,7 @@ impl Token {
 /// The second pass: pair delimiters with a stack, as the `CommonMark` emphasis algorithm does.
 #[must_use]
 #[tracing::instrument(level = Level::TRACE, skip_all, fields(tokens = tokens.len(), ranges))]
-pub fn pair(tokens: &[Token], allowed: RuleSet) -> (Matches, RangeTree) {
+pub fn pair(tokens: &[Token], allowed: SyntaxSet) -> (Matches, RangeTree) {
 	#[derive(Clone, Copy)]
 	struct Opener {
 		token: usize,
@@ -178,7 +178,8 @@ pub fn pair(tokens: &[Token], allowed: RuleSet) -> (Matches, RangeTree) {
 			if index == opener.token + 1 && tokens[opener.token].leaves == token.leaves {
 				break;
 			}
-			if flanking.opens && ch.opens_instead(remaining, opener.remaining, closer_after[index])
+			if flanking.opens
+				&& ch.opens_instead(remaining, opener.remaining, closer_after[index], allowed)
 			{
 				break;
 			}

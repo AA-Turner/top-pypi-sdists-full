@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "testmuai-appium-bindings"
-version = "0.4.9"
+version = "0.4.10"
 description = "Testmu binding for Appium Python — thin mobile test runtime for LambdaTest exports"
 requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"

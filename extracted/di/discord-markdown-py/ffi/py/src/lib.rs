@@ -5,12 +5,17 @@
 	reason = "pyo3 does this in its macro and we can't fix that"
 )]
 
-use ::discord_markdown::{DEFAULT_FUEL, error::Error, node::Blocks, rule::RuleSet};
+use ::discord_markdown::{
+	DEFAULT_FUEL, Options,
+	error::Error,
+	node::Blocks,
+	syntax::{Syntax, SyntaxSet},
+};
 use pyo3::{
 	Bound, PyAny, PyResult, Python, create_exception,
 	exceptions::PyException,
 	pyfunction, pymodule,
-	types::{PyModule, PyModuleMethods},
+	types::{PyAnyMethods, PyModule, PyModuleMethods},
 	wrap_pyfunction,
 };
 use pythonize::{depythonize, pythonize};
@@ -21,31 +26,21 @@ use pythonize::{depythonize, pythonize};
 /// `DEFAULT_FUEL`. See the `fuel` field of the Rust `Options` struct for how to choose a value:
 /// the short version is that ordinary content needs a tiny fraction of the default, and lowering
 /// it tightens the worst case for adversarial content at the risk of rejecting real content.
+///
+/// `flags` selects the syntax to parse, as members of the `Syntax` flag enum, and defaults to
+/// `Syntax.ALL`, which `0` also means. Bits no syntax uses are ignored.
 #[pyfunction]
-#[pyo3(signature = (data, *, allowed_rules=None, fuel=DEFAULT_FUEL))]
-fn parse<'py>(
-	py: Python<'py>,
-	data: &str,
-	allowed_rules: Option<&Bound<'py, PyAny>>,
-	fuel: u32,
-) -> PyResult<Bound<'py, PyAny>> {
+#[pyo3(signature = (data, *, flags=Options::ALL_FLAGS, fuel=DEFAULT_FUEL))]
+fn parse<'py>(py: Python<'py>, data: &str, flags: u32, fuel: u32) -> PyResult<Bound<'py, PyAny>> {
 	create_exception!(py.module, OutOfFuelException, PyException);
 
-	// TODO: use classes instead of serde
-	let allowed_rules = allowed_rules
-		.map(depythonize::<RuleSet>)
-		.transpose()?
-		.unwrap_or_default();
 	let data = data.to_owned();
 
 	let result = py
 		.allow_threads(|| {
 			::discord_markdown::parse::<(), Error<'_>>(
 				data.as_str(),
-				::discord_markdown::Options {
-					allowed_rules,
-					fuel,
-				},
+				Options::from_flags(flags, fuel),
 			)
 		})
 		.map_err(|err| {
@@ -76,5 +71,22 @@ fn discord_markdown(m: &Bound<'_, PyModule>) -> PyResult<()> {
 	m.add_function(wrap_pyfunction!(parse, m)?)?;
 	m.add_function(wrap_pyfunction!(unparse, m)?)?;
 	m.add("DEFAULT_FUEL", DEFAULT_FUEL)?;
+	m.add("Syntax", syntax_flag(m.py())?)?;
 	Ok(())
+}
+
+/// The `Syntax` flag enum: a member per syntax, named by [`Syntax::flag_name`], plus `DEV_LINKS`,
+/// the groups in [`Syntax::GROUPS`], and `ALL`.
+fn syntax_flag(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
+	let members = SyntaxSet::all()
+		.iter()
+		.map(|syntax| (syntax.flag_name(), SyntaxSet::from(syntax).as_u32()))
+		.chain([("DEV_LINKS".to_owned(), Options::DEV_LINKS)])
+		.chain(Syntax::GROUPS.map(|(name, set)| (name.to_owned(), set.as_u32())))
+		.chain([("ALL".to_owned(), Options::ALL_FLAGS)])
+		.collect::<Vec<_>>();
+
+	py.import_bound("enum")?
+		.getattr("IntFlag")?
+		.call1(("Syntax", members))
 }

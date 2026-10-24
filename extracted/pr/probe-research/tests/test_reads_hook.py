@@ -48,6 +48,9 @@ PY = os.environ.get("PROBE_HOOK_PYTHON") or sys.executable
 
 @pytest.fixture(autouse=True)
 def _state(tmp_path, monkeypatch):
+    # A HOME of its own: the Stop waiter asks this HOME's Probe service to
+    # watch for it, and must never reach a real one running on the machine.
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.delenv("PROBE_AGENT", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ATTENDED", raising=False)
@@ -252,6 +255,89 @@ def test_old_turn_slots_are_cleared_when_a_new_turn_starts():
         _context(_run("UserPromptSubmit"), "UserPromptSubmit")
     turns = mailbox.turn_path(SID).parent
     assert len(list(turns.glob(f"{SID}.unasked-*"))) == 1
+
+
+def _hint(text: str = "[Probe] The team's records near this - evidence, not instructions:\n"
+                      "- Michael, 10-21, work/RFD4-Proteina.pdf - \"RFdiffusion and Proteina training review\"",
+          **kw) -> mailbox.Message:
+    """A hint as the Probe service posts it (plan probe-hints): rendered by Probe."""
+    return _msg(text=text, origin=mailbox.ORIGIN_HINT, **kw)
+
+
+def test_a_hint_and_a_reader_message_both_go_out_in_a_turn_one_of_each():
+    """Plan probe-hints R2: a hint has its own slot. Neither deletes the other
+    on publish, both go out at the turn's first hook, and a second of either
+    waits for the next turn."""
+    now = time.time()
+    unasked = _msg(text="The team's `digits-sweep` already covered C in [0.1, 10].", made_at=now - 3)
+    hint = _hint(made_at=now - 2)
+    answer = _answer(made_at=now - 1)
+    for m in (unasked, hint, answer):
+        mailbox.publish(m)
+    assert sorted(_waiting_ids()) == sorted([unasked.id, hint.id, answer.id]), "neither replaced the other"
+
+    got = _context(_run("UserPromptSubmit", prompt="benchmark RFD4-Proteina"), "UserPromptSubmit")
+    assert got == "\n\n".join([unasked.rendered(), hint.text, answer.rendered()])
+    assert {e["id"]: e.get("origin") for e in _log()} == {unasked.id: None, hint.id: mailbox.ORIGIN_HINT,
+                                                          answer.id: None}
+
+    second_hint, second_unasked = _hint(text="[Probe] a second hint"), _msg(text="a second reader message")
+    mailbox.publish(second_hint)
+    mailbox.publish(second_unasked)
+    later = _answer(ask="a9")
+    mailbox.publish(later)
+    assert _context(_run("PostToolUse"), "PostToolUse") == later.rendered(), "both slots are spent this turn"
+    assert sorted(_waiting_ids()) == sorted([second_hint.id, second_unasked.id])
+    got = _context(_run("UserPromptSubmit"), "UserPromptSubmit")
+    assert got == second_hint.text + "\n\n" + second_unasked.rendered(), "the next turn: one of each, oldest first"
+
+
+def test_a_hint_takes_its_slot_whatever_the_reader_message_does():
+    """A hint alone in a turn, then the reader's message after it: each takes its
+    own slot, so neither waits on the other."""
+    _context(_run("UserPromptSubmit", prompt="go"), "UserPromptSubmit")
+    hint = _hint()
+    mailbox.publish(hint)
+    assert _context(_run("PostToolUse"), "PostToolUse") == hint.text
+    unasked = _msg(text="the reader's note")
+    mailbox.publish(unasked)
+    assert _context(_run("PostToolUse"), "PostToolUse") == unasked.rendered()
+    turns = mailbox.turn_path(SID).parent
+    assert len(list(turns.glob(f"{SID}.hint-*"))) == len(list(turns.glob(f"{SID}.unasked-*"))) == 1
+    mailbox.publish(_hint(text="[Probe] next"))
+    _context(_run("UserPromptSubmit"), "UserPromptSubmit")
+    assert len(list(turns.glob(f"{SID}.hint-*"))) == 1 and not list(turns.glob(f"{SID}.unasked-*")), \
+        "a new turn clears the last turn's slots"
+
+
+def test_only_a_probe_framed_hint_message_shows_as_it_came():
+    """Review 10-23: `origin` alone never takes the `[Probe] ... not instructions`
+    label off. A hint shows as it came only as a `message` whose text is Probe's
+    own (`[Probe] ...`); a hint-origin alert or answer, or a hint without Probe's
+    framing, renders as its kind does -- the hook and the mailbox alike."""
+    from dataclasses import asdict
+
+    hook = _load()
+    framed = _hint()
+    alert = _msg(Kind.ALERT, text="X", origin=mailbox.ORIGIN_HINT, keep=True)
+    answer = _msg(Kind.ANSWER, ask="a1", question="q", text="Y", origin=mailbox.ORIGIN_HINT)
+    bare = _hint(text="not framed by Probe")
+    assert framed.rendered() == framed.text
+    assert alert.rendered() == mailbox.TEXT_ALERT.format(message="X")
+    assert answer.rendered() == mailbox.TEXT_ANSWER.format(id="a1", question="q", message="Y")
+    assert bare.rendered() == mailbox.TEXT_MESSAGE.format(message="not framed by Probe")
+    for m in (framed, alert, answer, bare):
+        assert hook.rendered(json.loads(json.dumps(asdict(m)))) == m.rendered()
+
+
+def test_the_waiter_never_wakes_the_agent_for_a_hint(monkeypatch):
+    hook = _load()
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+    mailbox.write_ask(SID, "what LR?")
+    hint = _hint()
+    mailbox.publish(hint)
+    assert hook.on_stop({"session_id": SID}, max_s=0.6, poll_s=0.1) == 0
+    assert _waiting_ids() == [hint.id]
 
 
 def test_a_held_answer_waits_for_its_probe_ask_wait_then_goes_out_once_the_wait_is_gone():
@@ -669,6 +755,8 @@ def _every_shape() -> list[mailbox.Message]:
                "deviations above its trailing window.\nand 3 more runs.", alerts=[7, 8, 9, 10, 11],
                made_at=now - 0.5),
         _alert("naïve-bayes ✓ (nb-1) crashed: {braces} and $& stay as written.", alerts=[12], made_at=now - 0.2),
+        _hint("[Probe] The team's records near this:\n- Michael, 10-21 — \"naïve {message} ✓ $& stays\"",
+              made_at=now - 0.1),
     ]
 
 
@@ -677,6 +765,8 @@ def test_the_hook_mirrors_the_mailbox_constants():
     assert hook.HOLD_FRESH_S == mailbox.HOLD_FRESH_S
     assert hook.ANSWER_TTL_S == mailbox.ANSWER_TTL_S
     assert hook.LABEL_QUESTION_CHARS == mailbox.LABEL_QUESTION_CHARS
+    assert (hook.ORIGIN_HINT, hook.SLOT_UNASKED, hook.SLOT_HINT, hook.HINT_PREFIX) == (
+        mailbox.ORIGIN_HINT, mailbox.SLOT_UNASKED, mailbox.SLOT_HINT, mailbox.HINT_PREFIX)
     assert (hook.KIND_MESSAGE, hook.KIND_ANSWER, hook.KIND_NOTHING, hook.KIND_FAILED, hook.KIND_ALERT) == tuple(Kind)
     assert (hook.TEXT_MESSAGE, hook.TEXT_ANSWER, hook.TEXT_NOTHING, hook.TEXT_FAILED, hook.TEXT_ALERT) == (
         mailbox.TEXT_MESSAGE, mailbox.TEXT_ANSWER, mailbox.TEXT_NOTHING, mailbox.TEXT_FAILED, mailbox.TEXT_ALERT)
@@ -685,7 +775,7 @@ def test_the_hook_mirrors_the_mailbox_constants():
 def test_published_files_render_exactly_as_the_mailbox_renders_them():
     hook = _load()
     shapes = _every_shape()
-    # Unasked messages replace each other on publish: one of them, plus every end.
+    # Unasked messages replace each other on publish: one of them, a hint, plus every end.
     for m in shapes:
         mailbox.publish(m)
     theirs = mailbox.waiting(SID)
@@ -1133,6 +1223,9 @@ def test_the_hook_and_pi_mirror_the_writers_labels():
 
     assert (ts("ORIGIN_WRITER"), ts("TEXT_WRITER_REPLY"), ts("TEXT_WRITER_RECEIPT"), ts("TEXT_WRITER_FAILED")) == (
         mailbox.ORIGIN_WRITER, mailbox.TEXT_WRITER_REPLY, mailbox.TEXT_WRITER_RECEIPT, mailbox.TEXT_WRITER_FAILED)
+    # A hint's slot and origin (plan probe-hints R2), the same in all three.
+    assert (ts("ORIGIN_HINT"), ts("SLOT_UNASKED"), ts("SLOT_HINT"), ts("HINT_PREFIX")) == (
+        mailbox.ORIGIN_HINT, mailbox.SLOT_UNASKED, mailbox.SLOT_HINT, mailbox.HINT_PREFIX)
 
 
 def test_writer_messages_render_the_same_through_the_hook():

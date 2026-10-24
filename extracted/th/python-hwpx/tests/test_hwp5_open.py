@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import struct
 import warnings
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -420,16 +421,20 @@ def _memo() -> list[rec.Record]:
     return records + _paragraph(1, "메모 내용".encode("utf-16-le") + _u16(13), [(0, 0)], [])
 
 
-def _picture(effect: int = 0) -> list[rec.Record]:
-    """A captioned picture with a first-letter decoration parameter set, and
-    the picture effect code *effect*."""
+def _picture(effect: int = 0, flags: int = 0x24080000, legacy_alpha: int = 0, alpha: int = 0) -> list[rec.Record]:
+    """A captioned picture with a first-letter decoration parameter set, the
+    picture effect code *effect*, the component *flags*, the byte after the
+    binary item id (*legacy_alpha*) and the last byte, after the image size
+    (*alpha*)."""
 
     common = ct.ObjectCommon("gso ", 0x240A2211, 0, 0, 10000, 8000, 0, (0, 0, 0, 0), 297, 0, "그림입니다.", bytes(2))
     component = sh.ShapeComponent(
-        "$pic", True, 0, 0, 0, 1, 10000, 8000, 10000, 8000, 0x24080000, 0, 5000, 4000, [_IDENTITY, _IDENTITY, _IDENTITY]
+        "$pic", True, 0, 0, 0, 1, 10000, 8000, 10000, 8000, flags, 0, 5000, 4000, [_IDENTITY, _IDENTITY, _IDENTITY]
     )
     corners = [(0, 0), (10000, 0), (10000, 8000), (0, 8000)]
-    picture = sh.Picture(0, 0, 0, corners, (0, 0, 10000, 8000), (0, 0, 0, 0), 0, 0, effect, 0, 0, 297, 0, (10000, 8000), bytes(1))
+    picture = sh.Picture(
+        0, 0, 0, corners, (0, 0, 10000, 8000), (0, 0, 0, 0), 0, 0, effect, 0, legacy_alpha, 297, 0, (10000, 8000), bytes([alpha])
+    )
     caption = ct.CaptionHeader(1, 0, 0, 1, 8504, 850, 8504).encode()
     dropcap = ct.ParameterSet(0x021B, [ct.ParameterItem(0x3003, ct.PIT_SET, ct.ParameterSet(0x3003, [ct.ParameterItem(0x7001, 9, 2)]))])
     return _paragraph(
@@ -500,6 +505,8 @@ def make_hwp(
     hidden_comment: bool = False,
     picture_effects: bool = False,
     picture_effect: int = 0,
+    picture_flags: int = 0x24080000,
+    picture_alphas: tuple[int, int] = (0, 0),
     dutmal_position: int = 1,
 ) -> bytes:
     section = _section()
@@ -520,7 +527,7 @@ def make_hwp(
     if text_box:
         section += _text_box()
     if picture:
-        section += _picture(picture_effect)
+        section += _picture(picture_effect, picture_flags, *picture_alphas)
     if markers:
         section += _markers(dutmal_position)
     if label:
@@ -546,7 +553,15 @@ def make_hwp(
     return _compound(section, flags=flags)
 
 
-def _compound(section: list[rec.Record], *, flags: int = 1, docinfo_extra: list[rec.Record] | None = None) -> bytes:
+def _compound(
+    section: list[rec.Record],
+    *,
+    flags: int = 1,
+    docinfo_extra: list[rec.Record] | None = None,
+    streams: list[tuple[str, bytes]] | None = None,
+) -> bytes:
+    """A compound file of *section*; *streams* adds other streams, compressed as the document is."""
+
     compressed = bool(flags & 1)
 
     def pack(records: list[rec.Record]) -> bytes:
@@ -559,8 +574,60 @@ def _compound(section: list[rec.Record], *, flags: int = 1, docinfo_extra: list[
             ("DocInfo", pack(_docinfo() + list(docinfo_extra or []))),
             ("BodyText/Section0", pack(section)),
             ("PrvText", "미리보기".encode("utf-16-le")),
+            *((path, rec.deflate(data) if compressed else data) for path, data in streams or ()),
         ]
     )
+
+
+_MEMOS_EX = "http://www.hancom.co.kr/hwpml/2021/extended"
+
+
+def _hpf_items(data: bytes) -> list[str]:
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        hpf = etree.fromstring(package.read("Contents/content.hpf"))
+    return [item.get("id") for item in hpf.iter("{*}item")] + ["/"] + [ref.get("idref") for ref in hpf.iter("{*}itemref")]
+
+
+@pytest.mark.parametrize("flags", [0, 1])
+def test_memo_replies_open_as_the_memo_extended_part(flags: int) -> None:
+    # Hancom Office 2024 saves Contents/memoExtended.xml (which memo answers which) as the MemoExtended stream: one
+    # record of the count, then each memo id and its parent's. Its own HWPX save of that .hwp has this part, listed
+    # after the header and in no spine.
+    pairs = [(1001, 1000), (1002, 1000), (1003, 1002)]
+    payload = struct.pack("<I", len(pairs)) + b"".join(struct.pack("<II", *pair) for pair in pairs)
+    stream = rec.serialize_records([rec.Record(rec.MEMO_EXTENDED, 0, payload)])
+    data = HwpxDocument.open(_compound(_section(), flags=flags, streams=[("MemoExtended", stream)])).to_bytes()
+
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        memos = etree.fromstring(package.read("Contents/memoExtended.xml"))
+    assert memos.tag == f"{{{_MEMOS_EX}}}memosEx"
+    assert [(m.get("id"), m.get("parentId")) for m in memos] == [("1001", "1000"), ("1002", "1000"), ("1003", "1002")]
+    assert _hpf_items(data) == ["header", "memoextended", "section0", "settings", "/", "header", "section0"]
+
+
+@pytest.mark.parametrize("flags", [0, 1])
+def test_a_bibliography_opens_as_its_custom_part(flags: int) -> None:
+    # Hancom Office 2024 keeps Custom/bibliography.xml in the Bibliography stream as the part's length and then
+    # the part, and saves that .hwp as HWPX with the same bytes, listed last in the manifest and the spine.
+    sources = "﻿<?xml version=\"1.0\"?><b:Sources xmlns:b=\"urn:b\"><b:Source><b:Tag>보고서1</b:Tag></b:Source></b:Sources>"
+    part = sources.encode("utf-8")
+    stream = struct.pack("<I", len(part)) + part
+    data = HwpxDocument.open(_compound(_section(), flags=flags, streams=[("Bibliography", stream)])).to_bytes()
+
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        assert package.read("Custom/bibliography.xml") == part
+    assert _hpf_items(data) == ["header", "section0", "settings", "bibliography", "/", "header", "section0", "bibliography"]
+
+
+def test_a_memo_replies_or_bibliography_stream_that_does_not_add_up_is_dropped() -> None:
+    memos = rec.serialize_records([rec.Record(rec.MEMO_EXTENDED, 0, struct.pack("<III", 2, 1001, 1000))])
+    bibliography = struct.pack("<I", 99) + b"<b:Sources/>"
+    document = HwpxDocument.open(_compound(_section(), streams=[("MemoExtended", memos), ("Bibliography", bibliography)]))
+
+    with zipfile.ZipFile(io.BytesIO(document.to_bytes())) as package:
+        names = package.namelist()
+    assert "Contents/memoExtended.xml" not in names and "Custom/bibliography.xml" not in names
+    assert dict(document.conversion_report.dropped) == {"memo-replies": 1, "bibliography": 1}
 
 
 @pytest.mark.parametrize("flags", [0, 1])
@@ -673,6 +740,72 @@ def test_a_document_that_tracks_changes_opens_with_its_body_and_change_marks() -
         {"type": "ParaShape", "date": "2023-02-07T10:22:00Z", "authorID": "1", "hide": "0", "id": "2", "parashapeID": "32"},
     ]
     assert [dict(e.attrib) for e in head.iter(f"{HH}trackChangeAuthor")] == [{"name": "편집자", "mark": "1", "id": "1"}]
+
+def _one_field(ctrl: str, props: int, extra: int, command: str) -> list[rec.Record]:
+    """A paragraph of one field of kind *ctrl* around a word."""
+
+    text = _extended(3, ctrl) + "글".encode("utf-16-le") + _field_end(ctrl, extra, props & 1, 0) + _u16(13)
+    field = ct.FieldCtrl(ctrl, props, extra, command, 2001, 0)
+    return _paragraph(0, text, [(0, 0)], [rec.Record(rec.CTRL_HEADER, 1, field.encode())])
+
+
+def _field_params(ctrl: str, props: int, extra: int, command: str) -> tuple[etree._Element, list[tuple[str, str, str]]]:
+    document = HwpxDocument.open(make_hwp(extra_paragraphs=_one_field(ctrl, props, extra, command)))
+    [begin] = list(document.sections[0].element.iter(f"{HP}fieldBegin"))
+    params = begin.find(f"{HP}parameters")
+    assert params is not None and params.get("cnt") == str(len(params))
+    return begin, [(etree.QName(p).localname, p.get("name") or "", p.text or "") for p in params]
+
+
+@pytest.mark.parametrize(
+    ("codes", "names"),
+    [
+        ("5;0;0;0;", ("TARGET_OUTLINE", "OBJECT_TYPE_PAGE", "false", "HWPHYPERLINK_JUMP_CURRENTTAB")),
+        ("0;1;0;1;", ("TARGET_TABLE", "OBJECT_TYPE_NUMBER", "false", "HWPHYPERLINK_JUMP_NEWTAB")),
+        ("1;2;1;2;", ("TARGET_PICTURE", "OBJECT_TYPE_CONTENTS", "true", "HWPHYPERLINK_JUMP_NEWWINDOW")),
+        ("2;3;0;0;", ("TARGET_EQUATION", "OBJECT_TYPE_UPDOWNPOS", "false", "HWPHYPERLINK_JUMP_CURRENTTAB")),
+        ("3;0;0;0;", ("TARGET_FOOTNOTE", "OBJECT_TYPE_PAGE", "false", "HWPHYPERLINK_JUMP_CURRENTTAB")),
+        ("4;0;0;0;", ("TARGET_ENDNOTE", "OBJECT_TYPE_PAGE", "false", "HWPHYPERLINK_JUMP_CURRENTTAB")),
+        ("6;0;0;0;", ("TARGET_BOOKMARK", "OBJECT_TYPE_PAGE", "false", "HWPHYPERLINK_JUMP_CURRENTTAB")),
+        ("7;4;0;0;", ("", "", "false", "HWPHYPERLINK_JUMP_CURRENTTAB")),
+    ],
+)
+def test_a_cross_reference_spells_its_command_out_as_hancom_does(codes: str, names: tuple[str, ...]) -> None:
+    # Hancom Office 2024 opens an .hwp cross-reference with these parameters out of its command (target; type;
+    # content; hyperlink; open), an empty name for a code past those it has, and metaTag "".
+    begin, params = _field_params("%xrf", 0, 0, f"?#1882958987;{codes}")
+    assert begin.get("type") == "CROSSREF" and begin.get("metaTag") == ""
+    assert params == [
+        ("integerParam", "Prop", "0"),
+        ("stringParam", "Command", f"?#1882958987;{codes}"),
+        ("stringParam", "RefPath", "?#1882958987;"),
+        ("stringParam", "RefType", names[0]),
+        ("stringParam", "RefContentType", names[1]),
+        ("booleanParam", "RefHyperLink", names[2]),
+        ("stringParam", "RefOpenType", names[3]),
+    ]
+
+
+def test_a_mail_merge_field_opens_with_its_type_and_value() -> None:
+    begin, params = _field_params("%mmg", 0x2, 8, "address")
+    assert begin.get("type") == "MAILMERGE" and begin.get("metaTag") == ""
+    assert params == [
+        ("booleanParam", "Fiexde", "1"),
+        ("integerParam", "Prop", "8"),
+        ("stringParam", "Command", "address"),
+        ("stringParam", "FieldType", "USER_DEFINE"),
+        ("stringParam", "FieldValue", "address"),
+    ]
+
+
+@pytest.mark.parametrize("props", [0x0, 0x2])
+def test_a_fields_fixed_property_opens_as_the_fiexde_parameter(props: int) -> None:
+    # Hancom writes the property bit 0x2 of a field (a hyperlink here; a click-here field, a cross-reference and a
+    # mail merge field alike) as a first booleanParam "Fiexde" (its spelling) of 1, and leaves it out without.
+    _, params = _field_params("%hlk", props, 0, "https\\://example.com;1;0;0;")
+    assert (params[0] == ("booleanParam", "Fiexde", "1")) == bool(props)
+    assert params[1 if props else 0] == ("integerParam", "Prop", "0")
+
 
 def test_fields_open_as_field_begin_and_end() -> None:
     document = HwpxDocument.open(make_hwp(fields=True))
@@ -863,6 +996,27 @@ def test_numbering_bookmark_index_and_dutmal_controls_open() -> None:
     assert (dutmal.get("posType"), dutmal.get("align")) == ("BOTTOM", "LEFT")
     assert one("titleMark").get("ignore") == "1"
     assert [dutmal.find(f"{HP}mainText").text, dutmal.find(f"{HP}subText").text] == ["협동조합", "coop"]
+
+
+def _page_number_places(*positions: int) -> list[rec.Record]:
+    """A paragraph of text after a page number place at each of *positions* (PAGE_NUM_POS indices)."""
+
+    text = b"".join(_extended(21, "pgnp") for _ in positions) + "쪽".encode("utf-16-le") + _u16(13)
+    controls = [rec.Record(rec.CTRL_HEADER, 1, ct.PageNumberPosition(position << 8, side_char=ord("-")).encode())
+                for position in positions]
+    return _paragraph(0, text, [(0, 0)], controls)
+
+
+def test_only_the_last_page_number_place_of_a_paragraph_opens() -> None:
+    # Hancom saves a paragraph holding several page number places with the last one alone, the one it numbers
+    # the pages by: Hancom Office 2024 did so with a paragraph of two places (NONE, then BOTTOM_CENTER), and
+    # the SDK with all 59 such .hwp files of a private corpus. Here the page number at the bottom centre is
+    # hidden again by the place after it; a paragraph of one place keeps it.
+    document = HwpxDocument.open(make_hwp(extra_paragraphs=_page_number_places(5, 0) + _page_number_places(3)))
+    paragraphs = [p for p in document.sections[0].element.iter(f"{HP}p") if p.find(f".//{HP}pageNum") is not None]
+
+    assert [[n.get("pos") for n in p.iter(f"{HP}pageNum")] for p in paragraphs] == [["NONE"], ["TOP_RIGHT"]]
+    assert [p.xpath("string(.)") for p in paragraphs] == ["쪽", "쪽"]
 
 
 @pytest.mark.parametrize(("position", "name"), [(0, "TOP"), (1, "BOTTOM"), (2, None)])
@@ -1111,6 +1265,28 @@ def test_a_picture_opens_with_its_caption_comment_and_parameter_set() -> None:
     assert value is not None and (value.get("name"), value.text) == ("28673", "2")
 
 
+@pytest.mark.parametrize(("alphas", "expected"), [((255, 0), "0"), ((0, 128), "128"), ((7, 255), "255"), ((0, 0), "0")])
+def test_a_picture_opens_with_the_alpha_from_its_last_byte(alphas: tuple[int, int], expected: str) -> None:
+    """Hancom keeps a picture's transparency in the last byte of the picture
+    record, after the image size, and does not read the byte after the
+    binary item id."""
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        document = HwpxDocument.open(make_hwp(picture=True, picture_alphas=alphas))
+    [pic] = list(document.sections[0].element.iter(f"{HP}pic"))
+    assert pic.find(f"{HC}img").get("alpha") == expected
+
+
+@pytest.mark.parametrize(("flags", "reverse"), [(0x25000000, "1"), (0x25080000, "1"), (0x24080000, "0")])
+def test_a_picture_opens_reversed_when_its_component_says_so(flags: int, reverse: str) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        document = HwpxDocument.open(make_hwp(picture=True, picture_flags=flags))
+    [pic] = list(document.sections[0].element.iter(f"{HP}pic"))
+    assert pic.get("reverse") == reverse
+
+
 @pytest.mark.parametrize(("code", "effect"), [(1, "GRAY_SCALE"), (2, "BLACK_WHITE"), (3, None)])
 def test_an_image_effect_opens_with_its_owpml_name_or_without_one(code: int, effect: str | None) -> None:
     """Hancom leaves the effect out of OWPML for the HWP code 3."""
@@ -1186,3 +1362,26 @@ def test_the_converted_package_saves_as_hwpx(tmp_path: Path) -> None:
     document.save_to_path(target)
     reopened = HwpxDocument.open(target)
     assert [p.text for p in reopened.paragraphs] == [p.text for p in document.paragraphs]
+
+
+@pytest.mark.parametrize(
+    ("name", "margins"),
+    [("cell_height_negative", ("0", "141", "141")), ("cell_height_negative_own_margins", ("1", "300", "500"))],
+)
+def test_a_negative_cell_height_takes_the_cells_top_and_bottom_margins(
+    name: str, margins: tuple[str, str, str]
+) -> None:
+    # Row 2, column 1 of a 3x2 table holds the height -633 (-1000 in the second, whose cell has margins of its
+    # own, top 300 and bottom 500), kept unsigned as the file has it. Hancom converts such a cell with the height
+    # of its top and bottom margins -- the table's inner ones (141 + 141) or its own (300 + 500) -- and grows it
+    # to fit its text; the other cells keep theirs.
+    data = (Path(__file__).parent / "fixtures" / "hwp5" / f"{name}.hwp").read_bytes()
+    root = HwpxDocument.open(data).sections[0].element
+
+    cells = [
+        (tc.get("hasMargin"), tc.find(f"{HP}cellSz").get("height"), tc.find(f"{HP}cellMargin")) for tc in root.iter(f"{HP}tc")
+    ]
+    has_margin, height, margin = cells[2]
+    assert (has_margin, margin.get("top"), margin.get("bottom")) == margins
+    assert int(height) == int(margins[1]) + int(margins[2])
+    assert all(int(other) < 1 << 31 for _, other, _ in cells)

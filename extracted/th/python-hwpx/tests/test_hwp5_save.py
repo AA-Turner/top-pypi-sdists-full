@@ -34,6 +34,7 @@ from tests.test_hwp5_open import (
     _compound,
     _docinfo,
     _extended,
+    _one_field,
     _paragraph,
     _picture,
     _section,
@@ -45,6 +46,31 @@ from tests.test_hwp5_open import (
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
+
+
+@pytest.mark.parametrize(
+    ("ctrl", "props", "extra", "command"),
+    [
+        ("%xrf", 0x0, 0, "?#1882958987;5;0;0;0;"),
+        ("%xrf", 0x2, 0, "?#1882958987;5;0;0;0;"),
+        ("%mmg", 0x2, 8, "address"),
+        ("%hlk", 0x2, 0, "https\\://example.com;1;0;0;"),
+        ("%hlk", 0x0, 0, "https\\://example.com;1;0;0;"),
+    ],
+)
+def test_a_fields_fixed_property_saves_back_as_hancom_keeps_it(ctrl: str, props: int, extra: int, command: str) -> None:
+    """Hancom Office 2024 saves the parameter Fiexde as property bit 0x2 of any field, and none without it (a
+    cross-reference too)."""
+
+    original = make_hwp(extra_paragraphs=_one_field(ctrl, props, extra, command))
+    written = read_hwp5(write_hwp5(convert(original).files))
+    fields = [
+        ct.FieldCtrl.decode(r.payload)
+        for s in written.sections
+        for r in s.records
+        if r.tag == rec.CTRL_HEADER and r.payload[:4] == struct.pack("<I", bt.ctrl_word(ctrl))
+    ]
+    assert [(f.props, f.extra, f.command) for f in fields] == [(props, extra, command)]
 
 
 def _texts(document: HwpxDocument) -> list[str]:
@@ -477,12 +503,13 @@ def test_a_new_documents_scripts_are_kept_as_none() -> None:
     assert empty == bytes.fromhex("63604005ff8100006ebb6ed114000000")
 
 
-@pytest.mark.parametrize(("password", "words"), [(False, (4, 0)), (True, (4, 4))])
+@pytest.mark.parametrize(("password", "words"), [(False, (56, 0)), (True, (56, 4))])
 def test_the_change_tracking_password_algorithm_is_kept(password: bool, words: tuple[int, int]) -> None:
     files = _with_print_info(_PRINT_ITEMS)
     head = etree.fromstring(files["Contents/header.xml"])
     config = head.find(f".//{HH}trackchageConfig")
     assert config is not None
+    config.set("flags", "56")
     if password:
         group = etree.SubElement(config, f"{{{_CONFIG}}}config-item-set", name="TrackChangePasswordInfo")
         etree.SubElement(group, f"{{{_CONFIG}}}config-item", name="algorithm-name", type="string").text = "SHA1"
@@ -494,6 +521,22 @@ def test_the_change_tracking_password_algorithm_is_kept(password: bool, words: t
     assert back is not None
     names = [item.text for item in back.iter(f"{{{_CONFIG}}}config-item")]
     assert names == (["SHA1"] if password else [])
+
+
+@pytest.mark.parametrize("flags", ["4", "56", "60"])
+def test_the_change_tracking_flags_are_the_settings_records_first_word(flags: str) -> None:
+    # Hancom writes trackchageConfig@flags into the first word of the settings record and reads it back from there.
+    files = _with_print_info(_PRINT_ITEMS)
+    head = etree.fromstring(files["Contents/header.xml"])
+    config = head.find(f".//{HH}trackchageConfig")
+    assert config is not None
+    config.set("flags", flags)
+    files["Contents/header.xml"] = etree.tostring(head)
+    hwp = write_hwp5(files)
+    [settings] = [r.payload for r in read_hwp5(hwp).docinfo.records if r.tag == rec.TRACKCHANGE]
+    assert struct.unpack_from("<I", settings)[0] == int(flags)
+    back = etree.fromstring(convert(hwp).files["Contents/header.xml"]).find(f".//{HH}trackchageConfig")
+    assert back is not None and back.get("flags") == flags
 
 
 def test_an_end_cap_with_no_name_is_left_out_and_written_flat() -> None:
@@ -685,6 +728,9 @@ def test_the_old_line_spacing_of_at_least_is_one_hundred_percent(kind: str, valu
         (13, (850, 283), (7200, 14400), (0, 0, 317, 0)),  # narrowed
         (13, (0, 0), (7875, 5850), (600, 0, 600, 0)),
         (14, (283, 850), (7200, 14400), (2117, 0, 3350, 250)),  # enlarged
+        # A quarter of the shape rounds half up: 28347 / 4 = 7086.75 and 42518 / 4 = 10629.5 (Hancom Office 2024).
+        (14, (283, 283), (28347, 42518), (7404, 0, 10947, 0)),
+        (14, (283, 283), (28345, 42521), (7403, 0, 10947, 0)),
         # Offsets to the left or up, which Hancom mirrors side for side.
         (6, (-850, 0), (28800, 3600), (850, 1193, 0, 0)),
         (5, (850, -283), (28800, 3600), (1193, 850, 0, 0)),
@@ -750,18 +796,19 @@ def test_a_shadowed_shape_keeps_its_outer_margin_across_hwpx(kind: int, offset: 
 
 
 @pytest.mark.parametrize(
-    ("kind", "size", "stored"),
+    ("kind", "size", "stored", "opened"),
     [
-        (11, (28346, 42520), (-26411, 283, 0, -22733)),  # perspective, left bottom
-        (12, (28346, 42520), (0, -25845, 0, -22733)),  # perspective, right bottom
-        (7, (20000, 60000), (-31765, 283, 0, 30283)),  # shear, left bottom
+        # Hancom Office 2024 saved shapes with a margin of 500 and these shadows as .hwp (the stored margins, the
+        # reach wrapped past 16 bits) and opened them back: a stored margin below 0 reads as 0 less the reach.
+        (11, (28346, 42520), (-25911, 783, 500, -22233), (26411, 500, 500, 22733)),  # perspective, left bottom
+        (12, (28346, 42520), (500, -25345, 500, -22233), (500, 25845, 500, 22733)),  # perspective, right bottom
+        (9, (10000, 40000), (-28247, 783, 500, 783), (28747, 500, 500, 500)),  # perspective, left top
+        (7, (40000, 60000), (-31265, 783, 500, 30783), (31765, 500, 500, 500)),  # shear, left bottom
     ],
 )
-def test_a_shadow_margin_past_16_bits_is_saved_wrapped_and_opens_as_saved(
-    kind: int, size: tuple[int, int], stored: tuple[int, ...]
+def test_a_shadow_margin_stored_below_0_opens_as_hancom_2024_reads_it(
+    kind: int, size: tuple[int, int], stored: tuple[int, ...], opened: tuple[int, ...]
 ) -> None:
-    """Hancom keeps the low 16 bits of such a margin; opening takes the shadow back out."""
-
     width, height = size
     common = ct.ObjectCommon("gso ", 0x000A2211, 0, 0, width, height, 0, stored, 190, 0, "", bytes(2))
     fill = di.Fill(di.FILL_SOLID, 0x00FFFFFF, 0, -1, additional=b"", alphas=b"\0")
@@ -780,18 +827,14 @@ def test_a_shadow_margin_past_16_bits_is_saved_wrapped_and_opens_as_saved(
     files = convert(_compound(section)).files
     [shape] = list(etree.fromstring(files["Contents/section0.xml"]).iter(f"{HP}rect"))
     margin = shape.find(f"{HP}outMargin")
-    assert [margin.get(side) for side in ("left", "right", "top", "bottom")] == ["0", "0", "0", "0"]
-
-    written = read_hwp5(write_hwp5(files))
-    [header] = [r for s in written.sections for r in s.records if r.tag == rec.CTRL_HEADER and r.payload[:4] == b" osg"]
-    assert ct.ObjectCommon.decode(header.payload).margins == stored
+    assert tuple(int(margin.get(side)) for side in ("left", "right", "top", "bottom")) == opened
 
 
 def test_a_margin_short_of_its_shadow_keeps_what_is_left() -> None:
-    """Hancom opens such a margin below 0 and saves it back as it was."""
+    """Hancom opens a margin smaller than its shadow's reach below 0, and one stored below 0 as 0 less the reach."""
 
     assert sh.without_shadow((100, 283, 5, 0), (283, 883, 0, 0)) == (-183, -600, 5, 0)
-    assert sh.without_shadow((-26411, 283, 0, -22733), (39125, 283, 0, 42803)) == (0, 0, 0, 0)
+    assert sh.without_shadow((-26411, 283, 0, -22733), (39125, 283, 0, 42803)) == (26411, 0, 0, 22733)
 
 
 def test_characters_overlapped_with_no_frame_keep_their_text_across_hwpx() -> None:
@@ -1088,6 +1131,29 @@ def test_image_effects_are_written_with_the_codes_hancom_writes(effect: str, cod
     doc = read_hwp5(target.read_bytes())
     pictures = [r for s in doc.sections for r in s.records if r.tag == rec.SHAPE_COMPONENT_PICTURE]
     assert [sh.Picture.decode(r.payload).effect for r in pictures] == [code]
+
+
+def test_a_picture_alpha_and_reverse_are_written_where_hancom_reads_them(tmp_path: Path) -> None:
+    """The alpha goes in the last byte of the picture record, after the image
+    size (the byte after the binary item id stays 0), and reverse in bit 24 of
+    the component flags."""
+
+    document = HwpxDocument.new()
+    document.add_picture(_PNG, "png")
+    [pic] = [p for s in document.sections for p in s.element.iter(f"{HP}pic")]
+    pic.set("reverse", "1")
+    pic.find("{http://www.hancom.co.kr/hwpml/2011/core}img").set("alpha", "128")
+    target = tmp_path / "alpha.hwp"
+    document.save_to_path(target)
+    doc = read_hwp5(target.read_bytes())
+    records = [r for s in doc.sections for r in s.records]
+    [picture] = [sh.Picture.decode(r.payload) for r in records if r.tag == rec.SHAPE_COMPONENT_PICTURE]
+    assert (picture.alpha, picture.extra) == (0, bytes([128]))
+    [component] = [sh.ShapeComponent.decode(r.payload, top=True) for r in records if r.tag == rec.SHAPE_COMPONENT]
+    assert component.flags & 0x01000000
+    [reopened] = [p for s in HwpxDocument.open(target).sections for p in s.element.iter(f"{HP}pic")]
+    assert reopened.get("reverse") == "1"
+    assert reopened.find("{http://www.hancom.co.kr/hwpml/2011/core}img").get("alpha") == "128"
 
 
 def test_hwpx_targets_are_unchanged(tmp_path: Path) -> None:

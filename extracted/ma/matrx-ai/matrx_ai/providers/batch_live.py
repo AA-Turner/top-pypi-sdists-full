@@ -13,7 +13,12 @@ it was configured with.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from anthropic import AsyncAnthropic
+    from google import genai
+    from openai import AsyncOpenAI
 
 LIVE_ENDPOINTS: dict[str, tuple[str, ...]] = {
     "openai": ("/v1/responses", "/v1/chat/completions", "/v1/embeddings"),
@@ -22,19 +27,20 @@ LIVE_ENDPOINTS: dict[str, tuple[str, ...]] = {
 }
 
 
-async def send_live(provider: str, endpoint: str, payload: dict[str, Any], *, client: Any) -> Any:
+async def send_live(provider: str, endpoint: str, payload: dict[str, Any], *, client: AsyncOpenAI | AsyncAnthropic | genai.Client) -> Any:
     """Send one rendered batch body live and return the provider's response object."""
     if provider == "openai":
+        openai_client = cast("AsyncOpenAI", client)
         if endpoint == "/v1/responses":
-            return await client.responses.create(**payload)
+            return await openai_client.responses.create(**payload)
         if endpoint == "/v1/chat/completions":
-            return await client.chat.completions.create(**payload)
+            return await openai_client.chat.completions.create(**payload)
         if endpoint == "/v1/embeddings":
-            return await client.embeddings.create(**payload)
+            return await openai_client.embeddings.create(**payload)
     elif provider == "anthropic" and endpoint == "messages":
-        return await client.messages.create(**payload)
+        return await cast("AsyncAnthropic", client).messages.create(**payload)
     elif provider == "gemini" and endpoint == "generate_content":
-        return await client.aio.models.generate_content(
+        return await cast("genai.Client", client).aio.models.generate_content(
             model=str(payload.get("model") or ""),
             contents=payload.get("contents"),
             config=payload.get("config"),

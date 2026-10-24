@@ -19,6 +19,7 @@ from huey.consumer import Consumer
 from huey.exceptions import CancelExecution
 from huey.exceptions import ConfigurationError
 from huey.exceptions import RateLimitExceeded
+from huey.exceptions import RETRYING_EXCEPTIONS
 from huey.exceptions import ResultTimeout
 from huey.exceptions import RetryTask
 from huey.exceptions import TaskException
@@ -346,6 +347,11 @@ class Huey(object):
             config = ChordConfig(cid, size, i, chord_obj.callback)
             results.append(self._enqueue_chord_member(task, config))
 
+        if not size:
+            callback = copy.copy(chord_obj.callback)
+            callback.extend_data(([],))
+            self.enqueue(callback)
+
         cb_result = Result(self, chord_obj.callback)
         pipeline = self._build_pipeline_results(chord_obj.callback, cb_result)
         return ChordResult(results, cb_result, pipeline)
@@ -522,8 +528,13 @@ class Huey(object):
         if not isinstance(task, PeriodicTask):
             self.delete(task.revoke_id)
 
-        surface_error = (exception is not None and
-                         (self.store_intermediate_errors or not task.retries))
+        if exception is None:
+            surface_error = False
+        elif not task.retries:
+            surface_error = True
+        else:
+            surface_error = (self.store_intermediate_errors and
+                             not isinstance(exception, RETRYING_EXCEPTIONS))
 
         if self.results and not isinstance(task, PeriodicTask):
             if surface_error:
@@ -1211,7 +1222,10 @@ class group(object):
         self.tasks = tasks
 
     def then(self, task, *args, **kwargs):
-        if not isinstance(task, Task):
+        if isinstance(task, Task):
+            if args: task.extend_data(args)
+            if kwargs: task.extend_data(kwargs)
+        else:
             task = task.s(*args, **kwargs)
         return chord(self.tasks, task)
 
@@ -1462,20 +1476,20 @@ def crontab(minute='*', hour='*', day='*', month='*', day_of_week='*', strict=Fa
                 lhs, rhs, step = int(lhs), int(rhs), int(step or 1)
                 if lhs not in acceptable or rhs not in acceptable:
                     raise ValueError('%s is not a valid input' % piece)
-                elif date_str == 'w':
-                    lhs %= 7
-                    rhs %= 7
                 if lhs <= rhs:
                     values = list(range(lhs, rhs + 1))
                 else:
                     hi = 6 if date_str == 'w' else acceptable[-1]
                     values = (list(range(lhs, hi + 1)) +
                               list(range(acceptable[0], rhs + 1)))
-                settings.update(values[::step])
+                values = values[::step]
+                if date_str == 'w':
+                    values = [v % 7 for v in values]
+                settings.update(values)
                 continue
 
             # Handle stuff like */3, */6.
-            every_match = every_re.match(piece)
+            every_match = every_re.fullmatch(piece)
             if every_match:
                 if date_str == 'w':
                     raise ValueError('Cannot perform this kind of matching'

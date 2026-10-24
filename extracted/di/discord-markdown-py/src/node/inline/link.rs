@@ -26,12 +26,11 @@ use crate::{
 	context::Context,
 	error::ParseError,
 	node::{Element, Sequence},
-	rule::RuleSet,
 	span::{Span, TraceOk, TraceParse},
 	unparse::Unparse,
 };
 
-use super::Grammar;
+use super::Scope;
 
 pub mod auto;
 pub mod contact;
@@ -352,7 +351,7 @@ where
 		// link's URL is closed by `)` the same way, so punctuation right before it stays in the URL
 		// rather than leaving the masked link without its closing paren.
 		let non_terminal: fn(Input<'data>) -> IResult<Input<'data>, Input<'data>, E> =
-			if self.inside_parens || self.context.grammar == Grammar::MaskedLinkLink {
+			if self.inside_parens || self.context.scope == Scope::MaskedLinkLink {
 				parse_non_terminal_link_chars_no_close_paren
 			} else {
 				parse_non_terminal_link_chars
@@ -403,7 +402,7 @@ where
 	nom::error::context(
 		"link::verify_url",
 		map_opt(link_chars(context), |input| {
-			parse_and_validate_url(input.content, context.allowed_rules)
+			parse_and_validate_url(input.content, context.dev_links)
 		}),
 	)
 }
@@ -418,13 +417,13 @@ where
 /// link written without a scheme has to satisfy. `https://discord.com/developers/docs` is an
 /// ordinary URL; `discord.com/developers/docs` is not a link at all.
 ///
-/// The resulting scheme is one of [`scheme::ALL`] that `rules` permits. If it is [`scheme::DEV`],
+/// The resulting scheme is one of [`scheme::ALL`] that `dev_links` permits. If it is [`scheme::DEV`],
 /// the [`Url::domain`] is one of [`scheme::VALID_DEV_DOMAINS`].
 ///
 /// # Panics
 /// If a new [`SyntaxViolation`] has been added upstream without updating the internal logic.
 #[must_use]
-pub fn parse_and_validate_url(text: &str, rules: RuleSet) -> Option<Url> {
+pub fn parse_and_validate_url(text: &str, dev_links: bool) -> Option<Url> {
 	// if the text contains any suspicious whitespace, this URL is suspicious
 	if text.is_empty() || text.chars().any(is_suspicious_whitespace) {
 		return None;
@@ -498,7 +497,7 @@ pub fn parse_and_validate_url(text: &str, rules: RuleSet) -> Option<Url> {
 
 			scheme::ALL
 				.iter()
-				.any(|scheme| scheme.allowed_by(rules) && scheme.validate(url))
+				.any(|scheme| scheme.allowed_by(dev_links) && scheme.validate(url))
 		})
 }
 
@@ -595,11 +594,10 @@ mod test {
 	use url::Url;
 
 	use super::parse_and_validate_url;
-	use crate::rule::{Rule, RuleSet};
 
 	/// Validate `s` with every rule allowed.
 	fn validate(s: &str) -> Option<Url> {
-		parse_and_validate_url(s, RuleSet::all())
+		parse_and_validate_url(s, true)
 	}
 
 	#[test]
@@ -648,10 +646,10 @@ mod test {
 		"dev://devtools/shop_collectibles",
 	];
 
-	/// Without [`Rule::DevLink`] a `dev` URL is not a URL at all.
+	/// Without [`crate::Options::dev_links`] a `dev` URL is not a URL at all.
 	#[test]
-	fn dev_scheme_needs_its_rule() {
-		let without_dev = RuleSet::all() - Rule::DevLink;
+	fn dev_scheme_needs_dev_links() {
+		let without_dev = false;
 
 		for s in DEV_URLS {
 			assert_eq!(parse_and_validate_url(s, without_dev), None, "{s}");

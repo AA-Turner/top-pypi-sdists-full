@@ -187,6 +187,25 @@ def adopt_harness_process_session() -> dict[str, str]:
     if _ADOPTED:
         return {}
     _ADOPTED = True
+    change = harness_process_env(os.environ)
+    if change is None:
+        return {}
+    values, drop = change
+    for key in drop:
+        os.environ.pop(key, None)
+    os.environ.update(values)
+    return dict(values)
+
+
+def harness_process_env(
+    environ: Mapping[str, str], pid: int | None = None
+) -> tuple[dict[str, str], tuple[str, ...]] | None:
+    """What `adopt_harness_process_session` changes in `environ`, the
+    environment of the process whose ancestry is walked from `pid` (default:
+    this process's parent): `({session variable: id}, variables to drop)`, or
+    None when no harness process names a session for it. Never raises. The one
+    rule, also for another process than this one (the Probe service's caller,
+    `session_env_of_process`)."""
     try:
         from probe.harness import get_registry
         from probe.sdk import session_marker
@@ -194,39 +213,65 @@ def adopt_harness_process_session() -> dict[str, str]:
         registry = get_registry()
         recorded = [h for h in registry.all() if h.process_title]
         if not recorded:
-            return {}
+            return None
         stop_titles = tuple(h.binary for h in registry.all() if h.binary and not h.process_title)
-        found = session_marker.harness_process(stop_titles=stop_titles)
+        found = session_marker.harness_process(pid=pid, stop_titles=stop_titles)
         if found is None:
-            return {}
+            return None
         harness = registry.find(found[0])
         if harness is None or not harness.session_env:
-            return {}
+            return None
         inherited = session_marker.process_environ(found[2])
-        carried = os.environ.get(harness.session_env)
+        carried = environ.get(harness.session_env)
         # A session this process already carries, set below the harness process
         # (a job adopted it earlier), stays: a TUI's /new must not reassign the
         # job's later children. One the harness process itself inherited (a new
         # Kimi started from inside such a job) is stale.
         if carried and (inherited is None or inherited.get(harness.session_env) != carried):
-            return {}
-        others = [
+            return None
+        others = tuple(
             key
             for other in registry.all()
             if other.id != harness.id
             for key in (*other.detect_env, *((other.session_env,) if other.session_env else ()))
-        ]
+        )
         # Another agent's marker that the harness process itself did not have
         # was set below it: a nearer agent (pi run inside Kimi) owns this process.
         if inherited is not None and any(
-            os.environ.get(key) and inherited.get(key) != os.environ.get(key) for key in others
+            environ.get(key) and inherited.get(key) != environ.get(key) for key in others
         ):
-            return {}
-        for key in others:
-            os.environ.pop(key, None)
-        os.environ[harness.session_env] = found[1]
-        return {harness.session_env: found[1]}
+            return None
+        return {harness.session_env: found[1]}, others
     except Exception:  # noqa: BLE001 -- attribution must never break a command
+        return None
+
+
+def session_env_of_process(pid: int) -> dict[str, str]:
+    """`{session variable: id}` naming the coding-agent session another process
+    `pid` runs in, as that process's own `probe` would resolve it: its
+    environment (Linux /proc; none elsewhere), the harness-process marker found
+    from it upward (Kimi Code), then `session_agent_from_env`'s precedence. {}
+    when none. Never raises. For the Probe service's caller: the service hands
+    its pid to the child that answers it (`probe.core.run desktop`)."""
+    try:
+        from probe.harness import get_registry
+        from probe.sdk import session_marker
+
+        environ = dict(session_marker.process_environ(pid) or {})
+        change = harness_process_env(environ, pid=pid)
+        if change is not None:
+            values, drop = change
+            for key in drop:
+                environ.pop(key, None)
+            environ.update(values)
+        resolved = session_agent_from_env(environ)
+        if resolved is None:
+            return {}
+        harness = get_registry().find(resolved[0])
+        if harness is None or not harness.session_env:
+            return {}
+        return {harness.session_env: resolved[1]}
+    except Exception:  # noqa: BLE001 -- the caller then reads as naming no session
         return {}
 
 

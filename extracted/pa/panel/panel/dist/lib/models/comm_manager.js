@@ -10,10 +10,8 @@ export const comm_settings = {
     debounce: true,
 };
 export class CommManagerView extends View {
-    static __name__ = "CommManagerView";
 }
 export class CommManager extends Model {
-    static __name__ = "CommManager";
     ns;
     _receiver;
     _client_comm;

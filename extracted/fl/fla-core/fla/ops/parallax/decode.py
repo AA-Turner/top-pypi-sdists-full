@@ -42,7 +42,9 @@ def parallax_decode_kernel(
     sliding window and to ``[cache_start, Skv)`` when set. One program owns a
     ``BT``-row query block; see ``naive_parallax`` for the output formula.
     """
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    pid = tl.program_id(0).to(tl.int64)
+    NT = tl.cdiv(Sq, BT)
+    i_t, i_bh = (pid % NT).to(tl.int64), (pid // NT).to(tl.int64)
     i_b, i_hq = i_bh // HQ, i_bh % HQ
     i_h = i_hq // G                               # kv head shared by this q head (GQA)
     RCP_LN2: tl.constexpr = 1.4426950216
@@ -165,6 +167,9 @@ def parallax_decode(
     """
     B, Sq, HQ, K = q.shape
     Skv, H = k.shape[1], k.shape[2]
+    assert Skv >= Sq, f"Cached KV length must cover query length, got Skv={Skv} and Sq={Sq}"
+    if H == 0 or HQ % H != 0:
+        raise ValueError(f"The number of query heads ({HQ}) must be divisible by the number of key/value heads ({H}).")
     G = HQ // H
     if scale is None:
         scale = K ** -0.5
@@ -176,7 +181,7 @@ def parallax_decode(
     BK = triton.next_power_of_2(K)
     BT = _block_size(K, q.device.index)
     o = torch.empty_like(q)
-    grid = (triton.cdiv(Sq, BT), B * HQ)
+    grid = (triton.cdiv(Sq, BT) * B * HQ,)
     parallax_decode_kernel[grid](
         q, r, k, v, o, float(scale), cache_start, Sq, Skv,
         HQ=HQ, H=H, G=G, K=K, BK=BK,
@@ -219,7 +224,7 @@ def parallax_decode_one_step_kernel(
     ``parallax_decode_kernel`` incurs at ``Sq == 1``. One program per
     (batch, head); see ``naive_parallax`` for the output formula.
     """
-    i_bh = tl.program_id(0)
+    i_bh = tl.program_id(0).to(tl.int64)
     i_b, i_hq = i_bh // HQ, i_bh % HQ
     i_h = i_hq // G                               # kv head shared by this q head (GQA)
     RCP_LN2: tl.constexpr = 1.4426950216
@@ -320,6 +325,8 @@ def parallax_decode_one_step(
     if Sq != 1:
         raise ValueError(f"parallax_decode_one_step expects a single query (Sq=1), got Sq={Sq}")
     Skv, H = k.shape[1], k.shape[2]
+    if H == 0 or HQ % H != 0:
+        raise ValueError(f"The number of query heads ({HQ}) must be divisible by the number of key/value heads ({H}).")
     G = HQ // H
     if scale is None:
         scale = K ** -0.5

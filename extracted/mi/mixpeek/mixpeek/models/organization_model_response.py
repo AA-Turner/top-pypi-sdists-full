@@ -51,9 +51,10 @@ class OrganizationModelResponse(BaseModel):
     auth_provider_org_id: Optional[StrictStr] = None
     default_llm_credentials: Optional[Dict[str, StrictStr]] = None
     api_url: Optional[StrictStr] = None
+    spend_limits: Optional[Dict[str, Any]] = Field(default=None, description="The organization's effective spend budget: daily_usd, monthly_usd, the namespace defaults, the plan's safety ceilings, spend to date, headroom, where each number comes from, and the change history.")
     requires_plan: Optional[StrictBool] = Field(default=False, description="True when this workspace must pick a plan before it can create namespaces or run billable work. When gated, write endpoints return 403 PlanRequiredError linking to https://studio.mixpeek.com/signup/plan where the workspace picks one.")
     is_internal: Optional[StrictBool] = Field(default=False, description="True when this org is Mixpeek-internal (team/dogfood/ops), derived server-side at read time. Analytics consumers should exclude internal orgs from customer metrics.")
-    __properties: ClassVar[List[str]] = ["organization_id", "organization_name", "logo_url", "account_type", "credit_count", "effective_monthly_credit_cap", "onboarding_answers", "metadata", "billing_email", "notifications_email", "notifications_email_delivery_status", "rate_limits", "auto_billing_enabled", "billing_cycle_start", "current_month_usage", "created_at", "updated_at", "users", "auth_provider_org_id", "default_llm_credentials", "api_url", "requires_plan", "is_internal"]
+    __properties: ClassVar[List[str]] = ["organization_id", "organization_name", "logo_url", "account_type", "credit_count", "effective_monthly_credit_cap", "onboarding_answers", "metadata", "billing_email", "notifications_email", "notifications_email_delivery_status", "rate_limits", "auto_billing_enabled", "billing_cycle_start", "current_month_usage", "created_at", "updated_at", "users", "auth_provider_org_id", "default_llm_credentials", "api_url", "spend_limits", "requires_plan", "is_internal"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -130,6 +131,7 @@ class OrganizationModelResponse(BaseModel):
             "auth_provider_org_id": obj.get("auth_provider_org_id"),
             "default_llm_credentials": obj.get("default_llm_credentials"),
             "api_url": obj.get("api_url"),
+            "spend_limits": obj.get("spend_limits"),
             "requires_plan": obj.get("requires_plan") if obj.get("requires_plan") is not None else False,
             "is_internal": obj.get("is_internal") if obj.get("is_internal") is not None else False
         })

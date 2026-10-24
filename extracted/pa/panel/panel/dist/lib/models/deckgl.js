@@ -6,6 +6,7 @@ import { debounce } from "debounce";
 import { transform_cds_to_records } from "./data";
 import { set_size } from "./layout";
 import { GL } from "./lumagl";
+import { await_resources, define_external_resources, load_resources, render_resource_error, } from "./resources";
 import { makeTooltip } from "./tooltips";
 function extractClasses() {
     // Get classes for registration from standalone deck.gl
@@ -32,7 +33,6 @@ function extractFunctions() {
     return functionDict;
 }
 export class DeckGLPlotView extends LayoutDOMView {
-    static __name__ = "DeckGLPlotView";
     jsonConverter;
     deckGL;
     _connected;
@@ -40,6 +40,17 @@ export class DeckGLPlotView extends LayoutDOMView {
     _layer_map;
     _view_cb;
     _initialized = false;
+    async lazy_initialize() {
+        await super.lazy_initialize();
+        const error = await await_resources(this.model);
+        if (error != null) {
+            render_resource_error(this, error, LayoutDOMView.prototype.render);
+        }
+        else if (this.jsonConverter == null) {
+            // Loaded on demand, deck.gl only arrives after initialize() ran.
+            this._init_converter();
+        }
+    }
     connect_signals() {
         super.connect_signals();
         const { data, mapbox_api_key, tooltip, configuration, layers, initialViewState, data_sources } = this.model.properties;
@@ -72,7 +83,10 @@ export class DeckGLPlotView extends LayoutDOMView {
         super.initialize();
         const view_timeout = this.model.throttle.view || 200;
         this._view_cb = debounce((event) => this._on_viewState_event(event), view_timeout, false);
-        if (window.deck.JSONConverter) {
+        this._init_converter();
+    }
+    _init_converter() {
+        if (window.deck?.JSONConverter) {
             const { CSVLoader, Tiles3DLoader } = window.loaders;
             window.loaders.registerLoaders([Tiles3DLoader, CSVLoader]);
             const jsonConverterConfiguration = {
@@ -212,7 +226,7 @@ export class DeckGLPlotView extends LayoutDOMView {
             this.jsonConverter.mergeConfiguration(configuration);
             const props = this.jsonConverter.convert(jsonInput);
             const getTooltip = makeTooltip(tooltip, props.layers);
-            if (props.mapStyle === null) {
+            if (props.mapStyle == null) {
                 props.map = null;
             }
             else if (props.mapStyle.includes("carto")) {
@@ -290,7 +304,6 @@ export class DeckGLPlotView extends LayoutDOMView {
     }
 }
 export class DeckGLPlot extends LayoutDOM {
-    static __name__ = "DeckGLPlot";
     constructor(attrs) {
         super(attrs);
     }
@@ -298,7 +311,7 @@ export class DeckGLPlot extends LayoutDOM {
     static {
         this.prototype.default_view = DeckGLPlotView;
         this.define(({ Any, List, Str, Ref }) => ({
-            data: [Any],
+            data: [Any, {}],
             data_sources: [List(Ref(ColumnDataSource)), []],
             clickState: [Any, {}],
             hoverState: [Any, {}],
@@ -314,6 +327,11 @@ export class DeckGLPlot extends LayoutDOM {
             height: 400,
             width: 600,
         });
+        define_external_resources(this);
+    }
+    initialize() {
+        super.initialize();
+        load_resources(this);
     }
 }
 //# sourceMappingURL=deckgl.js.map

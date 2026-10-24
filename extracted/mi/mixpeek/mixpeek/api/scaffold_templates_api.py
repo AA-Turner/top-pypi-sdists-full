@@ -96,8 +96,10 @@ class ScaffoldTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -165,8 +167,10 @@ class ScaffoldTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -234,8 +238,10 @@ class ScaffoldTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -364,8 +370,10 @@ class ScaffoldTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -437,8 +445,10 @@ class ScaffoldTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -510,8 +520,10 @@ class ScaffoldTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -588,7 +600,7 @@ class ScaffoldTemplatesApi:
     def instantiate_scaffold_template(
         self,
         template_id: Annotated[StrictStr, Field(description="Scaffold template ID")],
-        instantiate_scaffold_request: InstantiateScaffoldRequest,
+        instantiate_scaffold_request: Annotated[InstantiateScaffoldRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -608,7 +620,7 @@ class ScaffoldTemplatesApi:
 
         :param template_id: Scaffold template ID (required)
         :type template_id: str
-        :param instantiate_scaffold_request: (required)
+        :param instantiate_scaffold_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_scaffold_request: InstantiateScaffoldRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -642,13 +654,15 @@ class ScaffoldTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedScaffoldResponse",
+            '200': "InstantiatedScaffoldResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -665,7 +679,7 @@ class ScaffoldTemplatesApi:
     def instantiate_scaffold_template_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Scaffold template ID")],
-        instantiate_scaffold_request: InstantiateScaffoldRequest,
+        instantiate_scaffold_request: Annotated[InstantiateScaffoldRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -685,7 +699,7 @@ class ScaffoldTemplatesApi:
 
         :param template_id: Scaffold template ID (required)
         :type template_id: str
-        :param instantiate_scaffold_request: (required)
+        :param instantiate_scaffold_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_scaffold_request: InstantiateScaffoldRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -719,13 +733,15 @@ class ScaffoldTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedScaffoldResponse",
+            '200': "InstantiatedScaffoldResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -742,7 +758,7 @@ class ScaffoldTemplatesApi:
     def instantiate_scaffold_template_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Scaffold template ID")],
-        instantiate_scaffold_request: InstantiateScaffoldRequest,
+        instantiate_scaffold_request: Annotated[InstantiateScaffoldRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -762,7 +778,7 @@ class ScaffoldTemplatesApi:
 
         :param template_id: Scaffold template ID (required)
         :type template_id: str
-        :param instantiate_scaffold_request: (required)
+        :param instantiate_scaffold_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_scaffold_request: InstantiateScaffoldRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -796,13 +812,15 @@ class ScaffoldTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedScaffoldResponse",
+            '200': "InstantiatedScaffoldResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

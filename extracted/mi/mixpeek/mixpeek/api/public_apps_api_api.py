@@ -47,7 +47,7 @@ class PublicAppsAPIApi:
     def execute_app_search_slug(
         self,
         slug: Annotated[StrictStr, Field(description="Globally unique app slug")],
-        public_app_search_request: PublicAppSearchRequest,
+        public_app_search_request: Annotated[PublicAppSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class PublicAppsAPIApi:
 
         :param slug: Globally unique app slug (required)
         :type slug: str
-        :param public_app_search_request: (required)
+        :param public_app_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_app_search_request: PublicAppSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -106,8 +106,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -124,7 +126,7 @@ class PublicAppsAPIApi:
     def execute_app_search_slug_with_http_info(
         self,
         slug: Annotated[StrictStr, Field(description="Globally unique app slug")],
-        public_app_search_request: PublicAppSearchRequest,
+        public_app_search_request: Annotated[PublicAppSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -144,7 +146,7 @@ class PublicAppsAPIApi:
 
         :param slug: Globally unique app slug (required)
         :type slug: str
-        :param public_app_search_request: (required)
+        :param public_app_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_app_search_request: PublicAppSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -183,8 +185,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -201,7 +205,7 @@ class PublicAppsAPIApi:
     def execute_app_search_slug_without_preload_content(
         self,
         slug: Annotated[StrictStr, Field(description="Globally unique app slug")],
-        public_app_search_request: PublicAppSearchRequest,
+        public_app_search_request: Annotated[PublicAppSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -221,7 +225,7 @@ class PublicAppsAPIApi:
 
         :param slug: Globally unique app slug (required)
         :type slug: str
-        :param public_app_search_request: (required)
+        :param public_app_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_app_search_request: PublicAppSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -260,8 +264,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -408,8 +414,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -481,8 +489,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -554,8 +564,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -686,8 +698,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -759,8 +773,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -832,8 +848,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -968,8 +986,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1045,8 +1065,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1122,8 +1144,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1202,7 +1226,7 @@ class PublicAppsAPIApi:
     def track_app_interaction_slug(
         self,
         slug: Annotated[StrictStr, Field(description="Globally unique app slug")],
-        interaction_request: InteractionRequest,
+        interaction_request: Annotated[InteractionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1222,7 +1246,7 @@ class PublicAppsAPIApi:
 
         :param slug: Globally unique app slug (required)
         :type slug: str
-        :param interaction_request: (required)
+        :param interaction_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type interaction_request: InteractionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1261,8 +1285,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1279,7 +1305,7 @@ class PublicAppsAPIApi:
     def track_app_interaction_slug_with_http_info(
         self,
         slug: Annotated[StrictStr, Field(description="Globally unique app slug")],
-        interaction_request: InteractionRequest,
+        interaction_request: Annotated[InteractionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1299,7 +1325,7 @@ class PublicAppsAPIApi:
 
         :param slug: Globally unique app slug (required)
         :type slug: str
-        :param interaction_request: (required)
+        :param interaction_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type interaction_request: InteractionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1338,8 +1364,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1356,7 +1384,7 @@ class PublicAppsAPIApi:
     def track_app_interaction_slug_without_preload_content(
         self,
         slug: Annotated[StrictStr, Field(description="Globally unique app slug")],
-        interaction_request: InteractionRequest,
+        interaction_request: Annotated[InteractionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1376,7 +1404,7 @@ class PublicAppsAPIApi:
 
         :param slug: Globally unique app slug (required)
         :type slug: str
-        :param interaction_request: (required)
+        :param interaction_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type interaction_request: InteractionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1415,8 +1443,10 @@ class PublicAppsAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

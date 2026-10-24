@@ -10,6 +10,14 @@ class SandboxError(VercelError):
     """Base error for Sandbox operations."""
 
 
+class SandboxUserAlreadyExistsError(SandboxError):
+    """Raised when create_user() is called for an existing Linux username."""
+
+    def __init__(self, username: str) -> None:
+        super().__init__(f"Failed to create Linux user {username!r}: user already exists")
+        self.username = username
+
+
 class SandboxInvalidHandleError(SandboxError):
     """Raised when a Sandbox handle is unattached or mode-invalid."""
 
@@ -87,6 +95,20 @@ class SandboxStreamError(SandboxError):
         self.code = code
 
 
+class SandboxStdinError(SandboxError):
+    """Raised when writing to or closing process standard input fails.
+
+    ``cause`` holds the underlying API or connection error. Unless the service
+    rejected the request before applying any of it, part of the data may have
+    reached the process, so the stream refuses further writes; it can still
+    be closed.
+    """
+
+    def __init__(self, message: str, *, cause: BaseException) -> None:
+        super().__init__(message)
+        self.cause = cause
+
+
 class SandboxInteractiveError(SandboxError):
     """Raised when an interactive PTY session connection fails."""
 
@@ -116,14 +138,14 @@ class SandboxFilesystemCommandError(SandboxFilesystemError):
 
 
 class SandboxFilesystemWriteError(SandboxFilesystemError):
-    """Raised when the native filesystem write endpoint rejects a batch."""
+    """Raised when a filesystem write rejects a file or batch."""
 
     def __init__(
         self,
         *,
         paths: tuple[str, ...],
         cwd: str,
-        cause: SandboxApiError,
+        cause: SandboxApiError | SandboxFilesystemCommandError,
     ) -> None:
         super().__init__(f"Sandbox filesystem write failed for {len(paths)} path(s)")
         self.paths = paths
@@ -132,7 +154,7 @@ class SandboxFilesystemWriteError(SandboxFilesystemError):
 
 
 class SandboxPathNotFoundError(SandboxFilesystemError):
-    """Raised when a native filesystem operation proves a missing path."""
+    """Raised when a filesystem operation proves a missing path."""
 
     def __init__(
         self,
@@ -140,7 +162,7 @@ class SandboxPathNotFoundError(SandboxFilesystemError):
         *,
         operation: str,
         cwd: str | None,
-        cause: SandboxApiError,
+        cause: SandboxApiError | SandboxFilesystemCommandError,
     ) -> None:
         super().__init__(f"Sandbox filesystem path not found: {path!r}")
         self.path = path

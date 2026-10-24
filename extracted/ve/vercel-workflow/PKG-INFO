@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: vercel-workflow
-Version: 0.11.2
+Version: 0.12.0
 Summary: Python SDK for Vercel Workflows
 License-Expression: MIT
 License-File: LICENSE
@@ -16,7 +16,7 @@ Requires-Dist: typing-extensions<5,>=4.4.0; python_version < '3.13'
 Requires-Dist: vercel-headers>=0.7.2
 Requires-Dist: vercel-internal-core<0.3.0,>=0.2.2
 Requires-Dist: vercel-oidc>=0.10.0
-Requires-Dist: vercel-queue>=0.9.2
+Requires-Dist: vercel-queue>=0.10.0
 Requires-Dist: zstandard<1,>=0.23.0; python_version < '3.14'
 Description-Content-Type: text/markdown
 

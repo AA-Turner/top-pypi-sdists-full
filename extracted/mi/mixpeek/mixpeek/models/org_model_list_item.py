@@ -19,8 +19,10 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.model_registry_identity import ModelRegistryIdentity
+from mixpeek.models.model_tiering_view import ModelTieringView
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -41,7 +43,9 @@ class OrgModelListItem(BaseModel):
     validation_status: StrictStr
     created_at: datetime
     updated_at: datetime
-    __properties: ClassVar[List[str]] = ["model_id", "name", "version", "model_format", "description", "source", "exportable", "framework", "task_type", "deployed", "validation_status", "created_at", "updated_at"]
+    registry: Optional[ModelRegistryIdentity] = Field(default=None, description="The ids this entry derives: registry id, shared model key, service id.")
+    tiering: Optional[ModelTieringView] = Field(default=None, description="The model's tier on the tiering ladder and its wake cost and time.")
+    __properties: ClassVar[List[str]] = ["model_id", "name", "version", "model_format", "description", "source", "exportable", "framework", "task_type", "deployed", "validation_status", "created_at", "updated_at", "registry", "tiering"]
 
     @field_validator('model_format')
     def model_format_validate_enum(cls, value):
@@ -99,6 +103,12 @@ class OrgModelListItem(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of registry
+        if self.registry:
+            _dict['registry'] = self.registry.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of tiering
+        if self.tiering:
+            _dict['tiering'] = self.tiering.to_dict()
         return _dict
 
     @classmethod
@@ -123,7 +133,9 @@ class OrgModelListItem(BaseModel):
             "deployed": obj.get("deployed"),
             "validation_status": obj.get("validation_status"),
             "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at")
+            "updated_at": obj.get("updated_at"),
+            "registry": ModelRegistryIdentity.from_dict(obj["registry"]) if obj.get("registry") is not None else None,
+            "tiering": ModelTieringView.from_dict(obj["tiering"]) if obj.get("tiering") is not None else None
         })
         return _obj
 

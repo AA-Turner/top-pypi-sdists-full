@@ -16,8 +16,8 @@ from sarj_python_lint.rule_base import (
     Severity,
     is_suppressed,
 )
+from sarj_python_lint.rules._closed_helpers import executable_body
 from sarj_python_lint.rules._imports import TYPING_SOURCES
-from sarj_python_lint.rules._resource_provenance import ResourceProvenance
 from sarj_python_lint.rules._type_guard_symbols import (
     builtin_guard_symbol,
     guard_symbols_ambiguous,
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from sarj_python_lint._file_context import PythonFileContext
+    from sarj_python_lint.rules._resource_provenance import ResourceProvenance
 
 
 _BUILTINS = frozenset({"object", "str", "int", "bool", "float", "bytes", "dict", "list", "set", "tuple", "isinstance"})
@@ -126,7 +127,7 @@ class NoShallowRecordTypeGuard(Rule):
             context, _BUILTINS, typing_symbols=_TYPING
         ):
             return []
-        provenance = ResourceProvenance(context, require_static_namespace=True)
+        provenance = context.static_resource_provenance
         records = _record_containers(context, provenance)
         unique_names = unique_guard_function_names(context)
         findings: list[Diagnostic] = []
@@ -197,14 +198,7 @@ def _guard_record(
 
 
 def _single_return(function: ast.FunctionDef) -> ast.Return | None:
-    body = function.body
-    if (
-        body
-        and isinstance(body[0], ast.Expr)
-        and isinstance(body[0].value, ast.Constant)
-        and isinstance(body[0].value.value, str)
-    ):
-        body = body[1:]
+    body = executable_body(function)
     return body[0] if len(body) == 1 and isinstance(body[0], ast.Return) else None
 
 

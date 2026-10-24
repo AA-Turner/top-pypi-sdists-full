@@ -56,9 +56,9 @@ class HealthApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> object:
-        """Celery Beat Health
+        """Scheduler Health
 
-        Check if Celery Beat scheduler is running.  Reads the heartbeat timestamp from Redis (written every 60s by beat). Returns unhealthy if heartbeat is older than 5 minutes.
+        Check that this plane's work scheduler is running.  Reads the scheduler's `last_tick` from `work_schedules`. The scheduler writes it each time it fires an entry, and the schedule has several every-minute entries, so a heartbeat older than 5 minutes means it stopped. The response keeps the fields this route has always returned (`beat_running`, `last_heartbeat`, `age_seconds`).
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -95,7 +95,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -124,9 +127,9 @@ class HealthApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[object]:
-        """Celery Beat Health
+        """Scheduler Health
 
-        Check if Celery Beat scheduler is running.  Reads the heartbeat timestamp from Redis (written every 60s by beat). Returns unhealthy if heartbeat is older than 5 minutes.
+        Check that this plane's work scheduler is running.  Reads the scheduler's `last_tick` from `work_schedules`. The scheduler writes it each time it fires an entry, and the schedule has several every-minute entries, so a heartbeat older than 5 minutes means it stopped. The response keeps the fields this route has always returned (`beat_running`, `last_heartbeat`, `age_seconds`).
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -163,7 +166,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -192,9 +198,9 @@ class HealthApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Celery Beat Health
+        """Scheduler Health
 
-        Check if Celery Beat scheduler is running.  Reads the heartbeat timestamp from Redis (written every 60s by beat). Returns unhealthy if heartbeat is older than 5 minutes.
+        Check that this plane's work scheduler is running.  Reads the scheduler's `last_tick` from `work_schedules`. The scheduler writes it each time it fires an entry, and the schedule has several every-minute entries, so a heartbeat older than 5 minutes means it stopped. The response keeps the fields this route has always returned (`beat_running`, `last_heartbeat`, `age_seconds`).
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -231,7 +237,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -320,7 +329,7 @@ class HealthApi:
     ) -> HealthCheckResponse:
         """Healthcheck Deep
 
-        Full health check — pings every dependent service with aggressive per-service timeouts (500ms) so total wall time stays under ~3s even when a service is slow.  Use the ``deep=true`` query parameter for additional data-plane verification (e.g. reading from MongoDB collections, probing MVS namespaces, inspecting Celery workers).
+        Full health check — pings every dependent service with aggressive per-service timeouts (500ms) so total wall time stays under ~3s even when a service is slow.  Use the ``deep=true`` query parameter for additional data-plane verification (e.g. reading from MongoDB collections, probing MVS namespaces, listing the live work dispatchers).
 
         :param deep:
         :type deep: bool
@@ -363,8 +372,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -397,7 +408,7 @@ class HealthApi:
     ) -> ApiResponse[HealthCheckResponse]:
         """Healthcheck Deep
 
-        Full health check — pings every dependent service with aggressive per-service timeouts (500ms) so total wall time stays under ~3s even when a service is slow.  Use the ``deep=true`` query parameter for additional data-plane verification (e.g. reading from MongoDB collections, probing MVS namespaces, inspecting Celery workers).
+        Full health check — pings every dependent service with aggressive per-service timeouts (500ms) so total wall time stays under ~3s even when a service is slow.  Use the ``deep=true`` query parameter for additional data-plane verification (e.g. reading from MongoDB collections, probing MVS namespaces, listing the live work dispatchers).
 
         :param deep:
         :type deep: bool
@@ -440,8 +451,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -474,7 +487,7 @@ class HealthApi:
     ) -> RESTResponseType:
         """Healthcheck Deep
 
-        Full health check — pings every dependent service with aggressive per-service timeouts (500ms) so total wall time stays under ~3s even when a service is slow.  Use the ``deep=true`` query parameter for additional data-plane verification (e.g. reading from MongoDB collections, probing MVS namespaces, inspecting Celery workers).
+        Full health check — pings every dependent service with aggressive per-service timeouts (500ms) so total wall time stays under ~3s even when a service is slow.  Use the ``deep=true`` query parameter for additional data-plane verification (e.g. reading from MongoDB collections, probing MVS namespaces, listing the live work dispatchers).
 
         :param deep:
         :type deep: bool
@@ -517,8 +530,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -653,7 +668,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -721,7 +739,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -789,7 +810,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -913,7 +937,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -981,7 +1008,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1049,7 +1079,10 @@ class HealthApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -31,7 +31,7 @@ class ListInteractionsResponse(BaseModel):
     """ # noqa: E501
     results: List[InteractionResponse] = Field(description="List of interactions matching the query filters")
     pagination: PaginationResponse = Field(description="Pagination information for navigating result pages")
-    items: List[InteractionResponse] = Field(description="Alias for ``results``, always populated identically.  Other list endpoints and the SDK conventionally read ``items``, so a caller doing ``resp[\"items\"]`` (or ``.get(\"items\")``) previously got an empty/missing list here and silently saw \"no interactions\". Exposing both keys removes that footgun (FRUSTRATIONS 2026-06-25 | API/DX).")
+    items: List[InteractionResponse] = Field(description="Deprecated alias of `results`, kept for existing clients. Read `results`, the row key every list route shares.")
     __properties: ClassVar[List[str]] = ["results", "pagination", "items"]
 
     model_config = ConfigDict(

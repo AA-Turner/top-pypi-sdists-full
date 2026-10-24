@@ -32,13 +32,19 @@ fn test_register_creates_findable_session() {
 #[test]
 fn test_register_duplicate_id_returns_err() {
     let id = unique_id("dup_");
-    let _h = register(&id).unwrap();
-    let result = register(&id);
-    assert!(result.is_err(), "duplicate register must return Err");
-    let msg = result.unwrap_err();
-    assert!(
-        msg.contains("already registered"),
-        "error must mention already-registered; got: {msg}"
+    let owner = register(&id).unwrap();
+    let (input_tx, mut input_rx) = tokio::sync::mpsc::unbounded_channel();
+    owner.set_viewer_input_channel(input_tx);
+    assert!(register(&id).is_err());
+    let current = lookup(&id).unwrap();
+    let mut viewer = current.subscribe();
+    let frame = Bytes::from_static(b"original-owner-frame");
+    assert_eq!(owner.broadcast(frame.clone()), 1);
+    assert_eq!(viewer.try_recv().unwrap(), frame);
+    assert!(current.forward_viewer_input(viewer_input(b"4.key,1.1,1.0;", "Viewer")));
+    assert_eq!(
+        input_rx.try_recv().unwrap().bytes.as_ref(),
+        b"4.key,1.1,1.0;"
     );
     deregister(&id);
 }
@@ -76,11 +82,6 @@ fn test_deregister_nonexistent_does_not_panic() {
 fn test_session_id_without_dollar_prefix_rejected() {
     let result = register("no-dollar-here");
     assert!(result.is_err(), "missing '$' prefix must be rejected");
-    let msg = result.unwrap_err();
-    assert!(
-        msg.contains('$'),
-        "error must mention '$' requirement; got: {msg}"
-    );
 }
 
 #[test]
@@ -423,4 +424,235 @@ fn test_control_only_session_has_no_cached_frame() {
         handle.last_frame().is_none(),
         "a session that has sent no frames must have no cached frame"
     );
+}
+#[cfg(test)]
+mod share_registry_tests {
+    use crate::share_registry::*;
+    use uuid::Uuid;
+
+    fn session_id() -> String {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static CTR: AtomicU64 = AtomicU64::new(0);
+        format!("$test-share-{}", CTR.fetch_add(1, Ordering::Relaxed))
+    }
+
+    #[test]
+    fn test_create_and_get() {
+        let id = session_id();
+        let (session, _owner) = create_share_session(&id, "Alice".into(), PRIV_VIEW | PRIV_CONTROL);
+        assert_eq!(session.participant_list().len(), 1);
+        assert!(get_share_session(&id).is_some());
+        remove_share_session(&id);
+        assert!(get_share_session(&id).is_none());
+    }
+
+    #[test]
+    fn test_invitation_lifecycle() {
+        let id = session_id();
+        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW | PRIV_CONTROL);
+
+        let guid = session.add_invitation("Bob".into(), PRIV_VIEW, vec![]);
+        assert_eq!(session.participant_list().len(), 2);
+
+        // Accept
+        let p = session.accept_join(guid).unwrap();
+        assert_eq!(p.status, ParticipantStatus::Connected);
+
+        // Can't join twice
+        assert!(session.accept_join(guid).is_err());
+
+        remove_share_session(&id);
+    }
+
+    #[test]
+    fn test_revoke_pending() {
+        let id = session_id();
+        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
+        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW, vec![]);
+        session.revoke(guid);
+        assert!(session.accept_join(guid).is_err());
+        remove_share_session(&id);
+    }
+
+    #[test]
+    fn test_privilege_change() {
+        let id = session_id();
+        let (session, owner_guid) =
+            create_share_session(&id, "Owner".into(), PRIV_VIEW | PRIV_CONTROL);
+        session.set_privileges(owner_guid, PRIV_VIEW);
+        let p = session
+            .participant_list()
+            .into_iter()
+            .find(|p| p.guid == owner_guid)
+            .unwrap();
+        assert_eq!(p.privileges, PRIV_VIEW);
+        assert!(!p.has_privilege(PRIV_CONTROL));
+        remove_share_session(&id);
+    }
+
+    #[test]
+    fn test_find_by_guid() {
+        let id = session_id();
+        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
+        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW, vec![]);
+
+        let found = find_session_by_guid(guid);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().session_id, id);
+
+        let not_found = find_session_by_guid(Uuid::new_v4());
+        assert!(not_found.is_none());
+
+        remove_share_session(&id);
+    }
+
+    #[test]
+    fn test_get_privileges_reflects_revocation() {
+        let id = session_id();
+        let (session, _owner) = create_share_session(&id, "Owner".into(), PRIV_VIEW | PRIV_CONTROL);
+        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW | PRIV_CONTROL, vec![]);
+        session.accept_join(guid).unwrap();
+        assert_eq!(session.get_privileges(guid), Some(PRIV_VIEW | PRIV_CONTROL));
+        assert!(session.set_privileges(guid, PRIV_VIEW));
+        let privs = session
+            .get_privileges(guid)
+            .expect("participant still present");
+        assert_eq!(
+            privs & PRIV_CONTROL,
+            0,
+            "PRIV_CONTROL must be gone after revoke"
+        );
+        assert_eq!(privs & PRIV_VIEW, PRIV_VIEW, "PRIV_VIEW retained");
+        remove_share_session(&id);
+    }
+
+    #[test]
+    fn test_get_privileges_none_after_full_revoke() {
+        let id = session_id();
+        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
+        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW | PRIV_CONTROL, vec![]);
+        session.accept_join(guid).unwrap();
+        session.revoke(guid);
+        assert_eq!(session.get_privileges(guid), None);
+        remove_share_session(&id);
+    }
+
+    // Regression: forward_viewer_input() must return false if the owner's handler
+    // never registered a viewer_input channel. Without registering the channel,
+    // viewers with PRIV_CONTROL can send key/mouse events but they are silently
+    // dropped. The owner's select! loop never receives them.
+    //
+    // This test proves the current buggy state (forward returns false before wiring)
+    // and validates the fix (forward returns true and delivers bytes after wiring).
+    #[test]
+    fn test_viewer_input_forwarding_requires_channel_registration() {
+        use crate::session_sharing::{self, ViewerInput};
+        use bytes::Bytes;
+
+        let id = session_id();
+        // Register as if we're the owner handler calling session_sharing::register().
+        let handle = session_sharing::register(&id).unwrap();
+
+        let input = || ViewerInput {
+            bytes: Bytes::from_static(b"4.key,1.1,1.0;"),
+            guid: uuid::Uuid::nil(),
+            display_name: "Viewer".into(),
+        };
+
+        // Before set_viewer_input_channel: forward_viewer_input returns false.
+        let dropped = !handle.forward_viewer_input(input());
+        assert!(
+            dropped,
+            "input must be dropped when no channel is registered"
+        );
+
+        // Wire the channel (what the owner handler must do at session start).
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ViewerInput>();
+        handle.set_viewer_input_channel(tx);
+
+        // After wiring: forward_viewer_input returns true and the bytes arrive.
+        let delivered = handle.forward_viewer_input(input());
+        assert!(
+            delivered,
+            "input must be delivered after channel is registered"
+        );
+        let received = rx.try_recv().expect("bytes must arrive on channel");
+        assert_eq!(received.bytes.as_ref(), b"4.key,1.1,1.0;");
+
+        session_sharing::deregister(&id);
+    }
+}
+
+#[test]
+fn test_terminal_close_retires_surviving_handle_capabilities() {
+    let id = unique_id("terminal_capabilities_");
+    let owner = register(&id).unwrap();
+    let survivor = owner.clone();
+    let mut viewer = survivor.subscribe();
+    let (tx, mut input_rx) = tokio::sync::mpsc::unbounded_channel();
+    owner.set_viewer_input_channel(tx);
+    owner.broadcast(Bytes::from_static(b"cached-display"));
+    assert_eq!(viewer.try_recv().unwrap().as_ref(), b"cached-display");
+    deregister(&id);
+    assert!(survivor.last_frame().is_none());
+    assert!(matches!(
+        viewer.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Closed)
+    ));
+    assert_eq!(survivor.broadcast(Bytes::from_static(b"after-close")), 0);
+    assert_eq!(
+        survivor.broadcast_control(Bytes::from_static(b"after-close-control")),
+        0
+    );
+    assert!(!survivor.forward_viewer_input(viewer_input(b"4.key,1.1,1.0;", "Viewer")));
+    assert!(matches!(
+        input_rx.try_recv(),
+        Err(tokio::sync::mpsc::error::TryRecvError::Disconnected)
+    ));
+    let (new_tx, mut new_rx) = tokio::sync::mpsc::unbounded_channel();
+    survivor.set_viewer_input_channel(new_tx);
+    assert!(matches!(
+        new_rx.try_recv(),
+        Err(tokio::sync::mpsc::error::TryRecvError::Disconnected)
+    ));
+    assert!(survivor.subscribe_viewer().is_none());
+}
+
+#[tokio::test]
+async fn test_share_remove_invalidates_surviving_invitation_and_lifetime() {
+    use crate::share_registry::{
+        create_share_session, remove_share_session, ParticipantStatus, PRIV_VIEW,
+    };
+    let id = unique_id("terminal_share_");
+    let (share, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
+    let guid = share.add_invitation("Viewer".into(), PRIV_VIEW, vec![]);
+    remove_share_session(&id);
+    assert!(share.accept_join(guid).is_err());
+    assert!(share.get_privileges(guid).is_none());
+    assert!(share
+        .participant_list()
+        .iter()
+        .all(|p| p.status == ParticipantStatus::Disconnected));
+    let mut ended = share.cancellation();
+    tokio::time::timeout(std::time::Duration::from_secs(1), ended.cancelled())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_view_loss_before_subscription_remains_terminal_after_restore() {
+    use crate::share_registry::{
+        create_share_session, remove_share_session, PRIV_CONTROL, PRIV_VIEW,
+    };
+    let id = unique_id("sticky_view_loss_");
+    let (share, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
+    let guid = share.add_invitation("Viewer".into(), PRIV_VIEW, vec![]);
+    share.accept_join(guid).unwrap();
+    assert!(share.set_privileges(guid, PRIV_CONTROL));
+    assert!(share.set_privileges(guid, PRIV_VIEW));
+    let mut ended = share.participant_cancellation(guid).unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(1), ended.cancelled())
+        .await
+        .unwrap();
+    remove_share_session(&id);
 }

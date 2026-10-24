@@ -132,6 +132,26 @@ agx_version_manager_instance = definition_version_manager_instance
 agx_shortcut_manager_instance = shortcut_manager_instance
 
 
+AGENT_DEFINITION_FRESHNESS_EXT = "agent_definition_freshness"
+
+
+async def ensure_definition_cache_fresh() -> None:
+    """Bound the cached agent rows' staleness before the ORM path trusts them.
+
+    The ORM identity cache holds ``agent.definition`` / ``definition_version`` rows so a
+    run never pays a round trip for a row that rarely changes. What keeps them honest
+    across processes is the HOST's business: a host installs an async no-argument
+    callable as the ``agent_definition_freshness`` ``_ext`` entry (aidream: the fleet
+    freshness stamp), awaited here on every execution-path load. It must be ~free
+    inside its bound window. Unconfigured, nothing happens (a standalone or client host
+    owns its own cache story).
+    """
+    from matrx_ai._ext import get_ext, has_ext
+
+    if has_ext(AGENT_DEFINITION_FRESHNESS_EXT):
+        await get_ext(AGENT_DEFINITION_FRESHNESS_EXT)()
+
+
 class AgxManagers:
     _instance: AgxManagers | None = None
 
@@ -155,6 +175,7 @@ class AgxManagers:
         loaded = await try_load_from_execution_source(resolved_id, is_version=is_version)
         if loaded is not None:
             return loaded
+        await ensure_definition_cache_fresh()
         if is_version:
             return await self.definition_version.to_config(resolved_id)
         return await self.definition.to_config(resolved_id)

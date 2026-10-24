@@ -32,6 +32,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     DescribeBlueGreenDeploymentsPaginator,
     DescribeCertificatesPaginator,
+    DescribeDBCapacityReservationsPaginator,
     DescribeDBClusterAutomatedBackupsPaginator,
     DescribeDBClusterBacktracksPaginator,
     DescribeDBClusterEndpointsPaginator,
@@ -85,6 +86,8 @@ from .type_defs import (
     AuthorizeDBSecurityGroupIngressMessageTypeDef,
     AuthorizeDBSecurityGroupIngressResultTypeDef,
     BacktrackDBClusterMessageTypeDef,
+    CancelDBCapacityReservationRequestTypeDef,
+    CancelDBCapacityReservationResponseTypeDef,
     CancelExportTaskMessageTypeDef,
     CertificateMessageTypeDef,
     CopyDBClusterParameterGroupMessageTypeDef,
@@ -100,6 +103,8 @@ from .type_defs import (
     CreateBlueGreenDeploymentRequestTypeDef,
     CreateBlueGreenDeploymentResponseTypeDef,
     CreateCustomDBEngineVersionMessageTypeDef,
+    CreateDBCapacityReservationRequestTypeDef,
+    CreateDBCapacityReservationResponseTypeDef,
     CreateDBClusterEndpointMessageTypeDef,
     CreateDBClusterMessageTypeDef,
     CreateDBClusterParameterGroupMessageTypeDef,
@@ -195,6 +200,8 @@ from .type_defs import (
     DescribeBlueGreenDeploymentsRequestTypeDef,
     DescribeBlueGreenDeploymentsResponseTypeDef,
     DescribeCertificatesMessageTypeDef,
+    DescribeDBCapacityReservationsRequestTypeDef,
+    DescribeDBCapacityReservationsResponseTypeDef,
     DescribeDBClusterAutomatedBackupsMessageTypeDef,
     DescribeDBClusterBacktracksMessageTypeDef,
     DescribeDBClusterEndpointsMessageTypeDef,
@@ -277,6 +284,8 @@ from .type_defs import (
     ModifyCertificatesResultTypeDef,
     ModifyCurrentDBClusterCapacityMessageTypeDef,
     ModifyCustomDBEngineVersionMessageTypeDef,
+    ModifyDBCapacityReservationRequestTypeDef,
+    ModifyDBCapacityReservationResponseTypeDef,
     ModifyDBClusterEndpointMessageTypeDef,
     ModifyDBClusterMessageTypeDef,
     ModifyDBClusterParameterGroupMessageTypeDef,
@@ -414,6 +423,9 @@ class Exceptions(BaseClientExceptions):
     CustomDBEngineVersionAlreadyExistsFault: type[BotocoreClientError]
     CustomDBEngineVersionNotFoundFault: type[BotocoreClientError]
     CustomDBEngineVersionQuotaExceededFault: type[BotocoreClientError]
+    DBCapacityReservationAlreadyExistsFault: type[BotocoreClientError]
+    DBCapacityReservationNotFoundFault: type[BotocoreClientError]
+    DBCapacityReservationUnsupportedFault: type[BotocoreClientError]
     DBClusterAlreadyExistsFault: type[BotocoreClientError]
     DBClusterAutomatedBackupNotFoundFault: type[BotocoreClientError]
     DBClusterAutomatedBackupQuotaExceededFault: type[BotocoreClientError]
@@ -487,6 +499,7 @@ class Exceptions(BaseClientExceptions):
     IntegrationQuotaExceededFault: type[BotocoreClientError]
     InvalidBlueGreenDeploymentStateFault: type[BotocoreClientError]
     InvalidCustomDBEngineVersionStateFault: type[BotocoreClientError]
+    InvalidDBCapacityReservationStateFault: type[BotocoreClientError]
     InvalidDBClusterAutomatedBackupStateFault: type[BotocoreClientError]
     InvalidDBClusterCapacityFault: type[BotocoreClientError]
     InvalidDBClusterEndpointStateFault: type[BotocoreClientError]
@@ -656,6 +669,16 @@ class RDSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#backtrack_db_cluster)
         """
 
+    async def cancel_db_capacity_reservation(
+        self, **kwargs: Unpack[CancelDBCapacityReservationRequestTypeDef]
+    ) -> CancelDBCapacityReservationResponseTypeDef:
+        """
+        Cancels a DB capacity reservation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/cancel_db_capacity_reservation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#cancel_db_capacity_reservation)
+        """
+
     async def cancel_export_task(
         self, **kwargs: Unpack[CancelExportTaskMessageTypeDef]
     ) -> ExportTaskResponseTypeDef:
@@ -735,6 +758,16 @@ class RDSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/create_custom_db_engine_version.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#create_custom_db_engine_version)
+        """
+
+    async def create_db_capacity_reservation(
+        self, **kwargs: Unpack[CreateDBCapacityReservationRequestTypeDef]
+    ) -> CreateDBCapacityReservationResponseTypeDef:
+        """
+        Creates a DB capacity reservation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/create_db_capacity_reservation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#create_db_capacity_reservation)
         """
 
     async def create_db_cluster(
@@ -1172,6 +1205,16 @@ class RDSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/describe_certificates.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#describe_certificates)
+        """
+
+    async def describe_db_capacity_reservations(
+        self, **kwargs: Unpack[DescribeDBCapacityReservationsRequestTypeDef]
+    ) -> DescribeDBCapacityReservationsResponseTypeDef:
+        """
+        Describes one or more DB capacity reservations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/describe_db_capacity_reservations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#describe_db_capacity_reservations)
         """
 
     async def describe_db_cluster_automated_backups(
@@ -1731,6 +1774,16 @@ class RDSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/modify_custom_db_engine_version.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#modify_custom_db_engine_version)
+        """
+
+    async def modify_db_capacity_reservation(
+        self, **kwargs: Unpack[ModifyDBCapacityReservationRequestTypeDef]
+    ) -> ModifyDBCapacityReservationResponseTypeDef:
+        """
+        Modifies a DB capacity reservation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/modify_db_capacity_reservation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#modify_db_capacity_reservation)
         """
 
     async def modify_db_cluster(
@@ -2298,6 +2351,17 @@ class RDSClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_certificates"]
     ) -> DescribeCertificatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_db_capacity_reservations"]
+    ) -> DescribeDBCapacityReservationsPaginator:
         """
         Create a paginator for an operation.
 

@@ -529,6 +529,7 @@ __all__ = (
     "AnalysisPacketHeaderTypeDef",
     "AnalysisRouteTableRouteTypeDef",
     "AnalysisSecurityGroupRuleTypeDef",
+    "AnalysisTransitGatewayPolicyTableEntryTypeDef",
     "ApplicationStatusCheckAssociationObjectTypeDef",
     "ApplicationStatusCheckResponseObjectTypeDef",
     "ApplicationStatusDetailTypeDef",
@@ -2843,6 +2844,7 @@ __all__ = (
     "PeeringTgwInfoTypeDef",
     "PerformanceFactorReferenceRequestTypeDef",
     "PerformanceFactorReferenceTypeDef",
+    "PerformanceStatusSummaryTypeDef",
     "Phase1DHGroupNumbersListValueTypeDef",
     "Phase1DHGroupNumbersRequestListValueTypeDef",
     "Phase1EncryptionAlgorithmsListValueTypeDef",
@@ -7873,6 +7875,12 @@ class InstanceStatusEventTypeDef(TypedDict):
     NotBeforeDeadline: NotRequired[datetime]
 
 
+class PerformanceStatusSummaryTypeDef(TypedDict):
+    Status: NotRequired[SummaryStatusType]
+    ImpairedSince: NotRequired[datetime]
+    Remediation: NotRequired[str]
+
+
 class LicenseConfigurationTypeDef(TypedDict):
     LicenseConfigurationArn: NotRequired[str]
 
@@ -11820,6 +11828,18 @@ AnalysisSecurityGroupRuleTypeDef = TypedDict(
         "PortRange": NotRequired[PortRangeTypeDef],
         "PrefixListId": NotRequired[str],
         "Protocol": NotRequired[str],
+    },
+)
+AnalysisTransitGatewayPolicyTableEntryTypeDef = TypedDict(
+    "AnalysisTransitGatewayPolicyTableEntryTypeDef",
+    {
+        "RuleNumber": NotRequired[int],
+        "Protocol": NotRequired[str],
+        "SourceCidr": NotRequired[str],
+        "DestinationCidr": NotRequired[str],
+        "SourcePortRange": NotRequired[PortRangeTypeDef],
+        "DestinationPortRange": NotRequired[PortRangeTypeDef],
+        "TargetRouteTableId": NotRequired[str],
     },
 )
 FirewallStatefulRuleTypeDef = TypedDict(
@@ -19291,6 +19311,8 @@ class ExplanationTypeDef(TypedDict):
     TransitGateway: NotRequired[AnalysisComponentTypeDef]
     TransitGatewayRouteTable: NotRequired[AnalysisComponentTypeDef]
     TransitGatewayRouteTableRoute: NotRequired[TransitGatewayRouteTableRouteTypeDef]
+    TransitGatewayPolicyTable: NotRequired[AnalysisComponentTypeDef]
+    TransitGatewayPolicyTableEntry: NotRequired[AnalysisTransitGatewayPolicyTableEntryTypeDef]
     TransitGatewayAttachment: NotRequired[AnalysisComponentTypeDef]
     ComponentAccount: NotRequired[str]
     ComponentRegion: NotRequired[str]
@@ -20530,6 +20552,7 @@ class InstanceStatusTypeDef(TypedDict):
     SystemStatus: NotRequired[InstanceStatusSummaryTypeDef]
     AttachedEbsStatus: NotRequired[EbsStatusSummaryTypeDef]
     ApplicationStatus: NotRequired[ApplicationStatusSummaryTypeDef]
+    PerformanceStatus: NotRequired[PerformanceStatusSummaryTypeDef]
 
 
 class ImageTypeDef(TypedDict):
@@ -23212,6 +23235,9 @@ PathComponentTypeDef = TypedDict(
         "AdditionalDetails": NotRequired[list[AdditionalDetailTypeDef]],
         "TransitGateway": NotRequired[AnalysisComponentTypeDef],
         "TransitGatewayRouteTableRoute": NotRequired[TransitGatewayRouteTableRouteTypeDef],
+        "TransitGatewayPolicyTableEntry": NotRequired[
+            AnalysisTransitGatewayPolicyTableEntryTypeDef
+        ],
         "Explanations": NotRequired[list[ExplanationTypeDef]],
         "ElasticLoadBalancerListener": NotRequired[AnalysisComponentTypeDef],
         "FirewallStatelessRule": NotRequired[FirewallStatelessRuleTypeDef],

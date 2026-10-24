@@ -36,7 +36,7 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let allowed = self.outer.context.allowed_rules;
+		let allowed = self.outer.context.syntaxes;
 		self.outer
 			.context
 			.guard_terminal_sequence(|| {
@@ -221,7 +221,7 @@ mod test {
 	use nom::{Finish, Parser};
 
 	use super::text;
-	use crate::{context::Context, test_utils::handle_nom_err};
+	use crate::{context::Context, scope::Scope, test_utils::handle_nom_err};
 
 	#[test]
 	fn simple_text() {
@@ -324,7 +324,8 @@ mod test {
 	#[test]
 	fn unrecognised_escape_does_not_consume_terminal_sequence() {
 		let s = "foo\\\nbar";
-		let (rem, res) = text(Context::default())
+		// a paragraph's line, which ends at the newline
+		let (rem, res) = text(Context::default().with_scope(Scope::InlineBlock))
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

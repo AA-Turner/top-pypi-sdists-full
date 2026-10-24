@@ -121,6 +121,7 @@ class UnifiedConfigModel(BaseModel):
     internal_web_search: bool | None = None
     internal_url_context: bool | None = None
     internal_x_search: bool | None = None  # never populated in 6,485 stored configs
+    hosted_tool_options: dict[str, Any] | None = None
     aspect_ratio: str | None = None
     width: int | None = None  # never populated in 6,485 stored configs
     height: int | None = None  # never populated in 6,485 stored configs

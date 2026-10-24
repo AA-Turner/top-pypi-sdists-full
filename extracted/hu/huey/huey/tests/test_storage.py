@@ -77,6 +77,7 @@ class StorageTests(object):
         self.s.put_data('k2', b'v2')
         self.assertEqual(self.s.result_items(), {'k1': b'v1', 'k2': b'v2'})
 
+    @slow_test()
     def test_put_if_empty_ttl(self):
         if not self.supports_ttl:
             self.assertRaises(NotImplementedError, self.s.put_if_empty,
@@ -543,6 +544,25 @@ class TestSqliteStorage(StorageTests, BaseTestCase):
             if os.path.exists('huey_ct.db'):
                 os.unlink('huey_ct.db')
 
+    def test_first_open_waits_for_write_lock(self):
+        # Switching a new database to WAL must wait out another connection's
+        # write lock rather than fail.
+        conn = sqlite3.connect('huey_first.db', isolation_level=None,
+                               check_same_thread=False)
+        conn.execute('begin immediate')
+        t = threading.Timer(0.1, conn.execute, ('commit',))
+        t.start()
+        try:
+            huey = SqliteHuey(filename='huey_first.db')
+            self.assertEqual(huey.pending_count(), 0)
+            huey.storage.close()
+        finally:
+            t.join()
+            conn.close()
+            for suffix in ('', '-wal', '-shm'):
+                if os.path.exists('huey_first.db' + suffix):
+                    os.unlink('huey_first.db' + suffix)
+
     def test_timeout(self):
         self.assertEqual(self.s._timeout, 3)
         curs = self.s.conn.execute('pragma busy_timeout')
@@ -728,6 +748,14 @@ class TestFileStorageMethods(StorageTests, BaseTestCase):
             fh.write(struct.pack('>I', 8) + b'k2')
 
         self.assertEqual(s.result_items(), {'k1': b'v1'})
+
+    def test_filesystem_put_data_atomic(self):
+        s = self.huey.storage
+        s.put_data(b'k1', b'v1')
+        self.assertRaises(TypeError, s.put_data, b'k1', object())
+        self.assertEqual(s.peek_data(b'k1'), b'v1')
+        self.assertEqual(s.result_items(), {'k1': b'v1'})
+        self.assertEqual(s.result_store_size(), 1)
 
     def test_fs_multithreaded(self):
         l = threading.Lock()

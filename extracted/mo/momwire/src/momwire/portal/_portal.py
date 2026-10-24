@@ -160,6 +160,8 @@ stderr; the protocol is byte-identical in all three modes.
 from __future__ import annotations
 
 import contextlib
+import io
+import itertools
 import json
 import math
 import os
@@ -332,8 +334,8 @@ _active_basis_name = "bspline"
 
 __all__ = [
     "BANNER_VERSION",
-    "LEGACY_PROBE_VERSION",
     "PROBE_VERSION",
+    "REMOVED_FLAG_REFUSAL",
     "nec2_launcher_name",
     "probe_version",
     "deck_frame",
@@ -401,11 +403,14 @@ def probe_version(suffix: str | None = None) -> str:
 
 PROBE_VERSION = probe_version()
 
-# The masquerade this build used through v0.46 — versionA's shape, whose tail
-# rides ``Double.valueOf`` against the 1.23 floor. Kept behind ``--legacy-probe``
-# for SimNEC builds old enough to predate versionNECd, until one is confirmed
-# not to exist; the flag rides the portal-dialog command line like --basis.
-LEGACY_PROBE_VERSION = "nec2c.ae6ty.9.1"
+# The one flag this engine used to take and no longer does (momwire#1658): it
+# chose the pre-#828 masquerade answer to `-version`. A portal-dialog command
+# line saved with it is refused at the probe, by name, rather than having the
+# flag dropped silently or read as something else.
+REMOVED_FLAG_REFUSAL = (
+    "--legacy-probe was removed in momwire 0.83.0; "
+    "drop it from the portal dialog command line"
+)
 
 # The banner inside a printout is NOT version-checked: the four regexes are
 # ``lookingAt()``, i.e. anchored, and the banner line is prefixed ``VERSION:``
@@ -777,11 +782,12 @@ _DECK_REFUSALS = (PortalError, DeckError)
 
 # Cards echoed inside STRUCTURE SPECIFICATION rather than as DATA CARD lines.
 # The dialect's geometry is GW with GM / GS / GX / GR transforms and the GE
-# terminator; GA/GH are refused by name upstream, so nothing else reaches
-# here. GX and GR joined when momwire#415 served them — a geometry card
-# echoing as a DATA CARD line would diverge from nec2c's printout, which the
-# #415 differential fixtures pin.
-_GEOMETRY_CARDS = frozenset({"GW", "GM", "GS", "GX", "GR", "GE"})
+# terminator; the nec2 dialect refuses GA/GH by name upstream, and only the
+# nec4 one (momwire#1592: NEC-4.2's arc and helix) lets them reach here. GX
+# and GR joined when momwire#415 served them — a geometry card echoing as a
+# DATA CARD line would diverge from nec2c's printout, which the #415
+# differential fixtures pin.
+_GEOMETRY_CARDS = frozenset({"GW", "GA", "GH", "GM", "GS", "GX", "GR", "GE"})
 
 # Cards that RUN the pending excitation group. ``RP``/``NE``/``NH`` are not
 # just report requests: nec2c executes on reading them and then prints their
@@ -1272,6 +1278,16 @@ class PortalDeck:
     structure: object | None = None
 
 
+def _geometry_builders(dialect: str):
+    """The geometry builders the dialect's own reader runs: the nec4 one's
+    add GA and GH (momwire#1592), the nec2 one's are `build_geometry`'s."""
+    if dialect == "nec4":
+        from ..deck._nec4 import _NEC4_GEOMETRY_BUILDERS
+
+        return _NEC4_GEOMETRY_BUILDERS
+    return None
+
+
 def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
     """A deck body's cards, grouped the way the engine executes them.
 
@@ -1386,7 +1402,7 @@ def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
         quiet=model.quiet,
         reduced_field=model.reduced_field,
         model=model,
-        structure=build_geometry(geometry),
+        structure=build_geometry(geometry, _geometry_builders(dialect)),
     )
 
 
@@ -3013,6 +3029,56 @@ def _solver_for(deck: PortalDeck) -> DeckSolver:
 # --------------------------------------------------------------------------
 
 
+def _arc_or_helix_rows(card: Card, wire_no: int, seg_total: int) -> list[str]:
+    """A ``GA`` or ``GH`` card's lines in the STRUCTURE SPECIFICATION, as
+    nec2c's ``datagn`` (cases 8 and 10) and ``helix`` print them
+    (momwire#1651, ``tests/fixtures/nec2_ga_gh_1651``).
+
+    ``GA``: one row, the arc radius and its two angles where a ``GW`` prints
+    its ends.  ``GH``: the spacing, length and wire radius with the segment
+    columns, the four helix radii as written (trailing blank included), and
+    one line of nec2c's own arithmetic -- the cone angle of a tapered helix
+    (printed in RADIANS, as nec2c does) or the pitch angle and the wire length
+    per turn of a constant-radius one.  The elliptical form's diameter is
+    nec2c's expression as written, ``sqrt((M*M + m*m)/2*M)``."""
+    n_seg, tag = card.i(1), card.i(0)
+    first, last = seg_total + 1, seg_total + n_seg
+    if card.mnemonic == "GA":
+        return [
+            f" {wire_no:5d} ARC RADIUS: {card.f(2):9.5f}  FROM: {card.f(3):8.3f}"
+            f" TO: {card.f(4):8.3f} DEGREES       {card.f(5):11.5f}"
+            f" {n_seg:5d} {first:5d} {last:5d} {tag:4d}"
+        ]
+    s, hl, a1, b1, a2, b2, rad = (card.f(k) for k in range(2, 9))
+    rows = [
+        f" {wire_no:5d} HELIX STRUCTURE - SPACING OF TURNS: {s:8.3f} AXIAL"
+        f" LENGTH: {hl:8.3f}  {rad:8.3f} {n_seg:5d} {first:5d} {last:5d} {tag:4d}",
+        f"       RADIUS X1:{a1:8.3f} Y1:{b1:8.3f} X2:{a2:8.3f} Y2:{b2:8.3f} ",
+    ]
+    if a2 != a1:
+        cone = math.atan(a2 / (abs(hl) + (abs(hl) * a1) / (a2 - a1)))
+        rows.append(f"       THE CONE ANGLE OF THE SPIRAL IS {cone:10.4f}")
+        return rows
+    if b1 == 0.0:
+        # `helix` defaults B1 to A1 inside its segment loop, before this.
+        b1 = a1
+    if a1 == b1:
+        hdia = 2.0 * a1
+        pitch = math.atan(s / (math.pi * hdia))
+        turn = hdia * math.pi / math.cos(pitch)
+        pitch = 180.0 * pitch / math.pi
+    else:
+        hmaj, hmin = (2.0 * a1, 2.0 * b1) if a1 >= b1 else (2.0 * b1, 2.0 * a1)
+        hdia = math.sqrt((hmaj * hmaj + hmin * hmin) / 2 * hmaj)
+        turn = 2.0 * math.pi * hdia
+        pitch = (180.0 / math.pi) * math.atan(s / (math.pi * hdia))
+    rows.append(
+        f"       THE PITCH ANGLE IS: {pitch:.4f}    THE LENGTH OF WIRE/TURN IS:"
+        f" {turn:.4f}"
+    )
+    return rows
+
+
 def _structure_rows(deck: PortalDeck, solver: DeckSolver) -> list[str]:
     """The STRUCTURE SPECIFICATION body: the geometry cards as the deck wrote
     them, with the transform annotations the oracle interleaves."""
@@ -3042,6 +3108,10 @@ def _structure_rows(deck: PortalDeck, solver: DeckSolver) -> list[str]:
                 )
             )
             seg_total += n_seg
+        elif card.mnemonic in ("GA", "GH"):
+            wire_no += 1
+            rows += _arc_or_helix_rows(card, wire_no, seg_total)
+            seg_total += card.i(1)
         elif card.mnemonic == "GX":
             # nec2c geometry.c case 1: flags normalized to 0/1, printed X Y Z
             # with '*' for an unselected plane, then reflc doubles N per
@@ -4158,10 +4228,10 @@ def _basis_refusal(name: str, source: str) -> str:
 
 def configure_engine(
     argv: list[str], stdout, prog: str | None = None
-) -> tuple[list[str], bool, int | None]:
+) -> tuple[list[str], int | None]:
     """Read the engine flags off the command line; return what is left.
 
-    ``(rest, legacy_probe, code)`` — a non-``None`` ``code`` is an exit status
+    ``(rest, code)`` — a non-``None`` ``code`` is an exit status
     whose message has already gone to ``stdout``.
 
     Split out of :func:`main` (#379) so the shared server reads its command
@@ -4208,6 +4278,12 @@ def configure_engine(
     _cache_stats_path = None
     _reset_solver_cache()
     rest = list(argv)
+    # Refused like an unknown --basis, and for its reason: the -version probe
+    # is where SimNEC shows the mistake (momwire#1658).
+    if "--legacy-probe" in rest:
+        stdout.write(f"{REMOVED_FLAG_REFUSAL}\n")
+        stdout.flush()
+        return [], 3
     explicit = False
     while "--basis" in rest or any(a.startswith("--basis=") for a in rest):
         if "--basis" in rest:
@@ -4220,7 +4296,7 @@ def configure_engine(
         if name not in _BASES:
             stdout.write(_basis_refusal(name, "--basis"))
             stdout.flush()
-            return [], False, 3
+            return [], 3
         _active_basis = _BASES[name]
         _active_basis_name = name
         explicit = True
@@ -4238,7 +4314,7 @@ def configure_engine(
             if name not in _BASES:
                 stdout.write(_basis_refusal(name, source))
                 stdout.flush()
-                return [], False, 3
+                return [], 3
             _active_basis = _BASES[name]
             _active_basis_name = name
 
@@ -4263,7 +4339,7 @@ def configure_engine(
         if not path or path.startswith("-"):
             stdout.write("--cache-stats needs a file path\n")
             stdout.flush()
-            return [], False, 3
+            return [], 3
         _cache_stats_path = path
 
     # --save-decks DIR writes every deck received to DIR (momwire#1080), so a
@@ -4285,7 +4361,7 @@ def configure_engine(
         if not save_dir or save_dir.startswith("-"):
             stdout.write("--save-decks needs a directory\n")
             stdout.flush()
-            return [], False, 3
+            return [], 3
     if save_dir is None:
         save_dir = os.environ.get("MOMWIRE_NEC2C_SAVE_DECKS") or None
     if save_dir is not None:
@@ -4295,7 +4371,7 @@ def configure_engine(
                 f"--save-decks: {save_dir!r} is not a directory; create it first\n"
             )
             stdout.flush()
-            return [], False, 3
+            return [], 3
         _save_decks_dir = save_dir
 
     # --cache is a bare flag on purpose: it has no parameter to get wrong, and
@@ -4303,14 +4379,7 @@ def configure_engine(
     _cache_serving = "--cache" in rest
     argv = [a for a in rest if a != "--cache"]
 
-    # --legacy-probe swaps the honest versionNECd identity for the pre-#828
-    # versionA masquerade — for a SimNEC build old enough to predate
-    # versionNECd, should one surface. Deck behavior is identical either way
-    # (the probe response sets no engine state; see PROBE_VERSION).
-    legacy_probe = "--legacy-probe" in argv
-    argv = [a for a in argv if a != "--legacy-probe"]
-
-    return argv, legacy_probe, None
+    return argv, None
 
 
 @contextlib.contextmanager
@@ -4408,6 +4477,85 @@ def resident_loop(stdin, stdout, stderr, solve_lock=None) -> int:
     return run_session(portal_seam(), stdin, stdout, stderr, solve_lock)
 
 
+# --------------------------------------------------------------------------
+# the launcher shell's call forms (momwire#1611 stage 1)
+# --------------------------------------------------------------------------
+
+
+def file_printout(text: str) -> str:
+    """A deck FILE's whole printout: what :func:`resident_loop` writes on
+    stdout for ``text`` arriving on stdin, so ``momwire-nec2c in out`` and
+    ``momwire-nec2c < in > out`` answer the same text.
+
+    The start-up banner, each structure's frame (and its trailing banner
+    after an ``NX``), and the end of the file closing the last deck as
+    ``EN`` does (#458).  Line endings are read universally, as a text stdin
+    reads them.  Whatever the deck sends to stderr (the ``reducedField``
+    line) still goes to this process's stderr.
+    """
+    out, err = io.StringIO(), io.StringIO()
+    resident_loop(io.StringIO(text, newline=None), out, err)
+    if err.getvalue():
+        sys.stderr.write(err.getvalue())
+        sys.stderr.flush()
+    return out.getvalue()
+
+
+def file_refusal(text: str | None, reason: str) -> str:
+    """The printout for a deck file the shell could not serve at all (one it
+    cannot read, an internal error): the start-up banner and the refusal
+    frame :func:`render_deck` prints for a deck it refuses, closed by an
+    ``EN`` echo as a standalone deck is."""
+    out = ["", "", ""]
+    _append_error(out, PortalError(reason))
+    out.append(fmt_data_card(1, Card("EN", (), "EN")))
+    return "\n".join([*_banner_lines(), *out]) + "\n"
+
+
+def _shell_forms(args: list[str], stdin, stdout, stderr, en_optional=False) -> int:
+    """``in out``, ``- -`` and 4nec2's names, answered by the launcher shell
+    every momwire engine shares (:func:`momwire.eznec._shell.main`) with
+    ``dialect="nec2"`` and this module's printout as its front end.
+
+    Imported here and not at the top: SimNEC's resident call, the one every
+    session makes, must not pay for the shell's imports.  ``- -`` is
+    SimNEC's NEC-2 protocol itself, :func:`resident_loop` on this process's
+    stdin and stdout, so a stream answers byte for byte what the bare
+    command answers.
+    """
+    from ..eznec import _shell
+
+    _shell.register_front_end(
+        "nec2",
+        _shell.FrontEnd(
+            render=file_printout,
+            refusal=file_refusal,
+            stream=lambda: resident_loop(stdin, stdout, stderr),
+        ),
+    )
+    return _shell.main(
+        args, basis=_active_basis_name, dialect="nec2", en_optional=en_optional
+    )
+
+
+def _first_line(stdin) -> str | None:
+    """The first line on ``stdin``, or ``None`` when it is a terminal or
+    cannot be read (a terminal goes straight to the resident loop, as it
+    always has: a person typing a deck).  ``None`` too for a stdin that is
+    only an iterable of lines, which :func:`resident_loop` also takes: no
+    file names arrive that way."""
+    if not callable(getattr(stdin, "isatty", None)) or not callable(
+        getattr(stdin, "readline", None)
+    ):
+        return None
+    try:
+        if stdin.isatty():
+            return None
+        return stdin.readline()
+    except (OSError, ValueError):
+        return None
+
+
 def main(
     argv: list[str] | None = None, stdin=None, stdout=None, stderr=None, prog=None
 ) -> int:
@@ -4416,6 +4564,14 @@ def main(
     One invocation is one process: :func:`configure_engine` reads the engine
     off the command line once, then :func:`resident_loop` speaks the protocol
     on the process's own stdin/stdout for as long as SimNEC keeps it.
+
+    The other call forms every momwire launcher answers (momwire#1611) go
+    through the shared launcher shell with this module's printout:
+    ``in out`` writes the deck file's printout to ``out`` (CRLF, as the
+    shell writes every printout); ``- -`` is the resident loop itself; and
+    with no arguments a stdin whose first line is a file name rather than a
+    card (:func:`momwire_serve_client.is_names_line`) is 4nec2's
+    ``ENGINE < nec2d.tmp``, the input and output names one per line.
 
     So the engine this selects is process-global and outlives the call: a
     SECOND ``main()`` in one process is not isolated from the first, and
@@ -4427,18 +4583,38 @@ def main(
     stdout = sys.stdout if stdout is None else stdout
     stderr = sys.stderr if stderr is None else stderr
 
-    argv, legacy_probe, code = configure_engine(list(argv), stdout, prog=prog)
+    argv, code = configure_engine(list(argv), stdout, prog=prog)
     if code is not None:
         return code
 
     if any(a.lstrip("-").lower() == "version" for a in argv):
         suffix = _filename_basis(sys.argv[0] if prog is None else prog)
-        line = LEGACY_PROBE_VERSION if legacy_probe else probe_version(suffix)
-        stdout.write(f"{line}\n")
+        stdout.write(f"{probe_version(suffix)}\n")
         stdout.flush()
         return 0
 
     if any(a.lstrip("-").lower() == "selftest" for a in argv):
         return _selftest(stdout)
 
+    # momwire#1611: the call forms every momwire launcher answers.  Paths on
+    # the command line (`in out`, or `- -`) go to the shared launcher shell;
+    # flags this function does not know are ignored, as they always were.
+    positional = [a for a in argv if a == "-" or not a.startswith("-")]
+    if positional:
+        return _shell_forms(positional, stdin, stdout, stderr)
+
+    # No paths: stdin carries either SimNEC's decks or 4nec2's two file
+    # names (`ENGINE < nec2d.tmp`), told apart by the first line.
+    first = _first_line(stdin)
+    if first:
+        if _mech.is_names_line(first):
+            names = [_mech.strip_path_line(first)]
+            try:
+                second = _mech.strip_path_line(stdin.readline())
+            except (OSError, ValueError):
+                second = ""
+            if second:
+                names.append(second)
+            return _shell_forms(names, stdin, stdout, stderr, en_optional=True)
+        stdin = itertools.chain([first], stdin)
     return resident_loop(stdin, stdout, stderr)

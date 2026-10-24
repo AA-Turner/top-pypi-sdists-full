@@ -17,7 +17,7 @@ dependencies = [
 
 setup(
     name="pytest-mypy-plugins",
-    version="4.0.3",
+    version="4.1.0",
     description="pytest plugin for writing tests for mypy plugins",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -27,13 +27,15 @@ setup(
     author_email="maxim.kurnikov@gmail.com",
     maintainer="Nikita Sobolev",
     maintainer_email="mail@sobolevn.me",
-    packages=["pytest_mypy_plugins"],
+    packages=["pytest_mypy_plugins", "pytest_mypy_plugins.tests", "pytest_mypy_plugins.tests.test_configs"],
     # the following makes a plugin available to pytest
     entry_points={"pytest11": ["pytest-mypy-plugins = pytest_mypy_plugins.collect"]},
     install_requires=dependencies,
     python_requires=">=3.10",
     package_data={
         "pytest_mypy_plugins": ["py.typed", "schema.json"],
+        "pytest_mypy_plugins.tests": ["*.yml"],
+        "pytest_mypy_plugins.tests.test_configs": ["*.ini", "*.toml", "*.cfg"],
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -44,6 +46,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Typing :: Typed",
     ],
 )

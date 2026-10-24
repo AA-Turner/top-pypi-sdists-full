@@ -55,6 +55,10 @@ class FakeAgentBackend:
     def take_cancelled_salvage_ref(self, call_id: str) -> str | None:
         return self._cancelled_salvage_refs.pop(call_id, None)
 
+    async def merged_commit_on_main(self, sha: str) -> bool:
+        """The fake has no git main, so every journaled merge replays."""
+        return True
+
     async def run_call(self, request: AgentCallRequest) -> AgentCallOutcome:
         self.requests.append(request)
         self._in_flight += 1

@@ -47,7 +47,7 @@ export declare class PlayerView extends WidgetView {
     play_animation(): void;
     reverse_animation(): void;
 }
-export declare const LoopPolicy: import("@bokehjs/core/kinds").Kinds.Enum<"loop" | "once" | "reflect">;
+export declare const LoopPolicy: import("@bokehjs/core/kinds").Kinds.Enum<"once" | "loop" | "reflect">;
 export declare namespace Player {
     type Attrs = p.AttrsOf<Props>;
     type Props = Widget.Props & {

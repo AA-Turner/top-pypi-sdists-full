@@ -598,8 +598,40 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     ): "tap plugin killswitch; path pinned by the tap's own tests",
     # Surfaced by the schema refresh of the light experiments' R4 (X15, 2026-10-05):
     # routes main landed for other surfaces while the snapshot was stale.
-    ("GET", "/auth/teams/crash-alerts"): "dashboard team settings: crash-alert emails",
-    ("PUT", "/auth/teams/crash-alerts"): "dashboard team settings: crash-alert emails",
+    # Surfaced by the schema refresh that fixed agent-ci (2026-10-22): routes
+    # main landed for other surfaces while the snapshot was stale.
+    #
+    # auth.md agent sign-up (app/auth/agent_auth/): an outside agent registers and
+    # onboards over plain HTTP, then runs `npx probe-research install` for its
+    # machine credential; the claim pages and connected-agent list are the browser's.
+    ("POST", "/agent/identity"): "auth.md agent registration; outside-agent HTTP surface",
+    ("POST", "/agent/identity/claim"): "auth.md agent claim; outside-agent HTTP surface",
+    ("POST", "/agent/identity/claim/view"): "auth.md claim page; browser surface",
+    ("POST", "/agent/identity/claim/complete"): "auth.md claim page; browser surface",
+    ("GET", "/agent/onboarding"): "auth.md agent onboarding; outside-agent HTTP surface",
+    ("POST", "/agent/onboarding/complete"): "auth.md agent onboarding; outside-agent HTTP surface",
+    ("POST", "/agent/onboarding/invites"): "auth.md agent onboarding; outside-agent HTTP surface",
+    ("POST", "/agent/onboarding/invites/{}/accept"): "auth.md agent onboarding; outside-agent HTTP surface",
+    ("POST", "/agent/onboarding/team"): "auth.md agent onboarding; outside-agent HTTP surface",
+    ("GET", "/auth/agent-registrations"): "dashboard Settings: connected agents",
+    ("DELETE", "/auth/agent-registrations/{}"): "dashboard Settings: connected agents",
+    (
+        "GET",
+        "/.well-known/oauth-protected-resource",
+    ): "OAuth protected-resource discovery; browser/agent surface",
+    ("POST", "/oauth/revoke"): "OAuth token revocation; agent/MCP-client surface",
+    # The tenant digest's email links (app/digest/router.py): anonymous, by token.
+    ("GET", "/digest/l/{}"): "digest email link; a person's browser",
+    ("GET", "/digest/unsubscribe/{}"): "digest email unsubscribe link; a person's browser",
+    ("POST", "/digest/unsubscribe/{}"): "digest one-click unsubscribe (RFC 8058); the mail client",
+    # Direction writes are a person's, from a browser session: the route refuses
+    # a token (app/directions/router.py), so no client could call them.
+    ("PATCH", "/v1/directions/{}"): "browser-session-only direction write (dashboard/digest)",
+    ("POST", "/v1/directions/{}/feedback"): "browser-session-only direction write (dashboard/digest)",
+    ("POST", "/v1/directions/operations/{}/undo"): "browser-session-only direction write (dashboard/digest)",
+    # The founders page (app/ops/router.py): staff signed in through the dashboard.
+    ("GET", "/v1/staff/cluster-health"): "staff founders page; dashboard session only",
+    ("GET", "/v1/staff/usage"): "staff founders page; dashboard session only",
     ("GET", "/public/v1/projects/{}/overview"): "anonymous public share page (dashboard)",
     ("GET", "/public/v1/projects/{}/projects"): "anonymous public share page (dashboard)",
     ("POST", "/public/v1/series/latest"): "anonymous public share page charts (dashboard)",
@@ -743,6 +775,10 @@ PENDING: dict[Op, str] = {
     ("GET", "/v1/projects/{}/sharing"): "dashboard Permissions dialog read; no client lane yet",
     ("GET", "/v1/projects/{}/experiments/{}/sharing"): "dashboard Permissions dialog read; no client lane yet",
     ("POST", "/ingest/v1/sessions/{}/{}/media"): "capture tap pasted-image upload (tap, not the SDK)",
+    # Surfaced 2026-10-22 by the schema refresh that fixed agent-ci: the tenant
+    # digest's direction model, read by the dashboard and the digest email.
+    ("GET", "/v1/directions"): "tenant digest direction tree; dashboard read, no client lane yet",
+    ("GET", "/v1/directions/{}"): "tenant digest direction card; dashboard read, no client lane yet",
     ("GET", "/v1/sessions/{}/media/{}"): "dashboard pasted-image read; no client lane yet",
     # The companion daemon's model gateway (research-os companion-server
     # branch). The daemon that calls it is built on its own branch; when it
@@ -1169,6 +1205,12 @@ CLIENT_AHEAD: dict[Op, str] = {
     ("DELETE", "/v1/workspaces/{}/files/multipart/{}"): "retired workspace multipart: 410 (anchor retirement)",
     ("POST", "/v1/workspace-files/{}/share"): "retired loose-file move: 410 client_too_old (files freeze)",
     ("POST", "/v1/shared/files/{}/unshare"): "retired loose-file move: 410 client_too_old (files freeze)",
+    # AHEAD: diagnostic reports and debug logs (daemon crash logs plan, PR 2a).
+    # The server half is PR #3325; until the schema regen after it, an old
+    # server answers 404, which `probe.core.report` treats as final (no retry).
+    ("POST", "/v1/diagnostics/reports"): "diagnostic reports: server PR #3325; a 404 is final",
+    ("POST", "/v1/diagnostics/bundles"): "debug log upload slot: server PR #3325; a 404 is final",
+    ("POST", "/v1/diagnostics/bundles/{}/complete"): "debug log complete: server PR #3325",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

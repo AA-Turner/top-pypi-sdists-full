@@ -1,73 +1,32 @@
 use std::{collections::HashSet, fmt::Debug, marker::PhantomData, rc::Rc};
 
 use nom::Parser;
-use rule_set::ContextualRules;
 use start_sequence::StartSequence;
+use syntax_set::ContextualSyntaxes;
 use terminal_sequence::TerminalSequence;
 
 use crate::{
 	context::{fuel::Fuel, line_prefix::LinePrefix, matched_pairs::MatchedPairsParser},
 	error::ParseError,
-	grammar::{ByteHint, Grammar, GrammarStruct},
 	range::delim::Offset,
+	scope::Scope,
 };
 
 use super::{
 	Input,
-	grammar::GrammarSet,
 	node::Element,
-	rule::{ParsedRule, ParsedRuleSet, RuleSet},
+	scope::ScopeSet,
 	span::Span,
+	syntax::{Syntax, SyntaxHints, SyntaxSet},
 };
-
-#[cfg(doc)]
-use super::rule::Rule;
 
 pub mod fuel;
 mod line_prefix;
 mod matched_pairs;
-mod rule;
-mod rule_set;
 mod start_sequence;
+mod syntax;
+mod syntax_set;
 mod terminal_sequence;
-
-/// Per-grammar precheck hints stored in [`Context`].
-///
-/// Each field corresponds to a grammar whose inner parser would do O(N) work before
-/// failing on adversarial input. Hints are computed once per top-level
-/// [`crate::node::inline::inline`] call and propagated to all child contexts via
-/// [`Context::with_grammar`].
-///
-/// NOTE: as this struct has a field for each grammar, it is very large.
-// TODO: we can probably optimize the size of this struct by only building it for grammars that need byte hints.
-pub type GrammarHints = GrammarStruct<ByteHint>;
-
-impl GrammarHints {
-	/// Returns `true` if any tracked hint is still `Unknown` and needs to be computed.
-	fn any_unknown(&self) -> bool {
-		self.iter().any(|hint| *hint == ByteHint::Unknown)
-	}
-
-	/// Clone self with hints derived from the given `grammars`.
-	///
-	/// Calculated by running `input` through [`Grammar::precheck_hint`] for each grammar in the set.
-	#[must_use]
-	pub fn for_grammars(&self, grammars: GrammarSet, input: &Input) -> Self {
-		let mut new = self.clone();
-
-		for (grammar, hint) in new.iter_variants_mut() {
-			if *hint == ByteHint::Unknown {
-				*hint = if grammars.contains(grammar) {
-					grammar.precheck_hint(input)
-				} else {
-					ByteHint::NotApplicable
-				};
-			}
-		}
-
-		new
-	}
-}
 
 /// The amount of fuel [`Options::default`] gives a parse.
 ///
@@ -90,7 +49,14 @@ pub const DEFAULT_FUEL: u32 = 500_000;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
-	pub allowed_rules: RuleSet,
+	/// The syntax the parse recognizes. Anything written in syntax outside this set is text.
+	pub syntaxes: SyntaxSet,
+	/// Whether a link may carry the `dev` scheme, e.g. `dev://branch/main`. The surfaces it
+	/// reaches only exist in some clients.
+	///
+	/// This is not a [`Syntax`]: every way of writing a link can carry the scheme. Without it a
+	/// `dev` URL is not a URL, so every way of writing one is text.
+	pub dev_links: bool,
 	/// How much work the parse is allowed to do before it gives up with
 	/// [`fuel::OutOfFuel`].
 	///
@@ -120,74 +86,123 @@ pub struct Options {
 impl Default for Options {
 	fn default() -> Self {
 		Self {
-			allowed_rules: RuleSet::all(),
+			syntaxes: SyntaxSet::all(),
+			dev_links: true,
 			fuel: DEFAULT_FUEL,
 		}
 	}
 }
 
-/// An inline parse context which controls how child rules handle child and terminal content.
+impl Options {
+	/// The bit of [`Options::flags`] that sets [`Options::dev_links`]. The bits below it are
+	/// [`Options::syntaxes`], each at its [`Syntax`]'s discriminant.
+	///
+	/// It sits below the sign bit so that every flag is a positive 32-bit integer, which
+	/// JavaScript's bitwise operators and Kotlin's `Int` both keep intact.
+	///
+	/// Its bit is public, like every syntax's, so it never moves. A syntax given this bit or a
+	/// higher one fails to compile; see [`Options::SYNTAX_BITS`].
+	pub const DEV_LINKS: u32 = 1 << 30;
+
+	/// The bits of [`Options::flags`] that hold [`Options::syntaxes`]: everything below
+	/// [`Options::DEV_LINKS`].
+	pub const SYNTAX_BITS: u32 = Self::DEV_LINKS - 1;
+
+	/// Every flag: all syntax, and [`Options::DEV_LINKS`]. These are all the bits below the sign
+	/// bit, so there is no room for another syntax without moving to a wider integer.
+	pub const ALL_FLAGS: u32 = Self::SYNTAX_BITS | Self::DEV_LINKS;
+
+	/// Options from the integer the bindings take: a [`SyntaxSet`]'s bits plus
+	/// [`Options::DEV_LINKS`]. Bits no syntax uses are ignored, so `u32::MAX` allows everything
+	/// this version knows of.
+	///
+	/// Zero allows everything too, like [`Options::ALL_FLAGS`]: a parse with no syntax at all is
+	/// just text, so zero is free to mean the default instead. Since unused bits are ignored, flags
+	/// holding only those count as zero.
+	#[must_use]
+	pub fn from_flags(flags: u32, fuel: u32) -> Self {
+		let flags = match flags & Self::ALL_FLAGS {
+			0 => Self::ALL_FLAGS,
+			flags => flags,
+		};
+		Self {
+			// only the syntax bits, so `DEV_LINKS` could never be read as a syntax even if one
+			// were given its bit
+			syntaxes: SyntaxSet::from_u32_truncated(flags & Self::SYNTAX_BITS),
+			dev_links: flags & Self::DEV_LINKS != 0,
+			fuel,
+		}
+	}
+
+	/// These options' flags; see [`Options::from_flags`].
+	#[must_use]
+	pub fn flags(&self) -> u32 {
+		let dev_links = if self.dev_links { Self::DEV_LINKS } else { 0 };
+		self.syntaxes.as_u32() | dev_links
+	}
+}
+
+// Every syntax's bit has to sit below `DEV_LINKS`, or the two would share a bit in the flags the
+// bindings send. `bit_width` is one past the highest discriminant, so this fails to compile as soon
+// as a syntax is numbered into `DEV_LINKS` or above.
+const _: () = assert!(
+	SyntaxSet::bit_width() <= Options::DEV_LINKS.trailing_zeros(),
+	"a `Syntax` discriminant reaches `Options::DEV_LINKS`: there are no free flag bits left, so \
+	 adding a syntax means widening the flags, not taking this bit"
+);
+
+// `ALL_FLAGS` stays a positive `i32`, as JavaScript and Kotlin need.
+const _: () = assert!(Options::ALL_FLAGS <= i32::MAX as u32);
+
+/// An inline parse context which controls how child parsers handle child and terminal content.
 ///
-/// As we descend the parse tree, context accumulates allowed and disabled rules and global
-/// terminals based on the each [`Grammar`]. This is essential for 2 purposes:
+/// As we descend the parse tree, context accumulates disabled syntax and global terminals based on
+/// each [`Scope`]. This is essential for 2 purposes:
 ///
-/// 1. Parent rules can control what rules are enabled as their children.
-/// 2. Parent grammars can get terminated rather than beginning a new node.
+/// 1. Parent scopes can control what syntax is enabled inside them.
+/// 2. Parent scopes can get terminated rather than beginning a new node.
 ///
-/// As context descends, each [`Grammar::disabled_rules`] is subtracted from the parent
-/// [`Context::allowed_rules`]. This ensures that allowed rules only becomes more restrictive.
+/// As context descends, each [`Scope::disabled_syntaxes`] is subtracted from the parent
+/// [`Context::syntaxes`]. This ensures that the allowed syntax only becomes more restrictive.
 ///
-/// Each grammar is accumulated in a [`GrammarSet`] which parses the
-/// [`Grammar::terminal_sequence`] and [`Grammar::global_terminal_sequence`] in
-/// [`Context::guard_terminal_sequence`].
+/// Each scope is accumulated in a [`ScopeSet`] which parses the [`Scope::terminal_sequence`] and
+/// [`Scope::global_terminal_sequence`] in [`Context::guard_terminal_sequence`].
 #[derive(Debug, Clone)]
 pub struct Context {
-	/// The current grammar being parsed.
-	pub grammar: Grammar,
-	/// Rules allowed in this grammar, derived from all higher contexts.
-	pub allowed_rules: RuleSet,
-	/// The members of [`Self::allowed_rules`] with a parser, cached because they are derived once
-	/// per context but tried at every position.
-	parsed_rules: ParsedRuleSet,
-	/// The grammars [`Self::allowed_rules`] can reach, cached because it is derived once per
-	/// context but consulted once per character. See [`Self::allowed_grammars`].
-	allowed_grammars: GrammarSet,
+	/// The scope being parsed.
+	pub scope: Scope,
+	/// Syntax allowed in this scope, derived from all enclosing scopes.
+	pub syntaxes: SyntaxSet,
+	/// See [`Options::dev_links`].
+	pub dev_links: bool,
 	// This struct is huge so we reference count it to keep it off the stack and reduce allocations
-	pub hints: Rc<GrammarHints>,
+	pub hints: Rc<SyntaxHints>,
 	/// The depth of the innermost enclosing list, used to implement a cap to list depth. This is
 	/// 1-indexed for lists — an unnested list is at depth 1 — and is 0 when not inside a list at
 	/// all.
 	///
 	/// This is a `u8` because the maximum is [`crate::node::block::list::MAX_DEPTH`].
 	pub list_depth: u8,
-	parents: GrammarSet,
+	parents: ScopeSet,
 	/// Shared by every context of a parse, including the ones [`Context::fresh`] hands out, so that
-	/// the budget covers the parse as a whole rather than resetting per rule. See
+	/// the budget covers the parse as a whole rather than resetting per scope. See
 	/// [`Context::remaining_fuel`].
 	fuel: Fuel,
 	/// See [`Context::is_disabled_opener`].
 	disabled_openers: Rc<HashSet<Offset>>,
 }
 
-/// The grammars `rules` can reach. Derived once per [`Context`] rather than per call; see
-/// [`Context::allowed_grammars`].
-fn grammars_for(rules: ParsedRuleSet) -> GrammarSet {
-	rules.iter().flat_map(ParsedRule::grammar).collect()
-}
-
 impl Context {
-	/// Create a new context from the specified rule.
+	/// Create a new context from the specified options.
 	#[must_use]
 	pub fn new(options: Options) -> Self {
-		let parsed_rules = ParsedRule::allowed(options.allowed_rules);
 		Self {
-			grammar: Grammar::None,
-			allowed_rules: options.allowed_rules,
-			parsed_rules,
-			allowed_grammars: grammars_for(parsed_rules),
-			hints: Rc::new(GrammarHints::default()),
+			scope: Scope::None,
+			syntaxes: options.syntaxes,
+			dev_links: options.dev_links,
+			hints: Rc::new(SyntaxHints::default()),
 			list_depth: 0,
-			parents: GrammarSet::new(),
+			parents: ScopeSet::new(),
 			fuel: Fuel::new(options.fuel),
 			disabled_openers: Rc::new(HashSet::new()),
 		}
@@ -247,31 +262,14 @@ impl Context {
 		}
 	}
 
-	/// Create a new context by merging this context with another grammar. This will subtract the
-	/// [`Grammar::disabled_rules`] from the current allowed rules.
+	/// Create a new context by entering `scope`. This will subtract the
+	/// [`Scope::disabled_syntaxes`] from the current allowed syntax.
 	#[must_use]
-	pub fn with_grammar(self, grammar: Grammar) -> Context {
-		let disabled = grammar.disabled_rules();
-
-		// Only a handful of grammars disable anything, and this is on the hot path for every rule
-		// descent -- so keep the cached grammar set as-is unless the rules actually changed.
-		if disabled.is_empty() {
-			return Context {
-				grammar,
-				parents: self.parents | self.grammar,
-				..self
-			};
-		}
-
-		let allowed_rules = self.allowed_rules - disabled;
-		let parsed_rules = ParsedRule::allowed(allowed_rules);
-
+	pub fn with_scope(self, scope: Scope) -> Context {
 		Context {
-			grammar,
-			allowed_rules,
-			parsed_rules,
-			allowed_grammars: grammars_for(parsed_rules),
-			parents: self.parents | self.grammar,
+			scope,
+			syntaxes: self.syntaxes - scope.disabled_syntaxes(),
+			parents: self.parents | self.scope,
 			..self
 		}
 	}
@@ -282,7 +280,7 @@ impl Context {
 			return self.clone();
 		}
 
-		let hints = self.hints.for_grammars(self.allowed_grammars, input);
+		let hints = self.hints.for_syntaxes(self.syntaxes, input);
 
 		Self {
 			hints: Rc::new(hints),
@@ -290,50 +288,50 @@ impl Context {
 		}
 	}
 
-	/// Create a fresh grammar with the same allowed rules but reset all grammar state. It still
+	/// Create a fresh context with the same allowed syntax but reset all scope state. It still
 	/// draws from this parse's fuel tank.
 	#[must_use]
 	pub fn fresh(&self) -> Self {
 		Self {
-			grammar: Grammar::None,
-			allowed_rules: self.allowed_rules,
-			parsed_rules: self.parsed_rules,
-			allowed_grammars: self.allowed_grammars,
-			hints: Rc::new(GrammarHints::default()),
+			scope: Scope::None,
+			syntaxes: self.syntaxes,
+			dev_links: self.dev_links,
+			hints: Rc::new(SyntaxHints::default()),
 			list_depth: 0,
-			parents: GrammarSet::new(),
+			parents: ScopeSet::new(),
 			fuel: self.fuel.clone(),
 			disabled_openers: Rc::clone(&self.disabled_openers),
 		}
 	}
 
-	/// Get allowed inline rules in the current context. Modifiers are not among them: they are
-	/// recorded as delimiters and resolved afterwards; see [`crate::range`].
+	/// Parse any allowed inline syntax in the current context. Modifiers are not among them: they
+	/// are recorded as delimiters and resolved afterwards; see [`crate::range`].
 	#[must_use]
-	pub fn allowed_inline_rules<'data, 'ctx, S, E>(
+	pub fn allowed_inline_syntax<'data, 'ctx, S, E>(
 		&'ctx self,
 	) -> impl Parser<Input<'data>, Output = Element<'data, S>, Error = E> + 'ctx
 	where
 		S: Span,
 		E: ParseError<'data> + 'ctx,
 	{
-		ContextualRules::<S, E>::from_context(self, self.parsed_rules & ParsedRule::INLINE)
+		ContextualSyntaxes::from_context(self, self.syntaxes & Syntax::INLINE)
 	}
 
-	/// Get allowed block rules in the current context.
+	/// Parse any allowed block syntax in the current context.
 	#[must_use]
-	pub fn allowed_block_rules<'data, 'ctx, S, E>(
+	pub fn allowed_block_syntax<'data, 'ctx, S, E>(
 		&'ctx self,
 	) -> impl Parser<Input<'data>, Output = Element<'data, S>, Error = E> + 'ctx
 	where
 		S: Span,
 		E: ParseError<'data> + 'ctx,
 	{
-		ContextualRules::from_context(self, self.parsed_rules & ParsedRule::BLOCK)
+		ContextualSyntaxes::from_context(self, self.syntaxes & Syntax::BLOCK)
 	}
 
-	/// Get allowed start sequences for the current context. This is based on [`Self::allowed_rules`]:
-	/// for example, if [`Rule::Code`] is in this set, then this will match its start sequence (`` ` ``).
+	/// Get allowed start sequences for the current context. This is based on [`Self::syntaxes`]:
+	/// for example, if [`Syntax::Code`] is in this set, then this will match its start sequence
+	/// (`` ` ``).
 	#[must_use]
 	pub fn allowed_start_sequences<'ctx, 'data, E>(
 		&'ctx self,
@@ -341,7 +339,7 @@ impl Context {
 	where
 		E: ParseError<'data> + 'ctx,
 	{
-		StartSequence(self.allowed_grammars, PhantomData)
+		StartSequence(self.syntaxes, PhantomData)
 	}
 
 	/// Check whether we are in a terminal sequence; if not, apply the `normal` parser. Fails if a
@@ -370,7 +368,7 @@ impl Context {
 		E: ParseError<'data>,
 	{
 		MatchedPairsParser {
-			grammars: self.grammars(),
+			scopes: self.scopes(),
 			error: PhantomData,
 		}
 	}
@@ -386,21 +384,15 @@ impl Context {
 		E: ParseError<'data>,
 	{
 		LinePrefix {
-			grammars: self.grammars(),
+			scopes: self.scopes(),
 			error: PhantomData,
 		}
 	}
 
+	/// The current scope and every scope enclosing it.
 	#[must_use]
-	pub fn grammars(&self) -> GrammarSet {
-		self.parents | self.grammar
-	}
-
-	/// The grammars [`Self::allowed_rules`] can reach — the ones whose start sequences
-	/// [`Self::allowed_start_sequences`] will match here.
-	#[must_use]
-	pub fn allowed_grammars(&self) -> GrammarSet {
-		self.allowed_grammars
+	pub fn scopes(&self) -> ScopeSet {
+		self.parents | self.scope
 	}
 }
 
@@ -412,8 +404,34 @@ impl Default for Context {
 
 #[cfg(test)]
 mod test {
-	use super::{Context, Options};
-	use crate::grammar::Grammar;
+	use super::{Context, DEFAULT_FUEL, Options};
+	use crate::scope::Scope;
+	use crate::syntax::{Syntax, SyntaxSet};
+
+	/// The syntax bits fill everything below [`Options::DEV_LINKS`], and the flags round trip.
+	#[test]
+	fn flags_layout() {
+		assert_eq!(
+			SyntaxSet::all().as_u32() | Options::DEV_LINKS,
+			Options::ALL_FLAGS
+		);
+		assert_eq!(Options::default().flags(), Options::ALL_FLAGS);
+
+		let options = Options::from_flags(Syntax::LINKS.as_u32(), 7);
+		assert_eq!(options.syntaxes, Syntax::LINKS);
+		assert!(!options.dev_links);
+		assert_eq!(options.fuel, 7);
+
+		// bits no syntax uses are ignored, so every bit set allows everything
+		let everything = Options::from_flags(u32::MAX, DEFAULT_FUEL);
+		assert_eq!(everything.flags(), Options::ALL_FLAGS);
+
+		// and so does no bit set, since no syntax at all would be plain text
+		for flags in [0, 1 << 31] {
+			let zero = Options::from_flags(flags, DEFAULT_FUEL);
+			assert_eq!(zero.flags(), Options::ALL_FLAGS, "flags {flags:#x}");
+		}
+	}
 
 	/// Fuel is one tank for the whole parse: every context derived from the same [`Context::new`]
 	/// draws from it, so nesting cannot mint more.
@@ -424,9 +442,9 @@ mod test {
 			..Default::default()
 		});
 
-		let child = context.clone().with_grammar(Grammar::Quote);
+		let child = context.clone().with_scope(Scope::Quote);
 		let grandchild = child.clone().with_deeper_list();
-		// `fresh` resets grammar state, but deliberately not the budget.
+		// `fresh` resets scope state, but deliberately not the budget.
 		let unrelated = grandchild.fresh();
 
 		for ctx in [&context, &child, &grandchild, &unrelated] {

@@ -41,3 +41,20 @@ def test_quantize():
     assert form.a._value() == "3.142"
     assert isinstance(form.a.data, float)
     assert form.b._value() == "72"
+
+
+def test_invalid_value_message():
+    F = make_form(a=DecimalField(invalid_value_message="Enter a decimal number."))
+    form = F(DummyPostData(a=["x"]))
+    assert not form.validate()
+    assert form.a.errors == ["Enter a decimal number."]
+
+
+def test_invalid_value_type():
+    """A non-string input gives a validation error instead of a TypeError."""
+    F = make_form(a=DecimalField())
+    form = F(DummyPostData(a={"not a": "decimal"}))
+
+    assert form.a.data is None
+    assert not form.validate()
+    assert form.a.errors == ["Not a valid decimal value."]

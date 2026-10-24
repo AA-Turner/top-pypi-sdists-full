@@ -24,7 +24,7 @@ _CANONICAL = _ROOT / "src" / "probe" / "service"
 _TAP_ROOT = _ROOT / "plugins" / "probe-research-tap"
 _COPY = _TAP_ROOT / "tap" / "service"
 
-_SYNCED = ("client.py", "paths.py", "procid.py", "protocol.py")
+_SYNCED = ("client.py", "paths.py", "procid.py", "protocol.py", "winpipe.py")
 
 
 def _makefile_list() -> list[str]:

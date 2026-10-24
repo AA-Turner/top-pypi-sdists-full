@@ -256,13 +256,13 @@ def test_frozen_facade_exports_remain_exact() -> None:
     # CompatibleDocument (hh:layoutCompatibility/compatibleDocument) plus the
     # settings.xml first-ever read surface (ApplicationSettings, CaretPosition,
     # ConfigItem, ConfigItemSet, HwpxOxmlSettings) — settings.xml has no
-    # vendored OWPML schema at all, reverse-engineered from the real corpus.
+    # vendored OWPML schema at all, inferred from the real corpus.
     # 120 -> 122: Caption/DrawText fill gap #3/#4 (hp:drawText/textMargin,
     # hp:caption) — shared live views reused by HwpxOxmlShape,
     # HwpxOxmlInlineObject, and HwpxOxmlTable rather than duplicated per host.
     # 122 -> 127: gap #15's part-hierarchy read models — version.xml
     # (HcfVersion), masterpage.xml (MasterPage), and history.xml (History,
-    # HistoryEntry, DiffNode). version.xml/masterpage.xml are reverse-engineered
+    # HistoryEntry, DiffNode). version.xml/masterpage.xml are inferred
     # from the real corpus like settings.xml before them (and, like it, their
     # real roots/namespaces drifted from the vendored 2024-draft OWPML schema —
     # see version_part.py/master_page.py). history.xml has zero real examples
@@ -290,7 +290,11 @@ def test_frozen_facade_exports_remain_exact() -> None:
     # fixed the dedupe comparison in ensure_tab_definition (a real duplicate-
     # creation bug, not just a read gap) since it shared the same
     # direct-children-only blind spot.
-    assert len(oxml.__all__) == 134
+    # 134 -> 136: PictureShadow/PictureGlow -- the input types add_picture's
+    # shadow= and glow= take (hp:effects/hp:shadow, hp:glow), as ContainerMember
+    # is add_container's.
+    # 136 -> 137: PictureReflection -- add_picture's reflection= input type.
+    assert len(oxml.__all__) == 137
     assert tuple(document_facade.__all__) == DOCUMENT_EXPORTS
 
 

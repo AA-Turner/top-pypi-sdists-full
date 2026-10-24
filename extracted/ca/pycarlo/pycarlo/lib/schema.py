@@ -5673,11 +5673,20 @@ class JobAssetFilterType(pycarlo.lib.types.Enum):
     * `FULL_TABLE_ID`None
     * `JOB_MCON`None
     * `JOB_TAG`None
+    * `JOB_TAG_PAIR`None
     * `SCHEMA`None
     """
 
     __schema__ = schema
-    __choices__ = ("DATABASE", "DBT_PROJECT", "FULL_TABLE_ID", "JOB_MCON", "JOB_TAG", "SCHEMA")
+    __choices__ = (
+        "DATABASE",
+        "DBT_PROJECT",
+        "FULL_TABLE_ID",
+        "JOB_MCON",
+        "JOB_TAG",
+        "JOB_TAG_PAIR",
+        "SCHEMA",
+    )
 
 
 class JobExecutionStatus(pycarlo.lib.types.Enum):
@@ -7766,20 +7775,6 @@ class QueryCategory(pycarlo.lib.types.Enum):
     )
 
 
-class QueryLogAvailability(pycarlo.lib.types.Enum):
-    """Whether a warehouse gets query logs.
-
-    Enumeration Choices:
-
-    * `COLLECTED`None
-    * `NOT_ENABLED`None
-    * `NOT_SUPPORTED`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("COLLECTED", "NOT_ENABLED", "NOT_SUPPORTED")
-
-
 class QueryLogType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -7978,8 +7973,8 @@ class RcaStatus(pycarlo.lib.types.Enum):
 
 
 class ReinforcementLoopAgentErrorKind(pycarlo.lib.types.Enum):
-    """MISSING_PERMISSIONS: Monte Carlo's warehouse role can't read
-    resources the reinforcement loop needs to diagnose the agent.
+    """MISSING_PERMISSIONS: Monte Carlo can't read resources the
+    reinforcement loop reads to diagnose the agent.
     CLUSTERING_BLOCKED: Snowflake refused the queries that group the
     agent's conversations into issues.
 
@@ -7995,21 +7990,32 @@ class ReinforcementLoopAgentErrorKind(pycarlo.lib.types.Enum):
 
 class ReinforcementLoopAgentResourceKind(pycarlo.lib.types.Enum):
     """A kind of resource the reinforcement loop reads to diagnose an
-    agent: its configuration (e.g. a Cortex agent's definition), its
-    semantic models (e.g. Snowflake semantic views), its search
-    services (e.g. Cortex search services), or its skills (e.g. a
-    Cortex agent skill's SKILL.md on a stage).
+    agent: its configuration (a Cortex agent's definition or a Genie
+    space), its semantic models (e.g. Snowflake semantic views), its
+    search services (e.g. Cortex search services), its skills (e.g. a
+    Cortex agent skill's SKILL.md on a stage), its data sources (e.g.
+    a Genie space's tables and metric views), or its SQL functions
+    (e.g. a Genie space's Unity Catalog functions).
 
     Enumeration Choices:
 
     * `AGENT_CONFIGURATION`None
+    * `DATA_SOURCE`None
     * `SEARCH_SERVICE`None
     * `SEMANTIC_MODEL`None
     * `SKILL`None
+    * `SQL_FUNCTION`None
     """
 
     __schema__ = schema
-    __choices__ = ("AGENT_CONFIGURATION", "SEARCH_SERVICE", "SEMANTIC_MODEL", "SKILL")
+    __choices__ = (
+        "AGENT_CONFIGURATION",
+        "DATA_SOURCE",
+        "SEARCH_SERVICE",
+        "SEMANTIC_MODEL",
+        "SKILL",
+        "SQL_FUNCTION",
+    )
 
 
 class ReinforcementLoopClusterKind(pycarlo.lib.types.Enum):
@@ -8110,6 +8116,7 @@ class ReinforcementLoopFeedbackReason(pycarlo.lib.types.Enum):
     * `HARD_TO_UNDERSTAND`None
     * `NOT_A_REAL_PROBLEM`None
     * `OTHER`None
+    * `SHOULD_RANK_HIGHER`None
     * `WRONG_PRIORITY`None
     * `WRONG_ROOT_CAUSE`None
     """
@@ -8124,6 +8131,7 @@ class ReinforcementLoopFeedbackReason(pycarlo.lib.types.Enum):
         "HARD_TO_UNDERSTAND",
         "NOT_A_REAL_PROBLEM",
         "OTHER",
+        "SHOULD_RANK_HIGHER",
         "WRONG_PRIORITY",
         "WRONG_ROOT_CAUSE",
     )
@@ -8233,22 +8241,24 @@ class ReinforcementLoopV2EmptyReason(pycarlo.lib.types.Enum):
 
 
 class ReinforcementLoopV2IssueOrder(pycarlo.lib.types.Enum):
-    """A sort key of getReinforcementLoopV2Issues.  PRIORITY = the served
-    priority: CRITICAL, HIGH, MEDIUM, LOW, then HIDDEN (only with
-    includeHidden), then issues with no report. CONVERSATION_COUNT =
-    most conversations first. It is the conversationCount the node
-    reports, so a workflow filter narrows it. LAST_SEEN_AT = newest
-    first.
+    """A sort key of getReinforcementLoopV2Issues.  RANK = each Issue
+    space's top issues by rank, then every other issue. PRIORITY = the
+    served priority: CRITICAL, HIGH, MEDIUM, LOW, then HIDDEN (only
+    with includeHidden), then issues with no report.
+    CONVERSATION_COUNT = most conversations first. It is the
+    conversationCount the node reports, so a workflow filter narrows
+    it. LAST_SEEN_AT = newest first.
 
     Enumeration Choices:
 
     * `CONVERSATION_COUNT`None
     * `LAST_SEEN_AT`None
     * `PRIORITY`None
+    * `RANK`None
     """
 
     __schema__ = schema
-    __choices__ = ("CONVERSATION_COUNT", "LAST_SEEN_AT", "PRIORITY")
+    __choices__ = ("CONVERSATION_COUNT", "LAST_SEEN_AT", "PRIORITY", "RANK")
 
 
 class ReinforcementLoopWorkflowScope(pycarlo.lib.types.Enum):
@@ -10289,8 +10299,8 @@ class TraceSortField(pycarlo.lib.types.Enum):
     the freshest traces sort by a lower bound of their query and total
     cost. FEEDBACK orders by each trace's newest end-user rating:
     negative, unrated, then positive ascending. Traces with no
-    feedback sort last in both directions. It is Snowflake Cortex
-    only; the ClickHouse backend rejects it.
+    feedback sort last in both directions. Only Snowflake Cortex and
+    Genie agents have feedback. The ClickHouse backend rejects it.
 
     Enumeration Choices:
 
@@ -13645,7 +13655,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
     """Filter by end-user feedback (OR logic). A conversation matches a
     rating when any turn's newest feedback has it. NO_FEEDBACK matches
     a conversation when no turn has feedback. Only Snowflake Cortex
-    agents have feedback. Not supported on ClickHouse.
+    and Genie agents have feedback. Not supported on ClickHouse.
     """
 
     has_feedback_comment = sgqlc.types.Field(
@@ -15823,6 +15833,40 @@ class GetAgentGraphInput(sgqlc.types.Input):
     """
 
 
+class GetAgentsTraceOverviewInput(sgqlc.types.Input):
+    """Input parameters for GetAgentsTraceOverview query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "trace_table_mcon",
+        "agent_names",
+        "start_time",
+        "end_time",
+        "include_previous_period_comparison",
+    )
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the ClickHouse trace table every agent is stored in"""
+
+    agent_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="agentNames",
+    )
+    """Agents to read, at most 25"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    include_previous_period_comparison = sgqlc.types.Field(
+        Boolean, graphql_name="includePreviousPeriodComparison"
+    )
+    """Include the previous period of equal length (default: true)"""
+
+
 class GetConversationEvalInput(sgqlc.types.Input):
     """Input for getConversationEval query."""
 
@@ -16268,8 +16312,8 @@ class GetConversationsInput(sgqlc.types.Input):
     extra inputs required. NEGATIVE_FEEDBACK_COUNT sorts by how many
     turns' newest end-user feedback is negative. A conversation with
     feedback but no negative turns sorts as 0. Conversations with no
-    feedback sort last in both directions. Snowflake Cortex agents
-    only; not supported on ClickHouse.
+    feedback sort last in both directions. Only Snowflake Cortex and
+    Genie agents have feedback. Not supported on ClickHouse.
     """
 
     sort_direction = sgqlc.types.Field(TraceSortDirection, graphql_name="sortDirection")
@@ -16455,6 +16499,7 @@ class GetToolCallTimeSeriesInput(sgqlc.types.Input):
         "end_time",
         "bucket_size",
         "metric_group",
+        "metric_groups",
         "top_n",
         "tool_names",
         "filters",
@@ -16481,12 +16526,18 @@ class GetToolCallTimeSeriesInput(sgqlc.types.Input):
     )
     """Size of time buckets (MINUTE, HOUR, DAY, WEEK)"""
 
-    metric_group = sgqlc.types.Field(
-        sgqlc.types.non_null(ToolCallMetricGroup), graphql_name="metricGroup"
-    )
+    metric_group = sgqlc.types.Field(ToolCallMetricGroup, graphql_name="metricGroup")
     """Metric group to return. Each group maps to a set of metrics:
     VOLUME (call count), LATENCY (avg/p50/p95/p99), ERRORS (error
-    count + error rate).
+    count + error rate). Deprecated: use metricGroups instead.
+    """
+
+    metric_groups = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ToolCallMetricGroup)), graphql_name="metricGroups"
+    )
+    """Metric groups to return from one read, with duplicate metrics
+    returned once. Provide a non-empty list or metricGroup,
+    exclusively. The groups are those of metricGroup.
     """
 
     top_n = sgqlc.types.Field(Int, graphql_name="topN")
@@ -16649,6 +16700,7 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
         "end_time",
         "bucket_size",
         "metric_group",
+        "metric_groups",
         "segment_filter",
         "filters",
     )
@@ -16673,15 +16725,21 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
     )
     """Size of time buckets (MINUTE, HOUR, DAY, WEEK)"""
 
-    metric_group = sgqlc.types.Field(
-        sgqlc.types.non_null(TraceMetricGroup), graphql_name="metricGroup"
-    )
+    metric_group = sgqlc.types.Field(TraceMetricGroup, graphql_name="metricGroup")
     """Metric group to return. Each group maps to a set of metrics:
     OVERVIEW (count + latency + tokens), TRACE_COUNT (total traces +
     change in traces), TRACE_LATENCY (avg/p50/p95/p99), ERRORS (error
     count + error percentage), TOKENS (total/prompt/completion
     tokens), FEEDBACK (positive/negative feedback counts + negative
-    feedback percentage).
+    feedback percentage). Deprecated: use metricGroups instead.
+    """
+
+    metric_groups = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TraceMetricGroup)), graphql_name="metricGroups"
+    )
+    """Metric groups to return from one read, with duplicate metrics
+    returned once. Provide a non-empty list or metricGroup,
+    exclusively. The groups are those of metricGroup.
     """
 
     segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
@@ -17067,6 +17125,7 @@ class JobAssetFilterUnionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
         "job_tags",
+        "job_tag_pairs",
         "job_tags_operator",
         "job_mcons",
         "dbt_project_uuids",
@@ -17075,6 +17134,10 @@ class JobAssetFilterUnionInput(sgqlc.types.Input):
     )
     job_tags = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="jobTags"
+    )
+
+    job_tag_pairs = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("JobTagPairInput")), graphql_name="jobTagPairs"
     )
 
     job_tags_operator = sgqlc.types.Field(JobAssetFilterTagOperator, graphql_name="jobTagsOperator")
@@ -17101,6 +17164,8 @@ class JobAssetSelectionInput(sgqlc.types.Input):
         "exclusions_joiner",
         "table_filters",
         "table_filters_joiner",
+        "table_exclusions",
+        "table_exclusions_joiner",
     )
     filters = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(JobAssetFilterUnionInput)), graphql_name="filters"
@@ -17146,6 +17211,26 @@ class JobAssetSelectionInput(sgqlc.types.Input):
     OR, and exports omit the joiner when it is OR.
     """
 
+    table_exclusions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("JobTableFilterUnionInput")),
+        graphql_name="tableExclusions",
+    )
+    """dbt only. Table exclusion rows: a dbt node failure on a table that
+    matches them is out of scope, even when its job and its table
+    filters match. On mutation updates, leaving this out keeps the
+    stored monitor's value; send an empty list to clear it.
+    """
+
+    table_exclusions_joiner = sgqlc.types.Field(
+        AssetFilterJoiner, graphql_name="tableExclusionsJoiner"
+    )
+    """How the table exclusion rows combine. OR (default): a table is
+    excluded when it matches any row. AND: a table is excluded only
+    when it matches every row. On mutation updates, leaving this out
+    keeps the stored monitor's value; monitors-as-code apply treats an
+    absent joiner as OR, and exports omit the joiner when it is OR.
+    """
+
 
 class JobMonitorAlertConditionInput(sgqlc.types.Input):
     __schema__ = schema
@@ -17174,6 +17259,15 @@ class JobTableFilterUnionInput(sgqlc.types.Input):
     type = sgqlc.types.Field(sgqlc.types.non_null(JobAssetFilterType), graphql_name="type")
 
     negated = sgqlc.types.Field(Boolean, graphql_name="negated")
+
+
+class JobTagPairInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("name", "value")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+    """The tag value. Leave it out to match only a tag that has no value."""
 
 
 class JobsPerformanceFacetFilterInput(sgqlc.types.Input):
@@ -20749,8 +20843,8 @@ class TraceFiltersInput(sgqlc.types.Input):
         graphql_name="feedbackRatings",
     )
     """Filter by the rating of each trace's newest end-user feedback (OR
-    logic). Only Snowflake Cortex agents have feedback. Not supported
-    on ClickHouse.
+    logic). Only Snowflake Cortex and Genie agents have feedback. Not
+    supported on ClickHouse.
     """
 
     has_feedback_comment = sgqlc.types.Field(
@@ -25599,8 +25693,9 @@ class AgentFeedback(sgqlc.types.Type):
     feedback_available = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="feedbackAvailable"
     )
-    """False when feedback is not collected for this agent. Only
-    Snowflake Cortex agents have it.
+    """False when feedback is not collected for this agent. Snowflake
+    Cortex agents have it, and Genie agents once their collector is
+    upgraded.
     """
 
     traces = sgqlc.types.Field(
@@ -26453,6 +26548,32 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
     """
 
 
+class AgentListMetrics(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("total_traces", "avg_latency", "total_tokens", "error_count")
+    total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+
+    avg_latency = sgqlc.types.Field(Float, graphql_name="avgLatency")
+
+    total_tokens = sgqlc.types.Field(BigInt, graphql_name="totalTokens")
+
+    error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
+
+
+class AgentListMetricsWithComparison(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("total_traces", "avg_latency", "total_tokens", "error_count", "prev_period")
+    total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+
+    avg_latency = sgqlc.types.Field(Float, graphql_name="avgLatency")
+
+    total_tokens = sgqlc.types.Field(BigInt, graphql_name="totalTokens")
+
+    error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
+
+    prev_period = sgqlc.types.Field(AgentListMetrics, graphql_name="prevPeriod")
+
+
 class AgentLogEntry(sgqlc.types.Type):
     """A log entry from an agent."""
 
@@ -27170,6 +27291,15 @@ class AgentTraceExportStatusOutput(sgqlc.types.Type):
     """When the presigned URL expires. Populated when status=DONE or
     DONE_PARTIAL; regenerated alongside the URL on each poll.
     """
+
+
+class AgentTraceOverview(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("agent_name", "metrics")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+
+    metrics = sgqlc.types.Field(AgentListMetricsWithComparison, graphql_name="metrics")
+    """Null when the caller cannot access this agent."""
 
 
 class AgentTraceTableConnection(sgqlc.types.relay.Connection):
@@ -32670,8 +32800,8 @@ class Conversation(sgqlc.types.Type):
 
     feedback = sgqlc.types.Field("ConversationFeedbackCounts", graphql_name="feedback")
     """End-user feedback counts across the conversation's turns. Null
-    when no turn has feedback. Only Snowflake Cortex agents on
-    Timescale have feedback.
+    when no turn has feedback. Only Snowflake Cortex and Genie agents
+    on Timescale have feedback.
     """
 
 
@@ -46530,6 +46660,8 @@ class JobAssetSelection(sgqlc.types.Type):
         "exclusions_joiner",
         "table_filters",
         "table_filters_joiner",
+        "table_exclusions",
+        "table_exclusions_joiner",
     )
     filters = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(JobAssetFilterInterface))),
@@ -46580,6 +46712,26 @@ class JobAssetSelection(sgqlc.types.Type):
     every row. On mutation updates, leaving this out keeps the stored
     monitor's value; monitors-as-code apply treats an absent joiner as
     OR, and exports omit the joiner when it is OR.
+    """
+
+    table_exclusions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(JobTableFilterInterface))),
+        graphql_name="tableExclusions",
+    )
+    """dbt only. Table exclusion rows: a dbt node failure on a table that
+    matches them is out of scope, even when its job and its table
+    filters match. On mutation updates, leaving this out keeps the
+    stored monitor's value; send an empty list to clear it.
+    """
+
+    table_exclusions_joiner = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterJoiner), graphql_name="tableExclusionsJoiner"
+    )
+    """How the table exclusion rows combine. OR (default): a table is
+    excluded when it matches any row. AND: a table is excluded only
+    when it matches every row. On mutation updates, leaving this out
+    keeps the stored monitor's value; monitors-as-code apply treats an
+    absent joiner as OR, and exports omit the joiner when it is OR.
     """
 
 
@@ -47304,6 +47456,15 @@ class JobSelectionRowOutput(sgqlc.types.Type):
 
     count_unselected = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="countUnselected")
     """Unselected jobs in the row."""
+
+
+class JobTagPair(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "value")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+    """The tag value. Leave it out to match only a tag that has no value."""
 
 
 class JobsPerformanceFacetOption(sgqlc.types.Type):
@@ -52899,6 +53060,7 @@ class Mutation(sgqlc.types.Type):
         "set_etl_job_generates_alerts",
         "bulk_set_etl_job_generates_alerts",
         "start_tsa_analysis",
+        "start_remediation",
         "create_semantic_memory",
         "update_semantic_memory",
         "delete_semantic_memory",
@@ -54833,8 +54995,8 @@ class Mutation(sgqlc.types.Type):
       conversationId, and takes no reason, comment or reason-specific
       fields.
     * `reason` (`ReinforcementLoopFeedbackReason`): UP takes no
-      reason, FIX_WORKED or HARD_TO_UNDERSTAND. DOWN needs a reason
-      other than FIX_WORKED.
+      reason, FIX_WORKED, HARD_TO_UNDERSTAND or SHOULD_RANK_HIGHER.
+      DOWN needs a reason other than FIX_WORKED or SHOULD_RANK_HIGHER.
     * `shown_priority` (`AgentHealthPriority`): The priority the
       person saw.
     * `suggested_priority` (`AgentHealthPriority`): Required for
@@ -54919,11 +55081,12 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Pause or resume the reinforcement loop for an
     agent, or set its GitHub code repos. While paused, the loop
-    diagnoses nothing for any Issue space of the agent; unpausing
-    resumes from where it stopped. Each branch must exist on its repo,
-    and each path prefix must be on the repo's branch, or its default
-    branch when none is set. Omitted fields are unchanged. Creates the
-    agent's settings if absent.
+    diagnoses nothing for any Issue space of the agent. Unpausing
+    resumes where it stopped, or 7 days back after a longer pause.
+    Each branch must exist on its repo, and each path prefix must be
+    on the repo's branch, or its default branch when none is set.
+    Omitted fields are unchanged. Creates the agent's settings if
+    absent.
 
     Arguments:
 
@@ -79458,6 +79621,29 @@ class Mutation(sgqlc.types.Type):
       for
     """
 
+    start_remediation = sgqlc.types.Field(
+        "RemediationResult",
+        graphql_name="startRemediation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Build a remediation plan from an alert's current
+    troubleshooting analysis
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): UUID of the alert to build the remediation
+      plan for
+    """
+
     create_semantic_memory = sgqlc.types.Field(
         "SemanticMemoryResultType",
         graphql_name="createSemanticMemory",
@@ -83481,6 +83667,7 @@ class Query(sgqlc.types.Type):
         "get_trace_time_series",
         "get_trace_overview",
         "get_tool_call_overview",
+        "get_agents_trace_overview",
         "get_llm_price_book",
         "get_llm_price_book_overrides",
         "get_agent_cost",
@@ -85481,6 +85668,10 @@ class Query(sgqlc.types.Type):
                     "include_hidden",
                     sgqlc.types.Arg(Boolean, graphql_name="includeHidden", default=False),
                 ),
+                (
+                    "top_ranked_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="topRankedOnly", default=False),
+                ),
                 ("issue_uuid", sgqlc.types.Arg(UUID, graphql_name="issueUuid", default=None)),
                 ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
                 ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
@@ -85499,7 +85690,7 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2IssueOrder)),
                         graphql_name="orderBy",
-                        default=("priority", "conversation_count"),
+                        default=("rank", "priority", "conversation_count"),
                     ),
                 ),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=100)),
@@ -85514,10 +85705,10 @@ class Query(sgqlc.types.Type):
     """(experimental) Issues the reinforcement loop diagnosed for one
     agent, each with the conversations it was found in: one node per
     issue with its current title, description and recommendation, its
-    computed priority, and one entry per conversation carrying the
-    cited turns and the rendering of how the issue shows up there.
-    Sorted by orderBy, priority then conversationCount by default;
-    forward-paginated.
+    computed priority and rank, and one entry per conversation
+    carrying the cited turns and the rendering of how the issue shows
+    up there. Sorted by orderBy, rank, then priority, then
+    conversationCount by default; forward-paginated.
 
     Arguments:
 
@@ -85542,6 +85733,9 @@ class Query(sgqlc.types.Type):
     * `include_hidden` (`Boolean`): Also return issues served priority
       HIDDEN. False by default: hidden issues are left out of the
       nodes, the counts and emptyReason. (default: `false`)
+    * `top_ranked_only` (`Boolean`): True keeps each Issue space's top
+      10, the issues with a rank. False or null keeps every issue.
+      (default: `false`)
     * `issue_uuid` (`UUID`): Narrow to one issue by its issueUuid.
       ANDs with the other filters — a mismatch returns empty, not an
       error.
@@ -85558,10 +85752,10 @@ class Query(sgqlc.types.Type):
     * `mode` (`ReinforcementLoopRunMode`): LIVE issues by default;
       BACKTEST reads what backtest runs reported. (default: `"live"`)
     * `order_by` (`[ReinforcementLoopV2IssueOrder!]`): Sort keys,
-      applied in order. [PRIORITY, CONVERSATION_COUNT] by default or
-      when null. Ties left after the listed keys fall to lastSeenAt,
-      newest first. A key may appear once. (default: `["priority",
-      "conversation_count"]`)
+      applied in order. [RANK, PRIORITY, CONVERSATION_COUNT] by
+      default or when null. Ties left after the listed keys fall to
+      lastSeenAt, newest first. A key may appear once. (default:
+      `["rank", "priority", "conversation_count"]`)
     * `first` (`Int`): Page size, 1..500. (default: `100`)
     * `after` (`String`): Opaque forward-pagination cursor — the
       previous page's endCursor. Omit for the first page.
@@ -85923,6 +86117,32 @@ class Query(sgqlc.types.Type):
     * `input` (`GetToolCallOverviewInput!`)None
     """
 
+    get_agents_trace_overview = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentTraceOverview))),
+        graphql_name="getAgentsTraceOverview",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetAgentsTraceOverviewInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get unfiltered trace totals (count, average
+    latency, tokens, errors) for several agents of one ClickHouse
+    trace table in one read, for the agents list. Returns one entry
+    per distinct requested agent, in request order.
+
+    Arguments:
+
+    * `input` (`GetAgentsTraceOverviewInput!`)None
+    """
+
     get_llm_price_book = sgqlc.types.Field(PriceBook, graphql_name="getLlmPriceBook")
     """(experimental) Get the LLM price book agent costs are computed
     against: every model with its four per-million-token rates, the
@@ -86118,8 +86338,7 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) End-user feedback (thumbs up or down, and whether a
     comment was left) on a page of an agent's traces. Collected from
-    the warehouse after each span collection, so it trails the traces
-    by about the same delay.
+    the warehouse after each span collection.
 
     Arguments:
 
@@ -107533,6 +107752,10 @@ class Query(sgqlc.types.Type):
                     "self_hosted_credentials_type",
                     sgqlc.types.Arg(String, graphql_name="selfHostedCredentialsType", default=None),
                 ),
+                (
+                    "include_internal",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeInternal", default=False),
+                ),
             )
         ),
     )
@@ -107550,6 +107773,10 @@ class Query(sgqlc.types.Type):
       gated on that fact (e.g. validate_self_hosted_credentials) are
       included in the response. Omit for connections using Monte
       Carlo-managed credentials.
+    * `include_internal` (`Boolean`): Whether to also return internal
+      validations. Internal validations are hidden from connection
+      tests and run only when requested by name. True also returns
+      them; false or null omits them. (default: `false`)
     """
 
     get_supported_table_validations = sgqlc.types.Field(
@@ -109109,10 +109336,10 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Get the remediation plan derived from an alert's
-    troubleshooting analysis. Read-only: it never starts one. Returns
-    NOT_FOUND when no plan is available to read — including when one
-    cannot be retrieved, so treat it as "nothing to show" rather than
-    proof that none exists.
+    troubleshooting analysis. Read-only: it never starts one — use
+    startRemediation for that. Returns NOT_FOUND when no plan is
+    available to read — including when one cannot be retrieved, so
+    treat it as "nothing to show" rather than proof that none exists.
 
     Arguments:
 
@@ -110922,25 +111149,26 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
 
     is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
     """The user's switch. While paused, the loop diagnoses nothing for
-    any Issue space of the agent; unpausing resumes from where it
-    stopped.
+    any Issue space of the agent. Unpausing resumes where it stopped,
+    or 7 days back after a longer pause.
     """
 
     error_state = sgqlc.types.Field("ReinforcementLoopAgentErrorState", graphql_name="errorState")
-    """Why the loop can't diagnose the agent; null when nothing is wrong.
-    The loop clears it at its next check once the problem is fixed.
+    """Why the loop can't find issues for the agent; null when nothing is
+    wrong. The loop clears it at its next check once the problem is
+    fixed.
     """
 
     warning_state = sgqlc.types.Field(
         "ReinforcementLoopAgentWarningState", graphql_name="warningState"
     )
-    """What the loop couldn't read that doesn't stop diagnosis, such as a
-    skill; null when nothing is wrong. Cleared at the next check once
-    the grant is in place.
+    """What the loop couldn't read, such as a skill or a semantic view.
+    Issues are found without it. Null when nothing is wrong. Cleared
+    at the next check once the grant is in place.
     """
 
     is_running = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRunning")
-    """True when the agent is not paused and has no error."""
+    """True when the agent is not paused and not CLUSTERING_BLOCKED."""
 
     last_checked_at = sgqlc.types.Field(DateTime, graphql_name="lastCheckedAt")
     """When the loop last checked it can read the agent's resources; null
@@ -110967,7 +111195,7 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
 
 
 class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
-    """Why the reinforcement loop can't diagnose an agent."""
+    """Why the reinforcement loop can't find issues for an agent."""
 
     __schema__ = schema
     __field_names__ = ("kind", "resources", "objects", "message", "since", "detail", "grant_sql")
@@ -111045,14 +111273,14 @@ class ReinforcementLoopAgentObject(sgqlc.types.Type):
     )
 
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
-    """The object as SQL names it: a dotted name, or a stage path for a
-    skill.
+    """A dotted name for a schema object, a stage path for a skill, or
+    the space id for a Genie space.
     """
 
 
 class ReinforcementLoopAgentWarningState(sgqlc.types.Type):
-    """What the reinforcement loop can't read about an agent that doesn't
-    stop diagnosis.
+    """What the reinforcement loop can't read about an agent. Issues are
+    found without it.
     """
 
     __schema__ = schema
@@ -111725,6 +111953,8 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "recommendation",
         "config_access",
         "priority",
+        "rank",
+        "is_new_to_top",
         "reported_priority",
         "grouping_metadata",
         "first_detected_at",
@@ -111787,14 +112017,27 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
     """Impact bucket, computed at read time from the worst user impact
     the agent recorded on the issue's conversations in the last 7
-    days, and from the issue's and the agent's conversation counts in
-    that window. A conversation without a user impact had none, the
-    lowest level. An issue with no conversations in that window is
-    LOW, or HIDDEN when its worst impact is out_of_reach or none.
-    HIDDEN when the worst impact in the window is out_of_reach or none
-    below the threshold. Null for an issue with no reports. Not
-    subject to redaction.
+    days, and from how many conversations the issue has in that
+    window. A conversation without a user impact had none, the lowest
+    level. An issue with no conversations in that window is LOW, or
+    HIDDEN when its worst impact is out_of_reach or none. A wrong,
+    unsupported, partial or missing answer is HIGH with 3 or more
+    conversations, MEDIUM below. out_of_reach or none is LOW with 3 or
+    more, HIDDEN below. Null for an issue with no reports. Not subject
+    to redaction.
     """
+
+    rank = sgqlc.types.Field(Int, graphql_name="rank")
+    """The issue's place in its Issue space's top 10, 1 first. Null
+    outside the top 10. An agent has an Issue space per workflow, or
+    one for the whole agent. Issues rank by priority, then
+    conversations in the last 7 days, then the newest report. Ignored
+    and HIDDEN issues are not ranked. A workflowName filter ranks on
+    that workflow's reports; no other filter changes the rank.
+    """
+
+    is_new_to_top = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isNewToTop")
+    """In its Issue space's top 10 now, and not 7 days ago."""
 
     reported_priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="reportedPriority")
     """The highest priority the agent has reported for the issue. Never
@@ -112054,6 +112297,7 @@ class RemediationResult(sgqlc.types.Type):
     __field_names__ = (
         "status",
         "tsa_run_id",
+        "title",
         "summary",
         "instructions",
         "recommended_actions",
@@ -112072,7 +112316,7 @@ class RemediationResult(sgqlc.types.Type):
     treat it as "nothing to show" rather than proof that none exists —
     RUNNING while one is being produced, COMPLETED when a plan is
     available, FAILED when producing one did not succeed. Reading this
-    never starts one.
+    never starts one; startRemediation does.
     """
 
     tsa_run_id = sgqlc.types.Field(String, graphql_name="tsaRunId")
@@ -112083,11 +112327,17 @@ class RemediationResult(sgqlc.types.Type):
     FAILED, not only COMPLETED.
     """
 
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """A one-line recommendation for the alert's owner, as plain text. It
+    can include customer-controlled content, so never render it as
+    HTML. Null when the plan has none or status is not COMPLETED.
+    """
+
     summary = sgqlc.types.Field(String, graphql_name="summary")
-    """Plain-language description of the incident and what the plan
-    proposes, as Markdown. Generated text derived from a report that
-    can contain customer-controlled content: render it as plain text
-    or sanitized Markdown, never as HTML. Available when status is
+    """The plan for the alert's owner, as Markdown: what is wrong, what
+    to do about it, and what they end up with. It can include
+    customer-controlled content, so render it as plain text or
+    sanitized Markdown, never as HTML. Null unless status is
     COMPLETED.
     """
 
@@ -119663,7 +119913,7 @@ class TraceExplanationResult(sgqlc.types.Type):
 
 class TraceFeedback(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("trace_id", "positive", "has_comment", "submitted_at")
+    __field_names__ = ("trace_id", "positive", "has_comment", "submitted_at", "categories")
     trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
     """Hex trace id, lowercase."""
 
@@ -119676,7 +119926,18 @@ class TraceFeedback(sgqlc.types.Type):
     """
 
     submitted_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="submittedAt")
-    """When the end user gave the feedback."""
+    """When the end user gave the feedback. For Genie, the message's last
+    update as of the run that saw the change, or that run's time when
+    Genie gave none.
+    """
+
+    categories = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="categories",
+    )
+    """What the end user said was wrong, as the vendor names it, such as
+    WRONG_CALCULATIONS. Only Genie reports them. Empty when none.
+    """
 
 
 class TraceFeedbackComment(sgqlc.types.Type):
@@ -120840,6 +121101,7 @@ class TsaAnalysisResultType(sgqlc.types.Type):
         "conversation_data",
         "thread_id",
         "run_id",
+        "analysis_run_id",
         "root_cause_tldr",
         "suggested_fix_tldr",
     )
@@ -120855,6 +121117,13 @@ class TsaAnalysisResultType(sgqlc.types.Type):
     run_id = sgqlc.types.Field(String, graphql_name="runId")
     """LangGraph run ID for feedback submission. Available when status is
     COMPLETED.
+    """
+
+    analysis_run_id = sgqlc.types.Field(String, graphql_name="analysisRunId")
+    """Run ID of the alert's latest completed analysis. Unlike runId, it
+    doesn't change when a follow-up question is asked; compare
+    remediation results' tsaRunId against it. Null until an analysis
+    has completed.
     """
 
     root_cause_tldr = sgqlc.types.Field(String, graphql_name="rootCauseTldr")
@@ -123515,7 +123784,7 @@ class Warehouse(sgqlc.types.Type):
         "supports_custom_sql_rules",
         "supports_high_segment_count",
         "supports_activity_filters",
-        "query_log_availability",
+        "supports_query_logs",
         "supports_metric_segmentation",
         "supports_metric_aggregation",
         "supports_metric_monitor_time_axis_timezone",
@@ -123871,15 +124140,10 @@ class Warehouse(sgqlc.types.Type):
     supports_activity_filters = sgqlc.types.Field(Boolean, graphql_name="supportsActivityFilters")
     """Indicates if the warehouse supports activity filters"""
 
-    query_log_availability = sgqlc.types.Field(
-        QueryLogAvailability, graphql_name="queryLogAvailability"
-    )
-    """Whether the warehouse gets query logs, judged from its active
-    warehouse connections only. dbt and other integration connections
-    do not count. COLLECTED when one collects them, NOT_ENABLED when
-    one supports them but none collects them, NOT_SUPPORTED when none
-    can. A data lake needs a connection that feeds it query logs. Null
-    when no warehouse connection is active.
+    supports_query_logs = sgqlc.types.Field(Boolean, graphql_name="supportsQueryLogs")
+    """Indicates whether query logs are collected for the warehouse. Null
+    when the warehouse has no active warehouse connection, such as
+    when only dbt connections are active.
     """
 
     supports_metric_segmentation = sgqlc.types.Field(
@@ -131114,6 +131378,19 @@ class JobAssetFilterTag(sgqlc.types.Type, JobAssetFilterInterface):
     )
 
 
+class JobAssetFilterTagPair(sgqlc.types.Type, JobAssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("job_tag_pairs", "job_tags_operator")
+    job_tag_pairs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(JobTagPair))),
+        graphql_name="jobTagPairs",
+    )
+
+    job_tags_operator = sgqlc.types.Field(
+        sgqlc.types.non_null(JobAssetFilterTagOperator), graphql_name="jobTagsOperator"
+    )
+
+
 class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     """ETL Job performance summary"""
 
@@ -131869,6 +132146,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "supports_conversation_eval",
         "supports_conversation_clustering",
         "supports_token_metrics",
+        "supports_end_user_feedback",
         "trace_table_mcon",
         "trace_table_ingested",
         "collector_status",
@@ -131977,6 +132255,17 @@ class PlatformAgent(sgqlc.types.Type, Node):
     """Whether this agent reports token counts. When false (e.g.
     Databricks Genie, which reports none), token-based metrics compute
     as 0 — hide them rather than read that as real usage.
+    """
+
+    supports_end_user_feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsEndUserFeedback"
+    )
+    """Whether end users' feedback on this agent's answers is available.
+    True for Snowflake Cortex agents, and for Databricks Genie agents
+    once their collector has run on a version that records feedback.
+    When false, getAgentFeedback answers feedbackAvailable: false;
+    hide feedback rather than show every answer as unrated. Covers the
+    feedback reads only, not feedback-based Issues.
     """
 
     trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")

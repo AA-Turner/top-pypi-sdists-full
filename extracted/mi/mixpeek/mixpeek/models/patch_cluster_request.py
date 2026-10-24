@@ -38,8 +38,9 @@ class PatchClusterRequest(BaseModel):
     face_cluster_merge: Optional[FaceClusterMergeConfig] = Field(default=None, description="Updated post-HDBSCAN face-identity merge configuration. Takes effect on the next `POST /v1/clusters/{id}/execute`. Pass an object with enabled=false to turn the merge pass off without removing the config; pass null in the patch to leave the stored value untouched.")
     sample_size: Optional[Annotated[int, Field(le=1000000, strict=True)]] = Field(default=None, description="Updated per-execution document cap. Takes effect on the next `POST /v1/clusters/{id}/execute`. Omit to leave the stored value untouched; set to an integer to change it. KMeans supports up to 1M; O(N²) algorithms are capped at 100K by the engine.")
     algorithm_params: Optional[Dict[str, Any]] = Field(default=None, description="Updated algorithm parameters (e.g. min_cluster_size, min_samples for HDBSCAN). Takes effect on the next `POST /v1/clusters/{id}/execute`.")
+    source_cluster_ids: Optional[Annotated[List[StrictStr], Field(min_length=1)]] = Field(default=None, description="Updated source clusters of a composite cluster. Each must be a vector cluster in this namespace with this cluster's feature_uris, and a cluster cannot name itself. The cluster's input collections become the sources' input collections. Takes effect on the next `POST /v1/clusters/{id}/execute`.")
     layout_stability: Optional[StrictStr] = Field(default=None, description="Updated layout-stability mode: 'align' keeps the map stable across runs (default behavior), 'transform' reuses the previous run's saved projection when compatible, 'none' re-layouts every run. Takes effect on the next `POST /v1/clusters/{id}/execute`. Omit to leave the stored value untouched.")
-    __properties: ClassVar[List[str]] = ["cluster_name", "description", "metadata", "llm_labeling", "filters", "face_cluster_merge", "sample_size", "algorithm_params", "layout_stability"]
+    __properties: ClassVar[List[str]] = ["cluster_name", "description", "metadata", "llm_labeling", "filters", "face_cluster_merge", "sample_size", "algorithm_params", "source_cluster_ids", "layout_stability"]
 
     @field_validator('layout_stability')
     def layout_stability_validate_enum(cls, value):
@@ -116,6 +117,7 @@ class PatchClusterRequest(BaseModel):
             "face_cluster_merge": FaceClusterMergeConfig.from_dict(obj["face_cluster_merge"]) if obj.get("face_cluster_merge") is not None else None,
             "sample_size": obj.get("sample_size"),
             "algorithm_params": obj.get("algorithm_params"),
+            "source_cluster_ids": obj.get("source_cluster_ids"),
             "layout_stability": obj.get("layout_stability")
         })
         return _obj

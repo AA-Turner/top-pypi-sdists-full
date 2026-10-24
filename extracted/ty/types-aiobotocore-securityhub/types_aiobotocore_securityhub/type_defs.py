@@ -41,18 +41,26 @@ from .literals import (
     ConnectorStatusType,
     ControlFindingGeneratorType,
     ControlStatusType,
+    CriticalitySourceTypeType,
     CspmConnectorStatusType,
     CspmEnablementStatusType,
     DateRangeComparisonType,
     DiscoveryTypeType,
     EnablementStatusType,
+    ExportFailureCodeType,
+    ExportStatusType,
+    ExposureImpactType,
+    ExposureSeverityType,
     FeatureStatusType,
     FindingHistoryUpdateSourceTypeType,
+    FindingsExportFormatType,
+    FindingsSelectableFieldType,
     FindingsTrendsStringFieldType,
     FreeTrialStatusValueType,
     FreeTrialTypeType,
     GranularityFieldType,
     GroupByFieldType,
+    GuidanceFormatType,
     HealthIssueCodeType,
     IntegrationTypeType,
     IntegrationV2TypeType,
@@ -73,7 +81,11 @@ from .literals import (
     RecommendationStatusType,
     RecordStateType,
     RegionAvailabilityStatusType,
+    RemediationPriorityType,
+    RemediationStatusType,
+    RemediationStringFieldType,
     ResourceCategoryType,
+    ResourceCriticalityType,
     ResourceGroupByFieldType,
     ResourcesDateFieldType,
     ResourcesNumberFieldType,
@@ -150,6 +162,7 @@ __all__ = (
     "AutomationRulesFindingFiltersUnionTypeDef",
     "AutomationRulesMetadataTypeDef",
     "AutomationRulesMetadataV2TypeDef",
+    "AutomationRulesResourceFieldsUpdateV2TypeDef",
     "AvailabilityZoneTypeDef",
     "AwsAmazonMqBrokerDetailsOutputTypeDef",
     "AwsAmazonMqBrokerDetailsTypeDef",
@@ -1023,6 +1036,8 @@ __all__ = (
     "BatchUpdateStandardsControlAssociationsResponseTypeDef",
     "BooleanConfigurationOptionsTypeDef",
     "BooleanFilterTypeDef",
+    "CancelExportJobV2RequestTypeDef",
+    "CancelExportJobV2ResponseTypeDef",
     "CellTypeDef",
     "CidrBlockAssociationTypeDef",
     "CityTypeDef",
@@ -1074,6 +1089,7 @@ __all__ = (
     "CriteriaOutputTypeDef",
     "CriteriaTypeDef",
     "CriteriaUnionTypeDef",
+    "CriticalitySourceTypeDef",
     "CspmConnectorSummaryTypeDef",
     "CspmHealthCheckTypeDef",
     "CspmProviderConfigurationTypeDef",
@@ -1150,6 +1166,16 @@ __all__ = (
     "EnableSecurityHubV2ResponseTypeDef",
     "EnumConfigurationOptionsTypeDef",
     "EnumListConfigurationOptionsTypeDef",
+    "ExportDestinationTypeDef",
+    "ExportExtraTypeDef",
+    "ExportOutputSummaryTypeDef",
+    "ExportOutputTypeDef",
+    "ExportScopesOutputTypeDef",
+    "ExportScopesTypeDef",
+    "ExportScopesUnionTypeDef",
+    "ExportSummaryTypeDef",
+    "ExportUnionTypeDef",
+    "ExposureFindingTypeDef",
     "ExternalIntegrationConfigurationTypeDef",
     "FeatureDetailTypeDef",
     "FilePathsTypeDef",
@@ -1162,6 +1188,9 @@ __all__ = (
     "FindingProviderFieldsUnionTypeDef",
     "FindingProviderSeverityTypeDef",
     "FindingScopesTypeDef",
+    "FindingsExtraTypeDef",
+    "FindingsOutputSummaryTypeDef",
+    "FindingsOutputTypeDef",
     "FindingsTrendsCompositeFilterPaginatorTypeDef",
     "FindingsTrendsCompositeFilterTypeDef",
     "FindingsTrendsFiltersPaginatorTypeDef",
@@ -1197,6 +1226,8 @@ __all__ = (
     "GetEnabledStandardsRequestPaginateTypeDef",
     "GetEnabledStandardsRequestTypeDef",
     "GetEnabledStandardsResponseTypeDef",
+    "GetExportJobV2RequestTypeDef",
+    "GetExportJobV2ResponseTypeDef",
     "GetFindingAggregatorRequestTypeDef",
     "GetFindingAggregatorResponseTypeDef",
     "GetFindingHistoryRequestPaginateTypeDef",
@@ -1225,6 +1256,9 @@ __all__ = (
     "GetRecommendedPolicyV2RequestPaginateTypeDef",
     "GetRecommendedPolicyV2RequestTypeDef",
     "GetRecommendedPolicyV2ResponseTypeDef",
+    "GetRemediationsV2RequestPaginateTypeDef",
+    "GetRemediationsV2RequestTypeDef",
+    "GetRemediationsV2ResponseTypeDef",
     "GetResourcesStatisticsV2RequestTypeDef",
     "GetResourcesStatisticsV2ResponseTypeDef",
     "GetResourcesTrendsV2RequestPaginateTypeDef",
@@ -1259,6 +1293,7 @@ __all__ = (
     "JiraCloudDetailTypeDef",
     "JiraCloudProviderConfigurationTypeDef",
     "JiraCloudUpdateConfigurationTypeDef",
+    "KbArticleTypeDef",
     "KeywordFilterTypeDef",
     "ListAggregatorsV2RequestPaginateTypeDef",
     "ListAggregatorsV2RequestTypeDef",
@@ -1280,6 +1315,12 @@ __all__ = (
     "ListEnabledProductsForImportRequestPaginateTypeDef",
     "ListEnabledProductsForImportRequestTypeDef",
     "ListEnabledProductsForImportResponseTypeDef",
+    "ListExportJobsV2RequestPaginateTypeDef",
+    "ListExportJobsV2RequestTypeDef",
+    "ListExportJobsV2ResponseTypeDef",
+    "ListExposuresByRemediationV2RequestPaginateTypeDef",
+    "ListExposuresByRemediationV2RequestTypeDef",
+    "ListExposuresByRemediationV2ResponseTypeDef",
     "ListFindingAggregatorsRequestPaginateTypeDef",
     "ListFindingAggregatorsRequestTypeDef",
     "ListFindingAggregatorsResponseTypeDef",
@@ -1375,7 +1416,23 @@ __all__ = (
     "RegisterConnectorV2RequestTypeDef",
     "RegisterConnectorV2ResponseTypeDef",
     "RelatedFindingTypeDef",
+    "RemediationCompositeFilterTypeDef",
+    "RemediationFiltersTypeDef",
+    "RemediationGuidanceContextTypeDef",
+    "RemediationGuidanceExamplesTypeDef",
+    "RemediationGuidanceMetadataTypeDef",
+    "RemediationGuidanceSpecificationTypeDef",
+    "RemediationGuidanceTypeDef",
+    "RemediationOutcomeTypeDef",
+    "RemediationParameterTypeDef",
+    "RemediationResourceTypeDef",
+    "RemediationStepTypeDef",
+    "RemediationStringFilterConditionTypeDef",
+    "RemediationStringFilterTypeDef",
+    "RemediationSummaryDetailTypeDef",
+    "RemediationTraitTypeDef",
     "RemediationTypeDef",
+    "RemediationV2ItemTypeDef",
     "ResourceDetailsOutputTypeDef",
     "ResourceDetailsTypeDef",
     "ResourceDetailsUnionTypeDef",
@@ -1392,12 +1449,16 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResourceTypeDef",
     "ResourceUnionTypeDef",
+    "ResourcesCompositeFilterOutputTypeDef",
     "ResourcesCompositeFilterPaginatorTypeDef",
     "ResourcesCompositeFilterTypeDef",
+    "ResourcesCompositeFilterUnionTypeDef",
     "ResourcesCountTypeDef",
     "ResourcesDateFilterTypeDef",
+    "ResourcesFiltersOutputTypeDef",
     "ResourcesFiltersPaginatorTypeDef",
     "ResourcesFiltersTypeDef",
+    "ResourcesFiltersUnionTypeDef",
     "ResourcesMapFilterTypeDef",
     "ResourcesNumberFilterTypeDef",
     "ResourcesStringFilterTypeDef",
@@ -1458,6 +1519,7 @@ __all__ = (
     "RuleGroupVariablesPortSetsDetailsUnionTypeDef",
     "RuleGroupVariablesTypeDef",
     "RuleGroupVariablesUnionTypeDef",
+    "S3ExportDestinationTypeDef",
     "SecurityControlCustomParameterOutputTypeDef",
     "SecurityControlCustomParameterTypeDef",
     "SecurityControlDefinitionTypeDef",
@@ -1502,6 +1564,8 @@ __all__ = (
     "StartConfigurationPolicyAssociationRequestTypeDef",
     "StartConfigurationPolicyAssociationResponseTypeDef",
     "StartConfigurationPolicyDisassociationRequestTypeDef",
+    "StartExportJobV2RequestTypeDef",
+    "StartExportJobV2ResponseTypeDef",
     "StatelessCustomActionDefinitionOutputTypeDef",
     "StatelessCustomActionDefinitionTypeDef",
     "StatelessCustomActionDefinitionUnionTypeDef",
@@ -1708,6 +1772,10 @@ class AutomationRulesFindingFieldsUpdateV2TypeDef(TypedDict):
     SeverityId: NotRequired[int]
     Comment: NotRequired[str]
     StatusId: NotRequired[int]
+
+
+class AutomationRulesResourceFieldsUpdateV2TypeDef(TypedDict):
+    Criticality: ResourceCriticalityType
 
 
 class ExternalIntegrationConfigurationTypeDef(TypedDict):
@@ -4182,6 +4250,10 @@ class BooleanConfigurationOptionsTypeDef(TypedDict):
     DefaultValue: NotRequired[bool]
 
 
+class CancelExportJobV2RequestTypeDef(TypedDict):
+    ExportJobId: str
+
+
 class CellTypeDef(TypedDict):
     Column: NotRequired[int]
     Row: NotRequired[int]
@@ -4308,6 +4380,11 @@ class CreateTicketV2RequestTypeDef(TypedDict):
     FindingMetadataUid: str
     ClientToken: NotRequired[str]
     Mode: NotRequired[Literal["DRYRUN"]]
+
+
+class CriticalitySourceTypeDef(TypedDict):
+    Source: CriticalitySourceTypeType
+    Reason: str
 
 
 class HealthIssueTypeDef(TypedDict):
@@ -4491,6 +4568,24 @@ class EnableSecurityHubV2RequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
 
 
+class S3ExportDestinationTypeDef(TypedDict):
+    BucketArn: str
+    KmsKeyArn: str
+    ObjectPrefix: NotRequired[str]
+
+
+class FindingsOutputSummaryTypeDef(TypedDict):
+    Format: FindingsExportFormatType
+
+
+class ExposureFindingTypeDef(TypedDict):
+    MetadataUid: str
+    Title: str
+    PreviousSeverity: ExposureSeverityType
+    ProjectedSeverity: ExposureSeverityType
+    Impact: ExposureImpactType
+
+
 class FilePathsTypeDef(TypedDict):
     FilePath: NotRequired[str]
     FileName: NotRequired[str]
@@ -4573,6 +4668,10 @@ class GetEnabledStandardsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Providers: NotRequired[Sequence[StandardsProviderType]]
+
+
+class GetExportJobV2RequestTypeDef(TypedDict):
+    ExportJobId: str
 
 
 class GetFindingAggregatorRequestTypeDef(TypedDict):
@@ -4676,6 +4775,11 @@ class JiraCloudUpdateConfigurationTypeDef(TypedDict):
     ProjectKey: NotRequired[str]
 
 
+class KbArticleTypeDef(TypedDict):
+    Title: str
+    Url: str
+
+
 class ListAggregatorsV2RequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -4715,6 +4819,43 @@ class ListConnectorsV2RequestTypeDef(TypedDict):
 class ListEnabledProductsForImportRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListExportJobsV2RequestTypeDef(TypedDict):
+    Status: NotRequired[ExportStatusType]
+    DataType: NotRequired[Literal["FINDINGS"]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListExposuresByRemediationV2RequestTypeDef(TypedDict):
+    TargetUid: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+RemediationResourceTypeDef = TypedDict(
+    "RemediationResourceTypeDef",
+    {
+        "AccountId": str,
+        "Region": str,
+        "Type": str,
+        "Id": str,
+        "ResourceRegion": str,
+        "CloudProvider": CloudProviderNameType,
+        "ResourceOwnerAccountId": NotRequired[str],
+        "ResourceOwnerOrgId": NotRequired[str],
+        "Name": NotRequired[str],
+        "ResourceGuid": NotRequired[str],
+    },
+)
+RemediationTraitTypeDef = TypedDict(
+    "RemediationTraitTypeDef",
+    {
+        "Type": str,
+        "Title": str,
+    },
+)
 
 
 class ListFindingAggregatorsRequestTypeDef(TypedDict):
@@ -4864,6 +5005,68 @@ RecommendationTypeDef = TypedDict(
 class RegisterConnectorV2RequestTypeDef(TypedDict):
     AuthCode: str
     AuthState: str
+
+
+class RemediationGuidanceContextTypeDef(TypedDict):
+    ProblemStatement: NotRequired[str]
+    RiskAssessment: NotRequired[str]
+    AffectedScope: NotRequired[str]
+    Prerequisites: NotRequired[list[str]]
+
+
+class RemediationGuidanceExamplesTypeDef(TypedDict):
+    AwsCli: NotRequired[str]
+    Cli: NotRequired[str]
+    Python: NotRequired[str]
+    Terraform: NotRequired[str]
+    Cdk: NotRequired[str]
+    CloudFormation: NotRequired[str]
+    IaC: NotRequired[str]
+    Template: NotRequired[str]
+
+
+class RemediationGuidanceMetadataTypeDef(TypedDict):
+    ResourceType: str
+    ExposureType: str
+    TraitTitles: list[str]
+    Reversibility: str
+    FixEffect: str
+    RiskLevel: str
+    AutomationLevel: NotRequired[str]
+    HumanReviewRequired: NotRequired[bool]
+    GeneratedAt: NotRequired[datetime]
+    VerificationStatus: NotRequired[str]
+
+
+RemediationParameterTypeDef = TypedDict(
+    "RemediationParameterTypeDef",
+    {
+        "Name": str,
+        "Type": str,
+        "Description": str,
+        "Required": NotRequired[bool],
+    },
+)
+
+
+class RemediationStepTypeDef(TypedDict):
+    Phase: str
+    Description: str
+    Service: str
+    Action: str
+    Logic: NotRequired[str]
+    Inverse: NotRequired[str]
+    VerifyAfter: NotRequired[str]
+
+
+class RemediationOutcomeTypeDef(TypedDict):
+    ResolvedFindingsCount: int
+    SeverityReductionFindingsCount: int
+    SeverityUnchangedCount: int
+
+
+class RemediationStringFilterConditionTypeDef(TypedDict):
+    Value: str
 
 
 class ResourceSeverityBreakdownTypeDef(TypedDict):
@@ -5146,6 +5349,7 @@ AutomationRulesActionV2TypeDef = TypedDict(
         "Type": AutomationRulesActionTypeV2Type,
         "FindingFieldsUpdate": NotRequired[AutomationRulesFindingFieldsUpdateV2TypeDef],
         "ExternalIntegrationConfiguration": NotRequired[ExternalIntegrationConfigurationTypeDef],
+        "ResourceFieldsUpdate": NotRequired[AutomationRulesResourceFieldsUpdateV2TypeDef],
     },
 )
 
@@ -6590,6 +6794,14 @@ AwsOpenSearchServiceDomainVpcOptionsDetailsUnionTypeDef = Union[
 ]
 
 
+class ExportScopesOutputTypeDef(TypedDict):
+    AwsOrganizations: NotRequired[list[AwsOrganizationScopeTypeDef]]
+
+
+class ExportScopesTypeDef(TypedDict):
+    AwsOrganizations: NotRequired[Sequence[AwsOrganizationScopeTypeDef]]
+
+
 class FindingScopesTypeDef(TypedDict):
     AwsOrganizations: NotRequired[Sequence[AwsOrganizationScopeTypeDef]]
 
@@ -7175,6 +7387,12 @@ AzureScopeConfigurationUnionTypeDef = Union[
 ]
 
 
+class CancelExportJobV2ResponseTypeDef(TypedDict):
+    ExportJobId: str
+    Status: ExportStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateActionTargetResponseTypeDef(TypedDict):
     ActionTargetArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7367,6 +7585,11 @@ class StartConfigurationPolicyAssociationResponseTypeDef(TypedDict):
     UpdatedAt: datetime
     AssociationStatus: ConfigurationPolicyAssociationStatusType
     AssociationStatusMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartExportJobV2ResponseTypeDef(TypedDict):
+    ExportJobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7645,6 +7868,17 @@ class ListEnabledProductsForImportRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListExportJobsV2RequestPaginateTypeDef(TypedDict):
+    Status: NotRequired[ExportStatusType]
+    DataType: NotRequired[Literal["FINDINGS"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListExposuresByRemediationV2RequestPaginateTypeDef(TypedDict):
+    TargetUid: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListFindingAggregatorsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -7717,6 +7951,14 @@ class DescribeStandardsControlsResponseTypeDef(TypedDict):
     Controls: list[StandardsControlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ExportDestinationTypeDef(TypedDict):
+    S3: NotRequired[S3ExportDestinationTypeDef]
+
+
+class ExportOutputSummaryTypeDef(TypedDict):
+    Findings: NotRequired[FindingsOutputSummaryTypeDef]
 
 
 class ThreatOutputTypeDef(TypedDict):
@@ -7864,6 +8106,24 @@ class InsightResultsTypeDef(TypedDict):
     ResultValues: list[InsightResultValueTypeDef]
 
 
+class RemediationSummaryDetailTypeDef(TypedDict):
+    Action: str
+    IsImmediate: bool
+    Description: NotRequired[str]
+    PostRemediationSteps: NotRequired[list[str]]
+    KbArticles: NotRequired[list[KbArticleTypeDef]]
+
+
+class ListExposuresByRemediationV2ResponseTypeDef(TypedDict):
+    Items: list[ExposureFindingTypeDef]
+    TargetUid: str
+    Resource: RemediationResourceTypeDef
+    TotalCount: int
+    Trait: RemediationTraitTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListStandardsControlAssociationsResponseTypeDef(TypedDict):
     StandardsControlAssociationSummaries: list[StandardsControlAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7929,6 +8189,18 @@ class RecommendationStepTypeDef(TypedDict):
 
 class RemediationTypeDef(TypedDict):
     Recommendation: NotRequired[RecommendationTypeDef]
+
+
+class RemediationGuidanceSpecificationTypeDef(TypedDict):
+    Parameters: NotRequired[list[RemediationParameterTypeDef]]
+    Steps: NotRequired[list[RemediationStepTypeDef]]
+    ExpectedEndState: NotRequired[str]
+    RequiredPermissions: NotRequired[list[str]]
+
+
+class RemediationStringFilterTypeDef(TypedDict):
+    FieldName: RemediationStringFieldType
+    Filter: RemediationStringFilterConditionTypeDef
 
 
 class ResourceFindingsSummaryTypeDef(TypedDict):
@@ -9146,6 +9418,7 @@ class AwsOpenSearchServiceDomainDetailsTypeDef(TypedDict):
     ]
 
 
+ExportScopesUnionTypeDef = Union[ExportScopesTypeDef, ExportScopesOutputTypeDef]
 AwsRdsDbClusterDetailsUnionTypeDef = Union[
     AwsRdsDbClusterDetailsTypeDef, AwsRdsDbClusterDetailsOutputTypeDef
 ]
@@ -9886,6 +10159,20 @@ class ResourcesDateFilterTypeDef(TypedDict):
     Filter: NotRequired[DateFilterTypeDef]
 
 
+class ExportSummaryTypeDef(TypedDict):
+    ExportJobId: str
+    Status: ExportStatusType
+    DataType: Literal["FINDINGS"]
+    Destination: ExportDestinationTypeDef
+    StartedAt: datetime
+    Name: NotRequired[str]
+    OutputConfiguration: NotRequired[ExportOutputSummaryTypeDef]
+    Scopes: NotRequired[ExportScopesOutputTypeDef]
+    FailureCode: NotRequired[ExportFailureCodeType]
+    FailureMessage: NotRequired[str]
+    EndedAt: NotRequired[datetime]
+
+
 ThreatUnionTypeDef = Union[ThreatTypeDef, ThreatOutputTypeDef]
 
 
@@ -9981,6 +10268,20 @@ class GetRecommendedPolicyV2ResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class RemediationGuidanceTypeDef(TypedDict):
+    TargetTypeName: str
+    Pattern: str
+    Version: str
+    Context: RemediationGuidanceContextTypeDef
+    Specification: RemediationGuidanceSpecificationTypeDef
+    Examples: RemediationGuidanceExamplesTypeDef
+    Metadata: RemediationGuidanceMetadataTypeDef
+
+
+class RemediationCompositeFilterTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[RemediationStringFilterTypeDef]]
+
+
 class ResourceResultTypeDef(TypedDict):
     ResourceId: str
     AccountId: str
@@ -10003,6 +10304,8 @@ class ResourceResultTypeDef(TypedDict):
     ResourceSubCategory: NotRequired[ResourceSubCategoryType]
     DiscoveryType: NotRequired[DiscoveryTypeType]
     ResourceInfo: NotRequired[ResourceInfoTypeDef]
+    ResourceCriticality: NotRequired[ResourceCriticalityType]
+    CriticalitySources: NotRequired[list[CriticalitySourceTypeDef]]
 
 
 class ResourcesTrendsMetricsResultTypeDef(TypedDict):
@@ -10983,6 +11286,15 @@ class CompositeFilterTypeDef(TypedDict):
     Operator: NotRequired[AllowedOperatorsType]
 
 
+class ResourcesCompositeFilterOutputTypeDef(TypedDict):
+    StringFilters: NotRequired[list[ResourcesStringFilterTypeDef]]
+    DateFilters: NotRequired[list[ResourcesDateFilterTypeDef]]
+    NumberFilters: NotRequired[list[ResourcesNumberFilterTypeDef]]
+    MapFilters: NotRequired[list[ResourcesMapFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[list[dict[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+
 class ResourcesCompositeFilterPaginatorTypeDef(TypedDict):
     StringFilters: NotRequired[Sequence[ResourcesStringFilterTypeDef]]
     DateFilters: NotRequired[Sequence[ResourcesDateFilterTypeDef]]
@@ -10999,6 +11311,12 @@ class ResourcesCompositeFilterTypeDef(TypedDict):
     MapFilters: NotRequired[Sequence[ResourcesMapFilterTypeDef]]
     NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
     Operator: NotRequired[AllowedOperatorsType]
+
+
+class ListExportJobsV2ResponseTypeDef(TypedDict):
+    Items: list[ExportSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class SequenceTypeDef(TypedDict):
@@ -11064,6 +11382,22 @@ ParameterConfigurationUnionTypeDef = Union[
 class SecurityControlCustomParameterTypeDef(TypedDict):
     SecurityControlId: NotRequired[str]
     Parameters: NotRequired[Mapping[str, ParameterConfigurationTypeDef]]
+
+
+class RemediationV2ItemTypeDef(TypedDict):
+    TargetUid: str
+    Outcome: RemediationOutcomeTypeDef
+    Priority: RemediationPriorityType
+    RemediationSummary: RemediationSummaryDetailTypeDef
+    Resource: RemediationResourceTypeDef
+    Status: RemediationStatusType
+    Trait: RemediationTraitTypeDef
+    Guidance: NotRequired[RemediationGuidanceTypeDef]
+    UpdatedAt: NotRequired[datetime]
+
+
+class RemediationFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[RemediationCompositeFilterTypeDef]]
 
 
 class GetResourcesV2ResponseTypeDef(TypedDict):
@@ -11732,16 +12066,19 @@ class OcsfFindingFiltersPaginatorTypeDef(TypedDict):
 CompositeFilterUnionTypeDef = Union[CompositeFilterTypeDef, CompositeFilterOutputTypeDef]
 
 
+class ResourcesFiltersOutputTypeDef(TypedDict):
+    CompositeFilters: NotRequired[list[ResourcesCompositeFilterOutputTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+
 class ResourcesFiltersPaginatorTypeDef(TypedDict):
     CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterPaginatorTypeDef]]
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 
-class ResourcesFiltersTypeDef(TypedDict):
-    CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterTypeDef]]
-    CompositeOperator: NotRequired[AllowedOperatorsType]
-
-
+ResourcesCompositeFilterUnionTypeDef = Union[
+    ResourcesCompositeFilterTypeDef, ResourcesCompositeFilterOutputTypeDef
+]
 SequenceUnionTypeDef = Union[SequenceTypeDef, SequenceOutputTypeDef]
 NetworkHeaderUnionTypeDef = Union[NetworkHeaderTypeDef, NetworkHeaderOutputTypeDef]
 
@@ -11790,6 +12127,31 @@ class SecurityControlsConfigurationTypeDef(TypedDict):
     EnabledSecurityControlIdentifiers: NotRequired[Sequence[str]]
     DisabledSecurityControlIdentifiers: NotRequired[Sequence[str]]
     SecurityControlCustomParameters: NotRequired[Sequence[SecurityControlCustomParameterTypeDef]]
+
+
+class GetRemediationsV2ResponseTypeDef(TypedDict):
+    Items: list[RemediationV2ItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetRemediationsV2RequestPaginateTypeDef(TypedDict):
+    TargetUid: NotRequired[str]
+    MetadataUid: NotRequired[str]
+    Filters: NotRequired[RemediationFiltersTypeDef]
+    ShowGuidance: NotRequired[bool]
+    GuidanceFormat: NotRequired[GuidanceFormatType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetRemediationsV2RequestTypeDef(TypedDict):
+    TargetUid: NotRequired[str]
+    MetadataUid: NotRequired[str]
+    Filters: NotRequired[RemediationFiltersTypeDef]
+    ShowGuidance: NotRequired[bool]
+    GuidanceFormat: NotRequired[GuidanceFormatType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class RuleGroupSourceStatelessRuleDefinitionTypeDef(TypedDict):
@@ -11989,8 +12351,10 @@ class ListConnectorsV2ResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class CriteriaOutputTypeDef(TypedDict):
-    OcsfFindingCriteria: NotRequired[OcsfFindingFiltersOutputTypeDef]
+class FindingsExtraTypeDef(TypedDict):
+    Format: FindingsExportFormatType
+    Filters: NotRequired[OcsfFindingFiltersOutputTypeDef]
+    SelectedFields: NotRequired[list[FindingsSelectableFieldType]]
 
 
 class GetFindingsV2RequestPaginateTypeDef(TypedDict):
@@ -12005,6 +12369,11 @@ class OcsfFindingFiltersTypeDef(TypedDict):
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 
+class CriteriaOutputTypeDef(TypedDict):
+    OcsfFindingCriteria: NotRequired[OcsfFindingFiltersOutputTypeDef]
+    ResourceCriteria: NotRequired[ResourcesFiltersOutputTypeDef]
+
+
 class GetResourcesV2RequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[ResourcesFiltersPaginatorTypeDef]
     Scopes: NotRequired[ResourceScopesTypeDef]
@@ -12012,17 +12381,9 @@ class GetResourcesV2RequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class GetResourcesV2RequestTypeDef(TypedDict):
-    Filters: NotRequired[ResourcesFiltersTypeDef]
-    Scopes: NotRequired[ResourceScopesTypeDef]
-    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
-
-class ResourceGroupByRuleTypeDef(TypedDict):
-    GroupByField: ResourceGroupByFieldType
-    Filters: NotRequired[ResourcesFiltersTypeDef]
+class ResourcesFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterUnionTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
 
 
 DetectionTypeDef = TypedDict(
@@ -12215,6 +12576,19 @@ AwsWafv2WebAclActionDetailsUnionTypeDef = Union[
 ]
 
 
+class ExportExtraTypeDef(TypedDict):
+    Findings: NotRequired[FindingsExtraTypeDef]
+
+
+class FindingsOutputTypeDef(TypedDict):
+    Format: FindingsExportFormatType
+    Filters: NotRequired[OcsfFindingFiltersTypeDef]
+    SelectedFields: NotRequired[Sequence[FindingsSelectableFieldType]]
+
+
+OcsfFindingFiltersUnionTypeDef = Union[OcsfFindingFiltersTypeDef, OcsfFindingFiltersOutputTypeDef]
+
+
 class GetAutomationRuleV2ResponseTypeDef(TypedDict):
     RuleArn: str
     RuleId: str
@@ -12231,18 +12605,10 @@ class GetAutomationRuleV2ResponseTypeDef(TypedDict):
 
 class CriteriaTypeDef(TypedDict):
     OcsfFindingCriteria: NotRequired[OcsfFindingFiltersTypeDef]
+    ResourceCriteria: NotRequired[ResourcesFiltersTypeDef]
 
 
-OcsfFindingFiltersUnionTypeDef = Union[OcsfFindingFiltersTypeDef, OcsfFindingFiltersOutputTypeDef]
-
-
-class GetResourcesStatisticsV2RequestTypeDef(TypedDict):
-    GroupByRules: Sequence[ResourceGroupByRuleTypeDef]
-    Scopes: NotRequired[ResourceScopesTypeDef]
-    SortOrder: NotRequired[SortOrderType]
-    MaxStatisticResults: NotRequired[int]
-
-
+ResourcesFiltersUnionTypeDef = Union[ResourcesFiltersTypeDef, ResourcesFiltersOutputTypeDef]
 DetectionUnionTypeDef = Union[DetectionTypeDef, DetectionOutputTypeDef]
 NetworkPathComponentUnionTypeDef = Union[
     NetworkPathComponentTypeDef, NetworkPathComponentOutputTypeDef
@@ -12352,7 +12718,23 @@ class AwsWafv2RulesDetailsTypeDef(TypedDict):
     VisibilityConfig: NotRequired[AwsWafv2VisibilityConfigDetailsTypeDef]
 
 
-CriteriaUnionTypeDef = Union[CriteriaTypeDef, CriteriaOutputTypeDef]
+class GetExportJobV2ResponseTypeDef(TypedDict):
+    ExportJobId: str
+    Name: str
+    Status: ExportStatusType
+    DataType: Literal["FINDINGS"]
+    OutputConfiguration: ExportExtraTypeDef
+    Scopes: ExportScopesOutputTypeDef
+    Destination: ExportDestinationTypeDef
+    FailureCode: ExportFailureCodeType
+    FailureMessage: str
+    StartedAt: datetime
+    EndedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ExportOutputTypeDef(TypedDict):
+    Findings: NotRequired[FindingsOutputTypeDef]
 
 
 class GetFindingsV2RequestTypeDef(TypedDict):
@@ -12366,6 +12748,22 @@ class GetFindingsV2RequestTypeDef(TypedDict):
 class GroupByRuleTypeDef(TypedDict):
     GroupByField: GroupByFieldType
     Filters: NotRequired[OcsfFindingFiltersUnionTypeDef]
+
+
+CriteriaUnionTypeDef = Union[CriteriaTypeDef, CriteriaOutputTypeDef]
+
+
+class GetResourcesV2RequestTypeDef(TypedDict):
+    Filters: NotRequired[ResourcesFiltersUnionTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ResourceGroupByRuleTypeDef(TypedDict):
+    GroupByField: ResourceGroupByFieldType
+    Filters: NotRequired[ResourcesFiltersUnionTypeDef]
 
 
 CustomDataIdentifiersResultUnionTypeDef = Union[
@@ -12446,6 +12844,16 @@ class AwsWafv2WebAclDetailsTypeDef(TypedDict):
     VisibilityConfig: NotRequired[AwsWafv2VisibilityConfigDetailsTypeDef]
 
 
+ExportUnionTypeDef = Union[ExportOutputTypeDef, ExportExtraTypeDef]
+
+
+class GetFindingStatisticsV2RequestTypeDef(TypedDict):
+    GroupByRules: Sequence[GroupByRuleTypeDef]
+    Scopes: NotRequired[FindingScopesTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    MaxStatisticResults: NotRequired[int]
+
+
 class CreateAutomationRuleV2RequestTypeDef(TypedDict):
     RuleName: str
     Description: str
@@ -12467,9 +12875,9 @@ class UpdateAutomationRuleV2RequestTypeDef(TypedDict):
     Actions: NotRequired[Sequence[AutomationRulesActionV2TypeDef]]
 
 
-class GetFindingStatisticsV2RequestTypeDef(TypedDict):
-    GroupByRules: Sequence[GroupByRuleTypeDef]
-    Scopes: NotRequired[FindingScopesTypeDef]
+class GetResourcesStatisticsV2RequestTypeDef(TypedDict):
+    GroupByRules: Sequence[ResourceGroupByRuleTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
     SortOrder: NotRequired[SortOrderType]
     MaxStatisticResults: NotRequired[int]
 
@@ -12647,6 +13055,16 @@ class AwsWafv2RuleGroupDetailsTypeDef(TypedDict):
 AwsWafv2WebAclDetailsUnionTypeDef = Union[
     AwsWafv2WebAclDetailsTypeDef, AwsWafv2WebAclDetailsOutputTypeDef
 ]
+
+
+class StartExportJobV2RequestTypeDef(TypedDict):
+    Destination: ExportDestinationTypeDef
+    OutputConfiguration: ExportUnionTypeDef
+    Name: NotRequired[str]
+    Scopes: NotRequired[ExportScopesUnionTypeDef]
+    ClientToken: NotRequired[str]
+
+
 ClassificationResultUnionTypeDef = Union[
     ClassificationResultTypeDef, ClassificationResultOutputTypeDef
 ]

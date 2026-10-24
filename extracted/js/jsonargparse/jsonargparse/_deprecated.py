@@ -1,5 +1,6 @@
 """Deprecated code."""
 
+import argparse
 import functools
 import inspect
 import os
@@ -48,6 +49,18 @@ _message_add_argument_enable_path = """
 _message_action_json_schema_enable_path = """
     ``enable_path`` parameter of ``ActionJsonSchema`` was deprecated in v4.49.0 and will be removed in v5.0.0.
     Use ``sub_config`` instead.
+"""
+
+_message_action_json_schema_with_meta = """
+    ``with_meta`` parameter of ``ActionJsonSchema`` was deprecated in v4.53.0 and will be removed in v5.0.0.
+    To remove metadata from a config object, do ``.clone(with_meta=False)``.
+"""
+
+_message_config_files_as_paths = """
+    Config file paths as ``Path`` objects in ``get_config_files`` and the config argument were deprecated
+    in v4.53.0. From v5.0.0 they are strings, relative to the working directory if given relative. To work
+    with both versions, use ``os.fspath(path)``, and only for local files also
+    ``os.path.abspath(os.path.expanduser(...))``, since it breaks URLs.
 """
 
 
@@ -137,6 +150,22 @@ def action_json_schema_enable_path_deprecation(kwargs: dict, stacklevel: int = 1
         )
         return kwargs.pop("enable_path")
     return None
+
+
+def action_json_schema_with_meta_deprecation(with_meta: Optional[bool], stacklevel: int = 1) -> bool:
+    """Handle deprecated ``with_meta`` parameter in ``ActionJsonSchema``.
+
+    If ``with_meta`` was given, emit a deprecation warning. Returns its value,
+    or ``True`` if not given.
+    """
+    if with_meta is None:
+        return True
+    deprecation_warning(
+        action_json_schema_with_meta_deprecation,
+        _message_action_json_schema_with_meta,
+        stacklevel=stacklevel + 1,
+    )
+    return with_meta
 
 
 def parse_as_dict_patch():
@@ -629,6 +658,58 @@ def deprecation_warning_error_handler(stacklevel):
     deprecation_warning("ArgumentParser.error_handler", error_handler_message, stacklevel=stacklevel)
 
 
+def deprecation_warning_config_files_as_paths(stacklevel):
+    deprecation_warning("ArgumentParser.get_config_files", _message_config_files_as_paths, stacklevel=stacklevel + 1)
+
+
+def mark_group_instantiated_in_v5(container, nested_key: Optional[str], as_group: bool, method: str) -> None:
+    """Marks a function or method group, which in v5 ``instantiate`` replaces by a callable."""
+    parser = container.parser if hasattr(container, "parser") else container
+    group = parser.groups.get(nested_key) if as_group and nested_key is not None else None
+    if group is not None and not hasattr(group, "instantiate_class"):
+        group.instantiated_in_v5 = (nested_key, method)
+
+
+def deprecation_warning_function_groups_instantiate(parser, stacklevel):
+    if os.environ.get("JSONARGPARSE_DEPRECATION_WARNINGS", "").lower() != "all":
+        return
+    for group in parser._action_groups:
+        if hasattr(group, "instantiated_in_v5"):
+            nested_key, method = group.instantiated_in_v5
+            deprecation_warning(
+                group.instantiated_in_v5,
+                f'Group "{nested_key}" added with {method} is currently kept as parsed by instantiate. '
+                "In v5.0.0 it will be replaced by a functools.partial with the arguments bound, or by an "
+                "operator.methodcaller for a method that is called with an instance. To keep it as parsed in "
+                f"v5.0.0, give instantiate=False to {method}.",
+                stacklevel=stacklevel + 1,
+            )
+
+
+def deprecation_warning_allow_abbrev(parser, arg_string: str, option_string: str) -> None:
+    """Warns when a command line option is given abbreviated and the parser doesn't explicitly allow it."""
+    given = arg_string.split("=", 1)[0]
+    if parser._allow_abbrev_given or option_string == given or not option_string.startswith(given):
+        return
+    deprecation_warning(
+        "ArgumentParser.allow_abbrev",
+        f"Option '{given}' was expanded to '{option_string}'. Abbreviated options are deprecated, "
+        "v5.0.0 disables abbreviations by default. Use the full option name, or to keep abbreviations "
+        "give allow_abbrev=True to the parser.",
+        stacklevel=stacklevel_outside_parsing(),
+    )
+
+
+def stacklevel_outside_parsing() -> int:
+    """Returns the stacklevel, relative to the caller, of the first frame outside jsonargparse and argparse."""
+    internal = (os.path.dirname(__file__) + os.sep, argparse.__file__)
+    frame: Any = sys._getframe(2)
+    stacklevel = 1
+    while frame.f_code.co_filename.startswith(internal):
+        frame, stacklevel = frame.f_back, stacklevel + 1
+    return stacklevel
+
+
 default_meta_message = """
     ``default_meta`` property was deprecated in v4.44.0 and will be removed in
     v5.0.0. After removal, config objects will always include metadata. To
@@ -642,6 +723,7 @@ class ParserDeprecations:
     _instantiators: Optional[InstantiatorsDictType] = None
 
     def __init__(self, *args, error_handler=False, default_meta=None, **kwargs):
+        self._allow_abbrev_given = "allow_abbrev" in kwargs
         super().__init__(*args, **kwargs)
         self.error_handler = error_handler
         if default_meta is None:
@@ -731,8 +813,8 @@ class ParserDeprecations:
 
     @deprecated("""
         ``ArgumentParser.add_instantiator`` was deprecated in v4.49.0 and will be
-        removed in v5.0.0. Use the global function ``jsonargparse.add_instantiator``
-        instead.
+        removed in v5.0.0. Instead use the ``instantiators`` parameter of
+        ``instantiate``, ``auto_cli`` or ``from_config``.
     """)
     def add_instantiator(
         self,

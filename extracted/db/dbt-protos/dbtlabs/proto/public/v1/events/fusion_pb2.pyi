@@ -534,6 +534,7 @@ class ResourceCounts(google.protobuf.message.Message):
     SAVED_QUERIES_FIELD_NUMBER: builtins.int
     CATALOGS_FIELD_NUMBER: builtins.int
     COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    CHECKS_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -570,6 +571,8 @@ class ResourceCounts(google.protobuf.message.Message):
     """total count of saved queries in the project."""
     catalogs: builtins.int
     """total count of catalogs in the project."""
+    checks: builtins.int
+    """total count of checks (project quality checks under `checks/`) in the project."""
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
@@ -598,9 +601,10 @@ class ResourceCounts(google.protobuf.message.Message):
         saved_queries: builtins.int = ...,
         catalogs: builtins.int = ...,
         common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+        checks: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["analyses", b"analyses", "catalogs", b"catalogs", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "exposures", b"exposures", "groups", b"groups", "invocation_id", b"invocation_id", "macros", b"macros", "metrics", b"metrics", "models", b"models", "operations", b"operations", "saved_queries", b"saved_queries", "seeds", b"seeds", "semantic_models", b"semantic_models", "snapshots", b"snapshots", "sources", b"sources", "tests", b"tests", "unit_tests", b"unit_tests"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["analyses", b"analyses", "catalogs", b"catalogs", "checks", b"checks", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "exposures", b"exposures", "groups", b"groups", "invocation_id", b"invocation_id", "macros", b"macros", "metrics", b"metrics", "models", b"models", "operations", b"operations", "saved_queries", b"saved_queries", "seeds", b"seeds", "semantic_models", b"semantic_models", "snapshots", b"snapshots", "sources", b"sources", "tests", b"tests", "unit_tests", b"unit_tests"]) -> None: ...
 
 Global___ResourceCounts: typing_extensions.TypeAlias = ResourceCounts
 
@@ -638,6 +642,7 @@ class RunModel(google.protobuf.message.Message):
     CATALOG_NAME_FIELD_NUMBER: builtins.int
     CATALOG_TYPE_FIELD_NUMBER: builtins.int
     COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    COMPUTE_MODE_FIELD_NUMBER: builtins.int
     ROWS_AFFECTED_FIELD_NUMBER: builtins.int
     SNAPSHOT_STRATEGY_FIELD_NUMBER: builtins.int
     BYTES_PROCESSED_FIELD_NUMBER: builtins.int
@@ -711,6 +716,8 @@ class RunModel(google.protobuf.message.Message):
     this is the catalog backend kind, distinct from catalog_name (the user-chosen
     catalog label). empty string when the model does not use catalogs.yml.
     """
+    compute_mode: builtins.str
+    """where the node was executed. one of "remote", "local", or "lake_compute"."""
     rows_affected: builtins.int
     """number of rows affected by the model's main statement. Unset when unknown
     (distinct from 0).
@@ -758,6 +765,7 @@ class RunModel(google.protobuf.message.Message):
         catalog_name: builtins.str = ...,
         catalog_type: builtins.str = ...,
         common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+        compute_mode: builtins.str = ...,
         rows_affected: builtins.int | None = ...,
         snapshot_strategy: builtins.str = ...,
         bytes_processed: builtins.int | None = ...,
@@ -765,7 +773,7 @@ class RunModel(google.protobuf.message.Message):
         slot_ms: builtins.int | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_bytes_billed", b"_bytes_billed", "_bytes_processed", b"_bytes_processed", "_rows_affected", b"_rows_affected", "_slot_ms", b"_slot_ms", "bytes_billed", b"bytes_billed", "bytes_processed", b"bytes_processed", "common_context", b"common_context", "enrichment", b"enrichment", "rows_affected", b"rows_affected", "slot_ms", b"slot_ms"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_bytes_billed", b"_bytes_billed", "_bytes_processed", b"_bytes_processed", "_rows_affected", b"_rows_affected", "_slot_ms", b"_slot_ms", "access", b"access", "bytes_billed", b"bytes_billed", "bytes_processed", b"bytes_processed", "catalog_name", b"catalog_name", "catalog_type", b"catalog_type", "common_context", b"common_context", "contract_enforced", b"contract_enforced", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "has_group", b"has_group", "hashed_contents", b"hashed_contents", "index", b"index", "invocation_id", b"invocation_id", "language", b"language", "model_id", b"model_id", "model_incremental_strategy", b"model_incremental_strategy", "model_materialization", b"model_materialization", "resource_type", b"resource_type", "rows_affected", b"rows_affected", "run_model_id", b"run_model_id", "run_skipped", b"run_skipped", "run_skipped_reason", b"run_skipped_reason", "run_status", b"run_status", "slot_ms", b"slot_ms", "snapshot_strategy", b"snapshot_strategy", "table_format", b"table_format", "total", b"total", "versioned", b"versioned"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_bytes_billed", b"_bytes_billed", "_bytes_processed", b"_bytes_processed", "_rows_affected", b"_rows_affected", "_slot_ms", b"_slot_ms", "access", b"access", "bytes_billed", b"bytes_billed", "bytes_processed", b"bytes_processed", "catalog_name", b"catalog_name", "catalog_type", b"catalog_type", "common_context", b"common_context", "compute_mode", b"compute_mode", "contract_enforced", b"contract_enforced", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "has_group", b"has_group", "hashed_contents", b"hashed_contents", "index", b"index", "invocation_id", b"invocation_id", "language", b"language", "model_id", b"model_id", "model_incremental_strategy", b"model_incremental_strategy", "model_materialization", b"model_materialization", "resource_type", b"resource_type", "rows_affected", b"rows_affected", "run_model_id", b"run_model_id", "run_skipped", b"run_skipped", "run_skipped_reason", b"run_skipped_reason", "run_status", b"run_status", "slot_ms", b"slot_ms", "snapshot_strategy", b"snapshot_strategy", "table_format", b"table_format", "total", b"total", "versioned", b"versioned"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_bytes_billed", b"_bytes_billed"]) -> typing.Literal["bytes_billed"] | None: ...
     @typing.overload
@@ -984,3 +992,96 @@ class StaticAnalysisInvocation(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["baseline_node_count", b"baseline_node_count", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "max_static_analysis_level", b"max_static_analysis_level", "off_node_count", b"off_node_count", "project_id", b"project_id", "source", b"source", "strict_node_count", b"strict_node_count"]) -> None: ...
 
 Global___StaticAnalysisInvocation: typing_extensions.TypeAlias = StaticAnalysisInvocation
+
+@typing.final
+class RunCheck(google.protobuf.message.Message):
+    """RunCheck is emitted once per project quality check on `dbt check`, `dbt build` and
+    `dbt retry`, including checks that did not run (`--skip-checks`, or no project
+    metadata to read), which report status "skipped". Checks run before the task graph
+    is built, so they do not produce a RunModel event. The command, Account Identifier
+    and Project Identifier can be found by joining this message on the Invocation
+    message specified in the invocation_id field.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENRICHMENT_FIELD_NUMBER: builtins.int
+    EVENT_ID_FIELD_NUMBER: builtins.int
+    INVOCATION_ID_FIELD_NUMBER: builtins.int
+    CHECK_ID_FIELD_NUMBER: builtins.int
+    STATUS_FIELD_NUMBER: builtins.int
+    SEVERITY_FIELD_NUMBER: builtins.int
+    VIOLATIONS_FIELD_NUMBER: builtins.int
+    EXECUTION_TIME_FIELD_NUMBER: builtins.int
+    REASON_FIELD_NUMBER: builtins.int
+    SELECTION_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    event_id: builtins.str
+    """Unique identifier for this event (UUID). Required."""
+    invocation_id: builtins.str
+    """A foreign key to the Invocation message that was emitted at the
+    start of the fusion process. Required.
+    """
+    check_id: builtins.str
+    """MD5 hash of the check's unique_id. Required."""
+    status: builtins.str
+    """The check's verdict: "pass", "fail", "warn", "error" or "skipped". Required."""
+    severity: builtins.str
+    """The check's configured severity: "error" or "warn"."""
+    violations: builtins.int
+    """Number of violation rows the check returned. Unset when the check was not
+    evaluated (status "error" or "skipped").
+    """
+    execution_time: builtins.float
+    """Wall time for the check's query and evaluation, in seconds. Zero when the
+    check never ran.
+    """
+    reason: builtins.str
+    """Why the check was skipped or could not be evaluated. Empty for "pass", "fail"
+    and "warn". The valid values for this are:
+
+     skip_checks_flag          skipped: run with --skip-checks
+     metadata_unavailable      skipped or error: no project metadata to read
+     empty_selection           skipped: the selection held no nodes the check reports on
+     adapter_failed            error: the project metadata could not be opened
+     no_compiled_sql           error: the check has no rendered SQL
+     query_failed              error: the check's SQL failed
+     selection_filter_invalid  error: a selection_filter_on column is not in the check's output
+     evaluation_failed         error: the check's rows could not be evaluated
+    """
+    selection: builtins.str
+    """How a node selection (--select / --exclude) bore on the check's rows. The valid
+    values for this are:
+
+     none     no selection, or a retry (which never scopes checks)
+     applied  the selection scoped the check's rows
+     ignored  a selection was given, but the check reports on the whole project: it
+              sets selection_filter_on: none, or outputs no unique_id column
+     unknown  a selection was given, but the check never produced rows to scope
+    """
+    @property
+    def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
+        """This field is a toggle to enable enrichment of the message by the Vortex service."""
+
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
+    def __init__(
+        self,
+        *,
+        enrichment: dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment | None = ...,
+        event_id: builtins.str = ...,
+        invocation_id: builtins.str = ...,
+        check_id: builtins.str = ...,
+        status: builtins.str = ...,
+        severity: builtins.str = ...,
+        violations: builtins.int | None = ...,
+        execution_time: builtins.float = ...,
+        reason: builtins.str = ...,
+        selection: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_violations", b"_violations", "common_context", b"common_context", "enrichment", b"enrichment", "violations", b"violations"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_violations", b"_violations", "check_id", b"check_id", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "invocation_id", b"invocation_id", "reason", b"reason", "selection", b"selection", "severity", b"severity", "status", b"status", "violations", b"violations"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_violations", b"_violations"]) -> typing.Literal["violations"] | None: ...
+
+Global___RunCheck: typing_extensions.TypeAlias = RunCheck

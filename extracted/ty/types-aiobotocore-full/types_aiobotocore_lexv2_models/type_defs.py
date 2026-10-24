@@ -4001,8 +4001,8 @@ class DefaultConditionalBranchOutputTypeDef(TypedDict):
 
 
 class WaitAndContinueSpecificationOutputTypeDef(TypedDict):
-    waitingResponse: ResponseSpecificationOutputTypeDef
-    continueResponse: ResponseSpecificationOutputTypeDef
+    waitingResponse: NotRequired[ResponseSpecificationOutputTypeDef]
+    continueResponse: NotRequired[ResponseSpecificationOutputTypeDef]
     stillWaitingResponse: NotRequired[StillWaitingResponseSpecificationOutputTypeDef]
     active: NotRequired[bool]
 
@@ -4027,8 +4027,8 @@ class DefaultConditionalBranchTypeDef(TypedDict):
 
 
 class WaitAndContinueSpecificationTypeDef(TypedDict):
-    waitingResponse: ResponseSpecificationTypeDef
-    continueResponse: ResponseSpecificationTypeDef
+    waitingResponse: NotRequired[ResponseSpecificationTypeDef]
+    continueResponse: NotRequired[ResponseSpecificationTypeDef]
     stillWaitingResponse: NotRequired[StillWaitingResponseSpecificationTypeDef]
     active: NotRequired[bool]
 
@@ -4368,7 +4368,7 @@ class InitialResponseSettingOutputTypeDef(TypedDict):
 
 
 class IntentConfirmationSettingOutputTypeDef(TypedDict):
-    promptSpecification: PromptSpecificationOutputTypeDef
+    promptSpecification: NotRequired[PromptSpecificationOutputTypeDef]
     declinationResponse: NotRequired[ResponseSpecificationOutputTypeDef]
     active: NotRequired[bool]
     confirmationResponse: NotRequired[ResponseSpecificationOutputTypeDef]
@@ -4402,7 +4402,7 @@ class InitialResponseSettingTypeDef(TypedDict):
 
 
 class IntentConfirmationSettingTypeDef(TypedDict):
-    promptSpecification: PromptSpecificationTypeDef
+    promptSpecification: NotRequired[PromptSpecificationTypeDef]
     declinationResponse: NotRequired[ResponseSpecificationTypeDef]
     active: NotRequired[bool]
     confirmationResponse: NotRequired[ResponseSpecificationTypeDef]

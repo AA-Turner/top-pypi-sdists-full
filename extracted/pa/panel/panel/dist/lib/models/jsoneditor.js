@@ -1,10 +1,9 @@
 import { ImportedStyleSheet } from "@bokehjs/core/dom";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { HTMLBox, HTMLBoxView } from "./layout";
-import jsoneditor_css from "../styles/models/jsoneditor.css";
+import jsoneditor_css from "styles/models/jsoneditor.css";
 export class JSONEditEvent extends ModelEvent {
     data;
-    static __name__ = "JSONEditEvent";
     constructor(data) {
         super();
         this.data = data;
@@ -17,7 +16,6 @@ export class JSONEditEvent extends ModelEvent {
     }
 }
 export class JSONEditorView extends HTMLBoxView {
-    static __name__ = "JSONEditorView";
     editor;
     _menu_context;
     connect_signals() {
@@ -81,7 +79,6 @@ export class JSONEditorView extends HTMLBoxView {
     }
 }
 export class JSONEditor extends HTMLBox {
-    static __name__ = "JSONEditor";
     constructor(attrs) {
         super(attrs);
     }

@@ -37,6 +37,7 @@ import sys
 import atexit
 import concurrent.futures
 import hashlib
+import json
 import fnmatch
 import os
 import re
@@ -100,6 +101,7 @@ IMAGE_EXTENSIONS = {
     ".tif",
     ".webp",
     ".avif",
+    ".jxl",
 }
 SUPPORTED_EXTENSIONS = PDF_EXTENSIONS | OFFICE_EXTENSIONS | IMAGE_EXTENSIONS
 
@@ -540,14 +542,15 @@ def _process_batch(
     env: dict[str, str],
     scratch_dir: Path,
     imagemagick_binary: str,
+    djxl_binary: str,
     hook_deadline: float,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
-    """Run ``lit batch-parse`` once per requested format for an isolated source.
+    """Run ``lit batch-parse`` once for an isolated source.
 
     Symlinks the batch's sources into a temp input dir, runs lit, then reads
     each per-source output by stem. Returns ``(idx, src, text, json_text)``
     per source, plus parser failures. Read outputs before deleting scratch even
-    when a later format fails or times out, so completed work is retained.
+    when parsing fails or times out, so completed work is retained.
     """
     results: list[tuple[int, Path, str, str]] = []
     errors: list[str] = []
@@ -569,12 +572,14 @@ def _process_batch(
         link_names: list[str] = []
         for idx, src, digest in batch:
             link_name = _safe_link_name(idx, src, digest)
-            # Servers commonly return AVIF bytes behind a .jpg URL. LiteParse's
+            # Servers return AVIF or JPEG XL bytes behind a .jpg URL. LiteParse's
             # native decoder rejects those bytes even with the correct suffix.
             # Normalize only the disposable OCR input, preserving the archive.
             with src.open("rb") as source:
                 header = source.read(32)
-            if header[4:8] == b"ftyp" and b"avif" in header[8:]:
+            is_jxl = header.startswith((b"\xff\x0a", b"\x00\x00\x00\x0cJXL \r\n\x87\n"))
+            if is_jxl or (header[4:8] == b"ftyp" and b"avif" in header[8:]):
+                image_format = "JPEG XL" if is_jxl else "AVIF"
                 link_name = str(Path(link_name).with_suffix(".png"))
                 converted_dir = tmp / f"convert_{idx}"
                 converted_dir.mkdir()
@@ -582,6 +587,13 @@ def _process_batch(
                 try:
                     conversion = subprocess.run(
                         [
+                            djxl_binary,
+                            str(src.resolve()),
+                            str(converted),
+                            "--num_threads=1",
+                        ]
+                        if is_jxl
+                        else [
                             imagemagick_binary,
                             str(src.resolve()),
                             # These lossless PNGs are disposable OCR inputs.
@@ -595,23 +607,52 @@ def _process_batch(
                         env=batch_env,
                         timeout=max(0.001, deadline - time.monotonic()),
                     )
-                    # Multi-frame conversions produce numbered files. Never
+                    # djxl writes animation as APNG, which LiteParse only reads
+                    # as one frame. acTL precedes IDAT; inspect bounded chunks
+                    # without reading the pixel payload or dropping other frames.
+                    multiple_frames = False
+                    if is_jxl and not conversion.returncode and converted.is_file():
+                        size = converted.stat().st_size
+                        with converted.open("rb") as png:
+                            png.seek(8)  # Skip the native decoder's PNG signature.
+                            while True:
+                                chunk = png.read(8)
+                                length = int.from_bytes(chunk[:4], "big")
+                                if len(chunk) != 8 or length > size - png.tell() - 4:
+                                    raise ValueError("incomplete PNG chunk")
+                                if chunk[4:] == b"acTL":
+                                    if length != 8:
+                                        raise ValueError("invalid PNG acTL chunk")
+                                    multiple_frames = (
+                                        int.from_bytes(png.read(4), "big") > 1
+                                    )
+                                    break
+                                if chunk[4:] == b"IDAT":
+                                    break
+                                png.seek(length + 4, 1)
+                    # ImageMagick multi-frame conversions produce numbered files. Never
                     # silently OCR only one frame and claim complete extraction.
-                    if conversion.returncode or not converted.is_file():
+                    if (
+                        conversion.returncode
+                        or not converted.is_file()
+                        or multiple_frames
+                    ):
                         errors.append(
-                            f"{src.name}: AVIF conversion failed or produced multiple frames: "
+                            f"{src.name}: {image_format} conversion failed or produced multiple frames: "
                             f"{conversion.stderr.strip()}",
                         )
                     else:
                         converted.rename(input_dir / link_name)
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    errors.append(f"{src.name}: AVIF conversion failed: {exc}")
+                except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+                    errors.append(
+                        f"{src.name}: {image_format} conversion failed: {exc}",
+                    )
             else:
                 (input_dir / link_name).symlink_to(src.resolve())
             link_names.append(link_name)
 
         for fmt, out_dir in (("text", text_out), ("json", json_out)):
-            if fmt not in formats:
+            if fmt not in formats or (fmt == "text" and "json" in formats):
                 continue
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -659,6 +700,24 @@ def _process_batch(
             json_text = (
                 _read_if_present(json_out / f"{stem}.json") if "json" in formats else ""
             )
+            if "text" in formats and "json" in formats and json_text:
+                try:
+                    pages = json.loads(json_text)["pages"]
+                    if not isinstance(pages, list) or any(
+                        not isinstance(page["text"], str)
+                        or type(page["page"]) is not int
+                        or page["page"] < 1
+                        for page in pages
+                    ):
+                        raise ValueError("Invalid LiteParse page number or text")
+                    # Exact upstream cli-text.ts serializer: JSON retains the
+                    # same page text, so producing both formats need not OCR twice.
+                    text = "\n\n".join(
+                        f"\n--- Page {page['page']} ---\n{page['text']}"
+                        for page in pages
+                    )
+                except (ValueError, KeyError, TypeError) as exc:
+                    errors.append(f"{src.name}: Invalid LiteParse JSON: {exc}")
             results.append((idx, src, text, json_text))
 
     return results, errors
@@ -845,6 +904,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
                 env,
                 scratch_dir,
                 str(config.LITEPARSE_IMAGEMAGICK_BINARY),
+                str(config.LITEPARSE_DJXL_BINARY),
                 hook_deadline,
             ): batch
             for batch in batches

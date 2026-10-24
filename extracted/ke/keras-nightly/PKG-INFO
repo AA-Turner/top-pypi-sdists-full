@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-nightly
-Version: 3.16.0.dev2026102304
+Version: 3.16.0.dev2026102404
 Summary: Multi-backend Keras
 Author-email: Keras team <keras-users@googlegroups.com>
 License: Apache License 2.0
@@ -26,6 +26,8 @@ Requires-Dist: h5py
 Requires-Dist: optree
 Requires-Dist: ml-dtypes
 Requires-Dist: packaging
+Provides-Extra: gcs
+Requires-Dist: etils[epath-gcs]; extra == "gcs"
 
 # Keras 3: Deep Learning for Humans
 
@@ -58,6 +60,14 @@ pip install keras --upgrade
 
 To use `keras`, you should also install the backend of choice: `tensorflow`, `jax`, or `torch`. Additionally,
 The `openvino` backend is available with support for model inference only.
+
+3. (Optional) Install remote file access support.
+
+To save to and load from Google Cloud Storage (`gs://` paths) without TensorFlow, install the `gcs` extra:
+
+```
+pip install "keras[gcs]"
+```
 
 ### Local installation
 

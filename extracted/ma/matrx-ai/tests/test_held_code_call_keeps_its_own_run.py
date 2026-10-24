@@ -112,10 +112,10 @@ async def test_held_call_in_a_persons_chat_is_its_own_recorded_run(monkeypatch):
     assert seen["request_conversation"] == seen["conversation_id"]
     assert seen["parent"] == PERSON_CONVERSATION
     assert after.conversation_id == PERSON_CONVERSATION, "the caller's context is restored"
-    assert finished["metadata"] == {
-        "conversation_id": seen["conversation_id"],
-        "request_id": REQUEST_ID,
-    }
+    # Defect 97: the held call is its OWN turn - never the caller's request id.
+    assert finished["metadata"]["conversation_id"] == seen["conversation_id"]
+    assert finished["metadata"]["request_id"] not in ("", None, REQUEST_ID)
+    assert set(finished["metadata"]) == {"conversation_id", "request_id"}
 
 
 @pytest.mark.asyncio
@@ -204,4 +204,5 @@ async def test_held_call_that_names_its_own_conversation_reports_it(monkeypatch)
     await held.finish("verdict")
 
     assert loops == [own], "runs once, as the conversation it named"
-    assert finished["metadata"] == {"conversation_id": own, "request_id": REQUEST_ID}
+    assert finished["metadata"]["conversation_id"] == own
+    assert finished["metadata"]["request_id"] not in ("", None, REQUEST_ID), "its own turn (defect 97)"

@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.dedup_strategy import DedupStrategy
 from mixpeek.models.logical_operator_input import LogicalOperatorInput
+from mixpeek.models.stored_text_reembed_request import StoredTextReembedRequest
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +35,8 @@ class TriggerCollectionRequest(BaseModel):
     object_ids: Optional[List[StrictStr]] = Field(default=None, description="Limit processing to these specific object IDs. Only applies to bucket-sourced collections. This is a convenience shorthand — equivalent to using source_filters with {\"AND\": [{\"field\": \"object_id\", \"operator\": \"in\", \"value\": [...]}]}.")
     source_filters: Optional[LogicalOperatorInput] = Field(default=None, description="Field-level filters for objects (bucket-sourced) or documents (collection-sourced). Uses LogicalOperator format (AND/OR/NOT). Use this to filter by metadata fields, status, or any other object/document properties.")
     dedup_strategy: Optional[DedupStrategy] = Field(default=None, description="How to handle sources already processed in prior batches. `skip` (default): skip sources already materialized in this collection. `replace`: delete existing documents for the re-processed sources and re-materialize them — this also clears the processed-objects resume ledger, so use it to recover a collection stuck with ledger entries but 0 materialized documents (the orphan/divergence state). `force`: process regardless, allowing duplicates.")
-    __properties: ClassVar[List[str]] = ["include_buckets", "include_collections", "object_ids", "source_filters", "dedup_strategy"]
+    reembed: Optional[StoredTextReembedRequest] = Field(default=None, description="Re-embed stored document text instead of reprocessing sources. When set, no batch is created: the collection's existing documents are read, the selected embedding outputs are recomputed from the text each document already stores, and the vectors are written back onto the same documents. Progress is reported on the returned task. Source selection fields (include_buckets, include_collections, object_ids, source_filters, dedup_strategy) cannot be combined with it.")
+    __properties: ClassVar[List[str]] = ["include_buckets", "include_collections", "object_ids", "source_filters", "dedup_strategy", "reembed"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -78,6 +80,9 @@ class TriggerCollectionRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of source_filters
         if self.source_filters:
             _dict['source_filters'] = self.source_filters.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of reembed
+        if self.reembed:
+            _dict['reembed'] = self.reembed.to_dict()
         return _dict
 
     @classmethod
@@ -94,7 +99,8 @@ class TriggerCollectionRequest(BaseModel):
             "include_collections": obj.get("include_collections"),
             "object_ids": obj.get("object_ids"),
             "source_filters": LogicalOperatorInput.from_dict(obj["source_filters"]) if obj.get("source_filters") is not None else None,
-            "dedup_strategy": obj.get("dedup_strategy")
+            "dedup_strategy": obj.get("dedup_strategy"),
+            "reembed": StoredTextReembedRequest.from_dict(obj["reembed"]) if obj.get("reembed") is not None else None
         })
         return _obj
 

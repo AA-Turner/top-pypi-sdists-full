@@ -608,7 +608,8 @@ async def test_run_agent_system_run_reports_ids():
     )
     assert result.success
     assert seen["system_run"] is True
-    assert result.metadata.get("request_id") == REQUEST_ID, "the run's request id is reported"
+    # The run owns its own turn (the fork mints it) — that is the id reported.
+    assert result.metadata.get("request_id") == seen["request_id"] != REQUEST_ID, "the run's request id is reported"
     assert result.metadata.get("conversation_id"), "the run's conversation id is reported"
 
 

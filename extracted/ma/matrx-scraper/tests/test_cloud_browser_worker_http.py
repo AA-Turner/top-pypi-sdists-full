@@ -70,6 +70,8 @@ def test_http_app_exposes_health_and_all_worker_operations() -> None:
         "worker_id": "worker-a",
         "stream_rtc_config": False,
         "stream_view": False,
+        # The worker image allocates one browser tab per agent.
+        "tab_per_agent": True,
         # Chrome older than the profile's last Chrome (ruling 16); none here.
         "chrome_downgrade": None,
         # Heartbeats may ask this image for a liveness probe.

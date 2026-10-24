@@ -56,7 +56,7 @@ class TaxonomiesApi:
     def clone_taxonomy_taxonomies(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Source taxonomy ID or name to clone.")],
-        clone_taxonomy_request: CloneTaxonomyRequest,
+        clone_taxonomy_request: Annotated[CloneTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -76,7 +76,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Source taxonomy ID or name to clone. (required)
         :type taxonomy_identifier: str
-        :param clone_taxonomy_request: (required)
+        :param clone_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_taxonomy_request: CloneTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -110,13 +110,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneTaxonomyResponse",
+            '200': "CloneTaxonomyResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -133,7 +135,7 @@ class TaxonomiesApi:
     def clone_taxonomy_taxonomies_with_http_info(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Source taxonomy ID or name to clone.")],
-        clone_taxonomy_request: CloneTaxonomyRequest,
+        clone_taxonomy_request: Annotated[CloneTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -153,7 +155,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Source taxonomy ID or name to clone. (required)
         :type taxonomy_identifier: str
-        :param clone_taxonomy_request: (required)
+        :param clone_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_taxonomy_request: CloneTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -187,13 +189,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneTaxonomyResponse",
+            '200': "CloneTaxonomyResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -210,7 +214,7 @@ class TaxonomiesApi:
     def clone_taxonomy_taxonomies_without_preload_content(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Source taxonomy ID or name to clone.")],
-        clone_taxonomy_request: CloneTaxonomyRequest,
+        clone_taxonomy_request: Annotated[CloneTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -230,7 +234,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Source taxonomy ID or name to clone. (required)
         :type taxonomy_identifier: str
-        :param clone_taxonomy_request: (required)
+        :param clone_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_taxonomy_request: CloneTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -264,13 +268,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneTaxonomyResponse",
+            '200': "CloneTaxonomyResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -363,7 +369,7 @@ class TaxonomiesApi:
     @validate_call
     def create_taxonomy_from_documents_taxonomies(
         self,
-        create_taxonomy_from_documents_request: CreateTaxonomyFromDocumentsRequest,
+        create_taxonomy_from_documents_request: Annotated[CreateTaxonomyFromDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -377,11 +383,11 @@ class TaxonomiesApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> TaxonomyNodeFromDocumentsResponse:
-        """Create a taxonomy from a document selection (one gesture)
+        """Create a taxonomy from a document selection or a cluster run (one gesture)
 
-        Promote a document selection (e.g. a lasso/cluster selection in the cluster visualization) into a NEW flat taxonomy in one call.  Creates, in order: 1. a **node collection** mirroring the selection's vector index (same vector    name, dimensions, and feature_uri — no re-embedding, no GPU work), 2. a **vector-search retriever** over it, 3. the **flat taxonomy** wired to both (input_mappings map an incoming    document's stored embedding onto the retriever), 4. the **first node**: a document whose anchor vector is the centroid of the    referenced documents' stored vectors, labeled `node_label`.  Documents enriched through the taxonomy afterwards are labeled with the nearest node's `label`. To add more nodes later, use `POST /v1/taxonomies/{taxonomy_id}/nodes/from-documents`.  Resources created before a failing step are cleaned up best-effort.
+        Promote a document selection (e.g. a lasso/cluster selection in the cluster visualization) into a NEW flat taxonomy in one call.  Creates, in order: 1. a **node collection** mirroring the selection's vector index (same vector    name, dimensions, and feature_uri — no re-embedding, no GPU work), 2. a **vector-search retriever** over it, 3. the **flat taxonomy** wired to both (input_mappings map an incoming    document's stored embedding onto the retriever), 4. the **nodes**, from one of two sources:    - `documents` + `node_label`: one node whose anchor vector is the centroid      of the referenced documents' stored vectors;    - `cluster_run` (`{cluster_id, run_id}`): one node per cluster in that run,      labeled with the cluster's label and anchored on its stored centroid, so      a whole cluster run becomes a classifier in one call. The response's      `nodes` lists every node created.  Documents enriched through the taxonomy afterwards are labeled with the nearest node's `label`. To add more nodes later, use `POST /v1/taxonomies/{taxonomy_id}/nodes/from-documents`.  Resources created before a failing step are cleaned up best-effort.
 
-        :param create_taxonomy_from_documents_request: (required)
+        :param create_taxonomy_from_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_taxonomy_from_documents_request: CreateTaxonomyFromDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -414,13 +420,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "TaxonomyNodeFromDocumentsResponse",
+            '200': "TaxonomyNodeFromDocumentsResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -436,7 +444,7 @@ class TaxonomiesApi:
     @validate_call
     def create_taxonomy_from_documents_taxonomies_with_http_info(
         self,
-        create_taxonomy_from_documents_request: CreateTaxonomyFromDocumentsRequest,
+        create_taxonomy_from_documents_request: Annotated[CreateTaxonomyFromDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -450,11 +458,11 @@ class TaxonomiesApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[TaxonomyNodeFromDocumentsResponse]:
-        """Create a taxonomy from a document selection (one gesture)
+        """Create a taxonomy from a document selection or a cluster run (one gesture)
 
-        Promote a document selection (e.g. a lasso/cluster selection in the cluster visualization) into a NEW flat taxonomy in one call.  Creates, in order: 1. a **node collection** mirroring the selection's vector index (same vector    name, dimensions, and feature_uri — no re-embedding, no GPU work), 2. a **vector-search retriever** over it, 3. the **flat taxonomy** wired to both (input_mappings map an incoming    document's stored embedding onto the retriever), 4. the **first node**: a document whose anchor vector is the centroid of the    referenced documents' stored vectors, labeled `node_label`.  Documents enriched through the taxonomy afterwards are labeled with the nearest node's `label`. To add more nodes later, use `POST /v1/taxonomies/{taxonomy_id}/nodes/from-documents`.  Resources created before a failing step are cleaned up best-effort.
+        Promote a document selection (e.g. a lasso/cluster selection in the cluster visualization) into a NEW flat taxonomy in one call.  Creates, in order: 1. a **node collection** mirroring the selection's vector index (same vector    name, dimensions, and feature_uri — no re-embedding, no GPU work), 2. a **vector-search retriever** over it, 3. the **flat taxonomy** wired to both (input_mappings map an incoming    document's stored embedding onto the retriever), 4. the **nodes**, from one of two sources:    - `documents` + `node_label`: one node whose anchor vector is the centroid      of the referenced documents' stored vectors;    - `cluster_run` (`{cluster_id, run_id}`): one node per cluster in that run,      labeled with the cluster's label and anchored on its stored centroid, so      a whole cluster run becomes a classifier in one call. The response's      `nodes` lists every node created.  Documents enriched through the taxonomy afterwards are labeled with the nearest node's `label`. To add more nodes later, use `POST /v1/taxonomies/{taxonomy_id}/nodes/from-documents`.  Resources created before a failing step are cleaned up best-effort.
 
-        :param create_taxonomy_from_documents_request: (required)
+        :param create_taxonomy_from_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_taxonomy_from_documents_request: CreateTaxonomyFromDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -487,13 +495,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "TaxonomyNodeFromDocumentsResponse",
+            '200': "TaxonomyNodeFromDocumentsResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -509,7 +519,7 @@ class TaxonomiesApi:
     @validate_call
     def create_taxonomy_from_documents_taxonomies_without_preload_content(
         self,
-        create_taxonomy_from_documents_request: CreateTaxonomyFromDocumentsRequest,
+        create_taxonomy_from_documents_request: Annotated[CreateTaxonomyFromDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -523,11 +533,11 @@ class TaxonomiesApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Create a taxonomy from a document selection (one gesture)
+        """Create a taxonomy from a document selection or a cluster run (one gesture)
 
-        Promote a document selection (e.g. a lasso/cluster selection in the cluster visualization) into a NEW flat taxonomy in one call.  Creates, in order: 1. a **node collection** mirroring the selection's vector index (same vector    name, dimensions, and feature_uri — no re-embedding, no GPU work), 2. a **vector-search retriever** over it, 3. the **flat taxonomy** wired to both (input_mappings map an incoming    document's stored embedding onto the retriever), 4. the **first node**: a document whose anchor vector is the centroid of the    referenced documents' stored vectors, labeled `node_label`.  Documents enriched through the taxonomy afterwards are labeled with the nearest node's `label`. To add more nodes later, use `POST /v1/taxonomies/{taxonomy_id}/nodes/from-documents`.  Resources created before a failing step are cleaned up best-effort.
+        Promote a document selection (e.g. a lasso/cluster selection in the cluster visualization) into a NEW flat taxonomy in one call.  Creates, in order: 1. a **node collection** mirroring the selection's vector index (same vector    name, dimensions, and feature_uri — no re-embedding, no GPU work), 2. a **vector-search retriever** over it, 3. the **flat taxonomy** wired to both (input_mappings map an incoming    document's stored embedding onto the retriever), 4. the **nodes**, from one of two sources:    - `documents` + `node_label`: one node whose anchor vector is the centroid      of the referenced documents' stored vectors;    - `cluster_run` (`{cluster_id, run_id}`): one node per cluster in that run,      labeled with the cluster's label and anchored on its stored centroid, so      a whole cluster run becomes a classifier in one call. The response's      `nodes` lists every node created.  Documents enriched through the taxonomy afterwards are labeled with the nearest node's `label`. To add more nodes later, use `POST /v1/taxonomies/{taxonomy_id}/nodes/from-documents`.  Resources created before a failing step are cleaned up best-effort.
 
-        :param create_taxonomy_from_documents_request: (required)
+        :param create_taxonomy_from_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_taxonomy_from_documents_request: CreateTaxonomyFromDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -560,13 +570,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "TaxonomyNodeFromDocumentsResponse",
+            '200': "TaxonomyNodeFromDocumentsResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -657,7 +669,7 @@ class TaxonomiesApi:
     def create_taxonomy_node_from_documents_taxonomies(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name")],
-        create_node_from_documents_request: CreateNodeFromDocumentsRequest,
+        create_node_from_documents_request: Annotated[CreateNodeFromDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -677,7 +689,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name (required)
         :type taxonomy_identifier: str
-        :param create_node_from_documents_request: (required)
+        :param create_node_from_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_node_from_documents_request: CreateNodeFromDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -711,13 +723,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "TaxonomyNodeFromDocumentsResponse",
+            '200': "TaxonomyNodeFromDocumentsResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -734,7 +748,7 @@ class TaxonomiesApi:
     def create_taxonomy_node_from_documents_taxonomies_with_http_info(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name")],
-        create_node_from_documents_request: CreateNodeFromDocumentsRequest,
+        create_node_from_documents_request: Annotated[CreateNodeFromDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -754,7 +768,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name (required)
         :type taxonomy_identifier: str
-        :param create_node_from_documents_request: (required)
+        :param create_node_from_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_node_from_documents_request: CreateNodeFromDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -788,13 +802,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "TaxonomyNodeFromDocumentsResponse",
+            '200': "TaxonomyNodeFromDocumentsResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -811,7 +827,7 @@ class TaxonomiesApi:
     def create_taxonomy_node_from_documents_taxonomies_without_preload_content(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name")],
-        create_node_from_documents_request: CreateNodeFromDocumentsRequest,
+        create_node_from_documents_request: Annotated[CreateNodeFromDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -831,7 +847,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name (required)
         :type taxonomy_identifier: str
-        :param create_node_from_documents_request: (required)
+        :param create_node_from_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_node_from_documents_request: CreateNodeFromDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -865,13 +881,15 @@ class TaxonomiesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "TaxonomyNodeFromDocumentsResponse",
+            '200': "TaxonomyNodeFromDocumentsResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -964,7 +982,7 @@ class TaxonomiesApi:
     @validate_call
     def create_taxonomy_taxonomies(
         self,
-        create_taxonomy_request: CreateTaxonomyRequest,
+        create_taxonomy_request: Annotated[CreateTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -982,7 +1000,7 @@ class TaxonomiesApi:
 
         Create a taxonomy and return the created resource.
 
-        :param create_taxonomy_request: (required)
+        :param create_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_taxonomy_request: CreateTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1020,8 +1038,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1037,7 +1057,7 @@ class TaxonomiesApi:
     @validate_call
     def create_taxonomy_taxonomies_with_http_info(
         self,
-        create_taxonomy_request: CreateTaxonomyRequest,
+        create_taxonomy_request: Annotated[CreateTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1055,7 +1075,7 @@ class TaxonomiesApi:
 
         Create a taxonomy and return the created resource.
 
-        :param create_taxonomy_request: (required)
+        :param create_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_taxonomy_request: CreateTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1093,8 +1113,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1110,7 +1132,7 @@ class TaxonomiesApi:
     @validate_call
     def create_taxonomy_taxonomies_without_preload_content(
         self,
-        create_taxonomy_request: CreateTaxonomyRequest,
+        create_taxonomy_request: Annotated[CreateTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1128,7 +1150,7 @@ class TaxonomiesApi:
 
         Create a taxonomy and return the created resource.
 
-        :param create_taxonomy_request: (required)
+        :param create_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_taxonomy_request: CreateTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1166,8 +1188,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1258,7 +1282,7 @@ class TaxonomiesApi:
     def create_taxonomy_version_taxonomies(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID (tax_...)")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1278,7 +1302,7 @@ class TaxonomiesApi:
 
         :param taxonomy_id: Taxonomy ID (tax_...) (required)
         :type taxonomy_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1317,8 +1341,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1335,7 +1361,7 @@ class TaxonomiesApi:
     def create_taxonomy_version_taxonomies_with_http_info(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID (tax_...)")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1355,7 +1381,7 @@ class TaxonomiesApi:
 
         :param taxonomy_id: Taxonomy ID (tax_...) (required)
         :type taxonomy_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1394,8 +1420,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1412,7 +1440,7 @@ class TaxonomiesApi:
     def create_taxonomy_version_taxonomies_without_preload_content(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID (tax_...)")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1432,7 +1460,7 @@ class TaxonomiesApi:
 
         :param taxonomy_id: Taxonomy ID (tax_...) (required)
         :type taxonomy_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1471,8 +1499,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1621,8 +1651,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1694,8 +1726,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1767,8 +1801,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1846,7 +1882,7 @@ class TaxonomiesApi:
     def execute_taxonomy_taxonomies(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name to validate")],
-        payload: Payload,
+        payload: Annotated[Payload, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         version: Annotated[Optional[StrictInt], Field(description="Optional taxonomy version (defaults to latest)")] = None,
         _request_timeout: Union[
             None,
@@ -1863,11 +1899,11 @@ class TaxonomiesApi:
     ) -> JoinResponse:
         """(Deprecated) Test taxonomy configuration (validation only) — DEPRECATED path
 
-        ⚠️ VALIDATION ENDPOINT ONLY - Not for production enrichment!  DEPRECATED path shape — prefer POST /taxonomies/{id}/execute (id-first, consistent with retrievers). This verb-first path still works.  This endpoint validates taxonomy configuration with 1-5 sample documents. Results are returned immediately and NOT persisted to any collection.  ❌ DO NOT USE FOR: - Enriching entire collections (use taxonomy_applications instead) - Batch processing documents (automatic during ingestion) - Persisting enriched documents (use retriever pipelines instead)  ✅ USE THIS FOR: - Testing taxonomy configuration is correct - Validating retriever finds matching taxonomy nodes - Checking enrichment fields are properly applied - Development/debugging taxonomy setup  📚 FOR PRODUCTION ENRICHMENT:  Automatic (during ingestion):   1. Create taxonomy: POST /taxonomies   2. Attach to collection: PUT /collections/{id} with taxonomy_applications field   3. Ingest documents: Documents are automatically enriched by engine  On-the-fly (during retrieval):   1. Add taxonomy_join stage to retriever pipeline   2. Execute retriever: GET /retrievers/{id}/execute   3. Results include enriched documents (not persisted)  See API documentation for Collections and Retrievers for details.
+        ⚠️ VALIDATION ENDPOINT ONLY - Not for production enrichment!  DEPRECATED path shape — prefer POST /taxonomies/{id}/execute (id-first, consistent with retrievers). This verb-first path still works.  This endpoint validates taxonomy configuration with 1-5 sample documents. Results are returned immediately and NOT persisted to any collection.  ❌ DO NOT USE FOR: - Enriching entire collections (use taxonomy_applications instead) - Batch processing documents (automatic during ingestion) - Persisting enriched documents (use retriever pipelines instead)  ✅ USE THIS FOR: - Testing taxonomy configuration is correct - Validating retriever finds matching taxonomy nodes - Checking enrichment fields are properly applied - Development/debugging taxonomy setup  📚 FOR PRODUCTION ENRICHMENT:  Automatic (during ingestion):   1. Create taxonomy: POST /v1/taxonomies   2. Attach to collection: PATCH /v1/collections/{id} with taxonomy_applications field   3. Ingest documents: Documents are automatically enriched by engine  On-the-fly (during retrieval):   1. Add taxonomy_join stage to retriever pipeline   2. Execute retriever: POST /v1/retrievers/{id}/execute   3. Results include enriched documents (not persisted)  See API documentation for Collections and Retrievers for details.
 
         :param taxonomy_identifier: Taxonomy ID or name to validate (required)
         :type taxonomy_identifier: str
-        :param payload: (required)
+        :param payload: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type payload: Payload
         :param version: Optional taxonomy version (defaults to latest)
         :type version: int
@@ -1910,8 +1946,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1928,7 +1966,7 @@ class TaxonomiesApi:
     def execute_taxonomy_taxonomies_with_http_info(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name to validate")],
-        payload: Payload,
+        payload: Annotated[Payload, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         version: Annotated[Optional[StrictInt], Field(description="Optional taxonomy version (defaults to latest)")] = None,
         _request_timeout: Union[
             None,
@@ -1945,11 +1983,11 @@ class TaxonomiesApi:
     ) -> ApiResponse[JoinResponse]:
         """(Deprecated) Test taxonomy configuration (validation only) — DEPRECATED path
 
-        ⚠️ VALIDATION ENDPOINT ONLY - Not for production enrichment!  DEPRECATED path shape — prefer POST /taxonomies/{id}/execute (id-first, consistent with retrievers). This verb-first path still works.  This endpoint validates taxonomy configuration with 1-5 sample documents. Results are returned immediately and NOT persisted to any collection.  ❌ DO NOT USE FOR: - Enriching entire collections (use taxonomy_applications instead) - Batch processing documents (automatic during ingestion) - Persisting enriched documents (use retriever pipelines instead)  ✅ USE THIS FOR: - Testing taxonomy configuration is correct - Validating retriever finds matching taxonomy nodes - Checking enrichment fields are properly applied - Development/debugging taxonomy setup  📚 FOR PRODUCTION ENRICHMENT:  Automatic (during ingestion):   1. Create taxonomy: POST /taxonomies   2. Attach to collection: PUT /collections/{id} with taxonomy_applications field   3. Ingest documents: Documents are automatically enriched by engine  On-the-fly (during retrieval):   1. Add taxonomy_join stage to retriever pipeline   2. Execute retriever: GET /retrievers/{id}/execute   3. Results include enriched documents (not persisted)  See API documentation for Collections and Retrievers for details.
+        ⚠️ VALIDATION ENDPOINT ONLY - Not for production enrichment!  DEPRECATED path shape — prefer POST /taxonomies/{id}/execute (id-first, consistent with retrievers). This verb-first path still works.  This endpoint validates taxonomy configuration with 1-5 sample documents. Results are returned immediately and NOT persisted to any collection.  ❌ DO NOT USE FOR: - Enriching entire collections (use taxonomy_applications instead) - Batch processing documents (automatic during ingestion) - Persisting enriched documents (use retriever pipelines instead)  ✅ USE THIS FOR: - Testing taxonomy configuration is correct - Validating retriever finds matching taxonomy nodes - Checking enrichment fields are properly applied - Development/debugging taxonomy setup  📚 FOR PRODUCTION ENRICHMENT:  Automatic (during ingestion):   1. Create taxonomy: POST /v1/taxonomies   2. Attach to collection: PATCH /v1/collections/{id} with taxonomy_applications field   3. Ingest documents: Documents are automatically enriched by engine  On-the-fly (during retrieval):   1. Add taxonomy_join stage to retriever pipeline   2. Execute retriever: POST /v1/retrievers/{id}/execute   3. Results include enriched documents (not persisted)  See API documentation for Collections and Retrievers for details.
 
         :param taxonomy_identifier: Taxonomy ID or name to validate (required)
         :type taxonomy_identifier: str
-        :param payload: (required)
+        :param payload: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type payload: Payload
         :param version: Optional taxonomy version (defaults to latest)
         :type version: int
@@ -1992,8 +2030,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2010,7 +2050,7 @@ class TaxonomiesApi:
     def execute_taxonomy_taxonomies_without_preload_content(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name to validate")],
-        payload: Payload,
+        payload: Annotated[Payload, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         version: Annotated[Optional[StrictInt], Field(description="Optional taxonomy version (defaults to latest)")] = None,
         _request_timeout: Union[
             None,
@@ -2027,11 +2067,11 @@ class TaxonomiesApi:
     ) -> RESTResponseType:
         """(Deprecated) Test taxonomy configuration (validation only) — DEPRECATED path
 
-        ⚠️ VALIDATION ENDPOINT ONLY - Not for production enrichment!  DEPRECATED path shape — prefer POST /taxonomies/{id}/execute (id-first, consistent with retrievers). This verb-first path still works.  This endpoint validates taxonomy configuration with 1-5 sample documents. Results are returned immediately and NOT persisted to any collection.  ❌ DO NOT USE FOR: - Enriching entire collections (use taxonomy_applications instead) - Batch processing documents (automatic during ingestion) - Persisting enriched documents (use retriever pipelines instead)  ✅ USE THIS FOR: - Testing taxonomy configuration is correct - Validating retriever finds matching taxonomy nodes - Checking enrichment fields are properly applied - Development/debugging taxonomy setup  📚 FOR PRODUCTION ENRICHMENT:  Automatic (during ingestion):   1. Create taxonomy: POST /taxonomies   2. Attach to collection: PUT /collections/{id} with taxonomy_applications field   3. Ingest documents: Documents are automatically enriched by engine  On-the-fly (during retrieval):   1. Add taxonomy_join stage to retriever pipeline   2. Execute retriever: GET /retrievers/{id}/execute   3. Results include enriched documents (not persisted)  See API documentation for Collections and Retrievers for details.
+        ⚠️ VALIDATION ENDPOINT ONLY - Not for production enrichment!  DEPRECATED path shape — prefer POST /taxonomies/{id}/execute (id-first, consistent with retrievers). This verb-first path still works.  This endpoint validates taxonomy configuration with 1-5 sample documents. Results are returned immediately and NOT persisted to any collection.  ❌ DO NOT USE FOR: - Enriching entire collections (use taxonomy_applications instead) - Batch processing documents (automatic during ingestion) - Persisting enriched documents (use retriever pipelines instead)  ✅ USE THIS FOR: - Testing taxonomy configuration is correct - Validating retriever finds matching taxonomy nodes - Checking enrichment fields are properly applied - Development/debugging taxonomy setup  📚 FOR PRODUCTION ENRICHMENT:  Automatic (during ingestion):   1. Create taxonomy: POST /v1/taxonomies   2. Attach to collection: PATCH /v1/collections/{id} with taxonomy_applications field   3. Ingest documents: Documents are automatically enriched by engine  On-the-fly (during retrieval):   1. Add taxonomy_join stage to retriever pipeline   2. Execute retriever: POST /v1/retrievers/{id}/execute   3. Results include enriched documents (not persisted)  See API documentation for Collections and Retrievers for details.
 
         :param taxonomy_identifier: Taxonomy ID or name to validate (required)
         :type taxonomy_identifier: str
-        :param payload: (required)
+        :param payload: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type payload: Payload
         :param version: Optional taxonomy version (defaults to latest)
         :type version: int
@@ -2074,8 +2114,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2174,7 +2216,7 @@ class TaxonomiesApi:
     def execute_taxonomy_taxonomies_0(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name to validate")],
-        payload1: Payload1,
+        payload1: Annotated[Payload1, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         version: Annotated[Optional[StrictInt], Field(description="Optional taxonomy version (defaults to latest)")] = None,
         _request_timeout: Union[
             None,
@@ -2195,7 +2237,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name to validate (required)
         :type taxonomy_identifier: str
-        :param payload1: (required)
+        :param payload1: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type payload1: Payload1
         :param version: Optional taxonomy version (defaults to latest)
         :type version: int
@@ -2237,8 +2279,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2255,7 +2299,7 @@ class TaxonomiesApi:
     def execute_taxonomy_taxonomies_0_with_http_info(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name to validate")],
-        payload1: Payload1,
+        payload1: Annotated[Payload1, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         version: Annotated[Optional[StrictInt], Field(description="Optional taxonomy version (defaults to latest)")] = None,
         _request_timeout: Union[
             None,
@@ -2276,7 +2320,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name to validate (required)
         :type taxonomy_identifier: str
-        :param payload1: (required)
+        :param payload1: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type payload1: Payload1
         :param version: Optional taxonomy version (defaults to latest)
         :type version: int
@@ -2318,8 +2362,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2336,7 +2382,7 @@ class TaxonomiesApi:
     def execute_taxonomy_taxonomies_0_without_preload_content(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name to validate")],
-        payload1: Payload1,
+        payload1: Annotated[Payload1, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         version: Annotated[Optional[StrictInt], Field(description="Optional taxonomy version (defaults to latest)")] = None,
         _request_timeout: Union[
             None,
@@ -2357,7 +2403,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name to validate (required)
         :type taxonomy_identifier: str
-        :param payload1: (required)
+        :param payload1: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type payload1: Payload1
         :param version: Optional taxonomy version (defaults to latest)
         :type version: int
@@ -2399,8 +2445,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2558,8 +2606,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2635,8 +2685,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2712,8 +2764,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2803,7 +2857,7 @@ class TaxonomiesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_taxonomies_request: Optional[ListTaxonomiesRequest] = None,
+        list_taxonomies_request: Annotated[Optional[ListTaxonomiesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2837,7 +2891,7 @@ class TaxonomiesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_taxonomies_request:
+        :param list_taxonomies_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_taxonomies_request: ListTaxonomiesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2883,8 +2937,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2908,7 +2964,7 @@ class TaxonomiesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_taxonomies_request: Optional[ListTaxonomiesRequest] = None,
+        list_taxonomies_request: Annotated[Optional[ListTaxonomiesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2942,7 +2998,7 @@ class TaxonomiesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_taxonomies_request:
+        :param list_taxonomies_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_taxonomies_request: ListTaxonomiesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2988,8 +3044,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3013,7 +3071,7 @@ class TaxonomiesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_taxonomies_request: Optional[ListTaxonomiesRequest] = None,
+        list_taxonomies_request: Annotated[Optional[ListTaxonomiesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3047,7 +3105,7 @@ class TaxonomiesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_taxonomies_request:
+        :param list_taxonomies_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_taxonomies_request: ListTaxonomiesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3093,8 +3151,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3232,7 +3292,7 @@ class TaxonomiesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_taxonomies_request: Optional[ListTaxonomiesRequest] = None,
+        list_taxonomies_request: Annotated[Optional[ListTaxonomiesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3266,7 +3326,7 @@ class TaxonomiesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_taxonomies_request:
+        :param list_taxonomies_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_taxonomies_request: ListTaxonomiesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3312,8 +3372,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3337,7 +3399,7 @@ class TaxonomiesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_taxonomies_request: Optional[ListTaxonomiesRequest] = None,
+        list_taxonomies_request: Annotated[Optional[ListTaxonomiesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3371,7 +3433,7 @@ class TaxonomiesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_taxonomies_request:
+        :param list_taxonomies_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_taxonomies_request: ListTaxonomiesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3417,8 +3479,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3442,7 +3506,7 @@ class TaxonomiesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_taxonomies_request: Optional[ListTaxonomiesRequest] = None,
+        list_taxonomies_request: Annotated[Optional[ListTaxonomiesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3476,7 +3540,7 @@ class TaxonomiesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_taxonomies_request:
+        :param list_taxonomies_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_taxonomies_request: ListTaxonomiesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3522,8 +3586,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3709,8 +3775,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3782,8 +3850,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3855,8 +3925,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3934,7 +4006,7 @@ class TaxonomiesApi:
     def patch_taxonomy_taxonomies(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name")],
-        patch_taxonomy_request: PatchTaxonomyRequest,
+        patch_taxonomy_request: Annotated[PatchTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3954,7 +4026,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name (required)
         :type taxonomy_identifier: str
-        :param patch_taxonomy_request: (required)
+        :param patch_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_taxonomy_request: PatchTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3993,8 +4065,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4011,7 +4085,7 @@ class TaxonomiesApi:
     def patch_taxonomy_taxonomies_with_http_info(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name")],
-        patch_taxonomy_request: PatchTaxonomyRequest,
+        patch_taxonomy_request: Annotated[PatchTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4031,7 +4105,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name (required)
         :type taxonomy_identifier: str
-        :param patch_taxonomy_request: (required)
+        :param patch_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_taxonomy_request: PatchTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4070,8 +4144,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4088,7 +4164,7 @@ class TaxonomiesApi:
     def patch_taxonomy_taxonomies_without_preload_content(
         self,
         taxonomy_identifier: Annotated[StrictStr, Field(description="Taxonomy ID or name")],
-        patch_taxonomy_request: PatchTaxonomyRequest,
+        patch_taxonomy_request: Annotated[PatchTaxonomyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4108,7 +4184,7 @@ class TaxonomiesApi:
 
         :param taxonomy_identifier: Taxonomy ID or name (required)
         :type taxonomy_identifier: str
-        :param patch_taxonomy_request: (required)
+        :param patch_taxonomy_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_taxonomy_request: PatchTaxonomyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4147,8 +4223,10 @@ class TaxonomiesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

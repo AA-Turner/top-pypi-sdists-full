@@ -235,6 +235,10 @@ def test_the_dispatcher_runs_on_the_hook_runtime():
             if isinstance(node, ast.Import):
                 names = [alias.name for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
+                if node.level and name == "_service_paths.py":
+                    # `paths.pipe_name`'s `from . import winpipe` (Windows): the
+                    # copy's hooks reach the service by its socket, POSIX only.
+                    continue
                 names = [node.module or ""]
             else:
                 continue
@@ -863,6 +867,10 @@ def _reads_states():
         ("status-shown", SID, {f"status/{SID}.json": msg, f"status/{SID}.shown": ""}),
         ("no-sid-nothing", "", {}),
         ("no-sid-any", "", {"messages/other/0001.json": msg}),
+        # A service claim its caller never received (plan Q2): it waits too.
+        ("orphaned-claim", SID, {f"claimed/{SID}/0001-r1.1700000000000_ab.json": msg}),
+        ("no-sid-orphaned-claim", "", {"claimed/other/0001-r1.1700000000000_ab.json": msg}),
+        ("received-claim", SID, {f"claimed/{SID}/0001-r1.json": msg}),
     ]
 
 
@@ -1436,3 +1444,48 @@ def test_a_copy_that_will_not_import_leaves_this_copys_modules_in_place(tmp_path
     (new / "hooks" / "dispatch.py").write_text("def broken(:\n", encoding="utf-8")
     result = _dispatch(old, "stop", {}, _env(tmp_path, old, False))
     assert (result.returncode, result.stdout) == (0, f"{OLD}\n"), result.stderr
+
+
+def test_a_route_past_its_deadline_is_ended_on_windows_too(monkeypatch):
+    """Windows has no `os.killpg` (and ignores start_new_session): an overrun
+    route was left running there. There each route's process tree is ended by
+    pid (taskkill /T, no console window), every route's at once and for
+    KILL_TREE_S at most however slow taskkill is, then the route itself; a
+    route is ended once however many threads ask."""
+    dispatch = _load()
+    started: list = []
+    killed: list = []
+
+    class Child:
+        def __init__(self, pid):
+            self.pid = pid
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            killed.append(self.pid)
+
+    class SlowTaskkill:
+        def __init__(self, argv, **kwargs):
+            started.append((time.monotonic(), argv, kwargs))
+
+        def wait(self, timeout=None):
+            time.sleep(timeout if timeout is not None else 5)
+            raise subprocess.TimeoutExpired("taskkill", timeout)
+
+    monkeypatch.setattr(dispatch, "_WINDOWS", True)
+    monkeypatch.setattr(dispatch, "_KILLED", {})
+    monkeypatch.setattr(dispatch, "KILL_TREE_S", 0.3)
+    monkeypatch.delattr(os, "killpg", raising=False)
+    monkeypatch.setattr(subprocess, "Popen", SlowTaskkill)
+    began = time.monotonic()
+    dispatch._kill_routes([Child(4242), None, Child(4343)])
+    took = time.monotonic() - began
+    assert [argv for _, argv, _ in started] == [["taskkill", "/F", "/T", "/PID", "4242"],
+                                                ["taskkill", "/F", "/T", "/PID", "4343"]]
+    assert all(kw.get("creationflags") == 0x08000000 for _, _, kw in started)  # CREATE_NO_WINDOW
+    assert took < 0.6, f"two slow taskkills took {took:.2f}s: they must share one bounded window"
+    assert killed == [4242, 4343]
+    dispatch._kill_routes([Child(4242)])  # the final sweep, after the waiter
+    assert len(started) == 2 and killed == [4242, 4343], "a route was ended twice"

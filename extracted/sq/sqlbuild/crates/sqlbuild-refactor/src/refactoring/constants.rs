@@ -2,6 +2,8 @@
 
 pub const MODEL_KIND_PREFIX: &str = "model:";
 pub const SQL_SUFFIX: &str = ".sql";
+pub const PYTHON_SUFFIX: &str = ".py";
+pub const UNREADABLE_PYTHON_REASON: &str = "this Python file cannot be read as UTF-8, so its imports of the moved Python files cannot be checked; fix or remove it first";
 pub const CURRENT_DIRECTORY: &str = ".";
 pub const REF_FUNCTION: &str = "__ref";
 pub const REF_FIXTURE_PREFIX: &str = "__ref__";
@@ -86,7 +88,6 @@ pub const CONTRACT_TYPE_KEY: &str = "type";
 pub const CONTRACT_YAML_COLUMNS_KEY: &str = "columns";
 pub const CONTRACT_YAML_LIST_NAME: &str = "- name:";
 pub const CONTRACT_YAML_COMMENT: &str = " #";
-pub const CONTRACT_MODEL_HEADER_ESCAPE: char = '\\';
 pub const CONTRACT_HEADER_WORD_EXTRA: [char; 2] = ['_', '$'];
 pub const CONTRACT_QUOTES: [char; 2] = ['\'', '"'];
 pub const CONTRACT_OPENERS: [char; 3] = ['(', '[', '{'];

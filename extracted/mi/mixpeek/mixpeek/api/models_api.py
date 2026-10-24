@@ -17,8 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictStr
+from pydantic import Field, StrictStr
 from typing import Any, Dict, Optional
+from typing_extensions import Annotated
 from mixpeek.models.confirm_model_upload_request import ConfirmModelUploadRequest
 from mixpeek.models.confirm_model_upload_response import ConfirmModelUploadResponse
 from mixpeek.models.create_model_upload_request import CreateModelUploadRequest
@@ -49,7 +50,7 @@ class ModelsApi:
     def confirm_upload_models(
         self,
         upload_id: StrictStr,
-        confirm_model_upload_request: Optional[ConfirmModelUploadRequest] = None,
+        confirm_model_upload_request: Annotated[Optional[ConfirmModelUploadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -69,7 +70,7 @@ class ModelsApi:
 
         :param upload_id: (required)
         :type upload_id: str
-        :param confirm_model_upload_request:
+        :param confirm_model_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type confirm_model_upload_request: ConfirmModelUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -108,8 +109,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -126,7 +129,7 @@ class ModelsApi:
     def confirm_upload_models_with_http_info(
         self,
         upload_id: StrictStr,
-        confirm_model_upload_request: Optional[ConfirmModelUploadRequest] = None,
+        confirm_model_upload_request: Annotated[Optional[ConfirmModelUploadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -146,7 +149,7 @@ class ModelsApi:
 
         :param upload_id: (required)
         :type upload_id: str
-        :param confirm_model_upload_request:
+        :param confirm_model_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type confirm_model_upload_request: ConfirmModelUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -185,8 +188,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -203,7 +208,7 @@ class ModelsApi:
     def confirm_upload_models_without_preload_content(
         self,
         upload_id: StrictStr,
-        confirm_model_upload_request: Optional[ConfirmModelUploadRequest] = None,
+        confirm_model_upload_request: Annotated[Optional[ConfirmModelUploadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -223,7 +228,7 @@ class ModelsApi:
 
         :param upload_id: (required)
         :type upload_id: str
-        :param confirm_model_upload_request:
+        :param confirm_model_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type confirm_model_upload_request: ConfirmModelUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -262,8 +267,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -411,8 +418,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -484,8 +493,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -557,8 +568,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -688,10 +701,12 @@ class ModelsApi:
             '200': "Dict[str, object]",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
-            '403': None,
-            '404': None,
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -761,10 +776,12 @@ class ModelsApi:
             '200': "Dict[str, object]",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
-            '403': None,
-            '404': None,
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -834,10 +851,12 @@ class ModelsApi:
             '200': "Dict[str, object]",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
-            '403': None,
-            '404': None,
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -913,7 +932,7 @@ class ModelsApi:
     @validate_call
     def generate_upload_url_models(
         self,
-        create_model_upload_request: CreateModelUploadRequest,
+        create_model_upload_request: Annotated[CreateModelUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -931,7 +950,7 @@ class ModelsApi:
 
         Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (this gate was previously undocumented and only discoverable by hitting the 403).
 
-        :param create_model_upload_request: (required)
+        :param create_model_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_model_upload_request: CreateModelUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -969,8 +988,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -986,7 +1007,7 @@ class ModelsApi:
     @validate_call
     def generate_upload_url_models_with_http_info(
         self,
-        create_model_upload_request: CreateModelUploadRequest,
+        create_model_upload_request: Annotated[CreateModelUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1004,7 +1025,7 @@ class ModelsApi:
 
         Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (this gate was previously undocumented and only discoverable by hitting the 403).
 
-        :param create_model_upload_request: (required)
+        :param create_model_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_model_upload_request: CreateModelUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1042,8 +1063,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1059,7 +1082,7 @@ class ModelsApi:
     @validate_call
     def generate_upload_url_models_without_preload_content(
         self,
-        create_model_upload_request: CreateModelUploadRequest,
+        create_model_upload_request: Annotated[CreateModelUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1077,7 +1100,7 @@ class ModelsApi:
 
         Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (this gate was previously undocumented and only discoverable by hitting the 403).
 
-        :param create_model_upload_request: (required)
+        :param create_model_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_model_upload_request: CreateModelUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1115,8 +1138,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1261,8 +1286,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1334,8 +1361,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1407,8 +1436,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1536,8 +1567,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1605,8 +1638,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1674,8 +1709,10 @@ class ModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

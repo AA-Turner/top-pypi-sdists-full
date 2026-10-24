@@ -27,7 +27,7 @@ class VectorUsageBreakdown(BaseModel):
     """
     Cost breakdown for vector backend usage.
     """ # noqa: E501
-    backend: StrictStr = Field(description="Vector backend: qdrant, mvs, or dual_write")
+    backend: StrictStr = Field(description="Vector backend serving the tenant (mvs)")
     vector_storage_usd: Union[StrictFloat, StrictInt] = Field(description="Raw cost for vector storage")
     data_storage_usd: Union[StrictFloat, StrictInt] = Field(description="Raw cost for data storage (GCS/S3)")
     query_usd: Union[StrictFloat, StrictInt] = Field(description="Raw cost for search queries")

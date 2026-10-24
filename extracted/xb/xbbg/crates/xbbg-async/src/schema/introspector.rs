@@ -3,9 +3,9 @@
 //! This module bridges the gap between xbbg_core's raw FFI schema wrappers
 //! and the serde-enabled types used for JSON serialization.
 
+use xbbg_core::DataType;
 use xbbg_core::schema::{Operation, SchemaElementDefinition, SchemaTypeDefinition};
 use xbbg_core::service::Service;
-use xbbg_core::DataType;
 
 use super::types::{ElementInfo, OperationSchema, ServiceSchema};
 
@@ -132,7 +132,7 @@ fn convert_element_def_inner(
     }
 }
 /// Convert a Bloomberg Operation to OperationSchema.
-pub fn convert_operation(op: &Operation<'_>) -> OperationSchema {
+pub(crate) fn convert_operation(op: &Operation<'_>) -> OperationSchema {
     // Convert request definition
     let request = match op.request_definition() {
         Ok(req_def) => convert_element_def(&req_def),

@@ -25,7 +25,7 @@ import io
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -72,7 +72,7 @@ class ModuleLike(Protocol):
     """A component root. The tensor-schema walk can only see what `state_dict()` reaches
     (§1.1 authoring rules) — `torch.nn.Module` satisfies this structurally."""
 
-    def state_dict(self) -> Mapping[str, TensorLike]: ...
+    def state_dict(self, *, keep_vars: bool = False) -> Mapping[str, TensorLike]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +92,8 @@ class Destination:
     key: str
     component: str
     spec: TensorSpec
+    #: A persistent buffer: the checkpoint's value when it stores one, else its constructed value.
+    buffer: bool = False
 
 
 #: TensorFS dtype name -> torch dtype name. This is the ONE thing the store cannot own: it
@@ -498,11 +500,6 @@ class Backend(Protocol):
         component outside the set stays on meta: never fit, filled or registered."""
         ...
 
-    def ahead(self) -> None:
-        """Before the factory runs: what needs no module starts now (a held host tier's copies
-        to the GPU run while the module is built)."""
-        ...
-
     def fit(self, walked: Census, *, encoded_leaves: str) -> Fit | None:
         """The one verdict, or None when this backend holds no checkpoint header to judge
         against (derive mode; a local lane tree). The runtime keeps no other matcher."""
@@ -528,9 +525,6 @@ class _NullBackend:
     """Derive mode's backend: the walk runs, nothing is judged, allocated or filled."""
 
     bound: frozenset[str] | None = None
-
-    def ahead(self) -> None:
-        return None
 
     def fit(self, walked: Census, *, encoded_leaves: str) -> Fit | None:
         return None
@@ -565,10 +559,21 @@ class DerivedCache:
     inside an active component-use scope, and there is no persistence surface to declare
     (durable derived tables live in pruned-DiT artifacts produced by jobs, §1.3). At its
     bound the least recently used entries leave to admit a new one; an entry larger than
-    the whole bound refuses. cr-008b owns the ledger accounting and lease mechanics.
+    the whole bound refuses. On a placed model its entries live in a latent region of their
+    own, pinned while a component scope of its model is open (`enter`/`leave`): between scopes
+    varena may take it, and the next scope finds the cache empty.
     """
 
-    __slots__ = ("_bytes", "_entries", "_owner", "max_bytes", "max_entries", "name")
+    __slots__ = (
+        "_bytes",
+        "_entries",
+        "_owner",
+        "_pins",
+        "_region",
+        "max_bytes",
+        "max_entries",
+        "name",
+    )
 
     def __init__(self, name: str, *, max_entries: int, max_bytes: int, owner: _ScopeHost) -> None:
         self.name = name
@@ -577,6 +582,8 @@ class DerivedCache:
         self._entries: OrderedDict[object, tuple[object, int]] = OrderedDict()
         self._bytes = 0
         self._owner = owner
+        self._region: _Region | None = None
+        self._pins: list[AbstractContextManager[bool]] = []
 
     def __repr__(self) -> str:
         return (
@@ -605,7 +612,13 @@ class DerivedCache:
         if key in self._entries:
             self._entries.move_to_end(key)
             return cast(V, self._entries[key][0])
-        value = build()
+        region = self._made()
+        if region is not None and not self._pins:
+            self.enter()  # made inside this scope: held for the rest of it
+        with region.allocating() if region is not None else nullcontext(False) as fresh:
+            if fresh:
+                self.drop()
+            value = build()
         _require_immutable(self.name, value)
         size = _entry_bytes(value)
         if size > self.max_bytes or self.max_entries < 1:
@@ -624,6 +637,26 @@ class DerivedCache:
     def drop(self) -> None:
         self._entries.clear()
         self._bytes = 0
+
+    def _made(self) -> _Region | None:
+        """Its region, made with its first entry on a placed model (None unplaced)."""
+        residency = self._owner._cozy_residency
+        if self._region is None and residency is not None:
+            self._region = residency.region(f"cache:{self.name}", "latent", ())
+        return self._region
+
+    def enter(self) -> None:
+        """A component scope of its model opens: its region stays mapped until `leave`; one
+        that came back empty empties the cache."""
+        if self._region is not None:
+            pin = self._region.pin()
+            if pin.__enter__():
+                self.drop()
+            self._pins.append(pin)
+
+    def leave(self) -> None:
+        if self._pins:
+            self._pins.pop().__exit__(None, None, None)
 
 
 def _require_immutable(name: str, value: object) -> None:
@@ -649,8 +682,22 @@ def _entry_bytes(value: object) -> int:
     return 8
 
 
+class _Region(Protocol):
+    """A latent region (`Residency.region`) as a cache uses it."""
+
+    def pin(self) -> AbstractContextManager[bool]: ...
+
+    def allocating(self) -> AbstractContextManager[bool]: ...
+
+
+class _Residency(Protocol):
+    def region(self, owner: str, kind: str, sets: object) -> _Region: ...
+
+
 class _ScopeHost(Protocol):
     """What a cache needs from the model generation that declared it."""
+
+    _cozy_residency: _Residency | None
 
     def _cozy_require_scope(self, what: str) -> None: ...
 
@@ -696,6 +743,8 @@ class ConstructionRecord:
     """Stored tensors the code does not build: skipped, never loaded, and CONFESSED."""
     ignored_warnings: tuple[str, ...] = ()
     """One line per checkpoint that stores such tensors: count, bytes and the first keys."""
+    unstored: tuple[str, ...] = ()
+    """Persistent buffers the checkpoint does not store: they keep their constructed values."""
     skipped: tuple[str, ...] = ()
     """Built components the binding does not select: on meta, and a scope using one refuses."""
     fit: dict[str, object] | None = None
@@ -784,9 +833,6 @@ class Loader:
                 else {key: spec.dtype for key, spec in self._artifact.tensor_schema.items()},
                 bound=self._backend.bound,
             )
-        self._backend.ahead()
-        _legs.append(("ahead", round((time.perf_counter() - _t0) * 1000, 1)))
-        _t0 = time.perf_counter()
         construction = CONSTRUCTION.set(object())
         try:
             obj = factory(config)
@@ -819,6 +865,8 @@ class Loader:
             raise ModelFitRefused(fit, self._artifact.unnormalized)
         ignored = tuple(str(k) for k in cast("Sequence[object]", (fit or {}).get("ignored", ())))
         warned = tuple(str(k) for k in cast("Sequence[object]", (fit or {}).get("warnings", ())))
+        unstored = tuple(str(k) for k in cast("Sequence[object]", (fit or {}).get("unstored", ())))
+        walked = walked.without(frozenset(k.replace("/", ".", 1) for k in unstored))
         _legs.append(("fit", round((time.perf_counter() - _t0) * 1000, 1)))
         _t0 = time.perf_counter()
         filled, filled_bytes = self._fill(walked, obj)
@@ -831,6 +879,7 @@ class Loader:
             filled_bytes=filled_bytes,
             ignored_extras=ignored,
             ignored_warnings=warned,
+            unstored=unstored,
             skipped=skipped,
             fit=dict(fit) if fit is not None else None,
             stage_ms=tuple(_legs),
@@ -938,6 +987,14 @@ class Census:
     schedulers: tuple[str, ...]
     live: Mapping[str, TensorLike]
 
+    def without(self, keys: frozenset[str]) -> Census:
+        """This walk without the destinations `keys` (persistent buffers no checkpoint stores)."""
+        if not keys:
+            return self
+        destinations = tuple(d for d in self.destinations if d.key not in keys)
+        live = {d.key: self.live[d.key] for d in destinations}
+        return Census(destinations, self.components, self.schedulers, live)
+
     def only(self, bound: frozenset[str] | None) -> tuple[Census, tuple[str, ...]]:
         """This walk restricted to the `bound` components, and the components left out."""
         skipped = tuple(c for c in self.components if bound is not None and c not in bound)
@@ -978,7 +1035,9 @@ def census(obj: object) -> Census:
 
     Components are read from the object's `components` mapping when it has one (diffusers
     pipelines and modular pipelines both expose it) and from its public module-like
-    attributes otherwise. The walk can only see what `state_dict()` reaches (§1.1).
+    attributes otherwise. The walk can only see what `state_dict()` reaches (§1.1). A tied
+    tensor (`tie_word_embeddings`) is one destination, under its first name: a checkpoint
+    stores it once, and varena installs its placeholder at every name (cr-218).
     """
     destinations: list[Destination] = []
     components: list[str] = []
@@ -991,7 +1050,14 @@ def census(obj: object) -> Census:
         if not isinstance(member, ModuleLike):
             continue
         components.append(name)
-        for key, tensor in member.state_dict().items():
+        seen: set[int] = set()
+        named_buffers = getattr(member, "named_buffers", None)
+        buffers = {id(b) for _, b in named_buffers(remove_duplicate=False)} if named_buffers else set()
+        for key, held in member.state_dict(keep_vars=True).items():
+            if id(held) in seen:
+                continue
+            seen.add(id(held))
+            tensor = held.detach()
             full = f"{name}.{key}"
             live[full] = tensor
             nbytes = getattr(tensor, "nbytes", 0)
@@ -1004,6 +1070,7 @@ def census(obj: object) -> Census:
                         _dtype_of(tensor),
                         nbytes=nbytes if isinstance(nbytes, int) else 0,
                     ),
+                    buffer=id(held) in buffers,
                 )
             )
     return Census(tuple(destinations), tuple(components), tuple(schedulers), live)

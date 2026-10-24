@@ -30,6 +30,7 @@ import importlib
 import os
 import pickle
 import re
+import warnings
 from datetime import datetime
 from importlib.metadata import EntryPoint, entry_points
 from importlib.util import find_spec
@@ -182,6 +183,7 @@ _PLUGIN_UNSUPPORTED_OPTIONS = {
         "watch",
     ),
     "offline": (),
+    "privacy": (),
     "redirects": (),
     "rss": (),
     "search": (
@@ -756,7 +758,10 @@ def _apply_defaults(config: dict, path: str) -> dict:
     set_default(extra, "polyfills", [], list)
 
     # Ensure all non-existent values are all empty strings (for now)
-    config["extra"] = _convert_extra(extra)
+    config["extra"] = cast("dict[str, Any]", _convert_extra(extra))
+    config["extra"]["polyfills"] = _convert_extra_javascript(
+        config["extra"]["polyfills"]
+    )
 
     # Set defaults for extra files
     set_default(config, "extra_css", [], list)
@@ -810,10 +815,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Set validation
     config["validation"] = validation
 
-    # MkDocs will also set fenced_code, which is incompatible with SuperFences,
-    # the extension that Material for MkDocs generally recommends. Note that we
-    # decided to set defaults that make it easy to get started with sensible
-    # Markdown support, but users can override this as needed.
+    # Markdown extensions and their configuration are normalized.
     markdown_extensions, mdx_configs = _convert_markdown_extensions(
         config.get("markdown_extensions", DEFAULT_MARKDOWN_EXTENSIONS)
     )
@@ -1365,7 +1367,8 @@ def _list_macros_files(config: dict, config_file: str) -> set[tuple[str, int]]:
     pluglets = macros_config.get("modules", [])
     for pluglet in pluglets:
         pluglet_module = importlib.import_module(pluglet)
-        macros_files.append(pluglet_module.__file__)
+        if pluglet_module.__file__:
+            macros_files.append(pluglet_module.__file__)
 
     include_yaml: list[str] | dict[str, str] = macros_config.get(
         "include_yaml", []
@@ -1440,7 +1443,8 @@ def _list_templates(config: dict) -> list[tuple[str, int]]:
                 continue
             for file in files:
                 file_path = os.path.join(root, file)
-                mtime = int(os.path.getmtime(file_path))
+                # Subsecond edits must be reflected in the template cache key.
+                mtime = os.stat(file_path).st_mtime_ns
                 files_with_mtime.append((file_path, mtime))
 
     # Sort by file path for deterministic order
@@ -1563,11 +1567,14 @@ def _convert_markdown_extensions(
     value: Any,
 ) -> tuple[list[str], dict[str, dict[str, Any]]]:
     """Convert Markdown extensions to what Python Markdown expects."""
+    # Explicit extension order is preserved; fallback fences are added below.
     markdown_extensions = ["toc", "tables"]
-    mdx_configs: dict[str, dict[str, Any]] = {"toc": {}, "tables": {}}
+    mdx_configs: dict[str, dict[str, Any]] = {
+        ext: {} for ext in markdown_extensions
+    }
 
     if value is None:
-        return markdown_extensions, mdx_configs
+        value = []
     if not isinstance(value, (dict, list)):
         raise ConfigurationError(
             "Markdown extensions must be a list or mapping"
@@ -1635,13 +1642,22 @@ def _convert_markdown_extensions(
                 value[f"zensical.{ext}"] = conf
 
     extensions, configs = _convert_plugin_markdown_extensions(value)
+
+    # An explicit SuperFences entry is retained at its configured position.
+    # The fallback is added last to prevent replacement by extra.
+    if "pymdownx.superfences" not in extensions:
+        extensions.append("pymdownx.superfences")
+        configs.setdefault("pymdownx.superfences", {})
+
     markdown_extensions.extend(extensions)
     mdx_configs.update(configs)
 
     # Return extension list and configuration, after ensuring they're unique
     seen = set()
     mdx_exts = [
-        ext for ext in markdown_extensions if not (ext in seen or seen.add(ext))
+        ext
+        for ext in markdown_extensions
+        if not (ext in seen or seen.add(ext))  # ty:ignore[redundant-condition]
     ]
     return mdx_exts, mdx_configs
 
@@ -1707,7 +1723,7 @@ def _reject_unknown_options(
         if not isinstance(name, str):
             raise ConfigurationError(f"{label} option names must be strings")
     if unknown := set(plugin) - supported:
-        name = sorted(unknown)[0]
+        name = min(unknown)
         raise ConfigurationError(f"unknown {label} option: {name}")
 
 
@@ -1979,6 +1995,118 @@ def _validate_api_root(label: str, plugin: dict, name: str) -> None:
     plugin[name] = value
 
 
+def _normalize_privacy(value: dict[str, Any], name: str) -> dict[str, Any]:
+    """Validate Material privacy options and fill their defaults."""
+    aliases = {
+        "external_assets": "assets_fetch",
+        "external_assets_dir": "assets_fetch_dir",
+        "external_assets_include": "assets_include",
+        "external_assets_exclude": "assets_exclude",
+        "external_assets_expr": "assets_expr_map",
+        "external_links": "links",
+        "external_links_attr_map": "links_attr_map",
+        "external_links_noopener": "links_noopener",
+    }
+    for old, new in aliases.items():
+        if old in value:
+            warnings.warn(
+                f"{name} {old} is deprecated; use {new}",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            value.setdefault(new, value.pop(old))
+
+    defaults = {
+        "enabled": True,
+        "concurrency": max(1, (os.cpu_count() or 1) - 1),
+        "cache": True,
+        "cache_dir": ".cache/plugin/privacy",
+        "log": True,
+        "log_level": "info",
+        "assets": True,
+        "assets_fetch": True,
+        "assets_fetch_dir": "assets/external",
+        "assets_include": [],
+        "assets_exclude": [],
+        "assets_expr_map": {},
+        "links": True,
+        "links_attr_map": {},
+        "links_noopener": True,
+    }
+    _reject_unknown_options(name, value, set(defaults))
+    for option, default in defaults.items():
+        value.setdefault(option, default)
+    _validate_boolean_options(
+        name,
+        value,
+        (
+            "enabled",
+            "cache",
+            "log",
+            "assets",
+            "assets_fetch",
+            "links",
+            "links_noopener",
+        ),
+    )
+    _validate_string_options(
+        name, value, ("cache_dir", "log_level", "assets_fetch_dir")
+    )
+    if type(value["concurrency"]) is not int or value["concurrency"] < 1:
+        raise ConfigurationError(
+            f"{name} concurrency must be a positive integer"
+        )
+    if value["log_level"] not in {"error", "warn", "info", "debug"}:
+        raise ConfigurationError(
+            f"{name} log_level must be error, warn, info or debug"
+        )
+    directory = value["assets_fetch_dir"].replace("\\", "/").rstrip("/")
+    if (
+        not directory
+        or directory.startswith("/")
+        or re.match(r"^[A-Za-z]:", directory)
+        or any(part in {"", ".", ".."} for part in directory.split("/"))
+        or "\0" in directory
+    ):
+        raise ConfigurationError(
+            f"{name} assets_fetch_dir must be a safe site-relative path"
+        )
+    value["assets_fetch_dir"] = directory
+    for option in ("assets_include", "assets_exclude"):
+        _validate_string_list(name, value, option)
+    for option in ("assets_expr_map", "links_attr_map"):
+        mapping = value[option]
+        if not isinstance(mapping, dict) or any(
+            not isinstance(key, str) or not isinstance(item, str)
+            for key, item in mapping.items()
+        ):
+            raise ConfigurationError(
+                f"{name} {option} must be a mapping of strings to strings"
+            )
+    for extension, expression in value["assets_expr_map"].items():
+        try:
+            pattern = re.compile(expression, re.IGNORECASE | re.MULTILINE)
+        except re.error as error:
+            raise ConfigurationError(
+                f"{name} invalid assets_expr_map expression for "
+                f"{extension}: {error}"
+            ) from error
+        if "url" not in pattern.groupindex:
+            raise ConfigurationError(
+                f"{name} assets_expr_map expressions must contain "
+                "a named 'url' group"
+            )
+    for attribute in value["links_attr_map"]:
+        if not attribute or any(
+            character.isspace() or character in "\"'<>/=\0"
+            for character in attribute
+        ):
+            raise ConfigurationError(
+                f"{name} links_attr_map contains an invalid attribute name"
+            )
+    return value
+
+
 def _convert_plugins(value: Any, config: dict) -> dict:
     """Convert plugins configuration to something we can work with."""
     plugins: dict[str, Any] = {}
@@ -1986,13 +2114,16 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     blogs: list[dict[str, Any]] = []
     rss: list[dict[str, Any]] = []
     social: list[dict[str, Any]] = []
+    privacy: list[dict[str, Any]] = []
 
     def add(name: Any, data: Any) -> None:
         """Canonicalize Material aliases while preserving tag instances."""
         if not isinstance(name, str):
             raise ConfigurationError("Plugin names must be strings")
         name = name.removeprefix("material/")
-        canonical = "social" if name.startswith("social/") else name
+        canonical = name
+        if name.startswith(("social/", "privacy/")):
+            canonical = name.split("/", 1)[0]
         if canonical not in _PLUGIN_UNSUPPORTED_OPTIONS:
             return
         if data is None:
@@ -2010,6 +2141,10 @@ def _convert_plugins(value: Any, config: dict) -> dict:
             blogs.append({"name": name, "config": data})
         elif canonical == "social":
             social.append({"name": name, "config": data})
+        elif canonical == "privacy":
+            privacy.append(
+                {"name": name, "config": _normalize_privacy(data, name)}
+            )
         elif name == "rss":
             rss.append({"name": name, "config": _normalize_rss(data)})
         else:
@@ -2044,6 +2179,7 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     plugins["rss"] = rss
     # Preserve ordered social instances for native validation and rendering.
     plugins["social"] = social
+    plugins["privacy"] = privacy
     plugins["llmstxt"] = _normalize_llmstxt(
         plugins.get("llmstxt", {}), config, "llmstxt" in plugins
     )
@@ -2867,7 +3003,7 @@ def _convert_plugins(value: Any, config: dict) -> dict:
                     "table-reader select_readers must be a list of reader names"
                 )
             if unsupported := set(selected) - set(TABLE_READERS):
-                reader = sorted(unsupported)[0]
+                reader = min(unsupported)
                 raise ConfigurationError(
                     f"unknown table-reader reader: {reader}"
                 )

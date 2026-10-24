@@ -9,16 +9,6 @@ pub fn run(target_url: String, port: Option<u16>) -> napi::Result<()> {
         .map_err(|e| napi::Error::new(napi::Status::Cancelled, e))
 }
 
-/// Stop the proxy server on a specific port
-/// Uses a default timeout of 4 seconds for graceful shutdown
-#[napi_derive::napi]
-#[deprecated(since = "0.1.12", note = "Use stop_with_timeout instead")]
-pub fn stop(port: Option<u16>) -> napi::Result<()> {
-    let port = port.unwrap_or(DEFAULT_PORT);
-
-    crate::interface::stop(port).map_err(|e| napi::Error::new(napi::Status::Cancelled, e))
-}
-
 /// Stop the proxy server on a specific port with a timeout
 /// If the server doesn't stop within the timeout, it will be forcefully terminated
 #[napi_derive::napi]

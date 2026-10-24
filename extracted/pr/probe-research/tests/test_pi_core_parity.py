@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 from probe.sdk import session_marker
-from tests.ts_source import ts_object, ts_set, ts_string
+from tests.ts_source import ts_list, ts_object, ts_set, ts_string
 
 AGENT = Path(__file__).resolve().parents[1]
 HOOKS = AGENT / "plugins" / "probe-research" / "hooks"
@@ -35,6 +35,8 @@ SWITCH = PI_CORE / "trackingSwitch.ts"
 STATE = PI_CORE / "trackingState.ts"
 PAIRING = PI_CORE / "pairing.ts"
 MCP_AUTH = PI_CORE / "mcpAuth.ts"
+HOSTED = PI_CORE / "hosted.ts"
+TAP_RUNTIME = PI_CORE / "tapRuntime.ts"
 
 
 def _guard():
@@ -192,3 +194,108 @@ def test_the_mcp_token_comes_from_where_probe_mcp_headers_reads_it():
     # Never the write token in the same file.
     assert 'print(data.get("mcp_token") or "")' in script
     assert "ingest_token" not in code
+
+
+# ---------------------------------------------------------------------------
+# hosted.ts, paths.ts, tapRuntime.ts <- probe/service/paths.py, hooks/tap-python.sh
+# ---------------------------------------------------------------------------
+
+
+def test_pi_finds_the_service_where_the_service_keeps_its_files():
+    """A session the Probe service records is read, on a Mac, through the
+    service's lock file (`statusline_refresh._is_the_service`); pi re-states
+    where that file is. The machine key is pinned by a fixture both languages
+    read (tests/hosted.test.ts the other half)."""
+    from probe.service import paths
+
+    assert ts_string(PATHS, "SERVICE_DIRNAME") == paths.SERVICE_DIRNAME
+    assert ts_string(PATHS, "SERVICE_LOCK_NAME") == paths.LOCK_NAME
+    assert ts_string(PATHS, "SERVICE_RUNTIME_NAME") == paths.RUNTIME_NAME
+    assert tuple(ts_list(HOSTED, "MACHINE_ID_FILES")) == paths.MACHINE_ID_FILES
+    # sha256(b"probe-service\0" + id): the prefix, one NUL byte, the id.
+    assert 'b"probe-service\\0" + machine_id()' in (AGENT / "src" / "probe" / "service" / "paths.py").read_text(encoding="utf-8")
+    assert ts_string(HOSTED, "MACHINE_KEY_PREFIX") == "probe-service"
+    assert re.search(r"export const MACHINE_KEY_SEPARATOR = 0x00;", HOSTED.read_text(encoding="utf-8"))
+    assert re.search(rf"export const MACHINE_KEY_LEN = {paths.MACHINE_KEY_LEN};", HOSTED.read_text(encoding="utf-8"))
+    # Windows's machine id: the same registry value the service reads (`_windows_guid`).
+    source = (AGENT / "src" / "probe" / "service" / "paths.py").read_text(encoding="utf-8")
+    key = re.search(r'winreg\.HKEY_LOCAL_MACHINE, r"([^"]+)"', source)
+    value = re.search(r'QueryValueEx\(key, "([^"]+)"\)', source)
+    assert key and value and "KEY_WOW64_64KEY" in source
+    assert ts_string(HOSTED, "WINDOWS_GUID_KEY") == "HKLM\\" + key.group(1)
+    assert ts_string(HOSTED, "WINDOWS_GUID_VALUE") == value.group(1)
+    # What the service runs as (`client.py`: `python -I -m probe.service`), which /proc shows.
+    assert ts_string(HOSTED, "SERVICE_COMMAND_MARK") == "probe.service"
+    assert '"-m", "probe.service"' in (AGENT / "src" / "probe" / "service" / "client.py").read_text(encoding="utf-8")
+
+
+def test_the_machine_key_fixture_is_the_services(monkeypatch):
+    from probe.service import paths
+
+    fixture = json.loads((AGENT / "tests" / "fixtures" / "service-machine-key.json").read_text(encoding="utf-8"))
+    assert fixture["cases"]
+    for case in fixture["cases"]:
+        monkeypatch.setattr(paths, "_machine_key", None)
+        monkeypatch.setattr(paths, "machine_id", lambda case=case: case["machine_id"])
+        assert paths.machine_key() == case["machine_key"], case
+
+
+def test_pi_picks_the_taps_interpreter_as_tap_python_sh_does():
+    """#3338 taught the hooks to run the tap on a Python 3.11+ (Apple's 3.9 broke
+    every session); pi's own search (`tapRuntime.ts`) asks the same places in the
+    same order and leaves the same note for `probe doctor`."""
+    from probe.cli import doctor
+    from probe.service import paths
+
+    script = (TAP_ROOT / "hooks" / "tap-python.sh").read_text(encoding="utf-8")
+    versioned = re.search(r"for name in ((?:python3\.\d+ ?)+); do", script)
+    assert versioned and ts_list(TAP_RUNTIME, "VERSIONED_PYTHONS") == versioned.group(1).split()
+    assert "sys.version_info >= (3, 11)" in script
+    start = (TAP_ROOT / "tap" / "start.py").read_text(encoding="utf-8")
+    minimum = re.search(r"^MIN_PYTHON = \((\d+), (\d+)\)$", start, re.M)
+    assert minimum
+    assert re.search(
+        rf"export const MIN_TAP_PYTHON = \[{minimum.group(1)}, {minimum.group(2)}\] as const;",
+        TAP_RUNTIME.read_text(encoding="utf-8"),
+    )
+    assert tuple(ts_list(PATHS, "UV_TOOL_PYTHON")) == paths.UV_TOOL_PYTHON
+    assert ts_list(PATHS, "UV_TOOL_PYTHON_WINDOWS") == ["uv", "tools", "probe-research", "Scripts", "python.exe"]
+    assert "uv/tools/probe-research/Scripts/python.exe" in script
+    assert ts_string(PATHS, "TAP_PYTHON_MISSING") == doctor.TAP_PYTHON_MISSING
+    assert 'TAP_PYTHON_MISSING="' + doctor.TAP_PYTHON_MISSING + '"' in script
+
+
+def test_pi_asks_tap_finish_with_the_flags_its_parser_takes(tmp_path):
+    """pi's quit runs `tap finish` for a session the Probe service records
+    (`daemon.ts::finishHostedSession`, session-end.sh's call). A flag the tap's
+    parser stopped taking would exit 1 like "not recorded", silently; ask the
+    parser itself, in a subprocess with the tap on PYTHONPATH."""
+    code = _code(PI_CORE / "daemon.ts")
+    assert '["-m", "tap", "finish", "--session-id", sessionId, "--wait", String(waitS)]' in code
+    probe = (
+        "import sys\n"
+        "from tap import record_client as rc\n"
+        "seen = []\n"
+        "rc.finish = lambda args: seen.append((args.session_id, args.wait)) or 0\n"
+        "code = rc.main('finish', ['--session-id', 'sid-1', '--wait', '3'])\n"
+        "print(code, seen)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path), "PYTHONPATH": str(TAP_ROOT)},
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "0 [('sid-1', 3.0)]"
+
+
+def test_pi_names_what_it_found_in_tap_python_sh_words():
+    """When no Python 3.11+ is found pi says what `python3` is, in the words
+    `tap_python_seen` uses (they reach `probe doctor` the same way)."""
+    script = (TAP_ROOT / "hooks" / "tap-python.sh").read_text(encoding="utf-8")
+    body = script[script.index("tap_python_seen() {"):]
+    for name in ("PYTHON_SEEN_NONE", "PYTHON_SEEN_BROKEN"):
+        assert f"printf '{ts_string(TAP_RUNTIME, name)}\\n'" in body, name
+    assert ts_string(TAP_RUNTIME, "PYTHON_SEEN_PREFIX") == "python3 "
+    assert "printf 'python3 %s\\n'" in body

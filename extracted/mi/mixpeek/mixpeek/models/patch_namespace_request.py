@@ -18,12 +18,18 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.base_feature_extractor_model_input import BaseFeatureExtractorModelInput
-from mixpeek.models.namespace_infrastructure_input import NamespaceInfrastructureInput
+from mixpeek.models.namespace_cost_cap_override import NamespaceCostCapOverride
+from mixpeek.models.namespace_infrastructure import NamespaceInfrastructure
+from mixpeek.models.namespace_pin import NamespacePin
+from mixpeek.models.namespace_spend_budget_update import NamespaceSpendBudgetUpdate
+from mixpeek.models.namespace_trusted_issuer import NamespaceTrustedIssuer
 from mixpeek.models.payload_index_config_input import PayloadIndexConfigInput
+from mixpeek.models.tiering_override import TieringOverride
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -36,9 +42,17 @@ class PatchNamespaceRequest(BaseModel):
     feature_extractors: Optional[List[BaseFeatureExtractorModelInput]] = Field(default=None, description="Feature extractors to add to this namespace. Existing extractors are preserved; only new ones are appended. Each extractor must be a registered builtin plugin.")
     payload_indexes: Optional[List[PayloadIndexConfigInput]] = Field(default=None, description="Updated list of custom payload indexes for this namespace.")
     auto_create_indexes: Optional[StrictBool] = Field(default=None, description="Enable automatic creation of vector store payload indexes based on filter usage patterns. When enabled, the system tracks which fields are most frequently filtered (>100 queries/24h) and automatically creates indexes to improve query performance. Background task runs every 6 hours. Expected performance improvement: 50-90% latency reduction for filtered queries. Default: False.")
+    adaptive_indexing: Optional[StrictBool] = Field(default=None, description="Let the vector index re-tune its own partition size and flush threshold from observed search latency. Off by default. When on, every change it makes is recorded in the namespace's mxp_platform_events collection (event_type index_adaptation) with the parameter, its old and new value, the search count that triggered it, and p95 search latency before and after.")
     repair_vectors: Optional[StrictBool] = Field(default=None, description="When True, verify all registered feature extractors have their corresponding vector indexes in the vector store and add any missing ones. Use this to fix namespaces where vector schema is out of sync with registered extractors.")
-    infrastructure: Optional[NamespaceInfrastructureInput] = Field(default=None, description="Infrastructure configuration for this namespace.")
-    __properties: ClassVar[List[str]] = ["namespace_name", "description", "feature_extractors", "payload_indexes", "auto_create_indexes", "repair_vectors", "infrastructure"]
+    infrastructure: Optional[NamespaceInfrastructure] = Field(default=None, description="Infrastructure configuration for this namespace.")
+    trusted_issuers: Optional[Annotated[List[NamespaceTrustedIssuer], Field(max_length=5)]] = Field(default=None, description="Identity providers whose end-user tokens (OIDC/JWT, verified against a JWKS) may call this namespace directly from a browser, each with the retrievers and collections it may use and the claims applied as filters. Replaces the stored list; send [] to stop accepting end-user tokens.")
+    spend_budget: Optional[NamespaceSpendBudgetUpdate] = Field(default=None, description="Set this namespace's daily and monthly spend budget in USD. It must fit inside the organization's budget. A null field returns to the organization's namespace default. Each change is recorded with who made it, when, and the prior value.")
+    pinned: Optional[NamespacePin] = Field(default=None, description="Pin or unpin this namespace. true (or {\"enabled\": true}) pins it; false unpins it. Add \"warm_query_encoder\": true to keep one replica of each query encoder its searches call running while it is pinned, billed per replica-hour to this namespace as its own invoice line. Refused for a free organization, and past the plane's pin cap with the cap named. Unpinning releases the encoder within its idle window.")
+    tiering: Optional[TieringOverride] = Field(default=None, description="Replace this namespace's tiering override: enabled, idle_days {cold, frozen} and exempt (a reason). Send {} to inherit every field from the platform default again.")
+    expires_at: Optional[datetime] = Field(default=None, description="When the namespace is deleted automatically (UTC). Set it, move it, or send null to remove the expiry. About an hour before deletion a namespace_expiring event is recorded in the namespace's mxp_platform_events collection, and the namespace is deleted only after that warning is an hour old. Send expires_at or ttl_seconds, not both.")
+    ttl_seconds: Optional[Annotated[int, Field(strict=True, ge=60)]] = Field(default=None, description="Set expires_at to now plus this many seconds. Send null to remove the expiry. Send expires_at or ttl_seconds, not both.")
+    cost_cap_override: Optional[NamespaceCostCapOverride] = Field(default=None, description="Replace this namespace's daily inference cost cap. Requires daily_usd, reason and owner. Send null to remove the override and return to the tier default.")
+    __properties: ClassVar[List[str]] = ["namespace_name", "description", "feature_extractors", "payload_indexes", "auto_create_indexes", "adaptive_indexing", "repair_vectors", "infrastructure", "trusted_issuers", "spend_budget", "pinned", "tiering", "expires_at", "ttl_seconds", "cost_cap_override"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,6 +110,25 @@ class PatchNamespaceRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of infrastructure
         if self.infrastructure:
             _dict['infrastructure'] = self.infrastructure.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in trusted_issuers (list)
+        _items = []
+        if self.trusted_issuers:
+            for _item_trusted_issuers in self.trusted_issuers:
+                if _item_trusted_issuers:
+                    _items.append(_item_trusted_issuers.to_dict())
+            _dict['trusted_issuers'] = _items
+        # override the default output from pydantic by calling `to_dict()` of spend_budget
+        if self.spend_budget:
+            _dict['spend_budget'] = self.spend_budget.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of pinned
+        if self.pinned:
+            _dict['pinned'] = self.pinned.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of tiering
+        if self.tiering:
+            _dict['tiering'] = self.tiering.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of cost_cap_override
+        if self.cost_cap_override:
+            _dict['cost_cap_override'] = self.cost_cap_override.to_dict()
         return _dict
 
     @classmethod
@@ -113,8 +146,16 @@ class PatchNamespaceRequest(BaseModel):
             "feature_extractors": [BaseFeatureExtractorModelInput.from_dict(_item) for _item in obj["feature_extractors"]] if obj.get("feature_extractors") is not None else None,
             "payload_indexes": [PayloadIndexConfigInput.from_dict(_item) for _item in obj["payload_indexes"]] if obj.get("payload_indexes") is not None else None,
             "auto_create_indexes": obj.get("auto_create_indexes"),
+            "adaptive_indexing": obj.get("adaptive_indexing"),
             "repair_vectors": obj.get("repair_vectors"),
-            "infrastructure": NamespaceInfrastructureInput.from_dict(obj["infrastructure"]) if obj.get("infrastructure") is not None else None
+            "infrastructure": NamespaceInfrastructure.from_dict(obj["infrastructure"]) if obj.get("infrastructure") is not None else None,
+            "trusted_issuers": [NamespaceTrustedIssuer.from_dict(_item) for _item in obj["trusted_issuers"]] if obj.get("trusted_issuers") is not None else None,
+            "spend_budget": NamespaceSpendBudgetUpdate.from_dict(obj["spend_budget"]) if obj.get("spend_budget") is not None else None,
+            "pinned": NamespacePin.from_dict(obj["pinned"]) if obj.get("pinned") is not None else None,
+            "tiering": TieringOverride.from_dict(obj["tiering"]) if obj.get("tiering") is not None else None,
+            "expires_at": obj.get("expires_at"),
+            "ttl_seconds": obj.get("ttl_seconds"),
+            "cost_cap_override": NamespaceCostCapOverride.from_dict(obj["cost_cap_override"]) if obj.get("cost_cap_override") is not None else None
         })
         return _obj
 

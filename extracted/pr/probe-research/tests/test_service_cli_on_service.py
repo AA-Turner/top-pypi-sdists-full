@@ -96,7 +96,10 @@ def test_status_and_doctor_show_what_the_service_holds(service_home, agent):
         assert view["reach"] == "answered" and view["running"] is True, view
         assert (view["pid"], view["version"]) == (started["pid"], started["service_version"])
         assert view["state"] in ("discovering", "running", "grace")
-        assert view["sessions"] == [{"sid": "s-daemon", "harness": "claude_code", "mode": "daemon", "alive": True}]
+        assert view["sessions"] == [
+            {"sid": "s-daemon", "harness": "claude_code", "mode": "daemon", "alive": True, "receipts": None}
+        ]
+        assert [(h["harness"], h["sessions"], h["alive"]) for h in view["harnesses"]] == [("claude_code", 1, 1)]
         assert [(r["run"], r["pid"]) for r in view["runs"]] == [("run-abc", os.getpid())]
         assert view["recorders"] == [] and view["hook_hosts"] == []
         assert set(view["update"]) == {
@@ -161,6 +164,43 @@ def test_finish_recorders_finishes_that_agents_recorders_only(service_home, agen
     }
 
 
+_FINISH_AS_NNP = """
+import ctypes, json, sys
+assert ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0) == 0  # PR_SET_NO_NEW_PRIVS
+from probe.cli import service_calls
+done = service_calls.finish_recorders(sys.argv[1], wait=1)
+print(json.dumps({"error": done.error, "refused": done.refused, "still": done.still_recording,
+                  "finished": done.finished}))
+"""
+
+
+def test_a_caller_the_service_refuses_is_told_what_it_still_records(service_home, agent, tmp_path):
+    """Codex P2 (round 4): from inside a sandbox (here no_new_privs) the
+    service takes no work, and capture off read that as "not confirmed, run
+    this again" for good. It reads what the service records instead (READ):
+    this agent's live recordings by name, another agent's never."""
+    if not sys.platform.startswith("linux"):
+        pytest.skip("no-new-privs is Linux's")
+    _, owner = agent
+    root = _tap(tmp_path / "tap-a", "0.10.0")
+    service_home.start()
+    service_home.call(Method.SESSION_RECORD, _params("s1", owner, root, "0.10.0", tmp_path))
+    other = _params("s2", owner, root, "0.10.0", tmp_path)
+    other["harness"] = "codex"
+    service_home.call(Method.SESSION_RECORD, other)
+    assert _saw(service_home.home, "s1", "started") and _saw(service_home.home, "s2", "started")
+
+    def finish(harness: str) -> dict:
+        done = subprocess.run([sys.executable, "-c", _FINISH_AS_NNP, harness], capture_output=True, text=True,
+                              timeout=60)
+        assert done.returncode == 0, done.stderr
+        return json.loads(done.stdout.strip().splitlines()[-1])
+
+    assert finish("claude_code") == {"error": None, "refused": True, "still": ["s1"], "finished": []}
+    assert finish("kimi_code") == {"error": None, "refused": True, "still": [], "finished": []}
+    assert service_home.call(Method.SESSION_RECORDING, {"sid": "s1"}) == {"recording": True}, "nothing stopped"
+
+
 @pytest.fixture
 def capture_device(service_home, tmp_path, monkeypatch):
     """`test_setup_wizard.isolate`'s device: Claude Code's tap folder paired,
@@ -209,6 +249,54 @@ def test_a_recorder_still_finishing_keeps_off_unverified(service_home, agent, tm
     assert result.daemon_stopped is False and result.verified is False
     assert "uploader still running" in result.summary()
     assert any("still finishing the recording of 1 session(s) (s1)" in w for w in result.warnings)
+
+
+def test_a_refused_capture_off_matches_recorders_as_the_service_does(monkeypatch):
+    """Review: a recorder whose registration had already gone (its last pass
+    still running) was missed, and capture off said "off". The recorder's own
+    harness counts first; one with no harness known counts as possibly this
+    agent's -- named, never claimed off."""
+    from probe.service import protocol
+
+    status = {"recorders": [
+        {"sid": "own", "alive": True, "harness": "claude_code"},  # registration gone
+        {"sid": "theirs", "alive": True, "harness": "codex"},
+        {"sid": "registered", "alive": True},  # an older service: no harness field
+        {"sid": "unknown", "alive": True},  # neither
+        {"sid": "done", "alive": False, "harness": "claude_code"},
+    ]}
+    listing = {"sessions": [{"sid": "registered", "harness": "claude_code"}, {"sid": "theirs", "harness": "codex"}]}
+
+    def refused(*a, **k):
+        raise client.ServiceError(protocol.ErrorCode.REFUSED, "refused", {"reason": "sandboxed"})
+
+    monkeypatch.setattr(service_calls, "_reachable", lambda: True)
+    monkeypatch.setattr(client, "finish_recorders", refused)
+    monkeypatch.setattr(client, "call", lambda method, *a, **k: status if method == Method.STATUS else listing)
+    done = service_calls.finish_recorders("claude_code")
+    assert (done.refused, done.error) == (True, None)
+    assert done.still_recording == ["own", "registered", "unknown"]
+
+
+def test_capture_off_from_inside_a_sandbox_succeeds_when_nothing_of_it_is_recorded(capture_device, monkeypatch):
+    """Refused (a sandbox), and the service records nothing of this agent:
+    there is nothing to stop, so off is off -- not "run this again"."""
+    monkeypatch.setattr(capture, "_finish_hosted_recorders",
+                        lambda source: service_calls.Finished(refused=True, still_recording=[]))
+    result = capture.turn_off(capture.OffMode.DISABLE)
+    assert result.daemon_stopped is not False and result.verified, (result.summary(), result.warnings)
+    assert not any("could not confirm" in w or "run this again" in w for w in result.warnings), result.warnings
+
+
+def test_capture_off_from_inside_a_sandbox_says_what_still_runs_and_how_to_stop_it(capture_device, monkeypatch):
+    monkeypatch.setattr(capture, "_finish_hosted_recorders",
+                        lambda source: service_calls.Finished(refused=True, still_recording=["s1"]))
+    result = capture.turn_off(capture.OffMode.DISABLE)
+    assert result.daemon_stopped is False and result.verified is False
+    (said,) = [w for w in result.warnings if "still records" in w]
+    assert "1 session(s) of this agent (s1)" in said and "takes no requests from inside a sandbox" in said
+    assert "upload nothing more" in said and "outside this sandbox" in said
+    assert not any("run this again" in w for w in result.warnings), "no advice that cannot succeed"
 
 
 def test_capture_off_is_not_verified_when_the_service_could_not_be_asked(service_home, capture_device, monkeypatch):

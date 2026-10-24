@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,9 +32,10 @@ class GenerationConfig(BaseModel):
     max_output_tokens: Optional[StrictInt] = Field(default=1024, description="Maximum number of tokens for the generated video description.")
     temperature: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.2, description="Controls randomness for video description generation. Higher is more random.")
     top_p: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.8, description="Nucleus sampling (top-p) for video description generation.")
+    video_fps: Optional[Union[Annotated[float, Field(le=24.0, strict=True)], Annotated[int, Field(le=24, strict=True)]]] = Field(default=None, description="Frames per second the model reads from each video segment for the description. Unset uses the model's default of 1. Raise it (for example to 4 or 5) for fast or fine motion such as hand work; input tokens grow with the rate.")
     response_mime_type: Optional[StrictStr] = Field(default=None, description="MIME type for response (e.g., 'application/json')")
     response_schema: Optional[Dict[str, Any]] = Field(default=None, description="JSON schema for structured output")
-    __properties: ClassVar[List[str]] = ["candidate_count", "max_output_tokens", "temperature", "top_p", "response_mime_type", "response_schema"]
+    __properties: ClassVar[List[str]] = ["candidate_count", "max_output_tokens", "temperature", "top_p", "video_fps", "response_mime_type", "response_schema"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,6 +92,7 @@ class GenerationConfig(BaseModel):
             "max_output_tokens": obj.get("max_output_tokens") if obj.get("max_output_tokens") is not None else 1024,
             "temperature": obj.get("temperature") if obj.get("temperature") is not None else 0.2,
             "top_p": obj.get("top_p") if obj.get("top_p") is not None else 0.8,
+            "video_fps": obj.get("video_fps"),
             "response_mime_type": obj.get("response_mime_type"),
             "response_schema": obj.get("response_schema")
         })

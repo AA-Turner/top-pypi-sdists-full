@@ -832,6 +832,40 @@ def _apply_dir_renames_to_entries(
     return remapped
 
 
+@dataclass
+class _SmartCommitPlan:
+    """The part of a smart commit that reads the disk: the new manifest and the blobs to upload."""
+
+    manifest_json: bytes
+    manifest_md5: str
+    total_size: int
+    file_count: int
+    dir_count: int
+    modified_count: int
+    created_count: int
+    deleted_count: int
+    # (temp path, S3 key) pairs; the temp files hold the bytes that were hashed.
+    batch_uploads: list[tuple[str, str]]
+    temp_files: list[str]
+    queued_keys: set[str]
+
+
+def _unlink_temp_files(temp_files: list[str]) -> None:
+    for tmp_path in temp_files:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+def _discard_abandoned_plan(build: asyncio.Future[_SmartCommitPlan]) -> None:
+    """Remove the temp files of a plan whose smart_commit was cancelled while the thread ran."""
+    if build.cancelled() or build.exception() is not None:
+        # A failed build removes its own temp files.
+        return
+    _unlink_temp_files(build.result().temp_files)
+
+
 async def smart_commit(
     mount: LazyDVCMount,
     s3_config: S3Config,
@@ -841,13 +875,88 @@ async def smart_commit(
     """Build a new manifest from overlay changes. Upload only changed files.
 
     Returns ``(manifest_md5, dvc_yaml_content)``.
+
+    Scan, reads and MD5 run in a worker thread; on the loop they stall merges
+    and heartbeats. Only S3 uploads run on the loop.
     """
+    live_worker_running = mount.worker_proc is not None and mount.worker_proc.returncode is None
+    build = asyncio.ensure_future(
+        asyncio.to_thread(
+            _build_smart_commit_plan,
+            mount,
+            s3_config,
+            ignore_patterns,
+            live_worker_running,
+            frozenset(mount.uploaded_keys),
+        )
+    )
+    try:
+        # The shield keeps the build future alive on a cancel, so the callback
+        # can remove the temp files that the thread writes after the cancel.
+        plan = await asyncio.shield(build)
+    except asyncio.CancelledError:
+        build.add_done_callback(_discard_abandoned_plan)
+        raise
+
+    try:
+        if plan.batch_uploads:
+            await s3_upload_batch(s3_config, plan.batch_uploads)
+            # Only after the whole batch succeeded: a failed batch raises, so
+            # the next checkpoint retries every key it queued.
+            mount.uploaded_keys |= plan.queued_keys
+    finally:
+        _unlink_temp_files(plan.temp_files)
+
+    manifest_json = plan.manifest_json
+    manifest_md5 = plan.manifest_md5
+    manifest_key = f"{s3_config.cache_prefix}/{manifest_md5[:2]}/{manifest_md5[2:]}.dir"
+    manifest_upload_id = f"{s3_config.bucket}/{manifest_key}"
+    if manifest_upload_id not in mount.uploaded_keys:
+        await s3_upload_bytes(s3_config, manifest_key, manifest_json)
+
+        # Verify manifest was uploaded
+        verify = await s3_download_bytes(s3_config, manifest_key)
+        if len(verify) != len(manifest_json):
+            raise RuntimeError(
+                f"Manifest verification failed: uploaded {len(manifest_json)} bytes but read back {len(verify)} bytes"
+            )
+        mount.uploaded_keys.add(manifest_upload_id)
+
+    dvc_yaml = (
+        f"outs:\n"
+        f"- md5: {manifest_md5}.dir\n"
+        f"  size: {plan.total_size}\n"
+        f"  nfiles: {plan.file_count}\n"
+        f"  hash: md5\n"
+        f"  path: {dir_name}\n"
+    )
+
+    logger.debug(
+        "Smart commit: %d entries (%d files, %d directories, %d modified, %d new, %d deleted), manifest=%s",
+        plan.file_count + plan.dir_count,
+        plan.file_count,
+        plan.dir_count,
+        plan.modified_count,
+        plan.created_count,
+        plan.deleted_count,
+        manifest_md5,
+    )
+    return manifest_md5, dvc_yaml
+
+
+def _build_smart_commit_plan(
+    mount: LazyDVCMount,
+    s3_config: S3Config,
+    ignore_patterns: list[str] | None,
+    live_worker_running: bool,
+    uploaded_keys: frozenset[str],
+) -> _SmartCommitPlan:
+    """Runs in a worker thread; removes its temp files if it fails."""
     overlay_dir = mount.overlay_dir
     mountpoint = mount.mountpoint
     original = mount.manifest.entries_dict()
     meta_path = mount.meta_path
     live_dir_renames_path = mount.cache_dir / "live-dir-renames.json"
-    live_worker_running = mount.worker_proc is not None and mount.worker_proc.returncode is None
     _smart_commit_debug(
         "start mountpoint=%s cache_dir=%s live_worker_running=%s original_entries=%d",
         mountpoint,
@@ -984,7 +1093,7 @@ async def smart_commit(
         key = dvc_file_key(s3_config, new_md5)
         upload_id = _uploaded_id(key)
 
-        if upload_id not in mount.uploaded_keys and upload_id not in queued_keys:
+        if upload_id not in uploaded_keys and upload_id not in queued_keys:
             # Upload the bytes that were hashed, not the live overlay path: a
             # write landing between the hash and the batch upload would
             # otherwise store different bytes under this md5 key.
@@ -1005,8 +1114,9 @@ async def smart_commit(
         )
         return entry, size
 
-    # Everything that writes temp copies sits inside the try so a failed read or
-    # upload never leaves them behind.
+    # Everything that writes temp copies sits inside the try so a failed read
+    # never leaves them behind. On success, smart_commit removes them after
+    # the upload.
     try:
         for relpath, entry in original_files.items():
             if relpath in deleted:
@@ -1049,66 +1159,39 @@ async def smart_commit(
         for relpath, mode in dir_modes.items():
             _store_manifest_entry(DVCManifestEntry(relpath=relpath, mode=mode, isdir=True))
 
-        if batch_uploads:
-            await s3_upload_batch(s3_config, batch_uploads)
-            # Only after the whole batch succeeded: a failed batch raises, so
-            # the next checkpoint retries every key it queued.
-            mount.uploaded_keys |= queued_keys
-    finally:
-        for tmp_path in temp_files:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+        entries = [entries_by_relpath[relpath].model_dump(exclude_none=True) for relpath in sorted(entries_by_relpath)]
+        if len(entries) != len({entry["relpath"] for entry in entries}):
+            raise RuntimeError("Smart commit produced duplicate manifest relpaths")
+        file_count = sum(1 for entry in entries if not entry.get("isdir"))
+        _smart_commit_debug(
+            "final manifest entries=%d files=%d dirs=%d modified=%d created=%d deleted=%d",
+            len(entries),
+            file_count,
+            len(entries) - file_count,
+            len(modified),
+            len(created),
+            len(deleted),
+        )
 
-    entries = [entries_by_relpath[relpath].model_dump(exclude_none=True) for relpath in sorted(entries_by_relpath)]
-    if len(entries) != len({entry["relpath"] for entry in entries}):
-        raise RuntimeError("Smart commit produced duplicate manifest relpaths")
-    file_count = sum(1 for entry in entries if not entry.get("isdir"))
-    _smart_commit_debug(
-        "final manifest entries=%d files=%d dirs=%d modified=%d created=%d deleted=%d",
-        len(entries),
-        file_count,
-        len(entries) - file_count,
-        len(modified),
-        len(created),
-        len(deleted),
+        manifest_json = json.dumps(entries).encode()
+        manifest_md5 = hashlib.md5(manifest_json).hexdigest()
+    except BaseException:
+        _unlink_temp_files(temp_files)
+        raise
+
+    return _SmartCommitPlan(
+        manifest_json=manifest_json,
+        manifest_md5=manifest_md5,
+        total_size=total_size,
+        file_count=file_count,
+        dir_count=len(entries) - file_count,
+        modified_count=len(modified),
+        created_count=len(created),
+        deleted_count=len(deleted),
+        batch_uploads=batch_uploads,
+        temp_files=temp_files,
+        queued_keys=queued_keys,
     )
-
-    manifest_json = json.dumps(entries).encode()
-    manifest_md5 = hashlib.md5(manifest_json).hexdigest()
-    manifest_key = f"{s3_config.cache_prefix}/{manifest_md5[:2]}/{manifest_md5[2:]}.dir"
-    if _uploaded_id(manifest_key) not in mount.uploaded_keys:
-        await s3_upload_bytes(s3_config, manifest_key, manifest_json)
-
-        # Verify manifest was uploaded
-        verify = await s3_download_bytes(s3_config, manifest_key)
-        if len(verify) != len(manifest_json):
-            raise RuntimeError(
-                f"Manifest verification failed: uploaded {len(manifest_json)} bytes but read back {len(verify)} bytes"
-            )
-        mount.uploaded_keys.add(_uploaded_id(manifest_key))
-
-    dvc_yaml = (
-        f"outs:\n"
-        f"- md5: {manifest_md5}.dir\n"
-        f"  size: {total_size}\n"
-        f"  nfiles: {file_count}\n"
-        f"  hash: md5\n"
-        f"  path: {dir_name}\n"
-    )
-
-    logger.debug(
-        "Smart commit: %d entries (%d files, %d directories, %d modified, %d new, %d deleted), manifest=%s",
-        len(entries),
-        file_count,
-        len(entries) - file_count,
-        len(modified),
-        len(created),
-        len(deleted),
-        manifest_md5,
-    )
-    return manifest_md5, dvc_yaml
 
 
 # ============================================================
@@ -1147,41 +1230,46 @@ async def smart_commit_archive(
             return None
         return tarinfo
 
-    with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
-        with tarfile.open(tmp_path, "w:gz") as tar:
-            for entry in sorted(os.scandir(source_dir), key=lambda e: e.name):
-                tar.add(
-                    entry.path,
-                    arcname=entry.name,
-                    filter=_tar_filter,
-                )
-
-        archive_bytes = Path(tmp_path).read_bytes()
-        archive_size = len(archive_bytes)
-        archive_md5 = hashlib.md5(archive_bytes).hexdigest()
-
-        key = _archive_s3_key(s3_config, archive_md5)
-        await s3_upload_bytes(s3_config, key, archive_bytes)
-
-        dvc_yaml = (
-            f"outs:\n- md5: {archive_md5}\n  size: {archive_size}\n  hash: md5\n  path: {dir_name}\n  format: archive\n"
-        )
-
-        logger.debug(
-            "Archive commit: %s (%d bytes), md5=%s",
-            dir_name,
-            archive_size,
-            archive_md5,
-        )
-        return archive_md5, dvc_yaml
-    finally:
+    def _tar_and_hash() -> tuple[bytes, str]:
+        # The worker makes and removes the temp file itself. A cancel does not
+        # stop a to_thread worker, so a temp file that the event loop removes
+        # can be written again by the worker after the removal.
+        fd, tmp_path = tempfile.mkstemp(suffix=".tar.gz")
+        os.close(fd)
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+            with tarfile.open(tmp_path, "w:gz") as tar:
+                for entry in sorted(os.scandir(source_dir), key=lambda e: e.name):
+                    tar.add(
+                        entry.path,
+                        arcname=entry.name,
+                        filter=_tar_filter,
+                    )
+            data = Path(tmp_path).read_bytes()
+            return data, hashlib.md5(data).hexdigest()
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    # Off the loop: a large tree would stall merges and heartbeats (see smart_commit).
+    archive_bytes, archive_md5 = await asyncio.to_thread(_tar_and_hash)
+    archive_size = len(archive_bytes)
+
+    key = _archive_s3_key(s3_config, archive_md5)
+    await s3_upload_bytes(s3_config, key, archive_bytes)
+
+    dvc_yaml = (
+        f"outs:\n- md5: {archive_md5}\n  size: {archive_size}\n  hash: md5\n  path: {dir_name}\n  format: archive\n"
+    )
+
+    logger.debug(
+        "Archive commit: %s (%d bytes), md5=%s",
+        dir_name,
+        archive_size,
+        archive_md5,
+    )
+    return archive_md5, dvc_yaml
 
 
 async def restore_archive(

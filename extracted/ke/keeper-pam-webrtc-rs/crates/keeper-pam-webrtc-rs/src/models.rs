@@ -350,6 +350,8 @@ pub(crate) async fn backend_task_runner(
 pub struct TunnelTimeouts {
     pub read: Duration,
     pub guacd_handshake: Duration,
+    /// Maximum time a handler receives to finalize recordings after output closes.
+    pub handler_finalization: Duration,
 }
 
 impl Default for TunnelTimeouts {
@@ -357,6 +359,7 @@ impl Default for TunnelTimeouts {
         Self {
             read: Duration::from_secs(15),
             guacd_handshake: Duration::from_secs(10),
+            handler_finalization: crate::config::handler_finalization_timeout(),
         }
     }
 }

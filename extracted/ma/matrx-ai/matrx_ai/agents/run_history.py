@@ -355,7 +355,12 @@ class RunConversation:
         session_config: dict[str, Any] | None = None,
         conversation_id: str | None = None,
         system_run: bool = False,
+        prior_messages: list[Any] | None = None,
+        opened: bool = False,
     ) -> None:
+        """``prior_messages`` + ``opened=True`` continue a STORED conversation:
+        the history already written (see :meth:`resume`), so the next ``record``
+        appends after it instead of opening a new conversation."""
         from matrx_ai.config.message_config import MessageList
         from matrx_ai.config.unified_config import UnifiedConfig
         from matrx_ai.orchestrator.requests import AIMatrixRequest
@@ -368,19 +373,56 @@ class RunConversation:
         self.conversation_id = conversation_id or str(uuid.uuid4())
         config = UnifiedConfig(
             model=model,
-            messages=MessageList(_messages=[]),
+            messages=MessageList(_messages=list(prior_messages or [])),
             system_instruction=system_instruction or None,
         )
         self._request = AIMatrixRequest(
             conversation_id=self.conversation_id, config=config, request_id=""
         )
-        self._opened = False
+        self._opened = opened
         self._lock = asyncio.Lock()
         self.records: list[RunHistoryRecord] = []
 
     @property
     def opened(self) -> bool:
         return self._opened
+
+    @classmethod
+    async def resume(
+        cls,
+        conversation_id: str,
+        *,
+        provider: str,
+        model: str,
+        source_feature: str,
+        system_instruction: str | None = None,
+        session_config: dict[str, Any] | None = None,
+        system_run: bool = False,
+        load: Any = None,
+    ) -> RunConversation:
+        """The conversation ``conversation_id`` as it is stored, ready to append.
+
+        A turn recorded through a short-lived process (one HTTP request per
+        exchange) cannot hold the session in memory, so it rebuilds it from the
+        ONE history projection a continuation reads (the resolver's
+        ``_load_persisted_messages``). A conversation with no stored messages
+        comes back unopened: its first ``record`` opens it through the gate
+        (which adopts an unstarted shell row the caller owns).
+        """
+        if load is None:
+            from matrx_ai.agents.resolver import _load_persisted_messages as load
+        prior = list(await load(conversation_id) or [])
+        return cls(
+            provider=provider,
+            model=model,
+            source_feature=source_feature,
+            system_instruction=system_instruction,
+            session_config=session_config,
+            conversation_id=conversation_id,
+            system_run=system_run,
+            prior_messages=prior,
+            opened=bool(prior),
+        )
 
     async def record(
         self,

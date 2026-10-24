@@ -16,7 +16,8 @@ from sarj_python_lint.rule_base import (
     RuleExample,
     Severity,
 )
-from sarj_python_lint.rules._ast_index import walk as walk_ast
+from sarj_python_lint.rules._annotation_semantics import bit_or_members as _flatten_union
+from sarj_python_lint.rules._ast_index import nodes, walk as walk_ast
 
 
 if TYPE_CHECKING:
@@ -196,9 +197,7 @@ class PreferMatchExceptionDispatch(Rule):
 def _functions(
     tree: ast.Module, *, node_index: NodeIndex | None = None
 ) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, ...]:
-    return tuple(
-        node for node in walk_ast(tree, index=node_index) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    )
+    return tuple(nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef, index=node_index))
 
 
 def _exception_subjects(
@@ -349,12 +348,6 @@ def _exception_type_references(expression: ast.expr, imports: ImportIndex) -> fr
     if any(reference is None for reference in references):
         return None
     return frozenset(reference for reference in references if reference is not None)
-
-
-def _flatten_union(expression: ast.expr) -> list[ast.expr]:
-    if isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr):
-        return [*_flatten_union(expression.left), *_flatten_union(expression.right)]
-    return [expression]
 
 
 def _exception_type_reference(expression: ast.expr, imports: ImportIndex) -> str | None:

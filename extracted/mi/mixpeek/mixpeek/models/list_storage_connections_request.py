@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class ListStorageConnectionsRequest(BaseModel):
     """
-    Request payload for listing storage connections with filters.  Use this to filter connections by provider type, status, or active flag. Results are paginated automatically.  **Use Cases:** - List all active Google Drive connections - Find failed connections that need attention - Filter by provider type for sync configuration  **Examples:** ```python # List all active Google Drive connections {     \"provider_type\": \"google_drive\",     \"is_active\": True }  # Find failed connections {     \"status\": \"failed\" } ```
+    Request payload for listing storage connections with filters.  Use this to filter connections by provider type, status, or active flag. Results are paginated automatically.  **Use Cases:** - List all active Google Drive connections - Find failed connections that need attention - Filter by provider type for sync configuration  **Examples:** ```python # List all active Google Drive connections {     \"provider_type\": \"google_drive\",     \"is_active\": True }  # Find failed connections {     \"status\": \"FAILED\" } ```
     """ # noqa: E501
     provider_type: Optional[StorageProvider] = Field(default=None, description="OPTIONAL. Filter connections by provider type. Supported: google_drive, s3, snowflake, sharepoint, tigris. If not provided, returns connections of all types.")
     status: Optional[TaskStatusEnum] = Field(default=None, description="OPTIONAL. Filter connections by operational status. ACTIVE: Healthy and ready for use. SUSPENDED: Temporarily disabled. FAILED: Health checks failing. ARCHIVED: Permanently retired.")

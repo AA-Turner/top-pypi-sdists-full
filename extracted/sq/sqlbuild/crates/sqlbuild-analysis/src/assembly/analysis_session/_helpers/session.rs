@@ -19,7 +19,7 @@ use crate::assembly::analysis_session::_helpers::compact_batch::{
     Batch, BatchMember, MemberAnalysis, MemberResult,
 };
 use crate::assembly::analysis_session::_helpers::cte_facts::{
-    LegacyAnalysis, LegacyInput, RecoveryProfile, legacy_analysis,
+    LegacyAnalysis, LegacyInput, RecoveryProfile, declared_output_types, legacy_analysis,
 };
 use crate::assembly::analysis_session::_helpers::dynamic_pivot::{PivotFacts, pivot_outcome};
 use crate::assembly::analysis_session::_helpers::enrichment::{
@@ -30,6 +30,7 @@ use crate::assembly::analysis_session::_helpers::mappings::{
 };
 use crate::assembly::analysis_session::_helpers::mappings::{producers, waves};
 use crate::assembly::analysis_session::constants::{UNKNOWN_NULLABILITY, UNKNOWN_TYPE};
+use crate::assembly::analysis_session::main::resolved_cleaned_sql::resolved_cleaned_sql;
 use crate::assembly::analysis_session::models::{
     AnalysisSession, ColumnFact, ContractProof, DeferredCleaning, FinishedSession, LineageFacts,
     LineageRow, ModelAnalysis, ModelOutcome, ModelRequest, Phase, PivotOutcome, PivotTables,
@@ -38,6 +39,11 @@ use crate::assembly::analysis_session::models::{
 use crate::assembly::analysis_session::types::{Pairs, Shapes};
 use crate::semantic_validation::models::DiagnosticRow;
 use crate::semantic_validation::models::ProjectCatalog;
+use crate::sql_macros::main::check_sql_macro_arguments::check_sql_macro_arguments;
+use crate::sql_macros::main::sql_macro_declared_outputs::sql_macro_declared_outputs;
+use crate::sql_macros::main::sql_macro_declared_type::sql_macro_declared_type;
+use crate::sql_macros::models::{DeclaredOutput, SqlMacroCheck, SqlMacroFinding};
+use crate::sql_macros::types::ArgumentCheckInput;
 
 /// What an internal native failure of the session names.
 const SESSION_CONTEXT: &str = "native model analysis";
@@ -279,12 +285,125 @@ impl AnalysisSession {
                 }
             };
             self.outcomes[*model] = Some(ModelOutcome {
+                sql_macro_findings: Vec::new(),
                 analysis,
                 cleaned_sql: result.cleaned_sql,
                 deferred_cleaning: None,
                 validated_schema: schema,
                 fused_binding_validated: true,
             });
+        }
+        self.check_sql_macros(models)
+    }
+
+    /// Type the outputs SQL macro call items reach by the macros' `returns`, through CTEs.
+    fn type_sql_macro_outputs(&mut self, models: &[usize]) -> Result<(), String> {
+        for model in models {
+            let declared: Vec<DeclaredOutput> =
+                sql_macro_declared_outputs(&self.request.models[*model].sql_macro_checks);
+            if declared.is_empty() || self.cache_hit(*model) {
+                continue;
+            }
+            self.ensure_cleaned(&[*model])?;
+            let Some(outcome) = self.outcomes[*model].as_ref() else {
+                continue;
+            };
+            let Ok(cleaned) = resolved_cleaned_sql(outcome) else {
+                continue;
+            };
+            let profile = RecoveryProfile {
+                dialect: &self.request.dialect,
+                function_return_types: &self.request.function_return_types,
+                rules: self.request.nullability_rules.as_ref(),
+                callback: self.request.nullability_callback.as_ref(),
+                declared: &declared,
+            };
+            let propagated: Result<Vec<(String, String)>, String> = catch_compiler_panic(|| {
+                Ok(declared_output_types(
+                    &cleaned,
+                    &self.available_types,
+                    &profile,
+                ))
+            })
+            .map_err(|reason| {
+                native_failure(&model_context(&self.request.models[*model]), &reason)
+            })?;
+            let Ok(typed) = propagated else {
+                continue;
+            };
+            let dialect: String = self.request.dialect.clone();
+            let Some(columns) = self.outcome_mut(*model)?.analysis.columns.as_mut() else {
+                continue;
+            };
+            for column in columns {
+                let Some((name, returns)) = typed
+                    .iter()
+                    .find(|(name, _)| name.eq_ignore_ascii_case(&column.name))
+                else {
+                    continue;
+                };
+                let reached: [DeclaredOutput; 1] = [DeclaredOutput {
+                    cte: None,
+                    name: name.clone(),
+                    returns: returns.clone(),
+                    branch: 0,
+                }];
+                if let Some(data_type) = sql_macro_declared_type(
+                    &reached,
+                    (None, 0, &column.name),
+                    column.data_type.as_deref(),
+                    &dialect,
+                ) {
+                    column.data_type = Some(data_type);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether the cache answered `model` with an outcome that already holds its declared types.
+    fn cache_hit(&self, model: usize) -> bool {
+        self.cache.as_ref().is_some_and(|cache| cache.hits[model])
+    }
+
+    /// Each model's SQL macro call arguments checked against its analysed types, cache hits too.
+    fn check_sql_macros(&mut self, models: &[usize]) -> Result<(), String> {
+        let checked: Vec<usize> = models
+            .iter()
+            .copied()
+            .filter(|model| {
+                let request: &ModelRequest = &self.request.models[*model];
+                checks_arguments(&request.sql_macro_checks) && request.placeholders.is_empty()
+            })
+            .collect();
+        self.ensure_cleaned(&checked)?;
+        let mut inputs: Vec<(usize, String, Shapes)> = Vec::with_capacity(checked.len());
+        for model in checked {
+            let Some(outcome) = self.outcomes[model].as_ref() else {
+                continue;
+            };
+            let Ok(cleaned) = resolved_cleaned_sql(outcome) else {
+                continue;
+            };
+            let schema: Shapes = self.binding_schema(&self.request.models[model]);
+            inputs.push((model, cleaned.into_owned(), schema));
+        }
+        let batch: Vec<ArgumentCheckInput<'_>> = inputs
+            .iter()
+            .map(|(model, cleaned, schema)| {
+                (
+                    cleaned.as_str(),
+                    schema.as_slice(),
+                    self.request.models[*model].sql_macro_checks.as_slice(),
+                )
+            })
+            .collect();
+        let findings: Vec<Vec<SqlMacroFinding>> =
+            check_sql_macro_arguments(&self.request.dialect, &batch);
+        for ((model, _, _), found) in inputs.iter().zip(findings) {
+            if let Some(outcome) = self.outcomes[*model].as_mut() {
+                outcome.sql_macro_findings = found;
+            }
         }
         Ok(())
     }
@@ -308,6 +427,7 @@ impl AnalysisSession {
                     function_return_types: &self.request.function_return_types,
                     rules: self.request.nullability_rules.as_ref(),
                     callback: self.request.nullability_callback.as_ref(),
+                    declared: &[],
                 },
             })
         })
@@ -429,6 +549,7 @@ impl AnalysisSession {
     /// Python's deferred binding validation, then the dataflow's shape publication.
     fn finish_wave(&mut self, wave: usize) -> Result<(), String> {
         let models: Vec<usize> = self.waves[wave].clone();
+        self.type_sql_macro_outputs(&models)?;
         let validated: &[usize] = if self.cyclic { &[] } else { &models };
         let mut revalidated: Vec<(usize, Shapes)> = Vec::new();
         for model in validated {
@@ -672,6 +793,11 @@ impl AnalysisSession {
         self.publications.push((name, shape));
         Ok(())
     }
+}
+
+/// Whether any of the checks has arguments the analysed SQL must show fit.
+fn checks_arguments(checks: &[SqlMacroCheck]) -> bool {
+    checks.iter().any(|check| !check.arguments.is_empty())
 }
 
 fn batch_member<'a>(model: &'a ModelRequest, schema: &'a Shapes) -> BatchMember<'a> {

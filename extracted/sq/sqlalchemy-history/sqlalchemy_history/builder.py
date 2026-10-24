@@ -2,7 +2,6 @@
 phase by the manager
 """
 
-import typing as t
 from copy import copy
 from functools import wraps
 from inspect import getmro
@@ -10,8 +9,8 @@ from inspect import getmro
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapper, column_property
 from sqlalchemy.orm.descriptor_props import ConcreteInheritedProperty
-from sqlalchemy_utils.functions import get_declarative_base, get_hybrid_properties
 
+from sqlalchemy_history._compat.sqlalchemy_utils import get_declarative_base, get_hybrid_properties
 from sqlalchemy_history.model_builder import ModelBuilder
 from sqlalchemy_history.relationship_builder import RelationshipBuilder
 from sqlalchemy_history.table_builder import TableBuilder
@@ -58,7 +57,7 @@ class Builder:
                     table = builder()
                     self.manager.tables[cls] = table
 
-    def closest_matching_table(self, model) -> t.Optional[sa.Table]:
+    def closest_matching_table(self, model) -> sa.Table | None:
         """
         Returns the closest matching table from the generated tables dictionary
         for given model. First tries to fetch an exact match for given model.
@@ -184,7 +183,9 @@ class Builder:
         """
         for cls in version_classes:
             for prop in sa.inspect(cls).iterate_properties:
-                if isinstance(prop, ConcreteInheritedProperty):
+                # SQL expression discriminators (in the case of polymorphic_on) create synthetic mapper properties
+                # without corresponding instrumented class attributes.
+                if isinstance(prop, ConcreteInheritedProperty) or not hasattr(cls, prop.key):
                     continue
                 attr = getattr(cls, prop.key)
                 attr.impl.active_history = True

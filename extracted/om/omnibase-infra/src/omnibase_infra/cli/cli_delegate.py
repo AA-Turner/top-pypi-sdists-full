@@ -111,6 +111,7 @@ import functools
 import importlib
 import json
 import logging
+import math
 import os
 import re
 import signal
@@ -170,6 +171,7 @@ from omnibase_infra.cli.delegate_locus import (
     DelegateLocusSaslRefusedError,
     DelegateNoConsumerRefusedError,
     contract_terminal_topic,
+    rebind_wait_for_timeout,
     resolve_delegate_locus,
 )
 from omnibase_infra.cli.delegate_pre_publish_failure import (
@@ -2404,6 +2406,24 @@ def resolve_delegate_tenant(
     )
 
 
+def local_store_tenant(stamp: str | None, *, environ: Mapping[str, str]) -> str | None:
+    """The stamp for a run whose record is written only to this install's store.
+
+    OMN-17427 (board criterion C30). A run on the in-memory bus records only
+    into this install's local store, whose tenant mirror confirms only the
+    install's own identity. A lab host tenant stamped on such a run is refused
+    there and its ``delegation_events`` row is dropped while the run still
+    reports success, as on a CI runner that declares ``ONEX_LANE_HOST``. So a
+    declared overlay stands, and anything else becomes the install identity, or
+    no stamp on a fresh install for the local port to mint. The caller runs
+    :func:`resolve_delegate_tenant` first, so a declared lab host with no row
+    still refuses.
+    """
+    if environ.get(TENANT_OVERLAY_ENV, "").strip():
+        return stamp
+    return read_install_identity()
+
+
 def mint_delegate_trace_context() -> tuple[uuid.UUID | None, uuid.UUID | None]:
     """Mint this invocation's ``(trace_id, span_id)``, or ``(None, None)``.
 
@@ -2605,6 +2625,13 @@ def _write_payload(
         encoding="utf-8",
     )
     return payload_path
+
+
+def _timeout_left_after_probe(timeout: int | None, probe_seconds: float) -> int | None:
+    """Reserve only the caller's remaining timeout after the probe (OMN-17427)."""
+    if timeout is None:
+        return None
+    return max(1, timeout - math.ceil(probe_seconds))
 
 
 def _terminal_wait_seconds(
@@ -2909,6 +2936,11 @@ def _redact_refusal_text(text: str) -> str:
     is the flag and the rule it broke, so the credentials are taken out of it and
     the rest is kept.
     """
+    from omnibase_infra.utils.util_dlq_credential_redaction import (
+        redact_credential_value_patterns,
+    )
+
+    text = redact_credential_value_patterns(text, "[REDACTED]")
     text = _KEY_MATERIAL.sub("[REDACTED key material]", text)
     text = _URL_USERINFO.sub(r"\g<scheme>[REDACTED]@", text)
     text = _SECRET_PAIR.sub(r"\g<key>[REDACTED]", text)
@@ -4337,6 +4369,8 @@ def run_delegate(
                 environ=os.environ,
                 omni_home=omni_home,
             )
+            if bus != BUS_KAFKA:
+                tenant_id = local_store_tenant(tenant_id, environ=os.environ)
         except DelegateTenantRefusedError as exc:
             raise click.ClickException(str(exc)) from exc
         trace_id, span_id = mint_delegate_trace_context()
@@ -4408,6 +4442,7 @@ def run_delegate(
                     kafka_bootstrap=resolved_bootstrap,
                     contract_path=contract_path,
                     shared_bus_value=BUS_KAFKA,
+                    rebind_wait_seconds=rebind_wait_for_timeout(timeout),
                 )
         except DelegateLocusRefusedError as exc:
             # OMN-18925 / C16: the SECOND transport exit, and the one a
@@ -4532,7 +4567,9 @@ def run_delegate(
             # bytecode boundary. Measured, never assumed from the bound.
             dispatch_started = time.monotonic()
             terminal_wait_seconds = _terminal_wait_seconds(
-                requested_timeout_seconds=timeout,
+                requested_timeout_seconds=_timeout_left_after_probe(
+                    timeout, time.monotonic() - locus_probe_started
+                ),
                 execution_budget=execution_budget,
             )
             if locus_decision.locus is EnumDelegateLocus.DEPLOYED_LANE:

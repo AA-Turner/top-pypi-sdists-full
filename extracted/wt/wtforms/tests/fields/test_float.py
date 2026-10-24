@@ -12,9 +12,11 @@ def test_float_field():
     form = F(DummyPostData(a=["v"], b=["-15.0"]))
     assert form.a.data is None
     assert form.a.raw_data == ["v"]
-    assert form.a() == """<input id="a" name="a" type="text" value="v">"""
+    assert form.a() == """<input id="a" name="a" step="any" type="number" value="v">"""
     assert form.b.data == -15.0
-    assert form.b() == """<input id="b" name="b" type="text" value="-15.0">"""
+    assert (
+        form.b() == """<input id="b" name="b" step="any" type="number" value="-15.0">"""
+    )
     assert not form.a.validate(form)
     assert form.b.validate(form)
     form = F(DummyPostData(a=[], b=[""]))
@@ -28,3 +30,25 @@ def test_float_field():
     form = F(b=9.0)
     assert form.b.data == 9.0
     assert form.b._value() == "9.0"
+
+
+def test_invalid_value_message():
+    class G(Form):
+        a = FloatField(invalid_value_message="Enter a number with a decimal point.")
+
+    form = G(DummyPostData(a=["x"]))
+    assert not form.validate()
+    assert form.a.errors == ["Enter a number with a decimal point."]
+
+
+def test_invalid_value_type():
+    """A non-string input gives a validation error instead of a TypeError."""
+
+    class F(Form):
+        a = FloatField()
+
+    form = F(DummyPostData(a={"not a": "float"}))
+
+    assert form.a.data is None
+    assert not form.validate()
+    assert form.a.errors == ["Not a valid float value."]

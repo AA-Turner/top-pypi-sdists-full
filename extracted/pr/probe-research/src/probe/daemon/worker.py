@@ -2,13 +2,15 @@
 
     probe daemon worker --session-id S --transcript T --cwd C --source claude_code
 
-Spawned and supervised by capture (`tap watch`) while the session's switch is
-`daemon`. Stopped with SIGTERM at session end -- or when it sees capture is gone
+Spawned and supervised while the session's switch is `daemon`: by the Probe
+service for a session it records (`probe.service.workers`), else by capture
+(`tap watch`). Stopped with SIGTERM at session end -- or when it sees capture is gone
 -- it reads what is on disk at that moment to its end, finishes what is queued
 and exits: at most FINISH_CAP_S from that moment, a run already going included
 (one still going at the deadline is cancelled, its events left queued). One per
 session: it holds `<state>/probe/daemon/<sid>.lock` for its whole life, and the
-worker of a resumed session waits for the previous one to finish.
+worker of a resumed session waits for the previous one to finish (at most
+LOCK_WAIT_S, then EXIT_RESPAWN_LATER).
 
     every POLL_S:  read new lines (main log, helper-agent logs, the SDK inbox)
                    -> normalized events -> scrubbed -> the store; a log
@@ -82,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import dataclasses
 import hashlib
 import json
@@ -249,6 +252,14 @@ STALE_AFTER_S = trace_mod.KEEP_S
 #: A `.handover` marker older than this was left by a waiter that died.
 HANDOVER_FRESH_S = 10.0
 LOCK_POLL_S = 1.0
+#: How long a new worker waits for the session lock before it leaves with
+#: EXIT_RESPAWN_LATER. The holder hands over only once it is stopping (after a
+#: model round), so one that never stops would keep a waiter forever, and a
+#: supervisor that lost track of its child would add one per respawn (the
+#: Windows harness: ~100). A supervisor never starts a worker while the lock
+#: is held (it asks the holder to hand over itself), so this bounds only a
+#: race or an older supervisor's waiter.
+LOCK_WAIT_S = 5 * 60.0
 EXIT_DO_NOT_RESPAWN = 3
 #: A session's first worker found history already there (switched on late, or an
 #: old session resumed after the daemon became the default): only the events
@@ -305,6 +316,21 @@ EXIT_RESPAWN_LATER = 5
 EXIT_RETRY_LIBS = 6
 #: Set by a supervisor that retries after EXIT_RETRY_LIBS.
 SUPERVISOR_RETRIES_LIBS_ENV = "PROBE_TAP_RETRIES_LIBS"
+#: Set by the Probe service's supervisor (`probe.service.workers`):
+#: `{"pid", "start", "sid"}` (JSON; `start` is `probe.service.procid`'s), the
+#: exact process that supervises this worker. It is "gone" once that process
+#: is: exited (a zombie included: unreaped, `kill(pid, 0)` still succeeds),
+#: or its pid names another process (start time). So a service that exits while
+#: this still loads (a restart right after an update) is seen gone, and the
+#: worker finishes and leaves instead of running on unowned. Without it (the
+#: tap's `probe`, or a service that could not read its own start time), the
+#: parent is the one `getppid()` names at start.
+SUPERVISOR_PID_ENV = "PROBE_DAEMON_SUPERVISOR"
+#: "1": the supervisor started this worker outside its session's folder (the
+#: service starts it from its state folder: a hung project mount must not stall
+#: the service), so it moves into `--cwd` itself, HOME if it cannot -- where
+#: the tap's spawn would have started it.
+ENTER_CWD_ENV = "PROBE_DAEMON_ENTER_CWD"
 #: How often the missing-libraries line reaches `daemon-errors.log` per session:
 #: a supervisor that retries would otherwise add one every few minutes.
 LIBS_MISSING_LOG_EVERY_S = 3600.0
@@ -414,6 +440,8 @@ class Worker:
         #: Why this worker released the lease; renewing waits until a model round answers again.
         self.released_reason: str | None = None
         self.parent_pid = os.getppid()
+        #: The supervisor's identity (SUPERVISOR_PID_ENV), when it gave one.
+        self.supervisor: tuple[int, str | None] | None = None
         self.folders_checked_at = float("-inf")
         self.settle_retry: dict[str, tuple[int, float]] = {}  # request id -> (failures, next try)
         #: Bites in a row whose model gateway failed (L-1); a model round answering resets it.
@@ -587,8 +615,8 @@ class Worker:
         return self.replay is None and lease.inline(self.session.session_id)
 
     def _parent_gone(self) -> bool:
-        """Capture (`tap watch`, the supervisor) exited: this worker is orphaned."""
-        return os.getppid() != self.parent_pid
+        """Its supervisor (the service, or `tap watch`) exited: this worker is orphaned."""
+        return parent_gone(self.supervisor, self.parent_pid)
 
     # -- stopping -----------------------------------------------------------
     def begin_stopping(self) -> None:
@@ -2926,12 +2954,46 @@ def install_replaced() -> bool:
     return (st.st_size, st.st_mtime_ns) != _INSTALL_STAMP
 
 
+#: `daemon-errors.log` moves to `daemon-errors.log.1` past this (plan B7): one
+#: older generation is kept, so the log never grows without bound.
+DEVICE_ERRORS_MAX_BYTES = 1024 * 1024
+
+
 def _device_error(text: str) -> None:
-    """The shared device-level error log `probe doctor` and the status line show."""
+    """The shared device-level error log `probe doctor` and the status line show.
+
+    Every line goes through the shared scrubber first (`probe._shared.scrub`:
+    credentials, this machine's home and login): it carries exception text, and
+    diagnostic reports carry its tail. Past `DEVICE_ERRORS_MAX_BYTES` it moves
+    to `.1`; two workers rotating at once can lose that older generation, never
+    a new line."""
     path = _state_base() / "daemon-errors.log"
     path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from probe._shared import scrub
+
+        text = " ".join(scrub.scrub(text).splitlines())
+    except Exception:  # noqa: BLE001 -- withheld rather than written raw
+        text = "(an error line was withheld: it could not be scrubbed)"
+    try:
+        if path.stat().st_size > DEVICE_ERRORS_MAX_BYTES:
+            os.replace(path, path.with_name(path.name + ".1"))
+    except OSError:
+        pass  # not there yet, or another worker rotated it first
     with path.open("a", encoding="utf-8") as handle:
         handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {text}\n")
+
+
+def _crash_detail(exc: BaseException) -> str:
+    """`Type: message` for the crash line, scrubbed WHOLE and then clipped: a
+    credential cut in half by the clip could slip past the scanner."""
+    try:
+        from probe._shared import scrub
+
+        message = scrub.scrub(str(exc))
+    except Exception:  # noqa: BLE001 -- withheld rather than written raw
+        message = "(message withheld: it could not be scrubbed)"
+    return f"{type(exc).__name__}: {message[:300]}"
 
 
 def ai_libraries_importable() -> bool:
@@ -2978,31 +3040,82 @@ def inline_exit_code(session_id: str = "") -> int:
     return 0 if os.environ.get(SUPERVISOR_FOLLOWS_INLINE_ENV) == "1" else EXIT_DO_NOT_RESPAWN
 
 
+def supervisor_identity(session_id: str) -> tuple[int, str | None] | None:
+    """SUPERVISOR_PID_ENV's `(pid, start)` when it names this session, else None.
+    `start` is None when the service could not read its own start time."""
+    try:
+        data = json.loads(os.environ.get(SUPERVISOR_PID_ENV) or "null")
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or data.get("sid") != session_id:
+        return None
+    pid, start = data.get("pid"), data.get("start")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 1:
+        return None
+    return pid, (start if isinstance(start, str) and start else None)
+
+
+def parent_gone(supervisor: tuple[int, str | None] | None, parent_pid: int) -> bool:
+    """Is this worker's supervisor gone? With its identity (SUPERVISOR_PID_ENV):
+    that exact process no longer runs -- a zombie or a reused pid reads as gone,
+    and an interpreter that forked under it is no orphan. Known by pid alone
+    (no start time): gone once that pid runs no process or a zombie, alive while
+    it runs (a reused pid cannot be told then). Without it, or where nothing can
+    be read: its parent at start is no longer its parent."""
+    if supervisor is not None:
+        pid, start = supervisor
+        if os.getppid() == pid:
+            return False  # still its child: that process runs (no pid reuse while it does)
+        from probe.service import procid
+
+        if start:
+            alive = procid.alive(pid, start)
+            if alive is not None:
+                return not alive
+        else:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return True
+            except OSError:
+                pass  # not ours to signal: it runs
+            info = procid.proc(pid)
+            if info is not None:
+                return info.zombie
+    return os.getppid() != parent_pid
+
+
 def session_lock(session_id: str, *, should_stop: Callable[[], bool] = lambda: False,
-                 poll_s: float = LOCK_POLL_S):
+                 poll_s: float = LOCK_POLL_S, max_wait_s: float = LOCK_WAIT_S):
     """Take `<state>/probe/daemon/<sid>.lock` for the worker's life: one worker per
     session. Held by another -- the previous worker of a resumed session finishing
-    its queue -- wait for it. Returns the open lock file (keep it open), or an exit
-    code: EXIT_RESPAWN_LATER if the switch leaves `daemon` (or cannot be read)
-    while waiting, 0 when told to stop."""
-    import fcntl
+    its queue -- wait for it, at most `max_wait_s`. Returns the open lock file
+    (keep it open), or an exit code: EXIT_RESPAWN_LATER if the switch leaves
+    `daemon` (or cannot be read) while waiting or the holder did not let go in
+    time, 0 when told to stop."""
+    from probe._shared import oscompat as fcntl  # fcntl.flock, or msvcrt on Windows
 
     path = lock_path(session_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     handover = mailbox.handover_path(session_id)
     handle = path.open("a")
     waiting = False
+    deadline = time.monotonic() + max_wait_s
     try:
         while True:
             try:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                pass
+            else:
                 # Any ask to hand over was the previous holder's (one dated ahead
                 # by a restarting service included): left, it would make this
                 # worker hand over when its own session ends, not finish its queue.
-                handover.unlink(missing_ok=True)
+                # Held now either way: a delete that fails (Windows, while a next
+                # worker touches the ask) never sends this worker back to take a
+                # lock it holds, which msvcrt's byte lock refuses even to itself.
+                _discard(handover)
                 return handle
-            except OSError:
-                pass
             if not waiting:
                 # The holder is the previous worker of a resumed session: it hands
                 # over at its next model round (`Worker.handing_over`).
@@ -3015,10 +3128,25 @@ def session_lock(session_id: str, *, should_stop: Callable[[], bool] = lambda: F
             if should_stop():
                 handle.close()
                 return 0
+            if time.monotonic() >= deadline:
+                # The ask stays (it goes stale in HANDOVER_FRESH_S): the
+                # supervisor, or the waiter it starts next, asks again before then.
+                log.info("%s still held after %.0fs: leaving; the supervisor starts a worker again later",
+                         path, max_wait_s)
+                waiting = False
+                handle.close()
+                return EXIT_RESPAWN_LATER
             time.sleep(poll_s)
     finally:
         if waiting:
-            handover.unlink(missing_ok=True)
+            _discard(handover)
+
+
+def _discard(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def sweep_stale(keep: str, *, now: float | None = None, max_age: float = STALE_AFTER_S) -> int:
@@ -3026,7 +3154,7 @@ def sweep_stale(keep: str, *, now: float | None = None, max_age: float = STALE_A
     sessions untouched for `max_age` that no worker holds (their lock is free).
     One directory listing, at start. Lock files stay: deleting one another worker
     has open would split the lock."""
-    import fcntl
+    from probe._shared import oscompat as fcntl  # fcntl.flock, or msvcrt on Windows
     import shutil
 
     base = state_dir()
@@ -3093,6 +3221,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cwd", required=True)
     parser.add_argument("--source", default="claude_code")
     args = parser.parse_args(argv)
+    # First, before anything slow: its supervisor may be gone by the time the
+    # libraries are loaded (`_parent_gone`).
+    parent = os.getppid()
+    supervisor = supervisor_identity(args.session_id)
+    if os.environ.get(ENTER_CWD_ENV) == "1":
+        # Started from a local folder by the service: into the session's own
+        # here, on this worker's time (a hung mount stalls this session alone).
+        try:
+            os.chdir(args.cwd)
+        except OSError:
+            with contextlib.suppress(OSError):
+                os.chdir(Path.home())
     from probe.service import barrier
 
     if barrier.workers_held() or not barrier.wait():
@@ -3133,7 +3273,6 @@ def main(argv: list[str] | None = None) -> int:
     sid = args.session_id
     worker: Worker | None = None
     stop = {"asked": False}
-    parent = os.getppid()
 
     def _stop(_sig, _frame):
         stop["asked"] = True
@@ -3142,7 +3281,7 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
-    held = session_lock(sid, should_stop=lambda: stop["asked"] or os.getppid() != parent)
+    held = session_lock(sid, should_stop=lambda: stop["asked"] or parent_gone(supervisor, parent))
     if isinstance(held, int):
         return held
     if not barrier.wait():
@@ -3169,7 +3308,7 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_DO_NOT_RESPAWN
         if stop["asked"]:
             worker.begin_stopping()
-        worker.parent_pid = parent
+        worker.parent_pid, worker.supervisor = parent, supervisor
         try:
             sweep_stale(sid)
             mailbox.sweep_stale_sessions(sid)
@@ -3191,7 +3330,7 @@ def main(argv: list[str] | None = None) -> int:
                 pass
             return 0
         log.exception("the daemon worker crashed")
-        _device_error(f"session {sid}: the daemon crashed ({type(exc).__name__}: {str(exc)[:300]}); "
+        _device_error(f"session {sid}: the daemon crashed ({_crash_detail(exc)}); "
                       "the agent records until capture starts it again")
         try:
             lease.release(sid, lease.REASON_ERROR)

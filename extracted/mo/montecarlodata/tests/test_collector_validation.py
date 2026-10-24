@@ -3,8 +3,10 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from box import Box
+from click.testing import CliRunner
 from pycarlo.core import Client, Session
 
+from montecarlodata.collector.commands import run_validations
 from montecarlodata.collector.validation import CollectorValidationService
 from montecarlodata.common.user import UserService
 from tests.test_common_user import _SAMPLE_CONFIG
@@ -363,3 +365,133 @@ class CollectorValidationServiceTest(TestCase):
 
         mock_run_integration.assert_not_called()
         mock_storage.assert_called_once()
+
+
+class SupportedValidationsIncludeInternalTest(TestCase):
+    def setUp(self) -> None:
+        self._mc_client = Mock()
+        self._mc_client.return_value.get_supported_validations_v2.supported_validations = []
+        self._service = CollectorValidationService(
+            config=_SAMPLE_CONFIG,
+            mc_client=self._mc_client,
+            command_name="test",
+            user_service=Mock(autospec=UserService),
+        )
+
+    def _sent_query(self) -> str:
+        return str(self._mc_client.call_args.kwargs["query"])
+
+    def test_include_internal_sent_when_requested(self) -> None:
+        self._service._get_supported_validations(
+            dc_uuid=_DC_UUID,
+            connection_type="databricks-sql-warehouse",
+            only_periodic=False,
+            include_internal=True,
+        )
+
+        self.assertIn("includeInternal: true", self._sent_query())
+
+    def test_include_internal_omitted_by_default(self) -> None:
+        self._service._get_supported_validations(
+            dc_uuid=_DC_UUID, connection_type="databricks-sql-warehouse", only_periodic=False
+        )
+
+        self.assertNotIn("includeInternal", self._sent_query())
+
+    def _run_connection_validators(self, include_internal: bool) -> int:
+        failures, _ = self._service._run_connection_validators(
+            dc_uuid=_DC_UUID,
+            name="dbx",
+            connection_type="databricks-sql-warehouse",
+            connection_uuid=str(uuid.uuid4()),
+            only_periodic=False,
+            include_internal=include_internal,
+        )
+        return failures
+
+    def test_internal_validations_requested_only_with_flag(self) -> None:
+        for include_internal in [True, False]:
+            with self.subTest(include_internal=include_internal):
+                self._mc_client.reset_mock()
+
+                self._run_connection_validators(include_internal=include_internal)
+
+                self.assertEqual("includeInternal: true" in self._sent_query(), include_internal)
+
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
+    def test_run_validations_passes_flag_to_query(self, mock_storage: Mock) -> None:
+        user_service = self._service._user_service
+        user_service.get_collector.return_value = Box({"uuid": _DC_UUID})
+        user_service.warehouses = [_ACTIVE_WAREHOUSE]
+        user_service.bi_containers = []
+        user_service.etl_containers = []
+
+        self._service.run_validations(dc_id=_DC_UUID, include_internal=True)
+
+        self.assertIn("includeInternal: true", self._sent_query())
+
+    def test_onboarding_does_not_request_internal_validations(self) -> None:
+        self._service._validate_credentials(
+            dc_uuid=_DC_UUID,
+            connection_type="databricks-sql-warehouse",
+            validation_variables={},
+            query="query q { x }",
+            operation_name="testFoo",
+        )
+
+        self.assertNotIn("includeInternal", str(self._mc_client.call_args_list[0].kwargs["query"]))
+
+    def test_internal_validation_failure_counts(self) -> None:
+        self._mc_client.side_effect = [
+            Box(
+                {
+                    "get_supported_validations_v2": {
+                        "supported_validations": [
+                            {
+                                "name": "validate_result_shape_duplicate_column_names",
+                                "periodic_validation": False,
+                            }
+                        ]
+                    }
+                }
+            ),
+            Box(
+                {
+                    "test_existing_connection_v2": {
+                        "success": False,
+                        "warnings": [],
+                        "errors": [{"cause": "ArrowInvalid"}],
+                    }
+                }
+            ),
+        ]
+
+        failures = self._run_connection_validators(include_internal=True)
+
+        self.assertEqual(failures, 1)
+        self.assertEqual(self._mc_client.call_count, 2)
+        first_query = str(self._mc_client.call_args_list[0].kwargs["query"])
+        self.assertIn("includeInternal: true", first_query)
+
+
+class RunValidationsCommandTest(TestCase):
+    @patch("montecarlodata.collector.commands.create_mc_client")
+    @patch("montecarlodata.collector.commands.CollectorValidationService")
+    def test_include_internal_flag(self, service_class_mock: Mock, _: Mock) -> None:
+        run_mock = service_class_mock.return_value.run_validations
+        run_mock.return_value = 0
+        for args, expected in [([], False), (["--include-internal"], True)]:
+            with self.subTest(args=args):
+                result = CliRunner().invoke(
+                    run_validations,
+                    obj={"config": _SAMPLE_CONFIG},
+                    args=["--collector-id", _DC_UUID, *args],
+                )
+
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIs(run_mock.call_args.kwargs["include_internal"], expected)
+
+    def test_include_internal_hidden_from_help(self) -> None:
+        result = CliRunner().invoke(run_validations, args=["--help"])
+
+        self.assertNotIn("internal", result.output.lower())

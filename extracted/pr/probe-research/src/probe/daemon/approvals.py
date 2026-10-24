@@ -427,6 +427,9 @@ class Board:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write(json.dumps(data, indent=1))
+            from probe.daemon import mailbox
+
+            mailbox.check_deadline()  # the Probe service's step: never past its request's deadline
             os.replace(tmp, path)
         except BaseException:
             try:
@@ -486,8 +489,23 @@ class Board:
         req = Request(id=rid, policy=policy, session_id=session_id, question=pol.render(facts, f"Probe {rid}"),
                       facts=facts, fingerprint=fingerprint, held=held, asked_at=now,
                       expires_at=now + pol.expires_after, action=action)
-        self._write(self._path("requests", rid), req.to_json())
+        self.file(req)
         return req
+
+    def file(self, req: Request) -> None:
+        """Put a new held question on the board: through the Probe service when
+        one answers (`mailbox.post`: it writes this same file and tells the
+        session's watchers at once), else here."""
+        from probe.daemon import mailbox
+
+        if self.root.name != "approvals":  # the service writes `<state>/approvals`: a board elsewhere is filed here
+            self._write(self._path("requests", req.id), req.to_json())
+            return
+        answer = mailbox.service_call("mailbox.post", {"sid": req.session_id,
+                                                        "state_dir": str(self.root.parent.absolute()),
+                                                        "question": req.to_json()}, wait=mailbox.POST_WAIT_S)
+        if not (answer and answer.get("posted")):
+            self._write(self._path("requests", req.id), req.to_json())
 
     def prune(self) -> int:
         """Delete resolved and expired requests, with their answers, `KEEP_RESOLVED_S`

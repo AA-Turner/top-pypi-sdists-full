@@ -1,6 +1,6 @@
 [package]
 name = "jsonschema-value"
-version = "0.60.0"
+version = "0.60.1"
 description = "JSON value representations and semantics shared by the jsonschema validator and its bindings"
 readme = "README.md"
 rust-version.workspace = true
@@ -34,6 +34,7 @@ getrandom = { version = "0.3.4", features = ["wasm_js"] }
 ahash.workspace = true
 bytecount = { version = "0.6", features = ["runtime-dispatch-simd"], optional = true }
 zmij = "1.0.23"
+memchr = "2"
 fraction = { version = "0.17", default-features = false, features = [
   "with-bigint",
 ] }

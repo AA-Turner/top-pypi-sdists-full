@@ -36,3 +36,25 @@ def test_integer_field():
     assert not form.validate()
     assert len(form.b.process_errors) == 1
     assert len(form.b.errors) == 1
+
+
+def test_invalid_value_message():
+    class F(Form):
+        a = IntegerField(invalid_value_message="Enter a whole number.")
+
+    form = F(DummyPostData(a=["x"]))
+    assert not form.validate()
+    assert form.a.errors == ["Enter a whole number."]
+
+
+def test_invalid_value_type():
+    """A non-string input gives a validation error instead of a TypeError."""
+
+    class F(Form):
+        a = IntegerField()
+
+    form = F(DummyPostData(a={"not a": "integer"}))
+
+    assert form.a.data is None
+    assert not form.validate()
+    assert form.a.errors == ["Not a valid integer value."]

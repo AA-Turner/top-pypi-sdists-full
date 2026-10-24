@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1331
+Version: 1.4.1349
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -290,6 +290,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Analytics
 | Method | Description |
 |--------|-------------|
+| `analytics.list_facebook_tagged_posts()` | List the posts a Facebook Page is tagged in |
 | `analytics.get_analytics()` | Get post analytics |
 | `analytics.get_analytics_dashboard()` | Get an analytics dashboard |
 | `analytics.get_analytics_delta()` | Analytics changed since a cursor |
@@ -407,6 +408,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.list_whats_app_phone_numbers()` | List numbers for selection |
 | `connect.create_pinterest_board()` | Create Pinterest board |
 | `connect.create_youtube_playlist()` | Create YouTube playlist |
+| `connect.get_connect_handoff()` | Get a phone handoff |
 | `connect.get_connect_url()` | Get OAuth connect URL |
 | `connect.get_connect_welcome_screen()` | Get the saved welcome screen |
 | `connect.get_facebook_pages()` | List Facebook pages |
@@ -574,6 +576,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_audiences.update_ad_audience()` | Update an audience |
 | `ad_audiences.delete_ad_audience()` | Delete custom audience |
 | `ad_audiences.add_users_to_ad_audience()` | Add users to audience |
+| `ad_audiences.remove_users_from_ad_audience()` | Remove users from audience |
 | `ad_audiences.replace_ad_audience_companies()` | Replace audience companies |
 
 ### Ad Campaigns

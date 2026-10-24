@@ -27,6 +27,7 @@ __all__ = (
     "ApprovalStatusType",
     "AuthFlowType",
     "CapabilityTypeType",
+    "DayOfWeekType",
     "DevOpsAgentServiceServiceName",
     "EventChannelTypeType",
     "ExecutionStatusType",
@@ -34,6 +35,7 @@ __all__ = (
     "GithubRepoOwnerTypeType",
     "GoalStatusType",
     "GoalTypeType",
+    "IncludedDataType",
     "IpAddressTypeType",
     "ListAgentSpacesPaginatorName",
     "ListAssetFilesPaginatorName",
@@ -83,12 +85,16 @@ AuthFlowType = Literal["iam", "idc", "idp"]
 CapabilityTypeType = Literal[
     "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
 ]
+DayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
+]
 EventChannelTypeType = Literal["webhook"]
 ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT", "WAITING"]
 GitLabTokenTypeType = Literal["group", "personal"]
 GithubRepoOwnerTypeType = Literal["organization", "user"]
 GoalStatusType = Literal["ACTIVE", "COMPLETE", "PAUSED"]
 GoalTypeType = Literal["CUSTOMER_DEFINED", "ONCALL_REPORT"]
+IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListAssetFilesPaginatorName = Literal["list_asset_files"]
@@ -103,7 +109,7 @@ ListJournalRecordsPaginatorName = Literal["list_journal_records"]
 ListServicesPaginatorName = Literal["list_services"]
 ListTriggersPaginatorName = Literal["list_triggers"]
 MCPServerAuthorizationMethodType = Literal[
-    "api-key", "bearer-token", "oauth-3lo", "oauth-client-credentials"
+    "api-key", "bearer-token", "custom-headers", "oauth-3lo", "oauth-client-credentials"
 ]
 MonitorAccountTypeType = Literal["monitor"]
 NewRelicRegionType = Literal["EU", "JP", "US"]
@@ -150,6 +156,7 @@ ServiceType = Literal[
     "mcpservernewrelic",
     "mcpserversigv4",
     "mcpserversplunk",
+    "msteams",
     "pagerduty",
     "remoteagent",
     "remoteagentsigv4",
@@ -332,13 +339,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -406,6 +412,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -540,6 +547,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -590,7 +598,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

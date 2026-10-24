@@ -36,7 +36,7 @@ export declare class AnyWidgetComponent extends ReactiveESM {
     properties: AnyWidgetComponent.Props;
     sucrase_transforms: Transform[];
     constructor(attrs?: Partial<AnyWidgetComponent.Attrs>);
-    protected _render_code(): string;
+    protected _render_module(): Promise<any>;
     protected _run_initializer(initialize: (props: any) => void): void;
     static __module__: string;
 }

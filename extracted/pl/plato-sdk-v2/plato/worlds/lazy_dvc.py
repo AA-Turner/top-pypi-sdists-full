@@ -10,9 +10,11 @@ re-downloading untouched files — only modified/new files are uploaded.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
+import signal
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -109,16 +111,27 @@ async def mount_lazy(
         phase_reporter("fuse_resolve_binary", time.monotonic() - started_at)
 
     started_at = time.monotonic()
-    proc = await asyncio.create_subprocess_exec(
-        rust_binary,
-        str(config_path),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    debug = _env_flag_enabled("PLATO_FUSE_DEBUG")
+    # Its own session and its own log file: the mount keeps serving if this world process exits and a newer one
+    # adopts it (handover.py). A pipe to this process would break, or fill up unread, once nobody reads it.
+    log_path = cache_dir / "plato-fuse.log"
+    log_file = None if debug else log_path.open("ab")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            rust_binary,
+            str(config_path),
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE if debug else log_file,
+            stderr=asyncio.subprocess.PIPE if debug else log_file,
+            start_new_session=True,
+        )
+    finally:
+        if log_file is not None:
+            log_file.close()
     if phase_reporter is not None:
         phase_reporter("fuse_spawn_worker", time.monotonic() - started_at)
     worker_log_tasks: tuple[asyncio.Task[None], ...] | None = None
-    if _env_flag_enabled("PLATO_FUSE_DEBUG"):
+    if debug:
         worker_log_tasks = (
             asyncio.create_task(_forward_worker_logs(proc.stdout, label="stdout")),
             asyncio.create_task(_forward_worker_logs(proc.stderr, label="stderr")),
@@ -128,8 +141,7 @@ async def mount_lazy(
     started_at = time.monotonic()
     for _ in range(100):
         if proc.returncode is not None:
-            _, stderr = await proc.communicate()
-            err = stderr.decode().strip() if stderr else "unknown"
+            err = await _worker_error(proc, log_path, debug=debug)
             raise RuntimeError(f"FUSE subprocess exited early (rc={proc.returncode}): {err}")
         if os.path.ismount(str(mountpoint)):
             break
@@ -137,8 +149,8 @@ async def mount_lazy(
     else:
         try:
             proc.kill()
-            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
-            err = stderr.decode().strip() if stderr else "unknown"
+            await asyncio.wait_for(proc.wait(), timeout=5)
+            err = await _worker_error(proc, log_path, debug=debug)
         except Exception:
             err = "unknown"
         raise RuntimeError(f"FUSE mount at {mountpoint} did not appear: {err}")
@@ -154,6 +166,45 @@ async def mount_lazy(
         worker_log_tasks=worker_log_tasks,
         s3_config=s3_config,
     )
+
+
+class AdoptedWorker:
+    """A plato-fuse worker another world process started, adopted with its mount (handover.py): what a
+    ``LazyDVCMount`` needs of its process. Not this process's child, so its exit status isn't known: 0 once gone."""
+
+    def __init__(self, pid: int) -> None:
+        self.pid = pid
+
+    @property
+    def returncode(self) -> int | None:
+        try:
+            os.kill(self.pid, 0)
+        except ProcessLookupError:
+            return 0
+        except PermissionError:
+            pass
+        return None
+
+    async def wait(self) -> int:
+        while self.returncode is None:
+            await asyncio.sleep(0.1)
+        return 0
+
+    def kill(self) -> None:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.kill(self.pid, signal.SIGKILL)
+
+
+async def _worker_error(proc: asyncio.subprocess.Process, log_path: Path, *, debug: bool) -> str:
+    """What a plato-fuse worker that failed to mount said: its piped stderr (debug), else its log."""
+    if debug:
+        _, stderr = await proc.communicate()
+        return stderr.decode(errors="replace").strip() if stderr else "unknown"
+    try:
+        said = log_path.read_bytes().decode(errors="replace").strip()
+    except OSError:
+        said = ""
+    return said or "unknown"
 
 
 async def unmount_lazy(mount: LazyDVCMount) -> None:

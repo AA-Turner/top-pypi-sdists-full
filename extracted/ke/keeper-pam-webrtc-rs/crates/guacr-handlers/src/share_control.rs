@@ -58,11 +58,11 @@ pub fn parse(opcode: &str, args: &[&str]) -> Option<Result<ShareControl, String>
                 return Some(Err("share_create requires 3 args".into()));
             }
             let display_name = args[0].to_string();
-            let privileges = u8::from_str_radix(args[1], 16)
-                .map_err(|_| format!("invalid privileges hex: {}", args[1]));
+            let privileges =
+                u8::from_str_radix(args[1], 16).map_err(|_| "invalid privileges hex".to_owned());
             let passthrough = B64
                 .decode(args[2])
-                .map_err(|_| format!("invalid passthrough base64: {}", args[2]));
+                .map_err(|_| "invalid passthrough base64".to_owned());
             Some(match (privileges, passthrough) {
                 (Ok(p), Ok(pt)) => Ok(ShareControl::Create {
                     display_name,
@@ -79,16 +79,16 @@ pub fn parse(opcode: &str, args: &[&str]) -> Option<Result<ShareControl, String>
             Some(
                 Uuid::parse_str(args[0])
                     .map(|guid| ShareControl::Revoke { guid })
-                    .map_err(|e| format!("invalid guid: {e}")),
+                    .map_err(|_| "invalid guid".to_owned()),
             )
         }
         "privilege_change" => {
             if args.len() < 2 {
                 return Some(Err("privilege_change requires 2 args".into()));
             }
-            let guid = Uuid::parse_str(args[0]).map_err(|e| format!("invalid guid: {e}"));
-            let priv_val = u8::from_str_radix(args[1], 16)
-                .map_err(|_| format!("invalid privileges hex: {}", args[1]));
+            let guid = Uuid::parse_str(args[0]).map_err(|_| "invalid guid".to_owned());
+            let priv_val =
+                u8::from_str_radix(args[1], 16).map_err(|_| "invalid privileges hex".to_owned());
             Some(match (guid, priv_val) {
                 (Ok(g), Ok(p)) => Ok(ShareControl::PrivilegeChange {
                     guid: g,
@@ -102,10 +102,10 @@ pub fn parse(opcode: &str, args: &[&str]) -> Option<Result<ShareControl, String>
                 return Some(Err("admin_takeover requires 3 args".into()));
             }
             let admin_name = args[0].to_string();
-            let admin_priv = u8::from_str_radix(args[1], 16)
-                .map_err(|_| format!("invalid admin privileges: {}", args[1]));
-            let owner_priv = u8::from_str_radix(args[2], 16)
-                .map_err(|_| format!("invalid owner privileges: {}", args[2]));
+            let admin_priv =
+                u8::from_str_radix(args[1], 16).map_err(|_| "invalid admin privileges".to_owned());
+            let owner_priv =
+                u8::from_str_radix(args[2], 16).map_err(|_| "invalid owner privileges".to_owned());
             Some(match (admin_priv, owner_priv) {
                 (Ok(ap), Ok(op)) => Ok(ShareControl::AdminTakeover {
                     admin_name,
@@ -200,18 +200,13 @@ pub fn parse_draw_event(args: &[&str]) -> Result<DrawEvent, String> {
     }
     let event_type = args[0]
         .parse::<u8>()
-        .map_err(|_| format!("invalid event_type: {}", args[0]))?;
-    let x = args[1]
-        .parse::<f32>()
-        .map_err(|_| format!("invalid x: {}", args[1]))?;
-    let y = args[2]
-        .parse::<f32>()
-        .map_err(|_| format!("invalid y: {}", args[2]))?;
-    let color =
-        u32::from_str_radix(args[3], 16).map_err(|_| format!("invalid color hex: {}", args[3]))?;
+        .map_err(|_| "invalid event_type".to_owned())?;
+    let x = args[1].parse::<f32>().map_err(|_| "invalid x".to_owned())?;
+    let y = args[2].parse::<f32>().map_err(|_| "invalid y".to_owned())?;
+    let color = u32::from_str_radix(args[3], 16).map_err(|_| "invalid color hex".to_owned())?;
     let thickness = args[4]
         .parse::<u8>()
-        .map_err(|_| format!("invalid thickness: {}", args[4]))?;
+        .map_err(|_| "invalid thickness".to_owned())?;
     Ok(DrawEvent {
         event_type,
         x,
@@ -268,6 +263,44 @@ mod tests {
         match msg {
             ShareControl::Revoke { guid: g } => assert_eq!(g, guid),
             _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn malformed_share_controls_do_not_expose_client_payload_in_errors() {
+        let secret = "synthetic-secret-never-log";
+        let cases = [
+            ("share_create", vec!["fixture", secret, ""]),
+            ("share_create", vec!["fixture", "07", secret]),
+            ("share_revoke", vec![secret]),
+            ("privilege_change", vec![secret, "01"]),
+            (
+                "privilege_change",
+                vec!["00000000-0000-0000-0000-000000000001", secret],
+            ),
+            ("admin_takeover", vec!["fixture", secret, "01"]),
+            ("admin_takeover", vec!["fixture", "01", secret]),
+        ];
+        for (opcode, args) in cases {
+            let error = parse(opcode, &args).unwrap().unwrap_err();
+            assert!(
+                !error.contains(secret),
+                "client payload exposed by {opcode}"
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_drawing_fields_do_not_expose_client_payload_in_errors() {
+        let secret = "synthetic-secret-never-log";
+        for index in 0..5 {
+            let mut args = ["1", "0.5", "0.5", "ff001122", "3"];
+            args[index] = secret;
+            let error = parse_draw_event(&args).unwrap_err();
+            assert!(
+                !error.contains(secret),
+                "drawing payload exposed at field {index}"
+            );
         }
     }
 

@@ -11,6 +11,7 @@ import unittest
 from huey import SqliteHuey
 from huey.api import crontab
 from huey.consumer import Consumer
+from huey.consumer import ConsumerStopped
 from huey.consumer import Scheduler
 from huey.consumer import WORKER_TO_ENVIRONMENT
 from huey.consumer_options import ConsumerConfig
@@ -170,6 +171,25 @@ class TestConsumerIntegration(BaseTestCase):
         # Subsequent iterations do not re-fire for the stalled period.
         scheduler.loop(datetime.datetime(2000, 1, 1, 0, 0))
         self.assertEqual(len(self.huey), 1)
+
+    def test_scheduler_periodic_enqueue_error(self):
+        @self.huey.periodic_task(crontab(minute='*'))
+        def task_p():
+            pass
+
+        consumer = self.consumer(workers=1)
+        scheduler = consumer._create_scheduler()
+        scheduler._next_loop = time.monotonic() + 60
+        scheduler._next_periodic = time.monotonic() - 1
+
+        def broken_enqueue(task):
+            raise ValueError('storage down')
+        scheduler.huey.enqueue = broken_enqueue
+
+        # The error is logged and the scheduler keeps running.
+        scheduler.loop(datetime.datetime(2000, 1, 1, 0, 0))
+        self.assertEqual(len(self.huey), 0)
+        self.assertTrue(scheduler._next_periodic > time.monotonic())
 
 
 class TestConsumerConfig(BaseTestCase):
@@ -396,6 +416,16 @@ class TestConsumerShutdown(BaseTestCase):
         consumer._handle_stop_signal(signal.SIGINT, None)
         self.assertFalse(consumer._graceful)
 
+    def test_immediate_stop_ignores_stop_flag(self):
+        # A worker interrupted inside stop_flag.wait() can exit holding the
+        # flag's shared lock, so loop() must not touch the flag after stop().
+        consumer = self.huey.create_consumer()
+        def interrupt_workers():
+            consumer.stop_flag = None
+        consumer._interrupt_workers = interrupt_workers
+        consumer._handle_stop_signal(signal.SIGTERM, None)
+        self.assertRaises(ConsumerStopped, consumer.loop)
+
 
 class TestProcessWorkers(unittest.TestCase):
     @unittest.skipIf(sys.platform == 'win32', 'requires fork()')
@@ -412,9 +442,11 @@ class TestProcessWorkers(unittest.TestCase):
         def add_pid(a, b):
             return (a + b, os.getpid())
 
+        huey.pending_count()  # Parent opens a connection before forking.
         consumer = huey.create_consumer(workers=2, worker_type='process')
         consumer.start()
         try:
+            self.assertIsNone(huey.storage._conn)  # Closed before forking.
             r1, r2 = add_pid(1, 2), add_pid(3, 4)
             val1, pid1 = r1.get(blocking=True, timeout=10)
             val2, pid2 = r2.get(blocking=True, timeout=10)

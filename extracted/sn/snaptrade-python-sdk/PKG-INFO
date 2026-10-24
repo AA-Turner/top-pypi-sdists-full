@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 13.0.45
+Version: 13.0.49
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -87,7 +87,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
 
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v13.0.45-blue)](https://pypi.org/project/snaptrade-python-sdk/13.0.45)
+[![PyPI](https://img.shields.io/badge/PyPI-v13.0.49-blue)](https://pypi.org/project/snaptrade-python-sdk/13.0.49)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -137,6 +137,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
   * [`snaptrade.connections.sync_brokerage_authorization_transactions`](#snaptradeconnectionssync_brokerage_authorization_transactions)
   * [`snaptrade.experimental_endpoints.add_subscription`](#snaptradeexperimental_endpointsadd_subscription)
   * [`snaptrade.experimental_endpoints.cancel_subscription`](#snaptradeexperimental_endpointscancel_subscription)
+  * [`snaptrade.experimental_endpoints.get_all_account_orders`](#snaptradeexperimental_endpointsget_all_account_orders)
   * [`snaptrade.experimental_endpoints.get_user_account_order_detail_v2`](#snaptradeexperimental_endpointsget_user_account_order_detail_v2)
   * [`snaptrade.experimental_endpoints.get_user_account_orders_v2`](#snaptradeexperimental_endpointsget_user_account_orders_v2)
   * [`snaptrade.experimental_endpoints.get_user_account_recent_orders_v2`](#snaptradeexperimental_endpointsget_user_account_recent_orders_v2)
@@ -177,7 +178,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==13.0.45
+pip install snaptrade-python-sdk==13.0.49
 ```
 
 ## Authentication<a id="authentication"></a>
@@ -546,7 +547,7 @@ The client identifies the user in this mode. Do not pass `user_id` `user_secret`
 
 ### `snaptrade.account_information.get_account_details`<a id="snaptradeaccount_informationget_account_details"></a>
 
-Returns the specified account for the authenticated user. The account can be an investment, deposit, or line of credit account. Use the `kind` discriminator to determine the schema for the account.
+Returns the specified account for the authenticated user. The account can be an investment, deposit, line of credit, or annuity account. Use the `kind` discriminator to determine the schema for the account.
 
 On Pay as you Go / Real-time, this endpoint refreshes the account's opening date and total net value (`net_value`) live from the institution on each call, along with funding date for `investment` accounts.
 
@@ -731,7 +732,7 @@ The client identifies the user in this mode. Do not pass `user_id` `user_secret`
 ### `snaptrade.account_information.get_user_account_details`<a id="snaptradeaccount_informationget_user_account_details"></a>
 ![Deprecated](https://img.shields.io/badge/deprecated-yellow)
 
-**Deprecated.** Use the [get account details](/reference/Account%20Information/AccountInformation_getAccountDetails) endpoint instead, which supports all account types, including investment, deposit, and line of credit accounts.
+**Deprecated.** Use the [get account details](/reference/Account%20Information/AccountInformation_getAccountDetails) endpoint instead, which supports all account types, including investment, deposit, line of credit, and annuity accounts.
 
 Returns account detail known to SnapTrade for the specified account.
 
@@ -1126,7 +1127,7 @@ The client identifies the user in this mode. Do not pass `user_id` `user_secret`
 
 Returns all accounts across all connections known to SnapTrade for the authenticated user.
 
-The `results` list can contain multiple account types in the same response, including investment, deposit, and line of credit accounts. Use the `kind` discriminator to determine the schema for each account.
+The `results` list can contain multiple account types in the same response, including investment, deposit, line of credit, and annuity accounts. Use the `kind` discriminator to determine the schema for each account.
 
 This endpoint returns Daily data regardless of the customer's plan. Daily data is cached and refreshed once a day, which makes this endpoint fast and well-suited to listing accounts across all of a user's connections in a single call. Exact refresh timing may vary by institution. To get real-time data on Pay as you Go / Real-time, use the [list accounts for a connection endpoint](/reference/Connections/Connections_listConnectionAccounts). Customers on Pay as you Go / Daily can force a refresh with the [manual refresh endpoint](/reference/Connections/Connections_refreshBrokerageAuthorization).
 
@@ -1176,7 +1177,7 @@ The client identifies the user in this mode. Do not pass `user_id` `user_secret`
 ### `snaptrade.account_information.list_user_accounts`<a id="snaptradeaccount_informationlist_user_accounts"></a>
 ![Deprecated](https://img.shields.io/badge/deprecated-yellow)
 
-**Deprecated.** Use the [list all user accounts](/reference/Account%20Information/AccountInformation_listAllUserAccounts) endpoint instead, which returns all account types in a single response, including investment, deposit, and line of credit accounts.
+**Deprecated.** Use the [list all user accounts](/reference/Account%20Information/AccountInformation_listAllUserAccounts) endpoint instead, which returns all account types in a single response, including investment, deposit, line of credit, and annuity accounts.
 
 Returns all brokerage accounts across all connections known to SnapTrade for the authenticated user.
 
@@ -1829,7 +1830,7 @@ The client identifies the user in this mode. Do not pass `user_id` `user_secret`
 
 Returns all accounts that belong to the specified connection for the authenticated user.
 
-The `results` list can contain multiple account types in the same response, including investment, deposit, and line of credit accounts. Use the `kind` discriminator to determine the schema for each account.
+The `results` list can contain multiple account types in the same response, including investment, deposit, line of credit, and annuity accounts. Use the `kind` discriminator to determine the schema for each account.
 
 On Pay as you Go / Real-time, this endpoint refreshes each account's opening date and total net value (`net_value`) live from the institution on each call, along with funding date for `investment` accounts.
 
@@ -2166,6 +2167,80 @@ Unique identifier for the connected brokerage account. This is the UUID used to 
 #### 🌐 Endpoint<a id="🌐-endpoint"></a>
 
 `/snapTrade/tradeDetection/subscriptions/cancel` `post`
+
+[🔙 **Back to Table of Contents**](#table-of-contents)
+
+---
+
+### `snaptrade.experimental_endpoints.get_all_account_orders`<a id="snaptradeexperimental_endpointsget_all_account_orders"></a>
+
+Returns a list of recent orders in the specified account, in the same `kind`-discriminated format as `/accounts/{accountId}/positions/all`.
+
+Every order carries a `legs` list with at least one leg. Each leg's `instrument` uses the same `Instrument` union as positions; switch on `instrument.kind` to know which fields are present. Multi-leg orders (spreads, strangles, covered calls) are a single order with multiple legs. Orders that belong to a complex order group (OCO, OTO, OTOCO) share a `group.id`.
+
+`order_type` is an object discriminated by `kind`. Each kind declares the price fields it requires (`limit_price` on `limit`, `stop_price` on `stop`, both on `stop_limit`, `trail` on `trailing_stop`), so a consumer never has to null-check a price that cannot exist for that kind. When the brokerage reports an order type we cannot normalize, `kind` is `other` and the brokerage's own label is in `raw_type`.
+
+**Experimental:** this endpoint may change without notice.
+
+If the connection has become disabled, it can no longer access the latest data from the brokerage, but will continue to return the last available cached state. Please see [this guide](/docs/fix-broken-connections) on how to fix a disabled connection.
+
+
+#### 🛠️ Usage<a id="🛠️-usage"></a>
+
+##### Commercial API Key Auth<a id="commercial-api-key-auth"></a>
+
+```python
+get_all_account_orders_response = (
+    commercial_api_key_client.experimental_endpoints.get_all_account_orders(
+        account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+        state="all",
+        days=30,
+        user_id="snaptrade-user-123",
+        user_secret="adf2aa34-8219-40f7-a6b3-60156985cc61",
+    )
+)
+```
+
+Required credentials for this mode:
+
+- `user_id` (str, required): SnapTrade User ID. This is chosen by the API partner and can be any string that is a) unique to the user, and b) immutable for the user. It is recommended to NOT use email addresses for this property because they are usually not immutable.
+
+- `user_secret` (str, required): SnapTrade User Secret. This is a randomly generated string and should be stored securely. If compromised, please rotate it via the [rotate user secret endpoint](/reference/Authentication/Authentication_resetSnapTradeUserSecret).
+
+##### Personal API Key Auth<a id="personal-api-key-auth"></a>
+
+```python
+get_all_account_orders_response = (
+    personal_api_key_client.experimental_endpoints.get_all_account_orders(
+        account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+        state="all",
+        days=30,
+    )
+)
+```
+
+The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
+
+
+#### ⚙️ Parameters<a id="⚙️-parameters"></a>
+
+##### account_id: `str`<a id="account_id-str"></a>
+
+##### state: `str`<a id="state-str"></a>
+
+defaults to \"all\"
+
+##### days: `int`<a id="days-int"></a>
+
+Number of days in the past to fetch the most recent orders. Defaults to the last 30 days if no value is passed in. Values greater than 90 will be capped at 90.
+
+#### 🔄 Return<a id="🔄-return"></a>
+
+[`AllAccountOrdersResponse`](./snaptrade_client/type/all_account_orders_response.py)
+
+#### 🌐 Endpoint<a id="🌐-endpoint"></a>
+
+`/accounts/{accountId}/orders/all` `get`
 
 [🔙 **Back to Table of Contents**](#table-of-contents)
 

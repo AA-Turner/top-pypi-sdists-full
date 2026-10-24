@@ -83,6 +83,9 @@ async def test_capture_issue_resolves_system_organization_without_context(
     monkeypatch.setattr("matrx_utils.detached_task", _track_detached)
     monkeypatch.setattr(issue_capture, "has_ext", lambda name: True)
     monkeypatch.setattr(issue_capture, "get_ext", lambda name: _resolve)
+    # The matrx-ai test conftest supplies a system AppContext to otherwise bare
+    # tests; make this case exercise the no-context resolver path explicitly.
+    monkeypatch.setattr("matrx_connect.try_get_app_context", lambda: None)
 
     await issue_capture.capture_issue(
         "anthropic.grammar_too_large",

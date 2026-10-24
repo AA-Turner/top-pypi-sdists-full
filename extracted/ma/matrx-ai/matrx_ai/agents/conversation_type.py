@@ -115,6 +115,7 @@ SOURCE_FEATURE_TO_TYPE: dict[str, str] = {
     "rag": ConversationType.AUTO,
     "agent_call": ConversationType.SUBAGENT,
     "agent_tool": ConversationType.SUBAGENT,
+    "visual_map_repair": ConversationType.SUBAGENT,
     "pdf-cleaner": ConversationType.AUTO,
     "content_processing_upload_hook": ConversationType.AUTO,
     "kg_clustering_namer": ConversationType.AUTO,

@@ -39,11 +39,11 @@ class ObjectResponse(BaseModel):
     blobs: Optional[List[BlobModel]] = Field(default=None, description="List of blobs contained in this object")
     source_details: Optional[List[SourceDetails]] = Field(default=None, description="Lineage/source details for this object; used for downstream references.")
     edges: Optional[List[EdgeModel]] = Field(default=None, description="Typed, directed relationships from this object to other objects (customer-owned, root-level — never `_internal`). Flows to the document + MVS payload for the `traverse_edge` retriever stage.")
-    status: Optional[TaskStatusEnum] = Field(default=None, description="The current status of the object.")
+    status: Optional[TaskStatusEnum] = Field(default=None, description="Processing status of the object. A new object is PENDING, which means it has not been processed yet: either no batch including it has been submitted, or it is in a submitted batch that has not finished. The status of the object's batch tells these apart. When a batch run finishes with the object it becomes COMPLETED or FAILED.")
     error: Optional[StrictStr] = Field(default=None, description="The error message if the object failed to process.")
     created_at: Optional[datetime] = Field(default=None, description="Timestamp when the object was created. Automatically populated by the system.")
     updated_at: Optional[datetime] = Field(default=None, description="Timestamp when the object was last updated. Automatically populated by the system.")
-    document_count: Optional[StrictInt] = Field(default=None, description="Number of documents produced from this object across all collections. Populated on GET requests. Null on list responses (expensive query). Use this to check if an object has already been processed.")
+    document_count: Optional[StrictInt] = Field(default=None, description="Number of documents your collections have produced from this object. The object's own record in its bucket is not counted, so the value stays 0 until a collection has processed the object. Populated on GET requests. Null on list responses (expensive query) and when the count cannot be read in time. Use this to check if an object has already been processed.")
     consistency: Optional[WriteConsistency] = Field(default=None, description="When and how this object becomes a searchable document. Set on write (create) responses: managed ingestion is visible only after a collection batch processes the object — poll until document_count > 0.")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["object_id", "bucket_id", "key_prefix", "blobs", "source_details", "edges", "status", "error", "created_at", "updated_at", "document_count", "consistency"]

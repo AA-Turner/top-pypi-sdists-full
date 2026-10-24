@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List
 from mixpeek.models.pagination_response import PaginationResponse
 from mixpeek.models.video_response import VideoResponse
@@ -29,9 +29,10 @@ class ListVideosResponse(BaseModel):
     """
     ListVideosResponse
     """ # noqa: E501
-    videos: List[VideoResponse]
+    results: List[VideoResponse]
     pagination: PaginationResponse
-    __properties: ClassVar[List[str]] = ["videos", "pagination"]
+    videos: List[VideoResponse] = Field(description="Deprecated alias of `results`, kept for existing clients. Read `results`, the row key every list route shares.")
+    __properties: ClassVar[List[str]] = ["results", "pagination", "videos"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -72,6 +73,16 @@ class ListVideosResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in results (list)
+        _items = []
+        if self.results:
+            for _item_results in self.results:
+                if _item_results:
+                    _items.append(_item_results.to_dict())
+            _dict['results'] = _items
+        # override the default output from pydantic by calling `to_dict()` of pagination
+        if self.pagination:
+            _dict['pagination'] = self.pagination.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in videos (list)
         _items = []
         if self.videos:
@@ -79,9 +90,6 @@ class ListVideosResponse(BaseModel):
                 if _item_videos:
                     _items.append(_item_videos.to_dict())
             _dict['videos'] = _items
-        # override the default output from pydantic by calling `to_dict()` of pagination
-        if self.pagination:
-            _dict['pagination'] = self.pagination.to_dict()
         return _dict
 
     @classmethod
@@ -94,8 +102,9 @@ class ListVideosResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "videos": [VideoResponse.from_dict(_item) for _item in obj["videos"]] if obj.get("videos") is not None else None,
-            "pagination": PaginationResponse.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None
+            "results": [VideoResponse.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None,
+            "pagination": PaginationResponse.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None,
+            "videos": [VideoResponse.from_dict(_item) for _item in obj["videos"]] if obj.get("videos") is not None else None
         })
         return _obj
 

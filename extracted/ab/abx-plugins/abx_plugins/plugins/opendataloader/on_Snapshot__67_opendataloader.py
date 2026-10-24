@@ -29,6 +29,7 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
 
 import sys
 import json
+import hashlib
 import fnmatch
 import os
 import signal
@@ -225,13 +226,19 @@ def _extract_single_pdf(
     env: dict[str, str],
 ) -> tuple[str, str]:
     """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
+    # Native Markdown keeps only the image directory basename. Keep that tree
+    # beside content.md, using the source path to isolate equal PDF filenames.
+    identity = hashlib.sha256(
+        source_file.relative_to(SNAP_DIR).as_posix().encode(),
+    ).hexdigest()[:16]
+    image_dir = OUTPUT_DIR / f"{identity}_images"
     with tempfile.TemporaryDirectory() as tmpdir:
         return _run_opendataloader(
             binary,
             source_file,
             Path(tmpdir),
             timeout,
-            extra_args,
+            ["--image-dir", str(image_dir), *extra_args],
             env,
         )
 
@@ -289,6 +296,7 @@ def extract_opendataloader(
     for index, source_file in enumerate(sources):
         remaining = deadline - time.monotonic()
         if remaining <= 1:
+            timed_out_on = source_file.name
             print(
                 f"[opendataloader] WARN: timeout budget spent, skipping "
                 f"{len(sources) - index} of {len(sources)} PDFs",
@@ -388,6 +396,10 @@ def extract_opendataloader(
             indent=2,
         ),
     )
+
+    # Preserve completed PDFs without claiming the timed-out document is complete.
+    if timed_out_on:
+        return "failed", f"Timed out after {timeout}s extracting {timed_out_on}"
 
     # Return the primary output file that was actually written
     if all_md_parts:

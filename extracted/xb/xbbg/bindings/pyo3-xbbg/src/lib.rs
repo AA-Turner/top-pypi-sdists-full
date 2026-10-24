@@ -56,23 +56,23 @@ use pyo3::types::{PyBool, PyDate, PyDateTime, PyDict, PyTime, PyTzInfo};
 use pyo3_async_runtimes::tokio::future_into_py;
 #[cfg(feature = "stub-gen")]
 use pyo3_stub_gen::{define_stub_info_gatherer, derive::*};
-use tokio::sync::{watch, Mutex};
+use tokio::sync::watch;
 use xbbg_log::{debug, info, warn};
 
 use xbbg_async::engine::state::{
-    FieldLayout, SubscriptionArrowBatcher, SubscriptionMetrics, SubscriptionReceiver,
-    SubscriptionUpdate, UpdateValue,
+    SubscriptionArrowBatcher, SubscriptionMetrics, SubscriptionUpdate, UpdateValue,
 };
 use xbbg_async::engine::{
     AdminStatusInfo, Engine, EngineConfig, RetryPolicy, ServerAddr, ServiceStatusInfo,
-    SessionStatusInfo, SharedSubscriptionStatus, Socks5Proxy, SubscriptionEventInfo,
-    SubscriptionFailureInfo, TlsConfig, TopicStatusInfo, Transport,
+    SessionStatusInfo, SharedSubscriptionStatus, SubscriptionEventInfo, SubscriptionFailureInfo,
+    TopicStatusInfo, Transport,
 };
+use xbbg_async::error_presentation::{ErrorKind, ErrorPresentation, ErrorStyle};
 use xbbg_async::{
     BlpAsyncError, DelayedPolicy, FieldErrorPolicy, OverflowPolicy, SubscribeRequest,
     SubscriptionHandle, ValidationMode,
 };
-use xbbg_core::{AuthConfig, BlpError};
+use xbbg_core::BlpError;
 use xbbg_ext::{ExchangeInfo, MarketInfo, MarketTiming};
 
 mod ext;
@@ -83,50 +83,19 @@ mod request;
 
 use request::dict_to_request_params;
 
-type StreamItem = Result<SubscriptionUpdate, BlpError>;
-type SharedStreamReceiver = Arc<Mutex<Option<SubscriptionReceiver>>>;
-type SharedPendingStreamItems = Arc<StdMutex<VecDeque<StreamItem>>>;
+use xbbg_async::subscription_consumer::{
+    SubscriptionConsumer, SubscriptionRead, receive_subscription_updates,
+    subscription_batch_capacity_hint, wait_for_subscription_close,
+};
 type SubscriptionMetricsMap = HashMap<usize, Arc<SubscriptionMetrics>>;
 type SubscriptionEventTuple = (i64, String, String, String, Option<String>, Option<String>);
 type SubscriptionTopicStateTuple = (String, String, i64, Option<bool>, String);
-const MAX_SUBSCRIPTION_BATCH_CAPACITY_HINT: usize = 4096;
 
 static INTERPRETER_SHUTDOWN: LazyLock<watch::Sender<bool>> =
     LazyLock::new(|| watch::channel(false).0);
 
 fn interpreter_shutdown_receiver() -> watch::Receiver<bool> {
     INTERPRETER_SHUTDOWN.subscribe()
-}
-
-fn subscription_batch_capacity_hint(limit: usize) -> usize {
-    limit.clamp(1, MAX_SUBSCRIPTION_BATCH_CAPACITY_HINT)
-}
-
-fn subscription_layouts_match(current: &Arc<FieldLayout>, next: &Arc<FieldLayout>) -> bool {
-    Arc::ptr_eq(current, next)
-        || (current.version == next.version
-            && current.fields.len() == next.fields.len()
-            && current
-                .fields
-                .iter()
-                .zip(next.fields.iter())
-                .all(|(current_field, next_field)| {
-                    current_field.index == next_field.index
-                        && current_field.kind == next_field.kind
-                        && current_field.name == next_field.name
-                }))
-}
-
-async fn wait_for_subscription_close(close_rx: &mut watch::Receiver<bool>) {
-    if *close_rx.borrow() {
-        return;
-    }
-
-    while close_rx.changed().await.is_ok() {
-        if *close_rx.borrow() {
-            return;
-        }
-    }
 }
 
 async fn complete_unless_interpreter_finalizing<F>(
@@ -145,136 +114,6 @@ where
             std::future::pending::<F::Output>().await
         }
         result = fut => result,
-    }
-}
-
-enum SubscriptionRead {
-    Updates(Vec<SubscriptionUpdate>),
-    Error(BlpError),
-    Ended,
-    Closed,
-}
-
-async fn receive_subscription_updates(
-    rx: &mut SubscriptionReceiver,
-    pending: &StdMutex<VecDeque<StreamItem>>,
-    close_rx: &mut watch::Receiver<bool>,
-    limit: usize,
-) -> SubscriptionRead {
-    if *close_rx.borrow() {
-        return SubscriptionRead::Closed;
-    }
-
-    let queued = pending
-        .lock()
-        .expect("subscription pending queue poisoned")
-        .pop_front();
-    let first = match queued {
-        Some(item) => Some(item),
-        None => {
-            tokio::select! {
-                biased;
-                _ = wait_for_subscription_close(close_rx) => return SubscriptionRead::Closed,
-                item = rx.recv() => item,
-            }
-        }
-    };
-
-    let Some(first) = first else {
-        return SubscriptionRead::Ended;
-    };
-    let first = match first {
-        Ok(update) => update,
-        Err(error) => return SubscriptionRead::Error(error),
-    };
-    let layout = first.layout.clone();
-    let mut updates = Vec::with_capacity(subscription_batch_capacity_hint(limit));
-    updates.push(first);
-
-    while updates.len() < limit {
-        let queued = pending
-            .lock()
-            .expect("subscription pending queue poisoned")
-            .pop_front();
-        let item = match queued {
-            Some(item) => Some(item),
-            None => rx.try_recv().ok(),
-        };
-        match item {
-            Some(Ok(update)) if subscription_layouts_match(&layout, &update.layout) => {
-                updates.push(update);
-            }
-            Some(item) => {
-                pending
-                    .lock()
-                    .expect("subscription pending queue poisoned")
-                    .push_front(item);
-                break;
-            }
-            None => break,
-        }
-    }
-
-    SubscriptionRead::Updates(updates)
-}
-
-async fn drain_forwarder_into_pending(
-    handle: &SubscriptionHandle,
-    rx: &mut SubscriptionReceiver,
-    pending: &StdMutex<VecDeque<StreamItem>>,
-) -> Result<(), Box<BlpAsyncError>> {
-    let barrier = handle.drain_forwarder();
-    tokio::pin!(barrier);
-    let barrier_result = loop {
-        tokio::select! {
-            biased;
-            item = rx.recv() => {
-                match item {
-                    Some(item) => pending
-                        .lock()
-                        .expect("subscription pending queue poisoned")
-                        .push_back(item),
-                    None => break barrier.await,
-                }
-            }
-            result = &mut barrier => break result,
-        }
-    };
-    while let Ok(item) = rx.try_recv() {
-        pending
-            .lock()
-            .expect("subscription pending queue poisoned")
-            .push_back(item);
-    }
-    barrier_result.map_err(Box::new)
-}
-fn collect_drained_stream_items(
-    pending: &StdMutex<VecDeque<StreamItem>>,
-    mut rx: Option<SubscriptionReceiver>,
-) -> Result<Vec<SubscriptionUpdate>, Box<BlpError>> {
-    let mut updates = Vec::new();
-    let mut first_error = None;
-    let mut collect = |item| match item {
-        Ok(update) => updates.push(update),
-        Err(error) if first_error.is_none() => first_error = Some(error),
-        Err(_) => {}
-    };
-
-    {
-        let mut pending = pending.lock().expect("subscription pending queue poisoned");
-        while let Some(item) = pending.pop_front() {
-            collect(item);
-        }
-    }
-    if let Some(rx) = rx.as_mut() {
-        while let Ok(item) = rx.try_recv() {
-            collect(item);
-        }
-    }
-
-    match first_error {
-        Some(error) => Err(Box::new(error)),
-        None => Ok(updates),
     }
 }
 
@@ -379,174 +218,34 @@ pyo3::create_exception!(xbbg._core, BlpValidationError, BlpErrorBase);
 pyo3::create_exception!(xbbg._core, BlpTimeoutError, BlpErrorBase);
 pyo3::create_exception!(xbbg._core, BlpInternalError, BlpErrorBase);
 
-/// Convert BlpError to appropriate Python exception.
-///
-/// Maps each BlpError variant to the corresponding Python exception class,
-/// preserving all structured error context (service, operation, cid, etc.).
-fn request_failure_is_limit(label: Option<&str>) -> bool {
-    label.is_some_and(|label| {
-        label.contains("category=LIMIT")
-            || label.contains("DAILY_CAPACITY_REACHED")
-            || label.contains("subcategory=DAILY_CAPACITY_REACHED")
-    })
-}
-fn subscription_data_loss_to_pyerr(topic: String, detail: String) -> PyErr {
-    let message = format!("Subscription data loss for '{topic}': {detail}");
-    let error = BlpSubscriptionDataLossError::new_err(message);
-    let _ = Python::try_attach(|py| {
-        let value = error.value(py);
-        value.setattr("topic", &topic)?;
-        value.setattr("detail", &detail)
-    });
+fn error_presentation_to_pyerr(presentation: ErrorPresentation) -> PyErr {
+    let error = match presentation.kind {
+        ErrorKind::Session => BlpSessionError::new_err(presentation.message),
+        ErrorKind::Request => BlpRequestError::new_err(presentation.message),
+        ErrorKind::Limit => BlpLimitError::new_err(presentation.message),
+        ErrorKind::DataLoss => BlpSubscriptionDataLossError::new_err(presentation.message),
+        ErrorKind::Validation => BlpValidationError::new_err(presentation.message),
+        ErrorKind::Timeout => BlpTimeoutError::new_err(presentation.message),
+        ErrorKind::Internal => BlpInternalError::new_err(presentation.message),
+    };
+    if let Some(context) = presentation.data_loss {
+        let _ = Python::try_attach(|py| {
+            let value = error.value(py);
+            value.setattr("topic", &context.topic)?;
+            value.setattr("detail", &context.detail)
+        });
+    }
     error
 }
 
-fn blp_error_to_pyerr(e: BlpError) -> PyErr {
-    match e {
-        BlpError::SessionStart { source, label } => {
-            let msg = format_error_msg("Session start failed", label.as_deref(), source.as_deref());
-            BlpSessionError::new_err(msg)
-        }
-        BlpError::OpenService {
-            service,
-            source,
-            label,
-        } => {
-            let msg = format!(
-                "Failed to open service '{}': {}",
-                service,
-                format_error_msg("", label.as_deref(), source.as_deref())
-            );
-            BlpSessionError::new_err(msg)
-        }
-        BlpError::RequestFailure {
-            service,
-            operation,
-            cid,
-            label,
-            request_id,
-            source,
-        } => {
-            let mut msg = format!("Request failed on {}", service);
-            if let Some(op) = &operation {
-                msg.push_str(&format!("::{}", op));
-            }
-            if let Some(c) = &cid {
-                msg.push_str(&format!(" (cid={})", c));
-            }
-            if let Some(rid) = &request_id {
-                msg.push_str(&format!(" [request_id={}]", rid));
-            }
-            if let Some(l) = &label {
-                msg.push_str(&format!(" - {}", l));
-            }
-            if let Some(s) = &source {
-                msg.push_str(&format!(": {}", s));
-            }
-            if request_failure_is_limit(label.as_deref()) {
-                BlpLimitError::new_err(msg)
-            } else {
-                BlpRequestError::new_err(msg)
-            }
-        }
-        BlpError::InvalidArgument { detail } => {
-            BlpValidationError::new_err(format!("Invalid argument: {}", detail))
-        }
-        BlpError::Timeout => BlpTimeoutError::new_err("Request timed out"),
-        BlpError::TemplateTerminated { cid } => {
-            let msg = match cid {
-                Some(c) => format!("Request template terminated (cid={})", c),
-                None => "Request template terminated".to_string(),
-            };
-            BlpRequestError::new_err(msg)
-        }
-        BlpError::SubscriptionFailure { cid, label } => {
-            let mut msg = "Subscription failed".to_string();
-            if let Some(c) = &cid {
-                msg.push_str(&format!(" (cid={})", c));
-            }
-            if let Some(l) = &label {
-                msg.push_str(&format!(": {}", l));
-            }
-            BlpRequestError::new_err(msg)
-        }
-        BlpError::SubscriptionDataLoss { topic, detail } => {
-            subscription_data_loss_to_pyerr(topic, detail)
-        }
-        BlpError::Internal { detail } => {
-            BlpInternalError::new_err(format!("Internal error: {}", detail))
-        }
-        BlpError::SchemaOperationNotFound { service, operation } => {
-            BlpValidationError::new_err(format!("Operation not found: {}::{}", service, operation))
-        }
-        BlpError::SchemaElementNotFound { parent, name } => {
-            BlpValidationError::new_err(format!("Schema element not found: {}.{}", parent, name))
-        }
-        BlpError::SchemaTypeMismatch {
-            element,
-            expected,
-            found,
-        } => BlpValidationError::new_err(format!(
-            "Schema type mismatch at {}: expected {:?}, found {:?}",
-            element, expected, found
-        )),
-        BlpError::SchemaUnsupported { element, detail } => BlpValidationError::new_err(format!(
-            "Unsupported schema construct at {}: {}",
-            element, detail
-        )),
-        BlpError::Validation { message, errors } => {
-            // Build detailed error message with suggestions
-            let details: Vec<String> = errors
-                .iter()
-                .map(|e| {
-                    if let Some(ref suggestion) = e.suggestion {
-                        format!("{} (did you mean '{}'?)", e, suggestion)
-                    } else {
-                        e.to_string()
-                    }
-                })
-                .collect();
-            let msg = if details.is_empty() {
-                message
-            } else {
-                format!("{}: {}", message, details.join("; "))
-            };
-            BlpValidationError::new_err(msg)
-        }
-    }
+/// Convert a core error into its Python exception, retaining structured attributes.
+fn blp_error_to_pyerr(error: BlpError) -> PyErr {
+    error_presentation_to_pyerr(ErrorPresentation::from_blp(error, ErrorStyle::Python))
 }
 
-/// Convert BlpAsyncError to appropriate Python exception.
-fn blp_async_error_to_pyerr(e: BlpAsyncError) -> PyErr {
-    match e {
-        // Route structured BlpError through the full exception mapper
-        BlpAsyncError::Blp(blp_err) => blp_error_to_pyerr(blp_err),
-        // Explicit BlpError (not From trait)
-        BlpAsyncError::BlpError(blp_err) => blp_error_to_pyerr(blp_err),
-
-        BlpAsyncError::Internal(msg) => BlpInternalError::new_err(msg),
-
-        BlpAsyncError::ConfigError { detail } => {
-            BlpValidationError::new_err(format!("Configuration error: {}", detail))
-        }
-        BlpAsyncError::ChannelClosed => BlpInternalError::new_err("Channel closed unexpectedly"),
-        BlpAsyncError::StreamFull => {
-            BlpInternalError::new_err("Stream buffer full - consumer too slow")
-        }
-        BlpAsyncError::Cancelled => BlpRequestError::new_err("Request was cancelled"),
-        BlpAsyncError::Timeout => BlpTimeoutError::new_err("Request timed out"),
-        BlpAsyncError::SessionLost {
-            worker_id,
-            in_flight_count,
-        } => BlpSessionError::new_err(format!(
-            "session lost on worker {} ({} in-flight requests failed)",
-            worker_id, in_flight_count,
-        )),
-        BlpAsyncError::AllWorkersDown { pool_size } => BlpSessionError::new_err(format!(
-            "all {} request workers are dead — no healthy worker available",
-            pool_size,
-        )),
-    }
+/// Convert an async error into its Python exception.
+fn blp_async_error_to_pyerr(error: BlpAsyncError) -> PyErr {
+    error_presentation_to_pyerr(ErrorPresentation::from_async(error, ErrorStyle::Python))
 }
 
 fn parse_delayed_policy(on_delayed: &str) -> PyResult<DelayedPolicy> {
@@ -562,32 +261,6 @@ fn subscription_control_error_to_pyerr(error: BlpAsyncError) -> PyErr {
     match error {
         BlpAsyncError::ChannelClosed => PyRuntimeError::new_err("subscription already closed"),
         error => blp_async_error_to_pyerr(error),
-    }
-}
-
-/// Helper to format error messages with optional label and source.
-fn format_error_msg(
-    base: &str,
-    label: Option<&str>,
-    source: Option<&(dyn std::error::Error + Send + Sync)>,
-) -> String {
-    let mut msg = base.to_string();
-    if let Some(l) = label {
-        if !msg.is_empty() {
-            msg.push_str(": ");
-        }
-        msg.push_str(l);
-    }
-    if let Some(s) = source {
-        if !msg.is_empty() {
-            msg.push_str(" - ");
-        }
-        msg.push_str(&s.to_string());
-    }
-    if msg.is_empty() {
-        "Unknown error".to_string()
-    } else {
-        msg
     }
 }
 
@@ -664,6 +337,10 @@ pub struct PyEngineConfig {
     /// Set to None to use the default path.
     #[pyo3(get, set)]
     pub field_cache_path: Option<String>,
+    /// Optional BQL clientContext.appName request default.
+    /// Independent of authentication; None leaves the service default unchanged.
+    #[pyo3(get, set)]
+    pub bql_app_name: Option<String>,
     /// Optional auth method: "none", "user", "app", "userapp", "dir", "manual", or "token".
     /// Default: None (no auth). Also accepts "directory" as an alias for "dir" and the empty
     /// string as "none".
@@ -770,6 +447,7 @@ impl PyEngineConfig {
             command_queue_size: defaults.command_queue_size,
             subscription_stream_capacity: defaults.subscription_stream_capacity,
             overflow_policy: defaults.overflow_policy.to_string(),
+            bql_app_name: defaults.bql_app_name,
             warmup_services: defaults.warmup_services,
             field_cache_path: None,
             auth_method: None,
@@ -861,6 +539,9 @@ impl PyEngineConfig {
             }
             if let Some(v) = kw.get_item("field_cache_path")? {
                 config.field_cache_path = v.extract()?;
+            }
+            if let Some(v) = kw.get_item("bql_app_name")? {
+                config.bql_app_name = v.extract()?;
             }
             if let Some(v) = kw.get_item("auth_method")? {
                 config.auth_method = v.extract()?;
@@ -975,108 +656,6 @@ impl PyEngineConfig {
     }
 }
 
-fn require_auth_value(value: &Option<String>, field: &str, method: &str) -> PyResult<String> {
-    value
-        .clone()
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            PyValueError::new_err(format!("{field} is required for auth_method='{method}'"))
-        })
-}
-
-/// Reject negative millisecond fields (mirrors napi's
-/// `require_non_negative_duration`); `None` keeps the engine/SDK default.
-fn require_non_negative_ms(value: Option<i32>, field: &str) -> PyResult<()> {
-    match value {
-        Some(v) if v < 0 => Err(PyValueError::new_err(format!(
-            "{field} must be non-negative"
-        ))),
-        _ => Ok(()),
-    }
-}
-
-/// Reject negative TLS timeout fields (mirrors napi's
-/// `require_non_negative_timeout` wording).
-fn require_non_negative_tls_timeout(value: Option<i32>, field: &str) -> PyResult<()> {
-    match value {
-        Some(v) if v < 0 => Err(PyValueError::new_err(format!(
-            "{field} must be a non-negative integer number of milliseconds"
-        ))),
-        _ => Ok(()),
-    }
-}
-
-/// Reject out-of-range slow-consumer watermarks. `inclusive_high` matches
-/// napi: hi accepts 1.0, lo does not.
-fn require_watermark_range(value: Option<f32>, field: &str, inclusive_high: bool) -> PyResult<()> {
-    let Some(v) = value else {
-        return Ok(());
-    };
-    let in_range = if inclusive_high {
-        (0.0..=1.0).contains(&v)
-    } else {
-        (0.0..1.0).contains(&v)
-    };
-    if in_range {
-        Ok(())
-    } else {
-        let range = if inclusive_high {
-            "0.0..=1.0"
-        } else {
-            "0.0..1.0"
-        };
-        Err(PyValueError::new_err(format!("{field} must be in {range}")))
-    }
-}
-
-fn build_auth_config(py_config: &PyEngineConfig) -> PyResult<Option<AuthConfig>> {
-    let method = match py_config.auth_method.as_deref() {
-        None => {
-            if py_config.app_name.is_some()
-                || py_config.dir_property.is_some()
-                || py_config.user_id.is_some()
-                || py_config.ip_address.is_some()
-                || py_config.token.is_some()
-            {
-                return Err(PyValueError::new_err(
-                    "auth_method is required when auth-specific fields are provided",
-                ));
-            }
-            return Ok(None);
-        }
-        Some(method) => method.trim().to_ascii_lowercase(),
-    };
-
-    let auth = match method.as_str() {
-        "" | "none" => None,
-        "user" => Some(AuthConfig::User),
-        "app" => Some(AuthConfig::App {
-            app_name: require_auth_value(&py_config.app_name, "app_name", &method)?,
-        }),
-        "userapp" => Some(AuthConfig::UserApp {
-            app_name: require_auth_value(&py_config.app_name, "app_name", &method)?,
-        }),
-        "dir" | "directory" => Some(AuthConfig::Directory {
-            property_name: require_auth_value(&py_config.dir_property, "dir_property", &method)?,
-        }),
-        "manual" => Some(AuthConfig::Manual {
-            app_name: require_auth_value(&py_config.app_name, "app_name", &method)?,
-            user_id: require_auth_value(&py_config.user_id, "user_id", &method)?,
-            ip_address: require_auth_value(&py_config.ip_address, "ip_address", &method)?,
-        }),
-        "token" => Some(AuthConfig::Token {
-            token: require_auth_value(&py_config.token, "token", &method)?,
-        }),
-        other => {
-            return Err(PyValueError::new_err(format!(
-                "Invalid auth_method: {other}. Must be one of ['none', 'user', 'app', 'userapp', 'dir', 'directory', 'manual', 'token']",
-            )));
-        }
-    };
-
-    Ok(auth)
-}
-
 /// Expose `(host, port)` of the first server in the default `Transport::Direct`,
 /// so `PyEngineConfig`'s Python-visible defaults stay in lockstep with the
 /// Rust-side default.
@@ -1087,89 +666,6 @@ fn default_direct_host_port(defaults: &EngineConfig) -> (String, u16) {
             .map(|s| (s.host.clone(), s.port))
             .unwrap_or_else(|| ("localhost".to_string(), 8194)),
         Transport::Zfp(_) => ("localhost".to_string(), 8194),
-    }
-}
-
-fn resolve_transport(py: &PyEngineConfig) -> PyResult<Transport> {
-    let zfp = py
-        .zfp_remote
-        .as_deref()
-        .map(|s| s.parse::<xbbg_core::zfp::ZfpRemote>())
-        .transpose()
-        .map_err(PyValueError::new_err)?;
-
-    let socks5 = match (py.socks5_host.as_deref(), py.socks5_port) {
-        (Some(host), Some(port)) => Some(Socks5Proxy {
-            host: host.to_string(),
-            port,
-        }),
-        (Some(_), None) => {
-            return Err(PyValueError::new_err("socks5_host set without socks5_port"));
-        }
-        (None, Some(_)) => {
-            return Err(PyValueError::new_err("socks5_port set without socks5_host"));
-        }
-        (None, None) => None,
-    };
-
-    let explicit_servers = !py.servers.is_empty();
-    let explicit_hostport = py.host != "localhost" || py.port != 8194;
-
-    if let Some(remote) = zfp {
-        if explicit_servers || explicit_hostport {
-            return Err(PyValueError::new_err(
-                "zfp_remote cannot be combined with host/port/servers — \
-                 ZFP supplies Bloomberg endpoints via the leased-line path",
-            ));
-        }
-        if socks5.is_some() {
-            return Err(PyValueError::new_err(
-                "zfp_remote cannot be combined with socks5_host/socks5_port",
-            ));
-        }
-        return Ok(Transport::Zfp(remote));
-    }
-
-    let raw = if explicit_servers {
-        py.servers.clone()
-    } else {
-        vec![(py.host.clone(), py.port)]
-    };
-    let servers = raw
-        .into_iter()
-        .map(|(host, port)| ServerAddr {
-            host,
-            port,
-            proxy: socks5.clone(),
-        })
-        .collect();
-    Ok(Transport::Direct(servers))
-}
-
-fn resolve_tls(py: &PyEngineConfig) -> PyResult<Option<TlsConfig>> {
-    require_non_negative_tls_timeout(py.tls_handshake_timeout_ms, "tls_handshake_timeout_ms")?;
-    require_non_negative_tls_timeout(py.tls_crl_fetch_timeout_ms, "tls_crl_fetch_timeout_ms")?;
-    match (
-        py.tls_client_credentials.as_deref(),
-        py.tls_trust_material.as_deref(),
-    ) {
-        (None, None) => Ok(None),
-        (Some(creds), Some(trust)) => Ok(Some(TlsConfig {
-            client_credentials: creds.to_string(),
-            client_credentials_password: py
-                .tls_client_credentials_password
-                .clone()
-                .unwrap_or_default(),
-            trust_material: trust.to_string(),
-            handshake_timeout_ms: py.tls_handshake_timeout_ms,
-            crl_fetch_timeout_ms: py.tls_crl_fetch_timeout_ms,
-        })),
-        (Some(_), None) => Err(PyValueError::new_err(
-            "tls_client_credentials set without tls_trust_material",
-        )),
-        (None, Some(_)) => Err(PyValueError::new_err(
-            "tls_trust_material set without tls_client_credentials",
-        )),
     }
 }
 
@@ -1187,56 +683,9 @@ impl TryFrom<&PyEngineConfig> for EngineConfig {
             .parse()
             .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?;
 
-        if py_config.subscription_stream_capacity == 0 {
-            return Err(PyValueError::new_err(
-                "subscription_stream_capacity must be greater than zero",
-            ));
-        }
-        if py_config.subscription_flush_threshold == 0 {
-            return Err(PyValueError::new_err(
-                "subscription_flush_threshold must be greater than zero",
-            ));
-        }
-        if py_config.runtime_worker_threads == 0 {
-            return Err(PyValueError::new_err(
-                "runtime_worker_threads must be greater than zero",
-            ));
-        }
-        if py_config.max_subscription_sessions == 0 {
-            return Err(PyValueError::new_err(
-                "max_subscription_sessions must be greater than zero",
-            ));
-        }
-        if py_config.max_subscription_sessions < py_config.subscription_pool_size {
-            return Err(PyValueError::new_err(
-                "max_subscription_sessions must be greater than or equal to subscription_pool_size",
-            ));
-        }
-        require_non_negative_ms(
-            py_config.keep_alive_inactivity_ms,
-            "keep_alive_inactivity_ms",
-        )?;
-        require_non_negative_ms(
-            py_config.keep_alive_response_timeout_ms,
-            "keep_alive_response_timeout_ms",
-        )?;
-        require_watermark_range(
-            py_config.slow_consumer_hi_water_mark,
-            "slow_consumer_hi_water_mark",
-            true,
-        )?;
-        require_watermark_range(
-            py_config.slow_consumer_lo_water_mark,
-            "slow_consumer_lo_water_mark",
-            false,
-        )?;
-        let auth = build_auth_config(py_config)?;
-        let transport = resolve_transport(py_config)?;
-        let tls = resolve_tls(py_config)?;
-
-        Ok(EngineConfig {
-            transport,
-            tls,
+        let config = EngineConfig {
+            transport: Transport::Direct(Vec::new()),
+            tls: None,
             request_pool_size: py_config.request_pool_size,
             subscription_pool_size: py_config.subscription_pool_size,
             runtime_worker_threads: py_config.runtime_worker_threads,
@@ -1256,7 +705,8 @@ impl TryFrom<&PyEngineConfig> for EngineConfig {
                 .field_cache_path
                 .as_ref()
                 .map(std::path::PathBuf::from),
-            auth,
+            auth: None,
+            bql_app_name: py_config.bql_app_name.clone(),
             num_start_attempts: py_config.num_start_attempts,
             auto_restart_on_disconnection: py_config.auto_restart_on_disconnection,
             retry_policy: RetryPolicy {
@@ -1270,12 +720,53 @@ impl TryFrom<&PyEngineConfig> for EngineConfig {
             keep_alive_enabled: py_config.keep_alive_enabled,
             keep_alive_inactivity_ms: py_config.keep_alive_inactivity_ms,
             keep_alive_response_timeout_ms: py_config.keep_alive_response_timeout_ms,
-            slow_consumer_hi_water_mark: py_config.slow_consumer_hi_water_mark,
-            slow_consumer_lo_water_mark: py_config.slow_consumer_lo_water_mark,
+            slow_consumer_hi_water_mark: None,
+            slow_consumer_lo_water_mark: None,
             sdk_log_level: py_config
                 .sdk_log_level
                 .parse()
                 .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?,
+        };
+        xbbg_async::config::normalize(
+            config,
+            xbbg_async::config::ConfigInput {
+                auth: xbbg_async::config::AuthInput {
+                    method: py_config.auth_method.as_deref(),
+                    app_name: py_config.app_name.as_deref(),
+                    dir_property: py_config.dir_property.as_deref(),
+                    user_id: py_config.user_id.as_deref(),
+                    ip_address: py_config.ip_address.as_deref(),
+                    token: py_config.token.as_deref(),
+                },
+                tls: xbbg_async::config::TlsInput {
+                    client_credentials: py_config.tls_client_credentials.as_deref(),
+                    client_credentials_password: py_config
+                        .tls_client_credentials_password
+                        .as_deref(),
+                    trust_material: py_config.tls_trust_material.as_deref(),
+                    handshake_timeout_ms: py_config.tls_handshake_timeout_ms,
+                    crl_fetch_timeout_ms: py_config.tls_crl_fetch_timeout_ms,
+                },
+                transport: xbbg_async::config::TransportInput {
+                    host: &py_config.host,
+                    port: py_config.port,
+                    explicit_host_port: py_config.host != "localhost" || py_config.port != 8194,
+                    zfp_remote: py_config.zfp_remote.as_deref(),
+                    socks5_host: py_config.socks5_host.as_deref(),
+                    socks5_port: py_config.socks5_port,
+                },
+                slow_consumer_hi_water_mark: py_config.slow_consumer_hi_water_mark.map(f64::from),
+                slow_consumer_lo_water_mark: py_config.slow_consumer_lo_water_mark.map(f64::from),
+            },
+            py_config
+                .servers
+                .iter()
+                .map(|(host, port)| (host.as_str(), *port)),
+            |field| field,
+        )
+        .map_err(|error| match error {
+            BlpAsyncError::ConfigError { detail } => PyValueError::new_err(detail),
+            other => PyValueError::new_err(other.to_string()),
         })
     }
 }
@@ -1543,21 +1034,6 @@ impl PyEngine {
         })
     }
 
-    /// Invalidate exchange cache (one ticker or all entries).
-    #[pyo3(signature = (ticker=None))]
-    fn invalidate_exchange_cache(&self, ticker: Option<String>) -> PyResult<()> {
-        self.engine
-            .invalidate_exchange_cache(ticker.as_deref())
-            .map_err(PyRuntimeError::new_err)
-    }
-
-    /// Persist exchange cache to disk.
-    fn save_exchange_cache(&self, py: Python<'_>) -> PyResult<()> {
-        let engine = self.engine.clone();
-        py.detach(move || engine.save_exchange_cache())
-            .map_err(PyRuntimeError::new_err)
-    }
-
     // =========================================================================
     // Field Type Resolution API
     // =========================================================================
@@ -1609,13 +1085,6 @@ impl PyEngine {
             .map_err(PyRuntimeError::new_err)
     }
 
-    /// Save the field type cache to disk.
-    fn save_field_cache(&self, py: Python<'_>) -> PyResult<()> {
-        let engine = self.engine.clone();
-        py.detach(move || engine.save_field_cache())
-            .map_err(PyRuntimeError::new_err)
-    }
-
     /// Get field cache statistics including the active cache path.
     fn field_cache_stats(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let (entry_count, cache_path) = self.engine.field_cache_stats();
@@ -1623,31 +1092,6 @@ impl PyEngine {
         dict.set_item("entry_count", entry_count)?;
         dict.set_item("cache_path", cache_path.to_string_lossy().into_owned())?;
         Ok(dict.into())
-    }
-
-    /// Validate Bloomberg field names.
-    ///
-    /// Queries Bloomberg's field info service to check if the given fields exist.
-    /// Returns a list of invalid field names (fields that Bloomberg doesn't recognize).
-    ///
-    /// Example:
-    ///     invalid = await engine.validate_fields(["PX_LAST", "INVALID_FIELD"])
-    ///     # invalid = ["INVALID_FIELD"]
-    fn validate_fields<'py>(
-        &self,
-        py: Python<'py>,
-        fields: Vec<String>,
-    ) -> PyResult<Bound<'py, PyAny>> {
-        let engine = self.engine.clone();
-
-        shutdown_safe_future(py, async move {
-            let invalid = engine
-                .validate_fields(&fields)
-                .await
-                .map_err(blp_async_error_to_pyerr)?;
-
-            Python::attach(|py| Ok(invalid.into_pyobject(py)?.into_any().unbind()))
-        })
     }
 
     // =========================================================================
@@ -1721,15 +1165,6 @@ impl PyEngine {
                 Ok(list.into_any().unbind())
             })
         })
-    }
-
-    /// Get cached schema without introspection.
-    ///
-    /// Returns None if the schema is not cached.
-    fn get_cached_schema(&self, service: &str) -> Option<String> {
-        self.engine
-            .get_cached_schema(service)
-            .and_then(|s| serde_json::to_string(&*s).ok())
     }
 
     /// Invalidate a cached schema.
@@ -1904,11 +1339,7 @@ impl PyEngine {
             // Keep iteration and control on separate locks.
             let (rx, handle) = stream.into_parts();
 
-            let (close_signal, _) = watch::channel(false);
-
             let py_sub = PySubscription {
-                rx: Arc::new(Mutex::new(Some(rx))),
-                pending: Arc::new(StdMutex::new(VecDeque::new())),
                 arrow_batcher: Arc::new(StdMutex::new(SubscriptionArrowBatcher::with_capacity(
                     subscription_batch_capacity_hint(batch_items),
                 ))),
@@ -1917,12 +1348,10 @@ impl PyEngine {
                 status: handle.status(),
                 deliver_rows: handle.delivers_rows(),
                 overflow_policy: handle.overflow_policy(),
-                stream: Arc::new(Mutex::new(Some(handle))),
-                ops: Arc::new(Mutex::new(())),
-                close_signal,
+                consumer: Arc::new(SubscriptionConsumer::new(rx, handle)),
                 engine_shutdown: engine.shutdown_receiver(),
             };
-            Python::attach(move |py| Ok(Py::new(py, py_sub)?.into_any()))
+            py_sub.into_python().await
         })
     }
 
@@ -2028,11 +1457,7 @@ impl PyEngine {
 
             let (rx, handle) = stream.into_parts();
 
-            let (close_signal, _) = watch::channel(false);
-
             let py_sub = PySubscription {
-                rx: Arc::new(Mutex::new(Some(rx))),
-                pending: Arc::new(StdMutex::new(VecDeque::new())),
                 arrow_batcher: Arc::new(StdMutex::new(SubscriptionArrowBatcher::with_capacity(
                     subscription_batch_capacity_hint(batch_items),
                 ))),
@@ -2041,12 +1466,10 @@ impl PyEngine {
                 status: handle.status(),
                 deliver_rows: handle.delivers_rows(),
                 overflow_policy: handle.overflow_policy(),
-                stream: Arc::new(Mutex::new(Some(handle))),
-                ops: Arc::new(Mutex::new(())),
-                close_signal,
+                consumer: Arc::new(SubscriptionConsumer::new(rx, handle)),
                 engine_shutdown: engine.shutdown_receiver(),
             };
-            Python::attach(move |py| Ok(Py::new(py, py_sub)?.into_any()))
+            py_sub.into_python().await
         })
     }
 
@@ -2150,10 +1573,7 @@ impl PyEngine {
 #[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass]
 pub struct PySubscription {
-    /// Receiver for incoming data - separate lock so iteration doesn't block add/remove
-    rx: SharedStreamReceiver,
-    /// Updates deferred by a layout boundary or alternate consumer.
-    pending: SharedPendingStreamItems,
+    consumer: Arc<SubscriptionConsumer>,
     /// Batcher retaining schema/layout/capacity hints; builders are recreated after finish.
     arrow_batcher: Arc<StdMutex<SubscriptionArrowBatcher>>,
     /// Completed batches deferred across layout boundaries.
@@ -2166,12 +1586,6 @@ pub struct PySubscription {
     deliver_rows: bool,
     /// Effective policy is immutable and remains diagnostic after unsubscribe.
     overflow_policy: OverflowPolicy,
-    /// Stream handle for metadata and modification operations
-    stream: Arc<Mutex<Option<SubscriptionHandle>>>,
-    /// Serializes add/remove/unsubscribe without holding the stream lock across await.
-    ops: Arc<Mutex<()>>,
-    /// Signal used to wake pending iteration during unsubscribe/close.
-    close_signal: watch::Sender<bool>,
     /// Engine shutdown is not iteration EOF; this only prevents close commands
     /// from being sent after global engine teardown has already cleaned up.
     engine_shutdown: watch::Receiver<bool>,
@@ -2200,9 +1614,13 @@ struct SubscriptionSnapshot {
 }
 
 impl PySubscription {
+    async fn into_python(self) -> PyResult<Py<PyAny>> {
+        try_attach_or_suspend(move |py| Ok(Py::new(py, self)?.into_any())).await
+    }
+
     fn snapshot_from_stream(&self) -> SubscriptionSnapshot {
-        let guard = self.stream.blocking_lock();
-        let handle = guard.as_ref();
+        let control = self.consumer.handle();
+        let handle = control.as_ref();
         let snapshot = self.status.load();
         let (
             messages_received,
@@ -2279,12 +1697,12 @@ impl PySubscription {
     /// Raises RuntimeError for rows=False; use latest() for image-only consumers.
     fn __anext__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.ensure_rows()?;
-        let rx = self.rx.clone();
-        let pending = self.pending.clone();
+        let rx = self.consumer.rx.clone();
+        let pending = self.consumer.pending.clone();
         let arrow_batcher = self.arrow_batcher.clone();
         let arrow_ready = self.arrow_ready.clone();
         let batch_items = self.batch_items;
-        let close_signal = self.close_signal.clone();
+        let close_signal = self.consumer.close_signal.clone();
 
         shutdown_safe_future(py, async move {
             let mut close_rx = close_signal.subscribe();
@@ -2354,9 +1772,9 @@ impl PySubscription {
     /// Raises RuntimeError for rows=False; use latest() for image-only consumers.
     fn __anext_tick_dict__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.ensure_rows()?;
-        let rx = self.rx.clone();
-        let pending = self.pending.clone();
-        let close_signal = self.close_signal.clone();
+        let rx = self.consumer.rx.clone();
+        let pending = self.consumer.pending.clone();
+        let close_signal = self.consumer.close_signal.clone();
 
         shutdown_safe_future(py, async move {
             let mut close_rx = close_signal.subscribe();
@@ -2393,9 +1811,9 @@ impl PySubscription {
         tickers: Vec<String>,
         aliases: Option<HashMap<String, String>>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let stream = self.stream.clone();
-        let ops = self.ops.clone();
-        let close_signal = self.close_signal.clone();
+        let consumer = self.consumer.clone();
+        let ops = self.consumer.operations.clone();
+        let close_signal = self.consumer.close_signal.clone();
 
         debug!(tickers = ?tickers, "PySubscription: adding tickers");
 
@@ -2405,13 +1823,9 @@ impl PySubscription {
                 return Err(PyRuntimeError::new_err("subscription closed"));
             }
 
-            let handle = {
-                let guard = stream.lock().await;
-                let handle = guard
-                    .as_ref()
-                    .ok_or_else(|| PyRuntimeError::new_err("subscription closed"))?;
-                handle.clone()
-            };
+            let handle = consumer
+                .handle()
+                .ok_or_else(|| PyRuntimeError::new_err("subscription closed"))?;
 
             handle
                 .add(tickers, aliases.unwrap_or_default().into_iter().collect())
@@ -2425,9 +1839,9 @@ impl PySubscription {
     /// Add fields to this consumer's projection and expand its upstream feeds.
     #[pyo3(signature = (fields))]
     fn add_fields<'py>(&self, py: Python<'py>, fields: Vec<String>) -> PyResult<Bound<'py, PyAny>> {
-        let stream = self.stream.clone();
-        let ops = self.ops.clone();
-        let close_signal = self.close_signal.clone();
+        let consumer = self.consumer.clone();
+        let ops = self.consumer.operations.clone();
+        let close_signal = self.consumer.close_signal.clone();
 
         shutdown_safe_future(py, async move {
             let _op_guard = ops.lock().await;
@@ -2435,13 +1849,9 @@ impl PySubscription {
                 return Err(PyRuntimeError::new_err("subscription closed"));
             }
 
-            let handle = {
-                let guard = stream.lock().await;
-                let handle = guard
-                    .as_ref()
-                    .ok_or_else(|| PyRuntimeError::new_err("subscription closed"))?;
-                handle.clone()
-            };
+            let handle = consumer
+                .handle()
+                .ok_or_else(|| PyRuntimeError::new_err("subscription closed"))?;
 
             handle
                 .add_fields(fields)
@@ -2455,9 +1865,9 @@ impl PySubscription {
     /// Iteration can continue while Bloomberg work is in flight.
     #[pyo3(signature = (tickers))]
     fn remove<'py>(&self, py: Python<'py>, tickers: Vec<String>) -> PyResult<Bound<'py, PyAny>> {
-        let stream = self.stream.clone();
-        let ops = self.ops.clone();
-        let close_signal = self.close_signal.clone();
+        let consumer = self.consumer.clone();
+        let ops = self.consumer.operations.clone();
+        let close_signal = self.consumer.close_signal.clone();
 
         debug!(tickers = ?tickers, "PySubscription: removing tickers");
 
@@ -2467,13 +1877,9 @@ impl PySubscription {
                 return Err(PyRuntimeError::new_err("subscription closed"));
             }
 
-            let handle = {
-                let guard = stream.lock().await;
-                let handle = guard
-                    .as_ref()
-                    .ok_or_else(|| PyRuntimeError::new_err("subscription closed"))?;
-                handle.clone()
-            };
+            let handle = consumer
+                .handle()
+                .ok_or_else(|| PyRuntimeError::new_err("subscription closed"))?;
 
             handle
                 .remove(tickers)
@@ -2490,8 +1896,13 @@ impl PySubscription {
     fn latest(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let batch = py
             .detach(|| {
-                let guard = self.stream.blocking_lock();
-                guard.as_ref().ok_or(BlpAsyncError::ChannelClosed)?.latest()
+                if self.consumer.is_closed() {
+                    return Err(BlpAsyncError::ChannelClosed);
+                }
+                self.consumer
+                    .handle()
+                    .ok_or(BlpAsyncError::ChannelClosed)?
+                    .latest()
             })
             .map_err(subscription_control_error_to_pyerr)?;
         native_arrow::record_batch_to_arrow_record_batch(py, batch)
@@ -2544,7 +1955,7 @@ impl PySubscription {
     /// Check if the subscription is still active.
     #[getter]
     fn is_active(&self, py: Python<'_>) -> bool {
-        !*self.close_signal.subscribe().borrow() && self.snapshot(py).is_active
+        !*self.consumer.close_signal.subscribe().borrow() && self.snapshot(py).is_active
     }
 
     #[getter]
@@ -2690,102 +2101,36 @@ impl PySubscription {
         drain: bool,
         tick_mode: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let stream_arc = self.stream.clone();
-        let rx_arc = self.rx.clone();
-        let pending = self.pending.clone();
+        let consumer = self.consumer.clone();
         let arrow_batcher = self.arrow_batcher.clone();
         let arrow_ready = self.arrow_ready.clone();
         let batch_items = self.batch_items;
-        let ops = self.ops.clone();
-        let close_signal = self.close_signal.clone();
         let engine_shutdown = self.engine_shutdown.clone();
 
         debug!(drain, tick_mode, "PySubscription: unsubscribing");
 
         shutdown_safe_future(py, async move {
-            // Wake an in-flight read before waiting behind a subscription mutation.
-            // The watch value is monotonic, so a read cannot miss this close.
-            close_signal.send_replace(true);
-            let _op_guard = ops.lock().await;
-
-            // Retain the owning handle and receiver across close awaits so
-            // cancellation leaves a later close able to resume cleanup.
-            let mut stream_guard = stream_arc.lock().await;
-            let unsubscribe_result = if let Some(handle) = stream_guard.as_ref() {
-                handle.unsubscribe().await.map_err(blp_async_error_to_pyerr)
-            } else {
-                Ok(())
-            };
-
-            let engine_is_shutting_down = *engine_shutdown.borrow();
-            let mut cleanup_error = if engine_is_shutting_down {
-                None
-            } else {
-                unsubscribe_result.err()
-            };
-
-            // Drain accepted forwarding work before releasing the handle,
-            // including terminal publication during global teardown.
-            if drain {
-                if let Some(handle) = stream_guard.as_ref() {
-                    let mut rx_guard = rx_arc.lock().await;
-                    let forwarder_result = match rx_guard.as_mut() {
-                        Some(rx) => {
-                            drain_forwarder_into_pending(handle, rx, pending.as_ref()).await
-                        }
-                        None => handle.drain_forwarder().await.map_err(Box::new),
-                    };
-                    if cleanup_error.is_none() && !*engine_shutdown.borrow() {
-                        cleanup_error = forwarder_result
-                            .err()
-                            .map(|error| blp_async_error_to_pyerr(*error));
-                    }
-                }
-            }
-
-            // Keep ownership in the shared handle until every await completes.
-            let mut rx_guard = rx_arc.lock().await;
-            if let Some(rx) = rx_guard.as_mut() {
-                // Preserve accepted updates and errors while preventing new delivery.
-                rx.close();
-            }
-            stream_guard.take();
-            drop(stream_guard);
-            let rx = rx_guard.take();
-            drop(rx_guard);
+            let (_operation, remaining) = consumer.unsubscribe(drain, Some(&engine_shutdown)).await;
 
             if !drain {
-                pending
-                    .lock()
-                    .expect("subscription pending queue poisoned")
-                    .clear();
                 arrow_ready
                     .lock()
                     .expect("subscription Arrow output queue poisoned")
                     .clear();
-                if let Some(error) = cleanup_error {
-                    return Err(error);
-                }
+                remaining.map_err(|error| blp_async_error_to_pyerr(*error))?;
                 return try_attach_or_suspend(|py| Ok(py.None())).await;
             }
 
-            let remaining = match collect_drained_stream_items(pending.as_ref(), rx) {
+            let remaining = match remaining {
                 Ok(remaining) => remaining,
                 Err(error) => {
                     arrow_ready
                         .lock()
                         .expect("subscription Arrow output queue poisoned")
                         .clear();
-                    return Err(blp_error_to_pyerr(*error));
+                    return Err(blp_async_error_to_pyerr(*error));
                 }
             };
-            if let Some(error) = cleanup_error {
-                arrow_ready
-                    .lock()
-                    .expect("subscription Arrow output queue poisoned")
-                    .clear();
-                return Err(error);
-            }
             if tick_mode {
                 // Dict mode never round-trips through Arrow: sparse update
                 // presence is preserved directly from the native stream.
@@ -2819,10 +2164,10 @@ impl PySubscription {
                     if let Some(batch) = batcher.append(&update) {
                         batches.push(batch);
                     }
-                    if batcher.rows() == batch_items {
-                        if let Some(batch) = batcher.flush() {
-                            batches.push(batch);
-                        }
+                    if batcher.rows() == batch_items
+                        && let Some(batch) = batcher.flush()
+                    {
+                        batches.push(batch);
                     }
                 }
                 if let Some(batch) = batcher.flush() {
@@ -3137,13 +2482,16 @@ define_stub_info_gatherer!(stub_info);
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, AtomicU64};
+    use tokio::sync::Mutex;
     use xbbg_async::engine::state::{
-        subscription_channel, FieldKind, FieldLayout, FieldMeta, UpdateField,
+        FieldKind, FieldLayout, FieldMeta, UpdateField, subscription_channel,
     };
     use xbbg_async::engine::{
         ExtractorType, SubscriptionEventCategory, SubscriptionEventLevel, SubscriptionStatusHandle,
         SubscriptionStatusState,
     };
+    use xbbg_async::subscription_consumer::PendingUpdates;
+    use xbbg_core::AuthConfig;
 
     fn metrics(
         messages_received: u64,
@@ -3181,8 +2529,7 @@ mod tests {
 
     fn closed_subscription(deliver_rows: bool) -> PySubscription {
         PySubscription {
-            rx: Arc::new(Mutex::new(None)),
-            pending: Arc::new(StdMutex::new(VecDeque::new())),
+            consumer: Arc::new(SubscriptionConsumer::default()),
             arrow_batcher: Arc::new(StdMutex::new(SubscriptionArrowBatcher::with_capacity(1))),
             arrow_ready: Arc::new(StdMutex::new(VecDeque::new())),
             batch_items: 1,
@@ -3191,9 +2538,6 @@ mod tests {
             )),
             deliver_rows,
             overflow_policy: OverflowPolicy::DropNewest,
-            stream: Arc::new(Mutex::new(None)),
-            ops: Arc::new(Mutex::new(())),
-            close_signal: watch::channel(true).0,
             engine_shutdown: watch::channel(false).1,
         }
     }
@@ -3248,11 +2592,13 @@ mod tests {
         Python::attach(|py| {
             let subscription = Py::new(py, closed_subscription(false)).unwrap();
             let subscription = subscription.bind(py);
-            assert!(!subscription
-                .getattr("delivers_rows")
-                .unwrap()
-                .extract::<bool>()
-                .unwrap());
+            assert!(
+                !subscription
+                    .getattr("delivers_rows")
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap()
+            );
             for method in ["__aiter__", "__anext__", "__anext_tick_dict__"] {
                 let error = subscription
                     .call_method0(method)
@@ -3323,10 +2669,132 @@ mod tests {
                 detail: "session_wait: subscription session capacity is unavailable".into(),
             });
             assert!(error.is_instance_of::<BlpValidationError>(py));
-            assert!(error
-                .value(py)
-                .to_string()
-                .starts_with("Configuration error: session_wait:"));
+            assert!(
+                error
+                    .value(py)
+                    .to_string()
+                    .starts_with("Configuration error: session_wait:")
+            );
+        });
+    }
+
+    #[test]
+    fn core_error_adapters_preserve_python_classes_and_messages() {
+        Python::initialize();
+        Python::attach(|py| {
+            for wrapped in [false, true] {
+                for (error, class, message) in [
+                    (
+                        BlpError::SessionStart {
+                            source: Some(Box::new(std::io::Error::other("synthetic cause"))),
+                            label: Some("unavailable".into()),
+                        },
+                        "BlpSessionError",
+                        "Session start failed: unavailable - synthetic cause",
+                    ),
+                    (
+                        BlpError::SubscriptionFailure {
+                            cid: None,
+                            label: None,
+                        },
+                        "BlpRequestError",
+                        "Subscription failed",
+                    ),
+                    (
+                        BlpError::RequestFailure {
+                            service: "//blp/refdata".into(),
+                            operation: Some("ReferenceDataRequest".into()),
+                            cid: Some(xbbg_core::errors::CorrelationContext::U64(42)),
+                            label: Some("subcategory=DAILY_CAPACITY_REACHED".into()),
+                            request_id: Some("synthetic-request".into()),
+                            source: Some(Box::new(std::io::Error::other("synthetic cause"))),
+                        },
+                        "BlpLimitError",
+                        "Request failed on //blp/refdata::ReferenceDataRequest (cid=42) [request_id=synthetic-request] - subcategory=DAILY_CAPACITY_REACHED: synthetic cause",
+                    ),
+                    (BlpError::Timeout, "BlpTimeoutError", "Request timed out"),
+                    (
+                        BlpError::Internal {
+                            detail: "session connection dropped (worker=2)".into(),
+                        },
+                        "BlpInternalError",
+                        "Internal error: session connection dropped (worker=2)",
+                    ),
+                    (
+                        BlpError::SchemaTypeMismatch {
+                            element: "fields".into(),
+                            expected: "String".into(),
+                            found: "Int32".into(),
+                        },
+                        "BlpValidationError",
+                        "Schema type mismatch at fields: expected \"String\", found \"Int32\"",
+                    ),
+                    (
+                        BlpError::Validation {
+                            message: "invalid request".into(),
+                            errors: vec![xbbg_core::errors::ValidationError {
+                                path: "fields[0]".into(),
+                                message: "unknown field".into(),
+                                suggestion: Some("PX_LAST".into()),
+                            }],
+                        },
+                        "BlpValidationError",
+                        "invalid request: fields[0]: unknown field (did you mean 'PX_LAST'?)",
+                    ),
+                    (
+                        BlpError::SubscriptionDataLoss {
+                            topic: "SYNTHETIC Equity".into(),
+                            detail: "synthetic overflow".into(),
+                        },
+                        "BlpSubscriptionDataLossError",
+                        "Subscription data loss for 'SYNTHETIC Equity': synthetic overflow",
+                    ),
+                ] {
+                    let error = if wrapped {
+                        blp_async_error_to_pyerr(error.into())
+                    } else {
+                        blp_error_to_pyerr(error)
+                    };
+                    assert!(error.is_instance_of::<BlpErrorBase>(py));
+                    assert_eq!(error.get_type(py).name().unwrap().to_str().unwrap(), class);
+                    assert_eq!(error.value(py).to_string(), message);
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn async_error_adapter_preserves_python_engine_exception_types() {
+        Python::initialize();
+        Python::attach(|py| {
+            for (error, class, message) in [
+                (
+                    BlpAsyncError::AllWorkersDown { pool_size: 2 },
+                    "BlpSessionError",
+                    "all 2 request workers are dead — no healthy worker available",
+                ),
+                (
+                    BlpAsyncError::ChannelClosed,
+                    "BlpInternalError",
+                    "Channel closed unexpectedly",
+                ),
+                (
+                    BlpAsyncError::Internal("synthetic failure".into()),
+                    "BlpInternalError",
+                    "synthetic failure",
+                ),
+                (
+                    BlpAsyncError::ConfigError {
+                        detail: "synthetic config failure".into(),
+                    },
+                    "BlpValidationError",
+                    "Configuration error: synthetic config failure",
+                ),
+            ] {
+                let error = blp_async_error_to_pyerr(error);
+                assert_eq!(error.get_type(py).name().unwrap().to_str().unwrap(), class);
+                assert_eq!(error.value(py).to_string(), message);
+            }
         });
     }
 
@@ -3337,7 +2805,7 @@ mod tests {
             let closed = subscription_control_error_to_pyerr(BlpAsyncError::ChannelClosed);
             assert!(closed.is_instance_of::<PyRuntimeError>(py));
 
-            let timeout = subscription_control_error_to_pyerr(BlpAsyncError::Timeout);
+            let timeout = subscription_control_error_to_pyerr(BlpError::Timeout.into());
             assert!(timeout.is_instance_of::<BlpTimeoutError>(py));
         });
     }
@@ -3354,6 +2822,51 @@ mod tests {
         assert_eq!(config.shard_max_concurrent, 4);
         assert_eq!(config.runtime_worker_threads, 2);
         assert_eq!(config.max_subscription_sessions, 32);
+    }
+
+    #[test]
+    fn py_engine_config_keeps_bql_app_name_independent_from_auth() {
+        Python::initialize();
+        Python::attach(|py| {
+            let kwargs = PyDict::new(py);
+            kwargs
+                .set_item("bql_app_name", "example-bql-app")
+                .expect("bql_app_name");
+
+            let config = PyEngineConfig::new(Some(&kwargs)).expect("BQL engine config");
+            let engine_config =
+                EngineConfig::try_from(&config).expect("BQL default does not require auth");
+            assert_eq!(
+                engine_config.bql_app_name.as_deref(),
+                Some("example-bql-app")
+            );
+            assert_eq!(engine_config.auth, None);
+
+            let auth_kwargs = PyDict::new(py);
+            auth_kwargs
+                .set_item("app_name", "example-auth-app")
+                .expect("app_name");
+            let auth_config = PyEngineConfig::new(Some(&auth_kwargs)).expect("partial auth config");
+            let auth_error = EngineConfig::try_from(&auth_config)
+                .err()
+                .expect("auth app_name without auth_method should fail");
+            assert!(auth_error.to_string().contains("auth_method is required"));
+
+            let blank_kwargs = PyDict::new(py);
+            blank_kwargs
+                .set_item("bql_app_name", " \t")
+                .expect("blank bql_app_name");
+            let blank_config =
+                PyEngineConfig::new(Some(&blank_kwargs)).expect("blank BQL engine config");
+            let blank_error = EngineConfig::try_from(&blank_config)
+                .err()
+                .expect("blank BQL app name should fail shared validation");
+            assert!(
+                blank_error
+                    .to_string()
+                    .contains("bql_app_name must be non-empty")
+            );
+        });
     }
 
     #[test]
@@ -3452,6 +2965,17 @@ mod tests {
             .err()
             .expect("subscription prewarm above session cap should fail");
         assert!(err.to_string().contains("max_subscription_sessions"));
+
+        config.max_subscription_sessions = 32;
+        config.request_pool_size = 0;
+        let err = EngineConfig::try_from(&config)
+            .err()
+            .expect("zero request pool should fail during conversion");
+        assert!(err.to_string().contains("request_pool_size"));
+
+        config.request_pool_size = 2;
+        config.subscription_pool_size = 0;
+        assert!(EngineConfig::try_from(&config).is_ok());
     }
 
     #[test]
@@ -3462,9 +2986,10 @@ mod tests {
             Ok(_) => panic!("zero capacity should fail"),
             Err(err) => err,
         };
-        assert!(err
-            .to_string()
-            .contains("subscription_stream_capacity must be greater than zero"));
+        assert!(
+            err.to_string()
+                .contains("subscription_stream_capacity must be greater than zero")
+        );
     }
 
     #[test]
@@ -3485,9 +3010,10 @@ mod tests {
             Ok(_) => panic!("negative keep-alive should fail"),
             Err(err) => err,
         };
-        assert!(err
-            .to_string()
-            .contains("keep_alive_inactivity_ms must be non-negative"));
+        assert!(
+            err.to_string()
+                .contains("keep_alive_inactivity_ms must be non-negative")
+        );
     }
 
     #[test]
@@ -3498,9 +3024,10 @@ mod tests {
             Ok(_) => panic!("hi watermark above 1.0 should fail"),
             Err(err) => err,
         };
-        assert!(err
-            .to_string()
-            .contains("slow_consumer_hi_water_mark must be in 0.0..=1.0"));
+        assert!(
+            err.to_string()
+                .contains("slow_consumer_hi_water_mark must be in 0.0..=1.0")
+        );
 
         // The hi watermark accepts exactly 1.0; the lo watermark is half-open
         // and rejects it (mirrors napi).
@@ -3511,31 +3038,45 @@ mod tests {
             Ok(_) => panic!("lo watermark of 1.0 should fail"),
             Err(err) => err,
         };
-        assert!(err
-            .to_string()
-            .contains("slow_consumer_lo_water_mark must be in 0.0..1.0"));
+        assert!(
+            err.to_string()
+                .contains("slow_consumer_lo_water_mark must be in 0.0..1.0")
+        );
     }
 
     #[test]
     fn py_engine_config_rejects_negative_tls_timeouts() {
-        let mut config = PyEngineConfig::new(None).expect("default config");
-        config.tls_handshake_timeout_ms = Some(-5);
-        let err = match EngineConfig::try_from(&config) {
-            Ok(_) => panic!("negative tls timeout should fail"),
-            Err(err) => err,
-        };
-        assert!(err.to_string().contains(
-            "tls_handshake_timeout_ms must be a non-negative integer number of milliseconds"
-        ));
+        for with_material in [false, true] {
+            for (handshake, crl, field) in [
+                (Some(-5), None, "tls_handshake_timeout_ms"),
+                (None, Some(-5), "tls_crl_fetch_timeout_ms"),
+            ] {
+                let mut config = PyEngineConfig::new(None).expect("default config");
+                if with_material {
+                    config.tls_client_credentials = Some("fixtures/client.p12".to_string());
+                    config.tls_trust_material = Some("fixtures/trust.p7".to_string());
+                }
+                config.tls_handshake_timeout_ms = handshake;
+                config.tls_crl_fetch_timeout_ms = crl;
+                let err = EngineConfig::try_from(&config)
+                    .err()
+                    .expect("negative TLS timeout should fail");
+                assert!(err.to_string().contains(&format!(
+                    "{field} must be a non-negative integer number of milliseconds"
+                )));
+            }
+        }
     }
 
     #[test]
-    fn build_auth_config_accepts_directory_alias() {
+    fn py_engine_config_accepts_directory_alias() {
         let mut config = PyEngineConfig::new(None).expect("default config");
         config.auth_method = Some("directory".to_string());
         config.dir_property = Some("mail".to_string());
         assert_eq!(
-            build_auth_config(&config).expect("directory auth"),
+            EngineConfig::try_from(&config)
+                .expect("directory auth")
+                .auth,
             Some(AuthConfig::Directory {
                 property_name: "mail".to_string(),
             })
@@ -3543,19 +3084,19 @@ mod tests {
     }
 
     #[test]
-    fn build_auth_config_supports_all_auth_methods() {
+    fn py_engine_config_supports_all_auth_methods() {
         let mut config = PyEngineConfig::new(None).expect("default config");
 
         config.auth_method = Some("user".to_string());
         assert_eq!(
-            build_auth_config(&config).expect("user auth"),
+            EngineConfig::try_from(&config).expect("user auth").auth,
             Some(AuthConfig::User)
         );
 
         config.auth_method = Some("app".to_string());
         config.app_name = Some("app-name".to_string());
         assert_eq!(
-            build_auth_config(&config).expect("app auth"),
+            EngineConfig::try_from(&config).expect("app auth").auth,
             Some(AuthConfig::App {
                 app_name: "app-name".to_string(),
             })
@@ -3563,30 +3104,78 @@ mod tests {
 
         config.auth_method = Some("userapp".to_string());
         assert_eq!(
-            build_auth_config(&config).expect("userapp auth"),
+            EngineConfig::try_from(&config).expect("userapp auth").auth,
             Some(AuthConfig::UserApp {
                 app_name: "app-name".to_string(),
             })
         );
 
         config.auth_method = Some("dir".to_string());
-        config.dir_property = Some("mail=jane@example.com".to_string());
+        config.dir_property = Some("synthetic-property".to_string());
         assert_eq!(
-            build_auth_config(&config).expect("dir auth"),
+            EngineConfig::try_from(&config).expect("dir auth").auth,
             Some(AuthConfig::Directory {
-                property_name: "mail=jane@example.com".to_string(),
+                property_name: "synthetic-property".to_string(),
             })
         );
 
         config.auth_method = Some("token".to_string());
         config.token = Some("tok-123".to_string());
         assert_eq!(
-            build_auth_config(&config).expect("token auth"),
+            EngineConfig::try_from(&config).expect("token auth").auth,
             Some(AuthConfig::Token {
                 token: "tok-123".to_string(),
             })
         );
     }
+
+    #[test]
+    fn py_engine_config_preserves_tls_pair_and_transport_error_labels() {
+        let mut config = PyEngineConfig::new(None).expect("default config");
+        config.tls_client_credentials = Some("fixtures/client.p12".to_string());
+        let err = EngineConfig::try_from(&config).err().expect("unpaired TLS");
+        assert!(
+            err.to_string()
+                .contains("tls_client_credentials set without tls_trust_material")
+        );
+
+        config.tls_client_credentials = None;
+        config.tls_trust_material = Some("fixtures/trust.p7".to_string());
+        let err = EngineConfig::try_from(&config).err().expect("unpaired TLS");
+        assert!(
+            err.to_string()
+                .contains("tls_trust_material set without tls_client_credentials")
+        );
+
+        config.tls_client_credentials = Some("fixtures/client.p12".to_string());
+        config.zfp_remote = Some("8194".to_string());
+        assert!(matches!(
+            EngineConfig::try_from(&config)
+                .expect("ZFP config")
+                .transport,
+            Transport::Zfp(_)
+        ));
+        config.host = "synthetic.invalid".to_string();
+        let err = EngineConfig::try_from(&config)
+            .err()
+            .expect("ZFP plus host");
+        assert!(
+            err.to_string()
+                .contains("zfp_remote cannot be combined with host/port/servers")
+        );
+
+        config.host = "localhost".to_string();
+        config.socks5_host = Some("proxy.invalid".to_string());
+        config.socks5_port = Some(1080);
+        let err = EngineConfig::try_from(&config)
+            .err()
+            .expect("ZFP plus SOCKS5");
+        assert!(
+            err.to_string()
+                .contains("zfp_remote cannot be combined with socks5_host/socks5_port")
+        );
+    }
+
     #[test]
     fn core_module_registration_exposes_public_names() {
         Python::initialize();
@@ -3636,6 +3225,10 @@ mod tests {
 
             assert!(error.is_instance_of::<BlpSubscriptionDataLossError>(py));
             let value = error.value(py);
+            assert_eq!(
+                value.to_string(),
+                "Subscription data loss for 'IBM US Equity': consumer queue overflow",
+            );
             assert_eq!(
                 value
                     .getattr("topic")
@@ -3702,6 +3295,7 @@ mod tests {
             dict.set_item("include_security_errors", true)
                 .expect("include_security_errors");
             dict.set_item("return_eids", true).expect("return_eids");
+            dict.set_item("on_delayed", "Raise").expect("on_delayed");
             dict.set_item("validate_fields", false)
                 .expect("validate_fields");
             dict.set_item("search_spec", "price").expect("search_spec");
@@ -3769,6 +3363,7 @@ mod tests {
             );
             assert!(params.include_security_errors);
             assert!(params.return_eids);
+            assert_eq!(params.on_delayed, Some(DelayedPolicy::Raise));
             assert_eq!(params.validate_fields, Some(false));
             assert_eq!(params.search_spec.as_deref(), Some("price"));
             assert_eq!(
@@ -3800,9 +3395,11 @@ mod tests {
             let value = timestamp_micros_to_py(py, 1_704_067_200_123_456).expect("timestamp");
             let dt = value.bind(py);
             let tzinfo = dt.getattr("tzinfo").expect("tzinfo");
-            assert!(tzinfo
-                .eq(PyTzInfo::utc(py).expect("utc"))
-                .expect("tz equality"));
+            assert!(
+                tzinfo
+                    .eq(PyTzInfo::utc(py).expect("utc"))
+                    .expect("tz equality")
+            );
         });
     }
     #[test]
@@ -3825,11 +3422,12 @@ mod tests {
             let value = subscription_update_to_pydict(py, update).expect("tick dict");
             let dict = value.bind(py).cast::<PyDict>().expect("dict");
             assert!(dict.contains("PX_LAST").expect("present field"));
-            assert!(dict
-                .get_item("PX_LAST")
-                .expect("lookup")
-                .expect("present value")
-                .is_none());
+            assert!(
+                dict.get_item("PX_LAST")
+                    .expect("lookup")
+                    .expect("present value")
+                    .is_none()
+            );
             assert!(!dict.contains("BID").expect("absent field"));
         });
     }
@@ -3845,7 +3443,7 @@ mod tests {
             tx.send(Ok(subscription_update(10))).await.expect("first");
             tx.send(Ok(subscription_update(20))).await.expect("second");
             tx.send(Ok(subscription_update(30))).await.expect("third");
-            let pending = StdMutex::new(VecDeque::new());
+            let pending = PendingUpdates::default();
             let (_close_tx, mut close_rx) = watch::channel(false);
 
             let first = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 1).await;
@@ -3891,7 +3489,7 @@ mod tests {
             tx.send(Ok(subscription_update_with_layout(second_layout, 20)))
                 .await
                 .expect("second");
-            let pending = StdMutex::new(VecDeque::new());
+            let pending = PendingUpdates::default();
             let (_close_tx, mut close_rx) = watch::channel(false);
 
             let first = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2).await;
@@ -3919,7 +3517,8 @@ mod tests {
             detail: "consumer queue overflow".to_string(),
         });
 
-        let error = collect_drained_stream_items(&StdMutex::new(VecDeque::new()), Some(rx))
+        let error = PendingUpdates::default()
+            .collect_unread(Some(rx), true)
             .expect_err("unread stream failure must reject the drain");
         match *error {
             BlpError::SubscriptionDataLoss { topic, detail } => {
@@ -3937,7 +3536,8 @@ mod tests {
             detail: "Bloomberg DATALOSS".to_string(),
         });
 
-        let error = collect_drained_stream_items(&StdMutex::new(VecDeque::new()), Some(rx))
+        let error = PendingUpdates::default()
+            .collect_unread(Some(rx), true)
             .expect_err("terminal failure must reject an empty drain");
         assert!(matches!(*error, BlpError::SubscriptionDataLoss { .. }));
     }
@@ -3954,7 +3554,7 @@ mod tests {
                 topic: "IBM US Equity".to_string(),
                 detail: "Bloomberg DATALOSS".to_string(),
             });
-            let pending = StdMutex::new(VecDeque::new());
+            let pending = PendingUpdates::default();
             let (_close_tx, mut close_rx) = watch::channel(false);
 
             let first = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 1).await;
@@ -4007,6 +3607,38 @@ mod tests {
             let mut close_rx = close_signal.subscribe();
             wait_for_subscription_close(&mut close_rx).await;
             assert!(*close_rx.borrow());
+        });
+    }
+
+    #[test]
+    fn subscription_result_attachment_respects_finalization() {
+        Python::initialize();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (finalizing, mut finalizing_rx) = watch::channel(false);
+            let subscription = complete_unless_interpreter_finalizing(
+                &mut finalizing_rx,
+                closed_subscription(true).into_python(),
+            )
+            .await
+            .expect("subscription attachment");
+            Python::attach(|py| {
+                assert!(subscription.bind(py).is_instance_of::<PySubscription>());
+            });
+
+            finalizing.send_replace(true);
+            let suppressed = tokio::time::timeout(
+                std::time::Duration::from_millis(1),
+                complete_unless_interpreter_finalizing(
+                    &mut finalizing_rx,
+                    closed_subscription(false).into_python(),
+                ),
+            )
+            .await;
+            assert!(suppressed.is_err());
         });
     }
 

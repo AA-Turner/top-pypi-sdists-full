@@ -2271,7 +2271,19 @@ class BrowserWorker:
                 self._evicted_agent_urls.popitem(last=False)
         if close_tab and tp is not None and tp.closed_at is None:
             page = tp.page
-            asyncio.get_event_loop().create_task(page.close(), name="cloud-browser-agent-tab-evict")
+            from matrx_utils import supervised_task
+
+            supervised_task(
+                page.close(),
+                kind="cloud_browser_evicted_agent_tab_close_failed",
+                name="cloud-browser-agent-tab-evict",
+                context={
+                    "source_app": "matrx-scraper",
+                    "source_feature": "cloud_browser.worker",
+                    "agent_ref": entry.agent_ref,
+                    "page_id": entry.page_id,
+                },
+            )
 
     def _agent_owner_of(self, page_id: str) -> str | None:
         for entry in self._agent_owned.values():

@@ -45,7 +45,7 @@ class CollectionSchemaApi:
     def sync_collection_schema(
         self,
         collection_id: Annotated[StrictStr, Field(description="Collection ID to sync schema for")],
-        schema_sync_request: Optional[SchemaSyncRequest] = None,
+        schema_sync_request: Annotated[Optional[SchemaSyncRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -65,7 +65,7 @@ class CollectionSchemaApi:
 
         :param collection_id: Collection ID to sync schema for (required)
         :type collection_id: str
-        :param schema_sync_request:
+        :param schema_sync_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type schema_sync_request: SchemaSyncRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -104,8 +104,10 @@ class CollectionSchemaApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -122,7 +124,7 @@ class CollectionSchemaApi:
     def sync_collection_schema_with_http_info(
         self,
         collection_id: Annotated[StrictStr, Field(description="Collection ID to sync schema for")],
-        schema_sync_request: Optional[SchemaSyncRequest] = None,
+        schema_sync_request: Annotated[Optional[SchemaSyncRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -142,7 +144,7 @@ class CollectionSchemaApi:
 
         :param collection_id: Collection ID to sync schema for (required)
         :type collection_id: str
-        :param schema_sync_request:
+        :param schema_sync_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type schema_sync_request: SchemaSyncRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -181,8 +183,10 @@ class CollectionSchemaApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -199,7 +203,7 @@ class CollectionSchemaApi:
     def sync_collection_schema_without_preload_content(
         self,
         collection_id: Annotated[StrictStr, Field(description="Collection ID to sync schema for")],
-        schema_sync_request: Optional[SchemaSyncRequest] = None,
+        schema_sync_request: Annotated[Optional[SchemaSyncRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -219,7 +223,7 @@ class CollectionSchemaApi:
 
         :param collection_id: Collection ID to sync schema for (required)
         :type collection_id: str
-        :param schema_sync_request:
+        :param schema_sync_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type schema_sync_request: SchemaSyncRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -258,8 +262,10 @@ class CollectionSchemaApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

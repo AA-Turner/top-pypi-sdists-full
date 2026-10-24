@@ -8,9 +8,8 @@ use crate::{
 	Input,
 	context::{Context, fuel::ApplyFuel},
 	error::ParseError,
-	grammar::Grammar,
 	range::delim,
-	rule::{Rule, RuleSet},
+	scope::Scope,
 	span::{Span, TraceOk, TraceParse, WithSpan},
 	unparse::Unparse,
 };
@@ -84,18 +83,6 @@ pub enum Block<'data, S: Span> {
 }
 
 impl<'data, S: Span> Block<'data, S> {
-	/// The [`Rule`] that this block corresponds to. Returns [`None`] if this is a base rule.
-	#[must_use]
-	pub fn rule(&self) -> Option<Rule> {
-		Some(match self {
-			Self::Paragraph(_) | Self::Empty => return None,
-			Self::Heading(_) => Rule::Heading,
-			Self::List(_) => Rule::List,
-			Self::Quote(_) => Rule::Quote,
-			Self::Small(_) => Rule::Small,
-		})
-	}
-
 	/// The blocks this block holds directly: those of a quote or of each list item.
 	pub fn blocks(&self) -> impl Iterator<Item = &Block<'data, S>> {
 		let (content, items) = match self {
@@ -120,19 +107,6 @@ impl<'data, S: Span> Block<'data, S> {
 		content
 			.into_iter()
 			.flat_map(|content| content.iter().map(|inline| &inline.value))
-	}
-
-	/// All [`Rule`]s that this block contains, including itself.
-	#[must_use]
-	pub fn rules(&self) -> RuleSet {
-		let mut rules: RuleSet = self.rule().into_iter().collect();
-		for block in self.blocks() {
-			rules |= block.rules();
-		}
-		for inline in self.inlines() {
-			rules |= inline.rules();
-		}
-		rules
 	}
 
 	/// Text content of this block and everything in it.
@@ -164,7 +138,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	let terminal = context.grammar.terminal_sequence();
+	let terminal = context.scope.terminal_sequence();
 	terminated(inline::inline(context), terminal)
 }
 
@@ -197,18 +171,18 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let allowed = self.context.allowed_rules;
+		let allowed = self.context.syntaxes;
 		let single = |piece| (None, piece);
 
 		// A line is one node, or a delimiter run opening before a block rule, as in `*1. foo`.
 		let line = alt((
 			value(Element::Empty, line_ending).span().map(single),
-			self.context.allowed_block_rules().span().map(single),
+			self.context.allowed_block_syntax().span().map(single),
 			(
 				delim::opener(allowed, |start| self.context.is_disabled_opener(start))
 					.map(Element::Delim)
 					.span(),
-				self.context.allowed_block_rules().span(),
+				self.context.allowed_block_syntax().span(),
 			)
 				.map(|(delim, block)| (Some(delim), block)),
 			// a line of nothing but delimiters, like the `||` around a spoiled list
@@ -222,7 +196,7 @@ where
 				.span()
 				.map(single),
 			map(
-				inline_block(self.context.clone().with_grammar(Grammar::InlineBlock)),
+				inline_block(self.context.clone().with_scope(Scope::InlineBlock)),
 				Element::Paragraph,
 			)
 			.span()

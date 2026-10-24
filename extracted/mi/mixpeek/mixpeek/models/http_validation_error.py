@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class HTTPValidationError(BaseModel):
     """
-    HTTPValidationError
+    Not sent by this API: a 422 answers with ErrorResponse, whose error.details.validation_errors lists each failing field. Kept so existing SDK imports of this type still resolve.
     """ # noqa: E501
     detail: Optional[List[ValidationError]] = None
     __properties: ClassVar[List[str]] = ["detail"]

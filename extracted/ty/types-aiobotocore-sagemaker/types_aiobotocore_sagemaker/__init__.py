@@ -99,6 +99,7 @@ Usage::
         ListTrainingJobsForHyperParameterTuningJobPaginator,
         ListTrainingJobsPaginator,
         ListTrainingPlansPaginator,
+        ListTrainingSessionsPaginator,
         ListTransformJobsPaginator,
         ListTrialComponentsPaginator,
         ListTrialsPaginator,
@@ -217,6 +218,7 @@ Usage::
     list_training_jobs_for_hyper_parameter_tuning_job_paginator: ListTrainingJobsForHyperParameterTuningJobPaginator = client.get_paginator("list_training_jobs_for_hyper_parameter_tuning_job")
     list_training_jobs_paginator: ListTrainingJobsPaginator = client.get_paginator("list_training_jobs")
     list_training_plans_paginator: ListTrainingPlansPaginator = client.get_paginator("list_training_plans")
+    list_training_sessions_paginator: ListTrainingSessionsPaginator = client.get_paginator("list_training_sessions")
     list_transform_jobs_paginator: ListTransformJobsPaginator = client.get_paginator("list_transform_jobs")
     list_trial_components_paginator: ListTrialComponentsPaginator = client.get_paginator("list_trial_components")
     list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
@@ -311,6 +313,7 @@ from .paginator import (
     ListTrainingJobsForHyperParameterTuningJobPaginator,
     ListTrainingJobsPaginator,
     ListTrainingPlansPaginator,
+    ListTrainingSessionsPaginator,
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
@@ -429,6 +432,7 @@ __all__ = (
     "ListTrainingJobsForHyperParameterTuningJobPaginator",
     "ListTrainingJobsPaginator",
     "ListTrainingPlansPaginator",
+    "ListTrainingSessionsPaginator",
     "ListTransformJobsPaginator",
     "ListTrialComponentsPaginator",
     "ListTrialsPaginator",

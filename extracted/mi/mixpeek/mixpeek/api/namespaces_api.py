@@ -51,7 +51,7 @@ class NamespacesApi:
     @validate_call
     def create_namespace(
         self,
-        create_namespace_request: CreateNamespaceRequest,
+        create_namespace_request: Annotated[CreateNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -69,7 +69,7 @@ class NamespacesApi:
 
         Creates a new namespace with specified feature extractors and payload indexes.
 
-        :param create_namespace_request: (required)
+        :param create_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_namespace_request: CreateNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -107,8 +107,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -124,7 +126,7 @@ class NamespacesApi:
     @validate_call
     def create_namespace_with_http_info(
         self,
-        create_namespace_request: CreateNamespaceRequest,
+        create_namespace_request: Annotated[CreateNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -142,7 +144,7 @@ class NamespacesApi:
 
         Creates a new namespace with specified feature extractors and payload indexes.
 
-        :param create_namespace_request: (required)
+        :param create_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_namespace_request: CreateNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -180,8 +182,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -197,7 +201,7 @@ class NamespacesApi:
     @validate_call
     def create_namespace_without_preload_content(
         self,
-        create_namespace_request: CreateNamespaceRequest,
+        create_namespace_request: Annotated[CreateNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -215,7 +219,7 @@ class NamespacesApi:
 
         Creates a new namespace with specified feature extractors and payload indexes.
 
-        :param create_namespace_request: (required)
+        :param create_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_namespace_request: CreateNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -253,8 +257,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -360,7 +366,7 @@ class NamespacesApi:
     ) -> object:
         """Delete Namespace
 
-        This endpoint deletes a namespace and ALL its resources including:     - All buckets (with S3 objects, batches, uploads)     - All collections (with Qdrant points, cache, webhooks)     - All clusters (with Ray jobs, executions, triggers, S3 artifacts)     - All retrievers (with executions, evaluations, interactions, cache)     - Remaining MongoDB collections (tasks, uploads, taxonomies, API keys, etc.)     - All S3 objects with namespace prefix     - Qdrant collection (namespace's vector database)     - All namespace cache (across all scopes)     - Analytics data (ClickHouse tables)     - Namespace metadata      The deletion is performed asynchronously. Returns a task_id that can be used     to poll for deletion progress via GET /v1/tasks/{task_id}.      ⚠️  WARNING: This operation is irreversible and will delete ALL data in the namespace!
+        This endpoint deletes a namespace and ALL its resources including:     - All buckets (with S3 objects, batches, uploads)     - All collections (with vector points, cache, webhooks)     - All clusters (with Ray jobs, executions, triggers, S3 artifacts)     - All retrievers (with executions, evaluations, interactions, cache)     - Remaining MongoDB collections (tasks, uploads, taxonomies, API keys, etc.)     - All S3 objects with namespace prefix     - The namespace's vectors in the vector store     - All namespace cache (across all scopes)     - The namespace's analytics events     - Namespace metadata      The deletion is performed asynchronously. Returns a task_id that can be used     to poll for deletion progress via GET /v1/tasks/{task_id}.      ⚠️  WARNING: This operation is irreversible and will delete ALL data in the namespace!
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
@@ -403,8 +409,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -437,7 +445,7 @@ class NamespacesApi:
     ) -> ApiResponse[object]:
         """Delete Namespace
 
-        This endpoint deletes a namespace and ALL its resources including:     - All buckets (with S3 objects, batches, uploads)     - All collections (with Qdrant points, cache, webhooks)     - All clusters (with Ray jobs, executions, triggers, S3 artifacts)     - All retrievers (with executions, evaluations, interactions, cache)     - Remaining MongoDB collections (tasks, uploads, taxonomies, API keys, etc.)     - All S3 objects with namespace prefix     - Qdrant collection (namespace's vector database)     - All namespace cache (across all scopes)     - Analytics data (ClickHouse tables)     - Namespace metadata      The deletion is performed asynchronously. Returns a task_id that can be used     to poll for deletion progress via GET /v1/tasks/{task_id}.      ⚠️  WARNING: This operation is irreversible and will delete ALL data in the namespace!
+        This endpoint deletes a namespace and ALL its resources including:     - All buckets (with S3 objects, batches, uploads)     - All collections (with vector points, cache, webhooks)     - All clusters (with Ray jobs, executions, triggers, S3 artifacts)     - All retrievers (with executions, evaluations, interactions, cache)     - Remaining MongoDB collections (tasks, uploads, taxonomies, API keys, etc.)     - All S3 objects with namespace prefix     - The namespace's vectors in the vector store     - All namespace cache (across all scopes)     - The namespace's analytics events     - Namespace metadata      The deletion is performed asynchronously. Returns a task_id that can be used     to poll for deletion progress via GET /v1/tasks/{task_id}.      ⚠️  WARNING: This operation is irreversible and will delete ALL data in the namespace!
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
@@ -480,8 +488,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -514,7 +524,7 @@ class NamespacesApi:
     ) -> RESTResponseType:
         """Delete Namespace
 
-        This endpoint deletes a namespace and ALL its resources including:     - All buckets (with S3 objects, batches, uploads)     - All collections (with Qdrant points, cache, webhooks)     - All clusters (with Ray jobs, executions, triggers, S3 artifacts)     - All retrievers (with executions, evaluations, interactions, cache)     - Remaining MongoDB collections (tasks, uploads, taxonomies, API keys, etc.)     - All S3 objects with namespace prefix     - Qdrant collection (namespace's vector database)     - All namespace cache (across all scopes)     - Analytics data (ClickHouse tables)     - Namespace metadata      The deletion is performed asynchronously. Returns a task_id that can be used     to poll for deletion progress via GET /v1/tasks/{task_id}.      ⚠️  WARNING: This operation is irreversible and will delete ALL data in the namespace!
+        This endpoint deletes a namespace and ALL its resources including:     - All buckets (with S3 objects, batches, uploads)     - All collections (with vector points, cache, webhooks)     - All clusters (with Ray jobs, executions, triggers, S3 artifacts)     - All retrievers (with executions, evaluations, interactions, cache)     - Remaining MongoDB collections (tasks, uploads, taxonomies, API keys, etc.)     - All S3 objects with namespace prefix     - The namespace's vectors in the vector store     - All namespace cache (across all scopes)     - The namespace's analytics events     - Namespace metadata      The deletion is performed asynchronously. Returns a task_id that can be used     to poll for deletion progress via GET /v1/tasks/{task_id}.      ⚠️  WARNING: This operation is irreversible and will delete ALL data in the namespace!
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
@@ -557,8 +567,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -699,8 +711,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -776,8 +790,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -853,8 +869,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -991,8 +1009,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1064,8 +1084,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1137,8 +1159,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1270,8 +1294,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1343,8 +1369,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1416,8 +1444,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1493,7 +1523,7 @@ class NamespacesApi:
     @validate_call
     def get_namespace_stats_batch(
         self,
-        namespace_stats_batch_request: NamespaceStatsBatchRequest,
+        namespace_stats_batch_request: Annotated[NamespaceStatsBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1511,7 +1541,7 @@ class NamespacesApi:
 
         Returns document/bucket/collection/object counts for many namespaces in ONE call. Replaces per-row /stats fan-out on list views. Counts are aggregated in batch and live doc-counts gathered concurrently; namespaces the caller cannot see are omitted.
 
-        :param namespace_stats_batch_request: (required)
+        :param namespace_stats_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type namespace_stats_batch_request: NamespaceStatsBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1549,8 +1579,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1566,7 +1598,7 @@ class NamespacesApi:
     @validate_call
     def get_namespace_stats_batch_with_http_info(
         self,
-        namespace_stats_batch_request: NamespaceStatsBatchRequest,
+        namespace_stats_batch_request: Annotated[NamespaceStatsBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1584,7 +1616,7 @@ class NamespacesApi:
 
         Returns document/bucket/collection/object counts for many namespaces in ONE call. Replaces per-row /stats fan-out on list views. Counts are aggregated in batch and live doc-counts gathered concurrently; namespaces the caller cannot see are omitted.
 
-        :param namespace_stats_batch_request: (required)
+        :param namespace_stats_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type namespace_stats_batch_request: NamespaceStatsBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1622,8 +1654,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1639,7 +1673,7 @@ class NamespacesApi:
     @validate_call
     def get_namespace_stats_batch_without_preload_content(
         self,
-        namespace_stats_batch_request: NamespaceStatsBatchRequest,
+        namespace_stats_batch_request: Annotated[NamespaceStatsBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1657,7 +1691,7 @@ class NamespacesApi:
 
         Returns document/bucket/collection/object counts for many namespaces in ONE call. Replaces per-row /stats fan-out on list views. Counts are aggregated in batch and live doc-counts gathered concurrently; namespaces the caller cannot see are omitted.
 
-        :param namespace_stats_batch_request: (required)
+        :param namespace_stats_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type namespace_stats_batch_request: NamespaceStatsBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1695,8 +1729,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1795,7 +1831,7 @@ class NamespacesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_namespaces_request: Optional[ListNamespacesRequest] = None,
+        list_namespaces_request: Annotated[Optional[ListNamespacesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1833,7 +1869,7 @@ class NamespacesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_namespaces_request:
+        :param list_namespaces_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_namespaces_request: ListNamespacesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1881,8 +1917,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1908,7 +1946,7 @@ class NamespacesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_namespaces_request: Optional[ListNamespacesRequest] = None,
+        list_namespaces_request: Annotated[Optional[ListNamespacesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1946,7 +1984,7 @@ class NamespacesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_namespaces_request:
+        :param list_namespaces_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_namespaces_request: ListNamespacesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1994,8 +2032,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2021,7 +2061,7 @@ class NamespacesApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_namespaces_request: Optional[ListNamespacesRequest] = None,
+        list_namespaces_request: Annotated[Optional[ListNamespacesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2059,7 +2099,7 @@ class NamespacesApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_namespaces_request:
+        :param list_namespaces_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_namespaces_request: ListNamespacesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2107,8 +2147,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2331,8 +2373,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2432,8 +2476,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2533,8 +2579,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2648,7 +2696,7 @@ class NamespacesApi:
     def patch_namespace(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Either the namespace name or namespace ID")],
-        patch_namespace_request: PatchNamespaceRequest,
+        patch_namespace_request: Annotated[PatchNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2668,7 +2716,7 @@ class NamespacesApi:
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
-        :param patch_namespace_request: (required)
+        :param patch_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_namespace_request: PatchNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2707,8 +2755,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2725,7 +2775,7 @@ class NamespacesApi:
     def patch_namespace_with_http_info(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Either the namespace name or namespace ID")],
-        patch_namespace_request: PatchNamespaceRequest,
+        patch_namespace_request: Annotated[PatchNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2745,7 +2795,7 @@ class NamespacesApi:
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
-        :param patch_namespace_request: (required)
+        :param patch_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_namespace_request: PatchNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2784,8 +2834,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2802,7 +2854,7 @@ class NamespacesApi:
     def patch_namespace_without_preload_content(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Either the namespace name or namespace ID")],
-        patch_namespace_request: PatchNamespaceRequest,
+        patch_namespace_request: Annotated[PatchNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2822,7 +2874,7 @@ class NamespacesApi:
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
-        :param patch_namespace_request: (required)
+        :param patch_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_namespace_request: PatchNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2861,8 +2913,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2955,7 +3009,7 @@ class NamespacesApi:
     def update_namespace(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Either the namespace name or namespace ID")],
-        update_namespace_request: UpdateNamespaceRequest,
+        update_namespace_request: Annotated[UpdateNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2975,7 +3029,7 @@ class NamespacesApi:
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
-        :param update_namespace_request: (required)
+        :param update_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_namespace_request: UpdateNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3014,8 +3068,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3032,7 +3088,7 @@ class NamespacesApi:
     def update_namespace_with_http_info(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Either the namespace name or namespace ID")],
-        update_namespace_request: UpdateNamespaceRequest,
+        update_namespace_request: Annotated[UpdateNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3052,7 +3108,7 @@ class NamespacesApi:
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
-        :param update_namespace_request: (required)
+        :param update_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_namespace_request: UpdateNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3091,8 +3147,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3109,7 +3167,7 @@ class NamespacesApi:
     def update_namespace_without_preload_content(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Either the namespace name or namespace ID")],
-        update_namespace_request: UpdateNamespaceRequest,
+        update_namespace_request: Annotated[UpdateNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3129,7 +3187,7 @@ class NamespacesApi:
 
         :param namespace_identifier: Either the namespace name or namespace ID (required)
         :type namespace_identifier: str
-        :param update_namespace_request: (required)
+        :param update_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_namespace_request: UpdateNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3168,8 +3226,10 @@ class NamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytapo
-Version: 3.4.28
+Version: 3.4.30
 Summary: Python library for communication with Tapo Cameras
 Home-page: https://github.com/JurajNyiri/pytapo
 Author: Juraj Nyíri
@@ -49,6 +49,23 @@ tapo = Tapo(host, user, password)
 
 print(tapo.getBasicInfo())
 ```
+
+`getMost()` includes `getWhitelampCapability`. On supported cameras, its
+`image_capability.white_lamp.wtl_intensity_range` is the maximum spotlight
+intensity level. Unsupported requests return `[False]`, as with other capabilities.
+
+## Nightlight
+
+Supported cameras (for example C840) provide a nightlight independent of their
+spotlight. Use these methods to read its state, switch it on/off, and set brightness:
+
+    tapo.getNightlightStatus()
+    tapo.setNightlightConfig(55)  # integer intensity, 0-100; does not switch it on
+    tapo.manualNightlightOp(True)
+    tapo.manualNightlightOp(False)  # keeps the configured brightness
+
+The status is also included in getMost() under getNightlightStatus; cameras
+without support return [False].
 
 ## Authentication
 

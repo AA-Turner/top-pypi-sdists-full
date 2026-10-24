@@ -32,7 +32,15 @@ if TYPE_CHECKING:  # static analysis only — never imported at runtime
         WarmupStrategy,
         WorkerResultError,
     )
-    from matrx_ai.orchestrator.executor import execute_ai_request, execute_until_complete
+    from matrx_ai.orchestrator.executor import (
+        emit_finalized_structured_output as emit_finalized_structured_output,
+    )
+    from matrx_ai.orchestrator.executor import (
+        execute_ai_request as execute_ai_request,
+    )
+    from matrx_ai.orchestrator.executor import (
+        execute_until_complete as execute_until_complete,
+    )
     from matrx_ai.orchestrator.parallel_executor import ParallelResult, parallel_execute
     from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
     from matrx_ai.orchestrator.tracking import TimingUsage, ToolCallUsage
@@ -45,6 +53,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "ItemOutcome": "concurrent_engine",
     "WarmupStrategy": "concurrent_engine",
     "WorkerResultError": "concurrent_engine",
+    "emit_finalized_structured_output": "executor",
     "execute_ai_request": "executor",
     "execute_until_complete": "executor",
     "ParallelResult": "parallel_executor",

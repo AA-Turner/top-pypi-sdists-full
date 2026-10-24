@@ -20,7 +20,10 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.acceptance_result import AcceptanceResult
+from mixpeek.models.collection_readiness import CollectionReadiness
 from mixpeek.models.resource_result import ResourceResult
+from mixpeek.models.seed_batch_status import SeedBatchStatus
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -33,13 +36,18 @@ class ApplyResult(BaseModel):
     created_count: Optional[StrictInt] = Field(default=0, description="Number of resources created")
     failed_count: Optional[StrictInt] = Field(default=0, description="Number of resources that failed")
     skipped_count: Optional[StrictInt] = Field(default=0, description="Number of resources skipped")
+    would_create_count: Optional[StrictInt] = Field(default=0, description="On a dry run, the number of resources the real apply would create. Resources that already exist are reported with status `exists` and are not counted here. Always 0 on a real apply.")
     updated_count: Optional[StrictInt] = Field(default=0, description="Resources that existed, differed, and were PATCHED to match. Only ever non-zero under `upsert`. Counted separately because without it an upsert that changed five running resources reports created 0, failed 0, skipped 0, a summary that reads as nothing having happened.")
     errors: Optional[List[StrictStr]] = Field(default=None, description="Error messages")
     warnings: Optional[List[StrictStr]] = Field(default=None, description="Non-fatal issues found while PARSING the manifest, chiefly keys the parser had to drop. the parser already detects these and /validate and /lint already surface them, but /apply computed them and threw them away — so anyone applying without validating first got a 201 and no hint that part of their manifest was ignored. A collection-level `field_passthrough:` is the case that cost a customer POC: detected, described, discarded.")
     rollback_performed: Optional[StrictBool] = Field(default=False, description="Whether a rollback was ATTEMPTED after a failure. this used to read as 'the namespace was returned to its prior state', which it does not mean — rollback deletes only namespaces and buckets today, so any other resource created before the failure SURVIVES. Read `rollback_orphans` to find out what is still there.")
     rollback_orphans: Optional[List[StrictStr]] = Field(default=None, description="Resources created before the failure that rollback did NOT delete, as '<type>/<id>'. Non-empty means the namespace is in a PARTIAL state and a straight retry will hit AlreadyExists on these. previously these were silently skipped while rollback_performed=true claimed otherwise, which is the state that had to be unpicked by hand on the Radio-Canada POC.")
     dry_run: Optional[StrictBool] = Field(default=False, description="Whether this was a dry run (no changes made)")
-    __properties: ClassVar[List[str]] = ["success", "resources", "created_count", "failed_count", "skipped_count", "updated_count", "errors", "warnings", "rollback_performed", "rollback_orphans", "dry_run"]
+    task_id: Optional[StrictStr] = Field(default=None, description="The apply's task: GET /v1/tasks/{task_id} returns every resource of the plan with its states in order (planned, creating, created, exists, updated or failed with the finding; for a collection, warming or ready), each with the time it was reached. Absent on a dry run")
+    readiness: Optional[List[CollectionReadiness]] = Field(default=None, description="For each collection the manifest declares whose extractor needs Ray Serve applications for real-time inference: whether each one is served, read once from the live Serve list after apply. `realtime_available` true means every app is RUNNING. An app scaled to zero replicas is still RUNNING; its first call answers 503 with Retry-After (code model_warming) while it warms, so retry after that many seconds. Empty for collections whose extractor needs no Serve app.")
+    seed_batches: Optional[List[SeedBatchStatus]] = Field(default=None, description="With wait_for_seed or run_acceptance: each `seed:` batch and where it stood when apply stopped waiting. A batch that failed or did not finish in time also appears in `errors`. `success` still reports resource creation only")
+    acceptance: Optional[AcceptanceResult] = Field(default=None, description="With run_acceptance: the outcome of each `acceptance:` step. `acceptance.passed` false means the namespace exists but its use case did not prove out; `success` still reports resource creation only, and a failed run is also named in `errors`")
+    __properties: ClassVar[List[str]] = ["success", "resources", "created_count", "failed_count", "skipped_count", "would_create_count", "updated_count", "errors", "warnings", "rollback_performed", "rollback_orphans", "dry_run", "task_id", "readiness", "seed_batches", "acceptance"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,6 +95,23 @@ class ApplyResult(BaseModel):
                 if _item_resources:
                     _items.append(_item_resources.to_dict())
             _dict['resources'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in readiness (list)
+        _items = []
+        if self.readiness:
+            for _item_readiness in self.readiness:
+                if _item_readiness:
+                    _items.append(_item_readiness.to_dict())
+            _dict['readiness'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in seed_batches (list)
+        _items = []
+        if self.seed_batches:
+            for _item_seed_batches in self.seed_batches:
+                if _item_seed_batches:
+                    _items.append(_item_seed_batches.to_dict())
+            _dict['seed_batches'] = _items
+        # override the default output from pydantic by calling `to_dict()` of acceptance
+        if self.acceptance:
+            _dict['acceptance'] = self.acceptance.to_dict()
         return _dict
 
     @classmethod
@@ -104,12 +129,17 @@ class ApplyResult(BaseModel):
             "created_count": obj.get("created_count") if obj.get("created_count") is not None else 0,
             "failed_count": obj.get("failed_count") if obj.get("failed_count") is not None else 0,
             "skipped_count": obj.get("skipped_count") if obj.get("skipped_count") is not None else 0,
+            "would_create_count": obj.get("would_create_count") if obj.get("would_create_count") is not None else 0,
             "updated_count": obj.get("updated_count") if obj.get("updated_count") is not None else 0,
             "errors": obj.get("errors"),
             "warnings": obj.get("warnings"),
             "rollback_performed": obj.get("rollback_performed") if obj.get("rollback_performed") is not None else False,
             "rollback_orphans": obj.get("rollback_orphans"),
-            "dry_run": obj.get("dry_run") if obj.get("dry_run") is not None else False
+            "dry_run": obj.get("dry_run") if obj.get("dry_run") is not None else False,
+            "task_id": obj.get("task_id"),
+            "readiness": [CollectionReadiness.from_dict(_item) for _item in obj["readiness"]] if obj.get("readiness") is not None else None,
+            "seed_batches": [SeedBatchStatus.from_dict(_item) for _item in obj["seed_batches"]] if obj.get("seed_batches") is not None else None,
+            "acceptance": AcceptanceResult.from_dict(obj["acceptance"]) if obj.get("acceptance") is not None else None
         })
         return _obj
 

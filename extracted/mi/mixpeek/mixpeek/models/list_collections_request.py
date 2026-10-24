@@ -37,8 +37,9 @@ class ListCollectionsRequest(BaseModel):
     sort: Optional[SortOption] = Field(default=None, description="Sort options for the results (single-column, legacy)")
     sorts: Optional[List[Dict[str, Any]]] = Field(default=None, description="Sort options as a list of {field, direction} — the shape Studio datatables and the retriever list send. The first entry is the primary sort. Takes precedence over the singular `sort`.")
     search: Optional[StrictStr] = Field(default=None, description="Search term for wildcard search across collection_id, collection_name, description, and other text fields")
+    include_system: Optional[StrictBool] = Field(default=False, description="Include the namespace's system collections: today the per-namespace `_direct_upsert` default that `POST /v1/namespaces/{ns}/documents/upsert` writes to (it is also addressable by that name at GET /v1/collections/_direct_upsert). Off by default so the list shows the collections you created.")
     case_sensitive: Optional[StrictBool] = Field(default=False, description="If True, filters and search will be case-sensitive")
-    __properties: ClassVar[List[str]] = ["limit", "page_size", "offset", "page", "filters", "sort", "sorts", "search", "case_sensitive"]
+    __properties: ClassVar[List[str]] = ["limit", "page_size", "offset", "page", "filters", "sort", "sorts", "search", "include_system", "case_sensitive"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -102,6 +103,7 @@ class ListCollectionsRequest(BaseModel):
             "sort": SortOption.from_dict(obj["sort"]) if obj.get("sort") is not None else None,
             "sorts": obj.get("sorts"),
             "search": obj.get("search"),
+            "include_system": obj.get("include_system") if obj.get("include_system") is not None else False,
             "case_sensitive": obj.get("case_sensitive") if obj.get("case_sensitive") is not None else False
         })
         return _obj

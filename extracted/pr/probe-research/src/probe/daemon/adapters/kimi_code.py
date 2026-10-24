@@ -40,6 +40,9 @@ mode, so the log is the only place it is seen.
 
 Helper agents write `agents/agent-N/wire.jsonl` beside the main wire; they are
 not read (their Agent tool call and its result are, on the main wire).
+
+No message from another agent is marked (`events.PEER_TOOL`): no recorded wire
+carries one (origin kinds seen: user, injection, hook_result, system_trigger).
 """
 
 from __future__ import annotations

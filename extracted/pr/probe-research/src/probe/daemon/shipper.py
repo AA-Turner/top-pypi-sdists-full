@@ -260,7 +260,7 @@ def bind(session_id: str, base_url: str, key: str) -> bool:
 
 def _lock_free(session: str) -> bool:
     """Is no worker running for this session (its lock is free)?"""
-    import fcntl
+    from probe._shared import oscompat as fcntl  # fcntl.flock, or msvcrt on Windows
 
     path = state_dir() / f"{session}.lock"
     if not path.exists():

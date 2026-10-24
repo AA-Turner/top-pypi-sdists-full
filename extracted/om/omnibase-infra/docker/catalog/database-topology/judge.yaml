@@ -216,6 +216,14 @@ databases:
             schema: omninode_internal
           - object_type: TABLE
             objects:
+              - lab_job_state
+              - pr_state
+              - work_ledger_rows
+            privileges:
+              - SELECT
+            schema: omninode_internal
+          - object_type: TABLE
+            objects:
               - generation_events
             privileges:
               - INSERT
@@ -262,6 +270,7 @@ databases:
               - hook_events
               - instruction_eval_aggregate_snapshots
               - llm_cost_aggregates
+              - local_environment
               - metering_summary
               - pattern_learning_artifacts
               - projection_delegation_inference_response_text
@@ -429,5 +438,5 @@ source:
   profile_catalog_path: src/omnibase_infra/topology/application_database_profiles.yaml
   profile_catalog_sha256: 690ada1927fc31465fd1d80435e82c96394fa05d49bd433e30242ea014fa740f
   repository: OmniNode-ai/omnibase_infra
-  sha256: 0bf257895b6535510034906b30e2c2b44923efdd86d05bdb821898e2baa88ef9
+  sha256: 01033034d38effe514b9511dc32318476e5f7bbd8e3f8470834e8ef41311c7fc
 topology_instance: local

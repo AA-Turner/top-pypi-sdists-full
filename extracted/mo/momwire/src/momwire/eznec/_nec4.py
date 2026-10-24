@@ -39,14 +39,18 @@ from ..deck import BASES, NEC2_BASES
 from ..deck._nec5 import Nec5Structure, ends_on_nx, split_structures
 from . import _printout
 from ._nec4_printout import (
+    ArcRow,
+    HelixRow,
     FarFieldGround,
     Nec4Printout,
     Nec4Report,
     Nec4Run,
     MoveRow,
     Preamble,
+    ReflectRow,
     ScaleRow,
     SegmentRow,
+    StructureRow,
     WireRow,
     render_nec4_printout,
     value_row,
@@ -83,17 +87,26 @@ _EPS0_PRINTED = 8.854e-12
 # The cards a captured or probed NEC-4.2 printout shows, after GE.  Everything else the
 # nec4 dialect reads (it inherits nec2's vocabulary) has no measured layout.
 _SERVED_CARDS = frozenset(
-    {"GN", "GD", "FR", "EX", "LD", "TL", "NT", "PQ", "RP", "NE", "NH", "XQ", "EN", "EK"}
+    {"GN", "GD", "FR", "EX", "LD", "TL", "NT", "PQ", "PT", "RP", "NE", "NH", "XQ"}
+    | {"EN", "EK"}
 )
-_SERVED_GEOMETRY = frozenset({"GW", "GS", "GM", "GE"})
+# The PT forms a NEC-4.2 printout shows: -1, which removes the CURRENTS AND
+# LOCATION section and nothing else, from its card until the next PT (probes
+# p86-p90, momwire#1650).  4nec2's ItsHF decks write it, beside PQ -1.
+_SERVED_PT = frozenset({-1})
+_SERVED_GEOMETRY = frozenset({"GW", "GA", "GH", "GS", "GM", "GX", "GE"})
+# The cards that add wires to the structure (p38-p53): GW, and NEC-4.2's arc
+# and helix, each of which prints its own entry in the wire table.
+_WIRE_CARDS = frozenset({"GW", "GA", "GH"})
 
 # The pattern request forms captured: XNDA 1000 (a cut) and 1001 (the 3-D
 # grid, with its average-gain trailer), RP mode 0, at no range or at one
 # (the range form, momwire#1463: `_at_range`).  1002 (the trailer and no
 # rows), 1003 (1001's printout), 1010 and 1011 (DIRECTIVE gains in the rows,
 # the trailer still a power gain) print as NEC-5's do for the same XNDA, in
-# the same row builder (probes p33-p36, momwire#1592).
-_SERVED_XNDA = frozenset({1000, 1001, 1002, 1003, 1010, 1011})
+# the same row builder (probes p33-p36, momwire#1592), and so do 1012 (1002
+# under the DIRECTIVE heading) and 1013 (1010's rows and trailer, p44-p45).
+_SERVED_XNDA = frozenset({1000, 1001, 1002, 1003, 1010, 1011, 1012, 1013})
 
 # A GD card's leading integer, as the one captured value prints it.
 _GD_KIND = {2: "CIRCLE CLIFF"}
@@ -303,7 +316,12 @@ def _served_geometry(deck) -> None:
     cards, then at most one ``GM``, then at most one ``GS`` scaling the
     whole structure.  A ``GW`` after either, a ``GM`` after a ``GS``, a
     second of either, and ``GS``'s tag-range form (xnec2c's) have no
-    printout, and refuse by name.
+    printout, and refuse by name.  ``GA`` and ``GH`` stand where a ``GW``
+    may (p46-p53: among ``GW`` cards, before a ``GM`` or a ``GS``).
+
+    ``GX`` (momwire#1651, p54-p85) stands among the wire cards, before or
+    after a ``GM``, and before a ``GS``; a second one is measured too.  A
+    ``GX`` after a ``GS`` has no printout.  ``GR`` has none at all.
     """
     seen: list[str] = []
     for card in deck.geometry:
@@ -314,10 +332,12 @@ def _served_geometry(deck) -> None:
             raise Nec4Refusal(_unmeasured("GS scaling a range of tags"))
         if m in ("GS", "GM") and m in seen:
             raise Nec4Refusal(_unmeasured(f"a second {m} card"))
-        if m == "GW" and ("GS" in seen or "GM" in seen):
-            raise Nec4Refusal(_unmeasured("a GW card after a GS or GM card"))
+        if m in _WIRE_CARDS and ("GS" in seen or "GM" in seen):
+            raise Nec4Refusal(_unmeasured(f"a {m} card after a GS or GM card"))
         if m == "GM" and "GS" in seen:
             raise Nec4Refusal(_unmeasured("a GM card after a GS card"))
+        if m == "GX" and "GS" in seen:
+            raise Nec4Refusal(_unmeasured("a GX card after a GS card"))
         seen.append(m)
 
 
@@ -367,6 +387,8 @@ def _served_shape(text: str, deck, echo_at, further) -> list[tuple[int, object]]
             raise Nec4Refusal(_unmeasured(f"the {card.mnemonic} card"))
         if card.mnemonic == "GD" and card.i(0) not in _GD_KIND:
             raise Nec4Refusal(_unmeasured(f"GD {card.i(0)}"))
+        if card.mnemonic == "PT" and card.i(0) not in _SERVED_PT:
+            raise Nec4Refusal(_unmeasured(f"PT {card.i(0)}"))
     runs = [(i, g) for i, g in enumerate(deck.groups) if g is not None]
     if not runs:
         raise Nec4Refusal(_unmeasured("a deck with no execute card"))
@@ -477,6 +499,7 @@ def solve(text: str, *, basis: str) -> Nec4Printout:
         raise Nec4Refusal(str(exc)) from exc
 
     ends, order = _segment_end_nodes(solver.wires)
+    cell, flag, planes = _symmetry(deck)
     return Nec4Printout(
         wires=_wire_rows(deck),
         ge_flag=_ge_flag(deck),
@@ -490,6 +513,9 @@ def solve(text: str, *, basis: str) -> Nec4Printout:
         ),
         runs=tuple(runs),
         run_seconds=time.perf_counter() - started,
+        cell_segments=cell if flag else solver.n_segments,
+        symmetry_flag=flag,
+        symmetry_planes=planes,
     )
 
 
@@ -527,8 +553,10 @@ def _run(
     # segment 61 reads 4.4E-09 A under a 1.414 A source).
     gap_current = {segment: port for port, segment, _v in result.driven}
     gap_current.update({segment: port for _t, segment, port in result.network_points})
-    currents = []
-    for seg in solver.segments:
+    # PT -1 in force: no CURRENTS AND LOCATION section (p86-p90).
+    suppressed = group.pt is not None and group.pt.suppressed
+    currents = None if suppressed else []
+    for seg in () if suppressed else solver.segments:
         port = gap_current.get(seg.number)
         value = (
             complex(result.i_port[port])
@@ -577,7 +605,7 @@ def _run(
             )
             for row in records.aip_rows
         ),
-        currents=tuple(currents),
+        currents=None if currents is None else tuple(currents),
         charges=charges,
         power=PowerBudget(
             input_power=result.p_in,
@@ -668,16 +696,58 @@ def _connections(solver, deck) -> list[tuple[int, int]]:
 # --------------------------------------------------------------------------
 
 
-def _wire_rows(deck) -> tuple[WireRow | ScaleRow | MoveRow, ...]:
-    """The wire table in card order: each ``GW``'s row as written, and the
-    lines a ``GS`` or ``GM`` card prints where it stands (p38, p39).  The
-    rows stay as written, before any card moves or scales them, and a
-    ``GM``'s copies print no rows of their own; :func:`_served_geometry`
-    keeps the order to the one the printouts show."""
-    rows: list[WireRow | ScaleRow | MoveRow] = []
+def _symmetry(deck) -> tuple[int, int, int]:
+    """``(cell segments, SYMMETRY FLAG, planes)`` for the printout's segment
+    count line (momwire#1651, p54-p85), ``(0, 0, 0)`` with no symmetry.
+
+    The reader decides whether a ``GX`` symmetry survives the cards after it
+    (``Nec2Structure.symmetry``, nec2c's rule, which the probes bear out: a
+    ``GW``, ``GA`` or replicating or partial ``GM`` after it kills it, a
+    whole-structure ``GM``, a ``GS`` or another ``GX`` does not).  A live one
+    was declared by the deck's last ``GX``, whose planes are counted; the
+    flag is 2 when Z is among them and 1 otherwise."""
+    from ..deck._nec2_geometry import _planes
+
+    symmetry = deck.structure.symmetry
+    if symmetry is None:
+        return 0, 0, 0
+    last = [card for card in deck.geometry if card.mnemonic == "GX"][-1]
+    flags = {plane: bool(flag) for _axis, flag, plane in _planes(last)}
+    return (
+        symmetry.cell_segments,
+        2 if flags["Z=0"] else 1,
+        sum(flags.values()),
+    )
+
+
+def _wire_rows(deck) -> tuple[StructureRow, ...]:
+    """The wire table in card order: each ``GW``, ``GA`` or ``GH`` card's
+    entry as written, and the lines a ``GS``, ``GM`` or ``GX`` card prints
+    where it stands (p38, p39, p46-p53, p54-p85).  The rows stay as written,
+    before any card moves or scales them, and neither a ``GM``'s copies nor a
+    ``GX``'s images print rows of their own; :func:`_served_geometry` keeps
+    the order to the one the printouts show.
+
+    The segment columns count the structure as built so far: a ``GX``
+    doubles it once per plane, so a ``GW`` after one starts past the images
+    (p54 GX then GW: FIRST 11), and a ``GM`` prints the count it moves.  A
+    ``GM``'s copies are not counted, because no row the printout serves
+    follows them (:func:`_served_geometry` refuses a wire card after a
+    ``GM``, and a second ``GM``)."""
+    from ..deck._nec2_geometry import _planes
+    from ..deck._nec4 import helix_vertices
+
+    rows: list[StructureRow] = []
     first = 1
     number = 0
     for card in deck.geometry:
+        if card.mnemonic == "GX":
+            flags = {plane: bool(flag) for _axis, flag, plane in _planes(card)}
+            rows.append(
+                ReflectRow((flags["X=0"], flags["Y=0"], flags["Z=0"]), card.i(0))
+            )
+            first = (first - 1) * 2 ** sum(flags.values()) + 1
+            continue
         if card.mnemonic == "GS":
             rows.append(ScaleRow(card.f(2)))
             continue
@@ -693,10 +763,48 @@ def _wire_rows(deck) -> tuple[WireRow | ScaleRow | MoveRow, ...]:
                 )
             )
             continue
-        if card.mnemonic != "GW":
+        if card.mnemonic not in _WIRE_CARDS:
             continue
         number += 1
         n_seg = card.i(1)
+        last = first + n_seg - 1
+        if card.mnemonic == "GA":
+            rows.append(
+                ArcRow(
+                    number,
+                    card.f(2),
+                    card.f(3),
+                    card.f(4),
+                    card.f(5),
+                    n_seg,
+                    first,
+                    last,
+                    card.i(0),
+                )
+            )
+            first += n_seg
+            continue
+        if card.mnemonic == "GH":
+            vertices = helix_vertices(card)
+            rows.append(
+                HelixRow(
+                    number,
+                    card.f(2),
+                    card.f(3),
+                    (card.f(4), card.f(5)),
+                    (card.f(6), card.f(7)),
+                    sum(
+                        math.dist(a, b)
+                        for a, b in zip(vertices, vertices[1:], strict=False)
+                    ),
+                    n_seg,
+                    first,
+                    last,
+                    card.i(0),
+                )
+            )
+            first += n_seg
+            continue
         rows.append(
             WireRow(
                 number,

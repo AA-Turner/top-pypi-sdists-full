@@ -1,4 +1,5 @@
 import re
+import warnings
 from datetime import datetime
 from enum import Enum
 from typing import Tuple
@@ -387,7 +388,14 @@ class UpdateXWikiDataSourceRequest(BaseUpdateDataSourceRequest, XWiki):
 
 
 class CodeAnalysisDataSourceRequest(BaseModel):
-    """Model for provider-based datasource creation requests"""
+    """Model for provider-based datasource creation requests.
+
+    Deprecated: targets the standalone 'CodeAnalysisServiceProvider', which
+    the combined AICE provider (CodeExplorationToolkit) has superseded for
+    datasource creation. Kept for now since we have not confirmed that
+    provider type is fully retired on every deployment — use
+    CodeExplorationDataSourceRequest for new code.
+    """
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -405,6 +413,16 @@ class CodeAnalysisDataSourceRequest(BaseModel):
     )
     datasource_root: str = Field("/", description="Root directory to analyze")
 
+    def __init__(self, **data):
+        warnings.warn(
+            "CodeAnalysisDataSourceRequest targets the standalone "
+            "'CodeAnalysisServiceProvider', superseded by the combined AICE "
+            "provider. Use CodeExplorationDataSourceRequest instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(**data)
+
 
 class CodeExplorationDataSourceRequest(BaseModel):
     """Model for CodeExplorationToolkit datasource creation requests"""
@@ -417,10 +435,12 @@ class CodeExplorationDataSourceRequest(BaseModel):
     project_space_visible: bool = Field(
         False, description="Make the datasource visible to the whole project"
     )
-    code_analysis_datasource_ids: list[str] = Field(
-        ...,
+    code_analysis_datasource_ids: list[str] | None = Field(
+        None,
         alias="code_analysis_datasource_ids",
-        description="List of CodeAnalysisToolkit datasource IDs",
+        description="List of CodeAnalysisToolkit datasource IDs. Optional: the "
+        "combined AICE provider creates a CodeExplorationToolkit datasource from "
+        "name/description alone, with no separate CodeAnalysisToolkit datasources.",
     )
 
 

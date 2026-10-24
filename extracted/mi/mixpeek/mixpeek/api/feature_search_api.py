@@ -17,7 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field
 from typing import Any
+from typing_extensions import Annotated
 from mixpeek.models.feature_search_request import FeatureSearchRequest
 
 from mixpeek.api_client import ApiClient, RequestSerialized
@@ -41,7 +43,7 @@ class FeatureSearchApi:
     @validate_call
     def feature_search(
         self,
-        feature_search_request: FeatureSearchRequest,
+        feature_search_request: Annotated[FeatureSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -59,7 +61,7 @@ class FeatureSearchApi:
 
         Search documents by vector similarity across collections. A convenience wrapper that builds an ad-hoc retriever with a single feature_search stage.
 
-        :param feature_search_request: (required)
+        :param feature_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type feature_search_request: FeatureSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -97,8 +99,10 @@ class FeatureSearchApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -114,7 +118,7 @@ class FeatureSearchApi:
     @validate_call
     def feature_search_with_http_info(
         self,
-        feature_search_request: FeatureSearchRequest,
+        feature_search_request: Annotated[FeatureSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -132,7 +136,7 @@ class FeatureSearchApi:
 
         Search documents by vector similarity across collections. A convenience wrapper that builds an ad-hoc retriever with a single feature_search stage.
 
-        :param feature_search_request: (required)
+        :param feature_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type feature_search_request: FeatureSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -170,8 +174,10 @@ class FeatureSearchApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -187,7 +193,7 @@ class FeatureSearchApi:
     @validate_call
     def feature_search_without_preload_content(
         self,
-        feature_search_request: FeatureSearchRequest,
+        feature_search_request: Annotated[FeatureSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -205,7 +211,7 @@ class FeatureSearchApi:
 
         Search documents by vector similarity across collections. A convenience wrapper that builds an ad-hoc retriever with a single feature_search stage.
 
-        :param feature_search_request: (required)
+        :param feature_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type feature_search_request: FeatureSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -243,8 +249,10 @@ class FeatureSearchApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

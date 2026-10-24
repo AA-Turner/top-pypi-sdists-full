@@ -3276,10 +3276,9 @@ async def _generate_feature_image(
                         # image's stored output was a verbatim window of THIS prompt).
                         # suppress_stream gives it its OWN SilentEmitter, so its tokens
                         # never enter the shared accumulator the image agents read. The
-                        # sink is the emitter, NOT request_id, so independent_request is
-                        # deliberately NOT set — it wouldn't help and would orphan this
-                        # agent's cost from the run's CX lineage (SUBAGENTS.md H4). Its
-                        # structured result still returns via AgentRunResult.
+                        # sink is the emitter, NOT request_id (every child owns its own
+                        # turn anyway). Its structured result still returns via
+                        # AgentRunResult.
                         suppress_stream=True,
                     ),
                     who=carried_principal(),
@@ -3333,8 +3332,7 @@ async def _generate_feature_image(
                             label="Podcast Feature Image",
                             # Same emitter isolation as the prompt agent above (it forks
                             # with the shared emitter and runs concurrently with the other
-                            # media slots). request_id is not the sink, so no
-                            # independent_request here either.
+                            # media slots). request_id is not the sink.
                             suppress_stream=True,
                         ),
                         who=carried_principal(),

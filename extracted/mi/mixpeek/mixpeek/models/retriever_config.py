@@ -49,7 +49,7 @@ class RetrieverConfig(BaseModel):
     updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp in UTC (REQUIRED).")
     created_by: Optional[StrictStr] = Field(default=None, description="Identifier of the user who created the retriever (OPTIONAL).")
     updated_by: Optional[StrictStr] = Field(default=None, description="Identifier of the user who last updated the retriever (OPTIONAL).")
-    fusion: StrictStr = Field(description="Fusion strategy used by this retriever's feature_search stage (e.g. 'learned', 'rrf', 'dbsf'). Null if no feature_search stage.")
+    fusion: Optional[StrictStr] = Field(description="Fusion strategy used by this retriever's feature_search stage (e.g. 'learned', 'rrf', 'dbsf'). Null if no feature_search stage.")
     collection_identifiers: List[StrictStr] = Field(description="Mirror of collection_ids under the field name CREATE accepts (collection_identifiers), so a create → read round-trip reads back the field it wrote. Always equal to collection_ids (FRUSTRATIONS 2026-07-16: SDKs/agents re-reading their own write saw collection_identifiers null and concluded the retriever was unscoped).")
     __properties: ClassVar[List[str]] = ["retriever_id", "retriever_name", "description", "collection_ids", "stages", "input_schema", "budget_limits", "feature_dependencies", "tags", "metadata", "display_config", "version", "created_at", "updated_at", "created_by", "updated_by", "fusion", "collection_identifiers"]
 
@@ -118,6 +118,11 @@ class RetrieverConfig(BaseModel):
                 if _item_feature_dependencies:
                     _items.append(_item_feature_dependencies.to_dict())
             _dict['feature_dependencies'] = _items
+        # set to None if fusion (nullable) is None
+        # and model_fields_set contains the field
+        if self.fusion is None and "fusion" in self.model_fields_set:
+            _dict['fusion'] = None
+
         return _dict
 
     @classmethod

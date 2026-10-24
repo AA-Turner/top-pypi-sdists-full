@@ -48,6 +48,13 @@ def _report_crash_to_chronos(
     """
     import os
 
+    from plato.worlds.handover import taking_over
+
+    if taking_over():
+        # The previous world process is still in charge of the session: it sees this one die and carries on.
+        logger.error("World failed while taking over from the previous process; not reporting: %s", error_message)
+        return
+
     try:
         with open(config_path) as f:
             full_config = json.load(f)

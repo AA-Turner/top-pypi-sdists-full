@@ -41,11 +41,11 @@ class PublicAppConfigResponse(BaseModel):
     custom_html: Optional[StrictStr] = None
     bundle_url: Optional[StrictStr] = Field(default=None, description="URL of the deployed bundle index.html (set when app is deployed via CLI upload).")
     meta: PageMeta
-    hero: HeroConfig
+    hero: Optional[HeroConfig]
     theme: ThemeConfig
-    seo: SEOConfig
+    seo: Optional[SEOConfig]
     stats: List[StatItem]
-    featured_gallery: FeaturedGalleryConfigOutput
+    featured_gallery: Optional[FeaturedGalleryConfigOutput]
     tabs: List[PageTabOutput]
     is_active: StrictBool
     password_protected: StrictBool
@@ -126,6 +126,21 @@ class PublicAppConfigResponse(BaseModel):
                 if _item_tabs:
                     _items.append(_item_tabs.to_dict())
             _dict['tabs'] = _items
+        # set to None if hero (nullable) is None
+        # and model_fields_set contains the field
+        if self.hero is None and "hero" in self.model_fields_set:
+            _dict['hero'] = None
+
+        # set to None if seo (nullable) is None
+        # and model_fields_set contains the field
+        if self.seo is None and "seo" in self.model_fields_set:
+            _dict['seo'] = None
+
+        # set to None if featured_gallery (nullable) is None
+        # and model_fields_set contains the field
+        if self.featured_gallery is None and "featured_gallery" in self.model_fields_set:
+            _dict['featured_gallery'] = None
+
         return _dict
 
     @classmethod

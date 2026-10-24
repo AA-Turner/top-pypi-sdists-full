@@ -3,7 +3,6 @@ import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { HTMLBox, HTMLBoxView, set_size } from "./layout";
 export class KeystrokeEvent extends ModelEvent {
     key;
-    static __name__ = "KeystrokeEvent";
     constructor(key) {
         super();
         this.key = key;
@@ -16,7 +15,6 @@ export class KeystrokeEvent extends ModelEvent {
     }
 }
 export class TerminalView extends HTMLBoxView {
-    static __name__ = "TerminalView";
     term; // Element
     webLinksAddon;
     container;
@@ -106,7 +104,6 @@ export class TerminalView extends HTMLBoxView {
 }
 // The Bokeh .ts model corresponding to the Bokeh .py model
 export class Terminal extends HTMLBox {
-    static __name__ = "Terminal";
     constructor(attrs) {
         super(attrs);
     }

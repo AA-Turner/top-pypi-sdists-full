@@ -244,6 +244,11 @@ class HolderRef:
     type: str  # "agent" | "workflow"
     id: str
     version_id: str | None = None
+    #: The picked Holder's run-scope config (the try door's candidate config); ``None`` = the Holder's own.
+    config_overrides: Mapping[str, Any] | None = None
+    #: The rung whose choice this pick is, for the run record (the try door's candidate provenance:
+    #: ``current`` / ``mandate-pinned`` / ``latest`` / ``agent`` / ``version``). ``None`` = ``run``.
+    rung: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,6 +271,21 @@ class RunOptions:
     required_keys: tuple[str, ...] | None = None
     #: A cap on an agent Holder's tool rounds for THIS run (``None`` = the agent's own ceiling).
     max_iterations: int | None = None
+    #: A CHAT START (runner plan 25 step 10): the host's chat-start request (aidream ``AgentStartRequest``) this run
+    #: opens a conversation with. ``prepare()`` resolves the Holder, computes the offer under the compute rule and
+    #: places the bound values ON this request (mutated in place); ``run()`` also runs the chat on the ambient stream
+    #: and records it. ``holder`` (an agent) is the run-scope pick — a person's own choice of agent.
+    start: Any = None
+    #: An AGENT Holder prepared for a door that owns its transport (runner plan 25 step 12):
+    #: ``"door"`` — ``prepare()`` resolves the Holder (or takes ``resolution``), computes the offer and builds the
+    #: agent, its turn and the provider schema (``Prepared.agent``); the door sends it (``agent_call``, a provider
+    #: batch body) and ``finish()`` records the run. ``"landed"`` — the answer already exists (a batch item that
+    #: finished in another process): ``prepare()`` resolves the Holder only and ``finish()`` runs the honesty core
+    #: (artifact, required keys, exemplar) and records it. ``None`` = a raw-request held call.
+    door_transport: str | None = None
+    #: A Holder resolution this door already holds (``resolve()`` answered it, e.g. ``mandate_call``'s gated
+    #: resolution): ``prepare(door_transport=...)`` places on it instead of resolving again.
+    resolution: Any = None
 
 
 # ── THE OFFER (runner plan 25 §3) ────────────────────────────────────────────
@@ -490,7 +510,7 @@ class MandateRunnerPort(Protocol):
 
     async def finish(self, prepared: Any, result: Any) -> Any: ...
 
-    async def resolve(self, key: str, *, who: Principal) -> Any: ...
+    async def resolve(self, key: str, *, who: Principal, holder: HolderRef | None = None) -> Any: ...
 
 
 _MANDATE_RUNNER: MandateRunnerPort | None = None
@@ -823,13 +843,6 @@ def _stamp_mandate_attribution(
     if prior != feature:
         metadata.setdefault(RUN_LABEL_METADATA, prior)
     kwargs["request_metadata"] = metadata
-    # ITS OWN RUN RECORD, like every mandate door (run_mandate passes the same flag): a
-    # fresh request linked to the one it ran under (metadata.parent_request_id), spend
-    # still on the root tree's cap. Before 2026-10-09 every page of a PDF cleaned under
-    # one ingestion shared ONE request, so 432 of 650 rag_pdf_page_cleaner runs in five
-    # days had no request record of their own. A caller that chose explicitly keeps it.
-    if "independent_request" not in kwargs and _accepts(runner or agent_cls.run, "independent_request"):
-        kwargs["independent_request"] = True
 
 
 def _accepts(fn: Any, name: str) -> bool:
@@ -1242,7 +1255,8 @@ def _finished_run_ids(held: HeldCall) -> dict[str, Any]:
         logging.getLogger(__name__).warning(
             "[mandates] held code call %s keeps NO run record: %s (said once per key)",
             held.mandate_key,
-            "it ran under a non-persisting request (store=False from a person)"
+            "it ran under a non-persisting request (a person's store=False, or the labeler's "
+            "unsaved-run exemption)"
             if ids
             else "its funnel call never reached execute_ai_request (or carried a copy of "
             "the metadata without the Holder stamp)",

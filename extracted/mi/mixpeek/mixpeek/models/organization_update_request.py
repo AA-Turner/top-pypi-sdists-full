@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.base_rate_limits import BaseRateLimits
+from mixpeek.models.spend_limits_update import SpendLimitsUpdate
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,9 +36,10 @@ class OrganizationUpdateRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Replace metadata with provided dictionary when set.")
     rate_limit_overrides: Optional[BaseRateLimits] = Field(default=None, description="Per-org rate-limit overrides (merged on top of tier defaults).")
     default_llm_credentials: Optional[Dict[str, StrictStr]] = Field(default=None, description="Map of provider names to secret names for org-wide LLM credentials.")
+    spend_limits: Optional[SpendLimitsUpdate] = Field(default=None, description="Set the organization's spend budget and the default budget every namespace gets. Each value is in USD of metered spend; null resets it to the plan default. The organization budget cannot exceed the plan's safety ceiling without Mixpeek support, and a namespace default cannot exceed the organization budget. Every change is recorded with who made it, when, and the prior value.")
     nsfw_check_enabled: Optional[StrictBool] = Field(default=None, description="Toggle NSFW upload classification + hard-reject for this organization. Applies only to SHARED-plane tenants (infrastructure is None). None leaves the current setting unchanged.")
     nsfw_fail_closed: Optional[StrictBool] = Field(default=None, description="Toggle fail-closed behaviour for the NSFW gate (reject uploads when the classifier is unavailable instead of allowing them). None leaves the current setting unchanged.")
-    __properties: ClassVar[List[str]] = ["organization_name", "logo_url", "billing_email", "notifications_email", "metadata", "rate_limit_overrides", "default_llm_credentials", "nsfw_check_enabled", "nsfw_fail_closed"]
+    __properties: ClassVar[List[str]] = ["organization_name", "logo_url", "billing_email", "notifications_email", "metadata", "rate_limit_overrides", "default_llm_credentials", "spend_limits", "nsfw_check_enabled", "nsfw_fail_closed"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,6 +83,9 @@ class OrganizationUpdateRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of rate_limit_overrides
         if self.rate_limit_overrides:
             _dict['rate_limit_overrides'] = self.rate_limit_overrides.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of spend_limits
+        if self.spend_limits:
+            _dict['spend_limits'] = self.spend_limits.to_dict()
         return _dict
 
     @classmethod
@@ -100,6 +105,7 @@ class OrganizationUpdateRequest(BaseModel):
             "metadata": obj.get("metadata"),
             "rate_limit_overrides": BaseRateLimits.from_dict(obj["rate_limit_overrides"]) if obj.get("rate_limit_overrides") is not None else None,
             "default_llm_credentials": obj.get("default_llm_credentials"),
+            "spend_limits": SpendLimitsUpdate.from_dict(obj["spend_limits"]) if obj.get("spend_limits") is not None else None,
             "nsfw_check_enabled": obj.get("nsfw_check_enabled"),
             "nsfw_fail_closed": obj.get("nsfw_fail_closed")
         })

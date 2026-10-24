@@ -139,7 +139,7 @@ EXPECTED_RELEASE_STEPS = (
         # Release assets (see wheel-artifact.yml). Upload-only: it reads
         # dist/ and the checksum manifest and mutates nothing.
         "Upload wheel as a workflow artifact",
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
         False,
         {
             "name": "python-hwpx-wheel",
@@ -162,7 +162,7 @@ EXPECTED_RELEASE_STEPS = (
     ),
     (
         "Create GitHub Release",
-        "softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228",
+    "softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64",
         False,
         {
             "body_path": "release_notes.md",

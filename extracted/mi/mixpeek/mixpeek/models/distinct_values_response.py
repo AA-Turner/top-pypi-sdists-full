@@ -19,7 +19,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.distinct_value import DistinctValue
 from typing import Optional, Set
 from typing_extensions import Self
@@ -31,7 +31,8 @@ class DistinctValuesResponse(BaseModel):
     var_field: StrictStr = Field(description="The field that was queried.", alias="field")
     values: List[DistinctValue] = Field(description="Distinct values sorted by descending count. Respects the `limit` argument; use the length of this list as the returned count.")
     total_distinct: StrictInt = Field(description="Number of distinct values in the response (== len(values)). When `limit` is set this can be less than the true cardinality.")
-    __properties: ClassVar[List[str]] = ["field", "values", "total_distinct"]
+    query_info: Optional[Dict[str, Any]] = Field(default=None, description="Empty when the answer is complete. When a storage shard timed out or returned only part of its documents, this holds `truncated: true`, a `reason`, any `shard_warnings`, and a `warning`; the list may then be missing values and every count is a lower bound. Retrying usually gives the full answer.")
+    __properties: ClassVar[List[str]] = ["field", "values", "total_distinct", "query_info"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,7 +94,8 @@ class DistinctValuesResponse(BaseModel):
         _obj = cls.model_validate({
             "field": obj.get("field"),
             "values": [DistinctValue.from_dict(_item) for _item in obj["values"]] if obj.get("values") is not None else None,
-            "total_distinct": obj.get("total_distinct")
+            "total_distinct": obj.get("total_distinct"),
+            "query_info": obj.get("query_info")
         })
         return _obj
 

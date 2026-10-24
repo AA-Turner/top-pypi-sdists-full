@@ -30,6 +30,7 @@ class SnapshotStatus(str, Enum):
     PENDING = 'pending'
     IN_PROGRESS = 'in_progress'
     COMPLETED = 'completed'
+    PARTIAL = 'partial'
     FAILED = 'failed'
     EXPIRED = 'expired'
 

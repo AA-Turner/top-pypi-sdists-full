@@ -25,12 +25,12 @@ from typing_extensions import Self
 
 class OrganizationPublishStatsResponse(BaseModel):
     """
-    Response for organization publish quota stats.
+    Publish quota stats for the namespace in the request.
     """ # noqa: E501
-    current_count: StrictInt = Field(description="Number of currently published retrievers")
-    max_allowed: StrictInt = Field(description="Maximum number of allowed published retrievers")
+    current_count: StrictInt = Field(description="Number of retrievers currently published from this namespace")
+    max_allowed: StrictInt = Field(description="Maximum number of published retrievers allowed per namespace")
     remaining: StrictInt = Field(description="Number of remaining publish slots")
-    at_limit: StrictBool = Field(description="Whether the organization has reached the publish limit")
+    at_limit: StrictBool = Field(description="Whether this namespace has reached the publish limit")
     __properties: ClassVar[List[str]] = ["current_count", "max_allowed", "remaining", "at_limit"]
 
     model_config = ConfigDict(

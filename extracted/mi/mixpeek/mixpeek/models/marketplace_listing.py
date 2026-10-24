@@ -39,7 +39,8 @@ class MarketplaceListing(BaseModel):
     title: StrictStr = Field(description="Public display title")
     description: StrictStr = Field(description="Public description of what this listing provides")
     public_name: Annotated[str, Field(min_length=3, strict=True, max_length=50)] = Field(description="Public URL-safe slug for the listing (e.g., 'video-search'). Used in public URL: mxp.co/m/{public_name}. Must be globally unique.")
-    category: Optional[StrictStr] = Field(default=None, description="Category for browsing (e.g., 'Content Moderation', 'Search')")
+    category: Optional[StrictStr] = Field(default=None, description="Catalog category. One of: Brand Safety, Advertising, Media, Faces & People, Art & Archives, Personalization, Content Safety, Spatial, Ecommerce. Writes also accept the slug form (e.g., 'faces-and-people') and store the label.")
+    groups: Optional[List[StrictStr]] = Field(default=None, description="Curated groups this listing belongs to, as lowercase slugs (e.g., 'ip-screening'). Filter the catalog by one with ?group=.")
     tags: Optional[List[StrictStr]] = Field(default=None, description="Tags for discovery")
     logo_url: Optional[StrictStr] = Field(default=None, description="URL to listing logo/icon")
     app_url: Optional[StrictStr] = Field(default=None, description="Optional URL to a live canvas app powered by this retriever (e.g., 'https://nga.mxp.co'). When set, the listing appears in the public showcase at mixpeek.com/showcase.")
@@ -56,7 +57,7 @@ class MarketplaceListing(BaseModel):
     published_at: Optional[datetime] = Field(default=None, description="When the listing was first published")
     total_subscribers: Optional[StrictInt] = Field(default=0, description="Total number of active subscribers")
     total_queries: Optional[StrictInt] = Field(default=0, description="Total queries executed across all subscribers")
-    __properties: ClassVar[List[str]] = ["listing_id", "internal_id", "namespace_id", "retriever_id", "title", "description", "public_name", "category", "tags", "logo_url", "app_url", "icon_base64", "available_tiers", "display_config", "password_secret_name", "status", "visibility", "is_active", "featured_rank", "created_at", "updated_at", "published_at", "total_subscribers", "total_queries"]
+    __properties: ClassVar[List[str]] = ["listing_id", "internal_id", "namespace_id", "retriever_id", "title", "description", "public_name", "category", "groups", "tags", "logo_url", "app_url", "icon_base64", "available_tiers", "display_config", "password_secret_name", "status", "visibility", "is_active", "featured_rank", "created_at", "updated_at", "published_at", "total_subscribers", "total_queries"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -124,6 +125,7 @@ class MarketplaceListing(BaseModel):
             "description": obj.get("description"),
             "public_name": obj.get("public_name"),
             "category": obj.get("category"),
+            "groups": obj.get("groups"),
             "tags": obj.get("tags"),
             "logo_url": obj.get("logo_url"),
             "app_url": obj.get("app_url"),

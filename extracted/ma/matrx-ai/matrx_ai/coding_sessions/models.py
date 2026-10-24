@@ -340,6 +340,19 @@ class BridgeRequest(BaseModel):
     account_identity: BridgeAccountIdentity | None = None
     writer_runtime_id: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     writer_lease_seconds: Annotated[int, Field(ge=30, le=3600)] = 300
+    writer_role: Literal["runtime", "tail_reader"] = "runtime"
+    """WHO is appending native entries. Valid for ``append_native`` only.
+
+    ``runtime`` (the default) is a process that RUNS the provider session — it
+    takes the writer lease, writes ``runtime_ref`` and its appends decide the
+    binding's resume capability. ``tail_reader`` is a process that only READS
+    the provider's own transcript file and forwards its lines (the Claude Code
+    plugin's transcript sync): it takes NO lease, writes NO runtime_ref, is
+    accepted while a runtime holds the lease, never changes resume capability,
+    and may omit ``writer_runtime_id``, ``conversation`` (the server derives the
+    importer's deterministic conversation) and may send ``origin`` as
+    ``independent_hook``. Its lines dedupe by entry id / source sequence against
+    everything else that wrote the same binding."""
     after_source_sequence: Annotated[int, Field(ge=0)] | None = None
     limit: Annotated[int, Field(ge=1, le=1000)] = 250
     # --- the `send` verb (lane XT-03b) -----------------------------------
@@ -424,21 +437,36 @@ class BridgeRequest(BaseModel):
         if self.action is BridgeAction.APPEND_NATIVE:
             if not self.entries:
                 raise ValueError("entries are required for append_native")
-            if self.conversation is None:
+            tail_reader = self.writer_role == "tail_reader"
+            if self.conversation is None and not tail_reader:
                 raise ValueError("conversation is required for append_native")
-            if self.origin not in NATIVE_ORIGINS:
+            allowed_origins = (
+                NATIVE_ORIGINS | {BridgeOrigin.INDEPENDENT_HOOK} if tail_reader else NATIVE_ORIGINS
+            )
+            if self.origin not in allowed_origins:
                 raise ValueError("append_native origin must be matrx_local, matrx_desktop or matrx_sandbox")
-            if self.writer_runtime_id is None:
+            if self.writer_runtime_id is None and not tail_reader:
                 raise ValueError("writer_runtime_id is required for append_native")
+            if tail_reader and self.source_metadata is None:
+                raise ValueError(
+                    "a tail_reader append requires source_metadata: it names the provider's "
+                    "own session the lines were read from"
+                )
             if self.source_metadata is not None and (
                 self.provider is not BridgeProvider.CLAUDE_CODE
-                or self.origin not in {BridgeOrigin.MATRX_LOCAL, BridgeOrigin.MATRX_DESKTOP}
+                or self.origin
+                not in (
+                    {BridgeOrigin.MATRX_LOCAL, BridgeOrigin.MATRX_DESKTOP}
+                    | ({BridgeOrigin.INDEPENDENT_HOOK} if tail_reader else set())
+                )
             ):
                 raise ValueError("source_metadata is supported only for desktop (Matrx Local or Matrx 2) Claude imports")
             if self.source_metadata is not None and self.provider_project_key is None:
                 raise ValueError("provider_project_key is required for local Claude imports")
         elif self.entries:
             raise ValueError("entries are only valid for append_native")
+        elif self.writer_role != "runtime":
+            raise ValueError("writer_role is only valid for append_native")
         elif self.source_metadata is not None:
             raise ValueError("source_metadata is only valid for append_native")
         if self.account_identity is not None:
@@ -748,6 +776,17 @@ class BridgeRefusalCode(StrEnum):
     wait bound, so call again with the SAME key to collect its answer rather than
     buying a second one; or that identical send gave its claim back without an
     answer, in which case retrying now wins the claim outright.
+    """
+
+    LINE_NOT_PROJECTED = "line_not_projected"
+    """A sent transcript line could not be projected, so it was NOT recorded.
+
+    Its writes (and every later line of the batch) are rolled back, it is not
+    remembered and not counted accepted, so a tail reader keeps its cursor and
+    re-sends it. Earlier lines of the batch are kept. The failure is recorded on
+    the binding (an error group) and captured as a system error — a line is
+    never dropped behind an ``error`` receipt that still advanced the cursor.
+    ``requested_value`` names the entry.
     """
 
     DISPATCH_CEILING = "dispatch_ceiling"

@@ -36,6 +36,9 @@ ENV_AIRBYTE_INTERNAL_ADMIN_FLAG = "AIRBYTE_INTERNAL_ADMIN_FLAG"
 ENV_AIRBYTE_INTERNAL_ADMIN_USER = "AIRBYTE_INTERNAL_ADMIN_USER"
 
 # Environment variable for GCP credentials (JSON content, not file path)
+ENV_GCP_BIGQUERY_CREDENTIALS = "GCP_BIGQUERY_CREDENTIALS"
+"""Environment variable containing GCP credentials for BigQuery access."""
+
 ENV_GCP_PROD_DB_ACCESS_CREDENTIALS = "GCP_PROD_DB_ACCESS_CREDENTIALS"
 """Environment variable containing GCP service account JSON credentials for prod DB access."""
 

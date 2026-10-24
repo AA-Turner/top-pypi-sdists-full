@@ -24,6 +24,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.config2 import Config2
 from mixpeek.models.input_mapping import InputMapping
+from mixpeek.models.taxonomy_path_node import TaxonomyPathNode
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -38,10 +39,11 @@ class TaxonomyResponse(BaseModel):
     retriever_id: Optional[StrictStr] = Field(default=None, description="Optional taxonomy-level retriever (prefer per-layer).")
     input_mappings: Optional[List[InputMapping]] = Field(default=None, description="Optional taxonomy-level inputs (prefer per-layer).")
     config: Config2
+    nodes: Optional[List[TaxonomyPathNode]] = Field(default=None, description="For a hierarchy built from config.path_field: one node per distinct path prefix seen in enriched documents, with its parent. Grows as enrichment meets new paths. None for other taxonomies.")
     ready: Optional[StrictBool] = Field(default=True, description="Whether the taxonomy is ready for use. False for async inference (cluster/LLM) that needs processing. True for flat/explicit hierarchies.")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp for this taxonomy record")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional user-defined metadata for the taxonomy")
-    __properties: ClassVar[List[str]] = ["taxonomy_id", "version", "taxonomy_name", "description", "retriever_id", "input_mappings", "config", "ready", "created_at", "metadata"]
+    __properties: ClassVar[List[str]] = ["taxonomy_id", "version", "taxonomy_name", "description", "retriever_id", "input_mappings", "config", "nodes", "ready", "created_at", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +94,13 @@ class TaxonomyResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of config
         if self.config:
             _dict['config'] = self.config.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in nodes (list)
+        _items = []
+        if self.nodes:
+            for _item_nodes in self.nodes:
+                if _item_nodes:
+                    _items.append(_item_nodes.to_dict())
+            _dict['nodes'] = _items
         return _dict
 
     @classmethod
@@ -111,6 +120,7 @@ class TaxonomyResponse(BaseModel):
             "retriever_id": obj.get("retriever_id"),
             "input_mappings": [InputMapping.from_dict(_item) for _item in obj["input_mappings"]] if obj.get("input_mappings") is not None else None,
             "config": Config2.from_dict(obj["config"]) if obj.get("config") is not None else None,
+            "nodes": [TaxonomyPathNode.from_dict(_item) for _item in obj["nodes"]] if obj.get("nodes") is not None else None,
             "ready": obj.get("ready") if obj.get("ready") is not None else True,
             "created_at": obj.get("created_at"),
             "metadata": obj.get("metadata")

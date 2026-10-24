@@ -42,6 +42,7 @@ from .paginator import (
     ListJobsPaginator,
     ListLicenseEndpointsPaginator,
     ListLimitsPaginator,
+    ListMembershipsPaginator,
     ListMeteredProductsPaginator,
     ListMonitorsPaginator,
     ListQueueEnvironmentsPaginator,
@@ -202,6 +203,8 @@ from .type_defs import (
     ListLicenseEndpointsResponseTypeDef,
     ListLimitsRequestTypeDef,
     ListLimitsResponseTypeDef,
+    ListMembershipsRequestTypeDef,
+    ListMembershipsResponseTypeDef,
     ListMeteredProductsRequestTypeDef,
     ListMeteredProductsResponseTypeDef,
     ListMonitorsRequestTypeDef,
@@ -1133,6 +1136,17 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#list_limits)
         """
 
+    async def list_memberships(
+        self, **kwargs: Unpack[ListMembershipsRequestTypeDef]
+    ) -> ListMembershipsResponseTypeDef:
+        """
+        Lists the Deadline Cloud resource memberships associated with a specified IAM
+        Identity Center principal, optionally filtered by the requested resource types.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/list_memberships.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#list_memberships)
+        """
+
     async def list_metered_products(
         self, **kwargs: Unpack[ListMeteredProductsRequestTypeDef]
     ) -> ListMeteredProductsResponseTypeDef:
@@ -1675,6 +1689,17 @@ class DeadlineCloudClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_limits"]
     ) -> ListLimitsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_memberships"]
+    ) -> ListMembershipsPaginator:
         """
         Create a paginator for an operation.
 

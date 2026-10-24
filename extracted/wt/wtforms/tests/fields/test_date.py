@@ -29,3 +29,25 @@ def test_failure():
     assert len(form.a.errors) == 1
     assert len(form.b.errors) == 1
     assert form.a.process_errors[0] == "Not a valid date value."
+
+
+def test_invalid_value_message():
+    class G(Form):
+        a = DateField(invalid_value_message="Enter a date as YYYY-MM-DD.")
+
+    form = G(DummyPostData(a=["bogus"]))
+    assert not form.validate()
+    assert form.a.errors == ["Enter a date as YYYY-MM-DD."]
+
+
+def test_invalid_value_type():
+    """A non-string input gives a validation error instead of a TypeError."""
+
+    class F(Form):
+        a = DateField()
+
+    form = F(DummyPostData(a={"not a": "date"}))
+
+    assert form.a.data is None
+    assert not form.validate()
+    assert form.a.errors == ["Not a valid date value."]

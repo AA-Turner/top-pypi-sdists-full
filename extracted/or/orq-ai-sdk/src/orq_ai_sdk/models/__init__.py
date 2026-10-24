@@ -3597,6 +3597,10 @@ if TYPE_CHECKING:
     )
     from .evaluationcontext import EvaluationContext, EvaluationContextTypedDict
     from .evaluationresult import EvaluationResult, EvaluationResultTypedDict
+    from .evaluatorcalltimeout import (
+        EvaluatorCallTimeout,
+        EvaluatorCallTimeoutTypedDict,
+    )
     from .evaluatorfilter import EvaluatorFilter, EvaluatorFilterTypedDict
     from .evaluatorref import EvaluatorRef, EvaluatorRefTypedDict, ExecuteOn
     from .evaluatorresponsefunction import (
@@ -3758,6 +3762,10 @@ if TYPE_CHECKING:
         EvaluatorResponseTypescriptOutputType,
         EvaluatorResponseTypescriptType,
         EvaluatorResponseTypescriptTypedDict,
+    )
+    from .evaluatorretryconfig import (
+        EvaluatorRetryConfig,
+        EvaluatorRetryConfigTypedDict,
     )
     from .executionnamedstreamingevent import (
         ExecutionNamedStreamingEvent,
@@ -6069,7 +6077,11 @@ if TYPE_CHECKING:
     from .litellmmodel import LiteLLMModel, LiteLLMModelTypedDict
     from .litellmmodelinfo import LiteLLMModelInfo, LiteLLMModelInfoTypedDict
     from .litellmparams import LiteLLMParams, LiteLLMParamsTypedDict
-    from .loadbalancerconfig import LoadBalancerConfig, LoadBalancerConfigTypedDict
+    from .loadbalancerconfig import (
+        LoadBalancerConfig,
+        LoadBalancerConfigType,
+        LoadBalancerConfigTypedDict,
+    )
     from .loadbalancermodelconfig import (
         LoadBalancerModelConfig,
         LoadBalancerModelConfigTypedDict,
@@ -6735,11 +6747,18 @@ if TYPE_CHECKING:
     )
     from .reasoning import (
         Reasoning,
+        ReasoningContext,
         ReasoningEffort1,
         ReasoningSummary,
         ReasoningTypedDict,
     )
-    from .reasoningparam import Effort, ReasoningParam, ReasoningParamTypedDict, Summary
+    from .reasoningparam import (
+        Context,
+        Effort,
+        ReasoningParam,
+        ReasoningParamTypedDict,
+        Summary,
+    )
     from .reasoningpart import ReasoningPart, ReasoningPartKind, ReasoningPartTypedDict
     from .reasoningpartschema import (
         ReasoningPartSchema,
@@ -10132,6 +10151,7 @@ __all__ = [
     "Content2TypedDict",
     "ContentType",
     "ContentTypedDict",
+    "Context",
     "Conversation",
     "ConversationParam",
     "ConversationParamTypedDict",
@@ -12624,6 +12644,8 @@ __all__ = [
     "EvaluationResult",
     "EvaluationResultTypedDict",
     "Evaluator",
+    "EvaluatorCallTimeout",
+    "EvaluatorCallTimeoutTypedDict",
     "EvaluatorFilter",
     "EvaluatorFilterTypedDict",
     "EvaluatorRef",
@@ -12690,6 +12712,8 @@ __all__ = [
     "EvaluatorResponseTypescriptOutputType",
     "EvaluatorResponseTypescriptType",
     "EvaluatorResponseTypescriptTypedDict",
+    "EvaluatorRetryConfig",
+    "EvaluatorRetryConfigTypedDict",
     "EvaluatorTypedDict",
     "Evaluators",
     "EvaluatorsTypedDict",
@@ -14740,6 +14764,7 @@ __all__ = [
     "LoadBalancer1",
     "LoadBalancer1TypedDict",
     "LoadBalancerConfig",
+    "LoadBalancerConfigType",
     "LoadBalancerConfigTypedDict",
     "LoadBalancerModelConfig",
     "LoadBalancerModelConfigTypedDict",
@@ -15528,6 +15553,7 @@ __all__ = [
     "RateLimitRestResponseTypedDict",
     "RateLimitTypedDict",
     "Reasoning",
+    "ReasoningContext",
     "ReasoningEffort",
     "ReasoningEffort1",
     "ReasoningParam",
@@ -21481,6 +21507,8 @@ _dynamic_imports: dict[str, str] = {
     "EvaluationContextTypedDict": ".evaluationcontext",
     "EvaluationResult": ".evaluationresult",
     "EvaluationResultTypedDict": ".evaluationresult",
+    "EvaluatorCallTimeout": ".evaluatorcalltimeout",
+    "EvaluatorCallTimeoutTypedDict": ".evaluatorcalltimeout",
     "EvaluatorFilter": ".evaluatorfilter",
     "EvaluatorFilterTypedDict": ".evaluatorfilter",
     "EvaluatorRef": ".evaluatorref",
@@ -21632,6 +21660,8 @@ _dynamic_imports: dict[str, str] = {
     "EvaluatorResponseTypescriptOutputType": ".evaluatorresponsetypescript",
     "EvaluatorResponseTypescriptType": ".evaluatorresponsetypescript",
     "EvaluatorResponseTypescriptTypedDict": ".evaluatorresponsetypescript",
+    "EvaluatorRetryConfig": ".evaluatorretryconfig",
+    "EvaluatorRetryConfigTypedDict": ".evaluatorretryconfig",
     "ExecutionNamedStreamingEvent": ".executionnamedstreamingevent",
     "ExecutionNamedStreamingEventData": ".executionnamedstreamingevent",
     "ExecutionNamedStreamingEventDataTypedDict": ".executionnamedstreamingevent",
@@ -23738,6 +23768,7 @@ _dynamic_imports: dict[str, str] = {
     "LiteLLMParams": ".litellmparams",
     "LiteLLMParamsTypedDict": ".litellmparams",
     "LoadBalancerConfig": ".loadbalancerconfig",
+    "LoadBalancerConfigType": ".loadbalancerconfig",
     "LoadBalancerConfigTypedDict": ".loadbalancerconfig",
     "LoadBalancerModelConfig": ".loadbalancermodelconfig",
     "LoadBalancerModelConfigTypedDict": ".loadbalancermodelconfig",
@@ -24326,9 +24357,11 @@ _dynamic_imports: dict[str, str] = {
     "RateLimitRestResponse": ".ratelimitrestresponse",
     "RateLimitRestResponseTypedDict": ".ratelimitrestresponse",
     "Reasoning": ".reasoning",
+    "ReasoningContext": ".reasoning",
     "ReasoningEffort1": ".reasoning",
     "ReasoningSummary": ".reasoning",
     "ReasoningTypedDict": ".reasoning",
+    "Context": ".reasoningparam",
     "Effort": ".reasoningparam",
     "ReasoningParam": ".reasoningparam",
     "ReasoningParamTypedDict": ".reasoningparam",

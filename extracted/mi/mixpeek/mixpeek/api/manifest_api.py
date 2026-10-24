@@ -17,12 +17,13 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictBool, StrictStr
-from typing import Any, List, Optional
+from pydantic import Field, StrictBool, StrictStr, field_validator
+from typing import Any, List, Optional, Union
 from typing_extensions import Annotated
 from mixpeek.models.apply_mode import ApplyMode
 from mixpeek.models.apply_result import ApplyResult
 from mixpeek.models.diff_result import DiffResult
+from mixpeek.models.export_request import ExportRequest
 from mixpeek.models.lint_response import LintResponse
 from mixpeek.models.validate_result import ValidateResult
 
@@ -48,8 +49,12 @@ class ManifestApi:
     def apply_manifest(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
-        dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Run the plan only: the same checks as POST /v1/manifest/validate, returned as errors and warnings, with nothing created. Each resource reads `would_create`, or `exists` when it is already there. Under mode create_only an existing resource refuses the plan, as it would refuse the apply")] = None,
+        deadline_seconds: Annotated[Optional[Union[Annotated[float, Field(le=1800, strict=True, ge=1)], Annotated[int, Field(le=1800, strict=True, ge=1)]]], Field(description="Wait up to this many seconds after the resources are created for every Ray Serve app a declared collection needs to be RUNNING (the apps listed in `readiness`). Past the deadline the result has success false and an error naming the deadline and each app not RUNNING; the resources stay in place. Omit to return as soon as the resources exist.")] = None,
+        wait_for_seed: Annotated[Optional[StrictBool], Field(description="After the resources exist, wait until every `seed:` batch has finished (COMPLETED, COMPLETED_WITH_ERRORS, FAILED or CANCELED), within deadline_seconds or 900 seconds when that is omitted. Each batch's status and documents_written are returned in `seed_batches`; one that failed or did not finish in time is also named in `errors`. `success` still reports resource creation only")] = None,
+        run_acceptance: Annotated[Optional[StrictBool], Field(description="Implies wait_for_seed and also waits for the Serve apps in `readiness`. Then runs the manifest's `acceptance:` steps in order and returns each in `acceptance` with passed, expected, observed and error. A step that could not run (deadline reached, seed batch failed, Serve apps not RUNNING) is passed false with the reason. The steps are normal executions in your organization and are billed like any query or inference call; `acceptance.max_cost_usd` is checked against the meter before each step and at the end. Re-apply with mode=create_missing to re-run the steps on a namespace that already exists without creating anything. A manifest with no `acceptance:` block is refused with 400")] = None,
         mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.")] = None,
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -65,14 +70,22 @@ class ManifestApi:
     ) -> ApplyResult:
         """Apply Manifest
 
-        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes:** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world. Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
+        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes:** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world.  **Plan first:** before creating anything, apply runs the same checks as `POST /v1/manifest/validate`. Any error refuses the whole manifest with `success: false`, every resource `skipped`, and each error naming the resource, the field and the fix. Nothing is created. A namespace budget above the organization's bound is set to the bound and reported as a warning.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails, and   an apply whose process is stopped part way is rolled back when the API starts again - Dry run returns the plan without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
-        :param dry_run: Validate only, don't create resources
+        :param dry_run: Run the plan only: the same checks as POST /v1/manifest/validate, returned as errors and warnings, with nothing created. Each resource reads `would_create`, or `exists` when it is already there. Under mode create_only an existing resource refuses the plan, as it would refuse the apply
         :type dry_run: bool
+        :param deadline_seconds: Wait up to this many seconds after the resources are created for every Ray Serve app a declared collection needs to be RUNNING (the apps listed in `readiness`). Past the deadline the result has success false and an error naming the deadline and each app not RUNNING; the resources stay in place. Omit to return as soon as the resources exist.
+        :type deadline_seconds: float
+        :param wait_for_seed: After the resources exist, wait until every `seed:` batch has finished (COMPLETED, COMPLETED_WITH_ERRORS, FAILED or CANCELED), within deadline_seconds or 900 seconds when that is omitted. Each batch's status and documents_written are returned in `seed_batches`; one that failed or did not finish in time is also named in `errors`. `success` still reports resource creation only
+        :type wait_for_seed: bool
+        :param run_acceptance: Implies wait_for_seed and also waits for the Serve apps in `readiness`. Then runs the manifest's `acceptance:` steps in order and returns each in `acceptance` with passed, expected, observed and error. A step that could not run (deadline reached, seed batch failed, Serve apps not RUNNING) is passed false with the reason. The steps are normal executions in your organization and are billed like any query or inference call; `acceptance.max_cost_usd` is checked against the meter before each step and at the end. Re-apply with mode=create_missing to re-run the steps on a namespace that already exists without creating anything. A manifest with no `acceptance:` block is refused with 400
+        :type run_acceptance: bool
         :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.
         :type mode: ApplyMode
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -98,7 +111,11 @@ class ManifestApi:
         _param = self._apply_manifest_serialize(
             manifest_file=manifest_file,
             dry_run=dry_run,
+            deadline_seconds=deadline_seconds,
+            wait_for_seed=wait_for_seed,
+            run_acceptance=run_acceptance,
             mode=mode,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -106,13 +123,15 @@ class ManifestApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "ApplyResult",
+            '200': "ApplyResult",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -129,8 +148,12 @@ class ManifestApi:
     def apply_manifest_with_http_info(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
-        dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Run the plan only: the same checks as POST /v1/manifest/validate, returned as errors and warnings, with nothing created. Each resource reads `would_create`, or `exists` when it is already there. Under mode create_only an existing resource refuses the plan, as it would refuse the apply")] = None,
+        deadline_seconds: Annotated[Optional[Union[Annotated[float, Field(le=1800, strict=True, ge=1)], Annotated[int, Field(le=1800, strict=True, ge=1)]]], Field(description="Wait up to this many seconds after the resources are created for every Ray Serve app a declared collection needs to be RUNNING (the apps listed in `readiness`). Past the deadline the result has success false and an error naming the deadline and each app not RUNNING; the resources stay in place. Omit to return as soon as the resources exist.")] = None,
+        wait_for_seed: Annotated[Optional[StrictBool], Field(description="After the resources exist, wait until every `seed:` batch has finished (COMPLETED, COMPLETED_WITH_ERRORS, FAILED or CANCELED), within deadline_seconds or 900 seconds when that is omitted. Each batch's status and documents_written are returned in `seed_batches`; one that failed or did not finish in time is also named in `errors`. `success` still reports resource creation only")] = None,
+        run_acceptance: Annotated[Optional[StrictBool], Field(description="Implies wait_for_seed and also waits for the Serve apps in `readiness`. Then runs the manifest's `acceptance:` steps in order and returns each in `acceptance` with passed, expected, observed and error. A step that could not run (deadline reached, seed batch failed, Serve apps not RUNNING) is passed false with the reason. The steps are normal executions in your organization and are billed like any query or inference call; `acceptance.max_cost_usd` is checked against the meter before each step and at the end. Re-apply with mode=create_missing to re-run the steps on a namespace that already exists without creating anything. A manifest with no `acceptance:` block is refused with 400")] = None,
         mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.")] = None,
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -146,14 +169,22 @@ class ManifestApi:
     ) -> ApiResponse[ApplyResult]:
         """Apply Manifest
 
-        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes:** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world. Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
+        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes:** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world.  **Plan first:** before creating anything, apply runs the same checks as `POST /v1/manifest/validate`. Any error refuses the whole manifest with `success: false`, every resource `skipped`, and each error naming the resource, the field and the fix. Nothing is created. A namespace budget above the organization's bound is set to the bound and reported as a warning.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails, and   an apply whose process is stopped part way is rolled back when the API starts again - Dry run returns the plan without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
-        :param dry_run: Validate only, don't create resources
+        :param dry_run: Run the plan only: the same checks as POST /v1/manifest/validate, returned as errors and warnings, with nothing created. Each resource reads `would_create`, or `exists` when it is already there. Under mode create_only an existing resource refuses the plan, as it would refuse the apply
         :type dry_run: bool
+        :param deadline_seconds: Wait up to this many seconds after the resources are created for every Ray Serve app a declared collection needs to be RUNNING (the apps listed in `readiness`). Past the deadline the result has success false and an error naming the deadline and each app not RUNNING; the resources stay in place. Omit to return as soon as the resources exist.
+        :type deadline_seconds: float
+        :param wait_for_seed: After the resources exist, wait until every `seed:` batch has finished (COMPLETED, COMPLETED_WITH_ERRORS, FAILED or CANCELED), within deadline_seconds or 900 seconds when that is omitted. Each batch's status and documents_written are returned in `seed_batches`; one that failed or did not finish in time is also named in `errors`. `success` still reports resource creation only
+        :type wait_for_seed: bool
+        :param run_acceptance: Implies wait_for_seed and also waits for the Serve apps in `readiness`. Then runs the manifest's `acceptance:` steps in order and returns each in `acceptance` with passed, expected, observed and error. A step that could not run (deadline reached, seed batch failed, Serve apps not RUNNING) is passed false with the reason. The steps are normal executions in your organization and are billed like any query or inference call; `acceptance.max_cost_usd` is checked against the meter before each step and at the end. Re-apply with mode=create_missing to re-run the steps on a namespace that already exists without creating anything. A manifest with no `acceptance:` block is refused with 400
+        :type run_acceptance: bool
         :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.
         :type mode: ApplyMode
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -179,7 +210,11 @@ class ManifestApi:
         _param = self._apply_manifest_serialize(
             manifest_file=manifest_file,
             dry_run=dry_run,
+            deadline_seconds=deadline_seconds,
+            wait_for_seed=wait_for_seed,
+            run_acceptance=run_acceptance,
             mode=mode,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -187,13 +222,15 @@ class ManifestApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "ApplyResult",
+            '200': "ApplyResult",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -210,8 +247,12 @@ class ManifestApi:
     def apply_manifest_without_preload_content(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
-        dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Run the plan only: the same checks as POST /v1/manifest/validate, returned as errors and warnings, with nothing created. Each resource reads `would_create`, or `exists` when it is already there. Under mode create_only an existing resource refuses the plan, as it would refuse the apply")] = None,
+        deadline_seconds: Annotated[Optional[Union[Annotated[float, Field(le=1800, strict=True, ge=1)], Annotated[int, Field(le=1800, strict=True, ge=1)]]], Field(description="Wait up to this many seconds after the resources are created for every Ray Serve app a declared collection needs to be RUNNING (the apps listed in `readiness`). Past the deadline the result has success false and an error naming the deadline and each app not RUNNING; the resources stay in place. Omit to return as soon as the resources exist.")] = None,
+        wait_for_seed: Annotated[Optional[StrictBool], Field(description="After the resources exist, wait until every `seed:` batch has finished (COMPLETED, COMPLETED_WITH_ERRORS, FAILED or CANCELED), within deadline_seconds or 900 seconds when that is omitted. Each batch's status and documents_written are returned in `seed_batches`; one that failed or did not finish in time is also named in `errors`. `success` still reports resource creation only")] = None,
+        run_acceptance: Annotated[Optional[StrictBool], Field(description="Implies wait_for_seed and also waits for the Serve apps in `readiness`. Then runs the manifest's `acceptance:` steps in order and returns each in `acceptance` with passed, expected, observed and error. A step that could not run (deadline reached, seed batch failed, Serve apps not RUNNING) is passed false with the reason. The steps are normal executions in your organization and are billed like any query or inference call; `acceptance.max_cost_usd` is checked against the meter before each step and at the end. Re-apply with mode=create_missing to re-run the steps on a namespace that already exists without creating anything. A manifest with no `acceptance:` block is refused with 400")] = None,
         mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.")] = None,
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -227,14 +268,22 @@ class ManifestApi:
     ) -> RESTResponseType:
         """Apply Manifest
 
-        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes:** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world. Performs automatic rollback if any resource creation fails.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails - Dry run mode validates the manifest without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
+        Apply a YAML manifest to create resources.  Creates all resources defined in the manifest file in dependency order.  **Modes:** - `create_only` (default) — fails if any resource already exists. - `create_missing` — creates what is missing, leaves what exists alone, and resolves   manifest references against the resources ALREADY in the namespace. This is what makes   \"here is a namespace with buckets, add these collections over them\" work. Under   `create_only` a reference to an undeclared-but-existing bucket is a validation error,   because the manifest is treated as a closed world.  **Plan first:** before creating anything, apply runs the same checks as `POST /v1/manifest/validate`. Any error refuses the whole manifest with `success: false`, every resource `skipped`, and each error naming the resource, the field and the fix. Nothing is created. A namespace budget above the organization's bound is set to the bound and reported as a warning.  **Features:** - Topological sorting ensures resources are created in correct dependency order - Secret references (`${{ secrets.NAME }}`) are resolved from organization secrets - Atomic operation: rolls back all created resources if any creation fails, and   an apply whose process is stopped part way is rolled back when the API starts again - Dry run returns the plan without making changes  **Example:** ```bash curl -X POST /v1/manifest/apply \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"X-Namespace: ns_xxx\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Example manifest:** ```yaml version: \"1.0\" metadata:   name: \"my-environment\"  namespaces:   - name: video_search     feature_extractors:       - name: multimodal_extractor         version: v1  buckets:   - name: raw_videos     namespace: video_search     schema:       properties:         video: { type: video } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
-        :param dry_run: Validate only, don't create resources
+        :param dry_run: Run the plan only: the same checks as POST /v1/manifest/validate, returned as errors and warnings, with nothing created. Each resource reads `would_create`, or `exists` when it is already there. Under mode create_only an existing resource refuses the plan, as it would refuse the apply
         :type dry_run: bool
+        :param deadline_seconds: Wait up to this many seconds after the resources are created for every Ray Serve app a declared collection needs to be RUNNING (the apps listed in `readiness`). Past the deadline the result has success false and an error naming the deadline and each app not RUNNING; the resources stay in place. Omit to return as soon as the resources exist.
+        :type deadline_seconds: float
+        :param wait_for_seed: After the resources exist, wait until every `seed:` batch has finished (COMPLETED, COMPLETED_WITH_ERRORS, FAILED or CANCELED), within deadline_seconds or 900 seconds when that is omitted. Each batch's status and documents_written are returned in `seed_batches`; one that failed or did not finish in time is also named in `errors`. `success` still reports resource creation only
+        :type wait_for_seed: bool
+        :param run_acceptance: Implies wait_for_seed and also waits for the Serve apps in `readiness`. Then runs the manifest's `acceptance:` steps in order and returns each in `acceptance` with passed, expected, observed and error. A step that could not run (deadline reached, seed batch failed, Serve apps not RUNNING) is passed false with the reason. The steps are normal executions in your organization and are billed like any query or inference call; `acceptance.max_cost_usd` is checked against the meter before each step and at the end. Re-apply with mode=create_missing to re-run the steps on a namespace that already exists without creating anything. A manifest with no `acceptance:` block is refused with 400
+        :type run_acceptance: bool
         :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.
         :type mode: ApplyMode
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -260,7 +309,11 @@ class ManifestApi:
         _param = self._apply_manifest_serialize(
             manifest_file=manifest_file,
             dry_run=dry_run,
+            deadline_seconds=deadline_seconds,
+            wait_for_seed=wait_for_seed,
+            run_acceptance=run_acceptance,
             mode=mode,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -268,13 +321,15 @@ class ManifestApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "ApplyResult",
+            '200': "ApplyResult",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -287,7 +342,11 @@ class ManifestApi:
         self,
         manifest_file,
         dry_run,
+        deadline_seconds,
+        wait_for_seed,
+        run_acceptance,
         mode,
+        parameters,
         _request_auth,
         _content_type,
         _headers,
@@ -314,6 +373,18 @@ class ManifestApi:
             
             _query_params.append(('dry_run', dry_run))
             
+        if deadline_seconds is not None:
+            
+            _query_params.append(('deadline_seconds', deadline_seconds))
+            
+        if wait_for_seed is not None:
+            
+            _query_params.append(('wait_for_seed', wait_for_seed))
+            
+        if run_acceptance is not None:
+            
+            _query_params.append(('run_acceptance', run_acceptance))
+            
         if mode is not None:
             
             _query_params.append(('mode', mode.value))
@@ -322,6 +393,8 @@ class ManifestApi:
         # process the form parameters
         if manifest_file is not None:
             _form_params.append(('manifest_file', manifest_file))
+        if parameters is not None:
+            _form_params.append(('parameters', parameters))
         # process the body parameter
 
 
@@ -374,6 +447,7 @@ class ManifestApi:
     def diff_manifest(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -393,6 +467,8 @@ class ManifestApi:
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -417,6 +493,7 @@ class ManifestApi:
 
         _param = self._diff_manifest_serialize(
             manifest_file=manifest_file,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -429,8 +506,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -447,6 +526,7 @@ class ManifestApi:
     def diff_manifest_with_http_info(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -466,6 +546,8 @@ class ManifestApi:
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -490,6 +572,7 @@ class ManifestApi:
 
         _param = self._diff_manifest_serialize(
             manifest_file=manifest_file,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -502,8 +585,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -520,6 +605,7 @@ class ManifestApi:
     def diff_manifest_without_preload_content(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -539,6 +625,8 @@ class ManifestApi:
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -563,6 +651,7 @@ class ManifestApi:
 
         _param = self._diff_manifest_serialize(
             manifest_file=manifest_file,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -575,8 +664,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -588,6 +679,7 @@ class ManifestApi:
     def _diff_manifest_serialize(
         self,
         manifest_file,
+        parameters,
         _request_auth,
         _content_type,
         _headers,
@@ -614,6 +706,8 @@ class ManifestApi:
         # process the form parameters
         if manifest_file is not None:
             _form_params.append(('manifest_file', manifest_file))
+        if parameters is not None:
+            _form_params.append(('parameters', parameters))
         # process the body parameter
 
 
@@ -668,6 +762,7 @@ class ManifestApi:
         namespace_id: Annotated[Optional[StrictStr], Field(description="Export specific namespace (None = all)")] = None,
         format: Annotated[Optional[StrictStr], Field(description="Output format (yaml)")] = None,
         manifest_name: Annotated[Optional[StrictStr], Field(description="Name for the manifest")] = None,
+        detail: Annotated[Optional[StrictStr], Field(description="'config' (default) exports the resources only. 'stats' also writes a read-only `status` section describing what is in the data: each collection's document count, field types and most common field values, and each cluster's groups with labels and sizes. Requires namespace_id. Apply ignores `status`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -691,6 +786,8 @@ class ManifestApi:
         :type format: str
         :param manifest_name: Name for the manifest
         :type manifest_name: str
+        :param detail: 'config' (default) exports the resources only. 'stats' also writes a read-only `status` section describing what is in the data: each collection's document count, field types and most common field values, and each cluster's groups with labels and sizes. Requires namespace_id. Apply ignores `status`.
+        :type detail: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -717,6 +814,7 @@ class ManifestApi:
             namespace_id=namespace_id,
             format=format,
             manifest_name=manifest_name,
+            detail=detail,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -729,8 +827,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -749,6 +849,7 @@ class ManifestApi:
         namespace_id: Annotated[Optional[StrictStr], Field(description="Export specific namespace (None = all)")] = None,
         format: Annotated[Optional[StrictStr], Field(description="Output format (yaml)")] = None,
         manifest_name: Annotated[Optional[StrictStr], Field(description="Name for the manifest")] = None,
+        detail: Annotated[Optional[StrictStr], Field(description="'config' (default) exports the resources only. 'stats' also writes a read-only `status` section describing what is in the data: each collection's document count, field types and most common field values, and each cluster's groups with labels and sizes. Requires namespace_id. Apply ignores `status`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -772,6 +873,8 @@ class ManifestApi:
         :type format: str
         :param manifest_name: Name for the manifest
         :type manifest_name: str
+        :param detail: 'config' (default) exports the resources only. 'stats' also writes a read-only `status` section describing what is in the data: each collection's document count, field types and most common field values, and each cluster's groups with labels and sizes. Requires namespace_id. Apply ignores `status`.
+        :type detail: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -798,6 +901,7 @@ class ManifestApi:
             namespace_id=namespace_id,
             format=format,
             manifest_name=manifest_name,
+            detail=detail,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -810,8 +914,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -830,6 +936,7 @@ class ManifestApi:
         namespace_id: Annotated[Optional[StrictStr], Field(description="Export specific namespace (None = all)")] = None,
         format: Annotated[Optional[StrictStr], Field(description="Output format (yaml)")] = None,
         manifest_name: Annotated[Optional[StrictStr], Field(description="Name for the manifest")] = None,
+        detail: Annotated[Optional[StrictStr], Field(description="'config' (default) exports the resources only. 'stats' also writes a read-only `status` section describing what is in the data: each collection's document count, field types and most common field values, and each cluster's groups with labels and sizes. Requires namespace_id. Apply ignores `status`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -853,6 +960,8 @@ class ManifestApi:
         :type format: str
         :param manifest_name: Name for the manifest
         :type manifest_name: str
+        :param detail: 'config' (default) exports the resources only. 'stats' also writes a read-only `status` section describing what is in the data: each collection's document count, field types and most common field values, and each cluster's groups with labels and sizes. Requires namespace_id. Apply ignores `status`.
+        :type detail: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -879,6 +988,7 @@ class ManifestApi:
             namespace_id=namespace_id,
             format=format,
             manifest_name=manifest_name,
+            detail=detail,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -891,8 +1001,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -906,6 +1018,7 @@ class ManifestApi:
         namespace_id,
         format,
         manifest_name,
+        detail,
         _request_auth,
         _content_type,
         _headers,
@@ -939,6 +1052,10 @@ class ManifestApi:
         if manifest_name is not None:
             
             _query_params.append(('manifest_name', manifest_name))
+            
+        if detail is not None:
+            
+            _query_params.append(('detail', detail))
             
         # process the header parameters
         # process the form parameters
@@ -981,7 +1098,8 @@ class ManifestApi:
     def export_manifest_post(
         self,
         manifest_name: Optional[StrictStr] = None,
-        request_body: Optional[List[StrictStr]] = None,
+        detail: Optional[StrictStr] = None,
+        export_request: Annotated[Optional[ExportRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -997,12 +1115,14 @@ class ManifestApi:
     ) -> object:
         """Export Manifest Post
 
-        Export current resources to a YAML manifest (POST version for agent tools).  Same as GET /export but accepts parameters in JSON body instead of query params. Used by agent tools and programmatic API clients.  **Example:** ```bash curl -X POST /v1/manifest/export \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{\"namespace_ids\": [\"ns_abc123\"], \"manifest_name\": \"my-setup\"}' ```
+        Export current resources to a YAML manifest (POST version for agent tools).  Same as GET /export but accepts parameters in a JSON body instead of query params. Used by agent tools and programmatic API clients. `detail: \"stats\"` adds the read-only `status` section (one namespace only), as on GET.  **Example:** ```bash curl -X POST /v1/manifest/export \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{\"namespace_ids\": [\"ns_abc123\"], \"manifest_name\": \"my-setup\"}' ```
 
         :param manifest_name:
         :type manifest_name: str
-        :param request_body:
-        :type request_body: List[str]
+        :param detail:
+        :type detail: str
+        :param export_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
+        :type export_request: ExportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1027,7 +1147,8 @@ class ManifestApi:
 
         _param = self._export_manifest_post_serialize(
             manifest_name=manifest_name,
-            request_body=request_body,
+            detail=detail,
+            export_request=export_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1040,8 +1161,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1058,7 +1181,8 @@ class ManifestApi:
     def export_manifest_post_with_http_info(
         self,
         manifest_name: Optional[StrictStr] = None,
-        request_body: Optional[List[StrictStr]] = None,
+        detail: Optional[StrictStr] = None,
+        export_request: Annotated[Optional[ExportRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1074,12 +1198,14 @@ class ManifestApi:
     ) -> ApiResponse[object]:
         """Export Manifest Post
 
-        Export current resources to a YAML manifest (POST version for agent tools).  Same as GET /export but accepts parameters in JSON body instead of query params. Used by agent tools and programmatic API clients.  **Example:** ```bash curl -X POST /v1/manifest/export \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{\"namespace_ids\": [\"ns_abc123\"], \"manifest_name\": \"my-setup\"}' ```
+        Export current resources to a YAML manifest (POST version for agent tools).  Same as GET /export but accepts parameters in a JSON body instead of query params. Used by agent tools and programmatic API clients. `detail: \"stats\"` adds the read-only `status` section (one namespace only), as on GET.  **Example:** ```bash curl -X POST /v1/manifest/export \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{\"namespace_ids\": [\"ns_abc123\"], \"manifest_name\": \"my-setup\"}' ```
 
         :param manifest_name:
         :type manifest_name: str
-        :param request_body:
-        :type request_body: List[str]
+        :param detail:
+        :type detail: str
+        :param export_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
+        :type export_request: ExportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1104,7 +1230,8 @@ class ManifestApi:
 
         _param = self._export_manifest_post_serialize(
             manifest_name=manifest_name,
-            request_body=request_body,
+            detail=detail,
+            export_request=export_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1117,8 +1244,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1135,7 +1264,8 @@ class ManifestApi:
     def export_manifest_post_without_preload_content(
         self,
         manifest_name: Optional[StrictStr] = None,
-        request_body: Optional[List[StrictStr]] = None,
+        detail: Optional[StrictStr] = None,
+        export_request: Annotated[Optional[ExportRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1151,12 +1281,14 @@ class ManifestApi:
     ) -> RESTResponseType:
         """Export Manifest Post
 
-        Export current resources to a YAML manifest (POST version for agent tools).  Same as GET /export but accepts parameters in JSON body instead of query params. Used by agent tools and programmatic API clients.  **Example:** ```bash curl -X POST /v1/manifest/export \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{\"namespace_ids\": [\"ns_abc123\"], \"manifest_name\": \"my-setup\"}' ```
+        Export current resources to a YAML manifest (POST version for agent tools).  Same as GET /export but accepts parameters in a JSON body instead of query params. Used by agent tools and programmatic API clients. `detail: \"stats\"` adds the read-only `status` section (one namespace only), as on GET.  **Example:** ```bash curl -X POST /v1/manifest/export \\   -H \"Authorization: Bearer $API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{\"namespace_ids\": [\"ns_abc123\"], \"manifest_name\": \"my-setup\"}' ```
 
         :param manifest_name:
         :type manifest_name: str
-        :param request_body:
-        :type request_body: List[str]
+        :param detail:
+        :type detail: str
+        :param export_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
+        :type export_request: ExportRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1181,7 +1313,8 @@ class ManifestApi:
 
         _param = self._export_manifest_post_serialize(
             manifest_name=manifest_name,
-            request_body=request_body,
+            detail=detail,
+            export_request=export_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1194,8 +1327,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1207,7 +1342,8 @@ class ManifestApi:
     def _export_manifest_post_serialize(
         self,
         manifest_name,
-        request_body,
+        detail,
+        export_request,
         _request_auth,
         _content_type,
         _headers,
@@ -1217,7 +1353,6 @@ class ManifestApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            'request_body': '',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1235,11 +1370,15 @@ class ManifestApi:
             
             _query_params.append(('manifest_name', manifest_name))
             
+        if detail is not None:
+            
+            _query_params.append(('detail', detail))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
-        if request_body is not None:
-            _body_params = request_body
+        if export_request is not None:
+            _body_params = export_request
 
 
         # set the HTTP header `Accept`
@@ -1307,7 +1446,7 @@ class ManifestApi:
     ) -> object:
         """Generate Manifest
 
-        Generate a manifest from natural language description.      Uses AI to create a valid YAML manifest from a natural language description     of desired resources. The generated manifest can be reviewed and applied.      **Example:**     ```bash     curl -X POST /v1/manifest/generate \\       -H \"Authorization: Bearer $API_KEY\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"description\": \"I need a bucket of images that feeds into a multimodal extractor and a retriever\",         \"manifest_name\": \"image-search-setup\"       }'     ```      **Response:**     ```json     {       \"manifest\": \"version: '1.0' metadata:   name: image-search-setup ...\",       \"format\": \"yaml\",       \"manifest_name\": \"image-search-setup\",       \"description\": \"I need a bucket of images...\"     }     ```      **Next Steps:**     1. Review the generated manifest     2. Apply it using POST /v1/manifest/apply
+        Generate a manifest from natural language description.      Uses AI to create a valid YAML manifest from a natural language description     of desired resources. The generated manifest can be reviewed and applied.      **Example:**     ```bash     curl -X POST /v1/manifest/generate \\       -H \"Authorization: Bearer $API_KEY\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"description\": \"I need a bucket of images that feeds into a multimodal extractor and a retriever\",         \"manifest_name\": \"image-search-setup\"       }'     ```      The model is given the live extractor and retriever-stage catalogs. The     answer is checked with the same rules as POST /v1/manifest/validate, and     when that finds errors the model is shown them and asked to repair its     answer, up to 2 times.      **Response:**     ```json     {       \"manifest\": \"version: '1.0' metadata:   name: image-search-setup ...\",       \"format\": \"yaml\",       \"manifest_name\": \"image-search-setup\",       \"description\": \"I need a bucket of images...\",       \"validation\": {\"valid\": true, \"errors\": [], \"warnings\": []},       \"repair_rounds\": 1     }     ```      `validation.valid` is false when the manifest still has errors after the     repair rounds; the errors are listed so you can fix them by hand.      **Next Steps:**     1. Review the generated manifest     2. Apply it using POST /v1/manifest/apply
 
         :param description: (required)
         :type description: str
@@ -1350,8 +1489,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1384,7 +1525,7 @@ class ManifestApi:
     ) -> ApiResponse[object]:
         """Generate Manifest
 
-        Generate a manifest from natural language description.      Uses AI to create a valid YAML manifest from a natural language description     of desired resources. The generated manifest can be reviewed and applied.      **Example:**     ```bash     curl -X POST /v1/manifest/generate \\       -H \"Authorization: Bearer $API_KEY\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"description\": \"I need a bucket of images that feeds into a multimodal extractor and a retriever\",         \"manifest_name\": \"image-search-setup\"       }'     ```      **Response:**     ```json     {       \"manifest\": \"version: '1.0' metadata:   name: image-search-setup ...\",       \"format\": \"yaml\",       \"manifest_name\": \"image-search-setup\",       \"description\": \"I need a bucket of images...\"     }     ```      **Next Steps:**     1. Review the generated manifest     2. Apply it using POST /v1/manifest/apply
+        Generate a manifest from natural language description.      Uses AI to create a valid YAML manifest from a natural language description     of desired resources. The generated manifest can be reviewed and applied.      **Example:**     ```bash     curl -X POST /v1/manifest/generate \\       -H \"Authorization: Bearer $API_KEY\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"description\": \"I need a bucket of images that feeds into a multimodal extractor and a retriever\",         \"manifest_name\": \"image-search-setup\"       }'     ```      The model is given the live extractor and retriever-stage catalogs. The     answer is checked with the same rules as POST /v1/manifest/validate, and     when that finds errors the model is shown them and asked to repair its     answer, up to 2 times.      **Response:**     ```json     {       \"manifest\": \"version: '1.0' metadata:   name: image-search-setup ...\",       \"format\": \"yaml\",       \"manifest_name\": \"image-search-setup\",       \"description\": \"I need a bucket of images...\",       \"validation\": {\"valid\": true, \"errors\": [], \"warnings\": []},       \"repair_rounds\": 1     }     ```      `validation.valid` is false when the manifest still has errors after the     repair rounds; the errors are listed so you can fix them by hand.      **Next Steps:**     1. Review the generated manifest     2. Apply it using POST /v1/manifest/apply
 
         :param description: (required)
         :type description: str
@@ -1427,8 +1568,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1461,7 +1604,7 @@ class ManifestApi:
     ) -> RESTResponseType:
         """Generate Manifest
 
-        Generate a manifest from natural language description.      Uses AI to create a valid YAML manifest from a natural language description     of desired resources. The generated manifest can be reviewed and applied.      **Example:**     ```bash     curl -X POST /v1/manifest/generate \\       -H \"Authorization: Bearer $API_KEY\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"description\": \"I need a bucket of images that feeds into a multimodal extractor and a retriever\",         \"manifest_name\": \"image-search-setup\"       }'     ```      **Response:**     ```json     {       \"manifest\": \"version: '1.0' metadata:   name: image-search-setup ...\",       \"format\": \"yaml\",       \"manifest_name\": \"image-search-setup\",       \"description\": \"I need a bucket of images...\"     }     ```      **Next Steps:**     1. Review the generated manifest     2. Apply it using POST /v1/manifest/apply
+        Generate a manifest from natural language description.      Uses AI to create a valid YAML manifest from a natural language description     of desired resources. The generated manifest can be reviewed and applied.      **Example:**     ```bash     curl -X POST /v1/manifest/generate \\       -H \"Authorization: Bearer $API_KEY\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"description\": \"I need a bucket of images that feeds into a multimodal extractor and a retriever\",         \"manifest_name\": \"image-search-setup\"       }'     ```      The model is given the live extractor and retriever-stage catalogs. The     answer is checked with the same rules as POST /v1/manifest/validate, and     when that finds errors the model is shown them and asked to repair its     answer, up to 2 times.      **Response:**     ```json     {       \"manifest\": \"version: '1.0' metadata:   name: image-search-setup ...\",       \"format\": \"yaml\",       \"manifest_name\": \"image-search-setup\",       \"description\": \"I need a bucket of images...\",       \"validation\": {\"valid\": true, \"errors\": [], \"warnings\": []},       \"repair_rounds\": 1     }     ```      `validation.valid` is false when the manifest still has errors after the     repair rounds; the errors are listed so you can fix them by hand.      **Next Steps:**     1. Review the generated manifest     2. Apply it using POST /v1/manifest/apply
 
         :param description: (required)
         :type description: str
@@ -1504,8 +1647,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1590,6 +1735,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         skip_rules: Annotated[Optional[List[StrictStr]], Field(description="Rule codes to skip (e.g., MISSING_DESCRIPTION)")] = None,
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1605,12 +1751,14 @@ class ManifestApi:
     ) -> LintResponse:
         """Lint Manifest
 
-        Lint a YAML manifest for best practices and potential issues.  Goes beyond basic validation to provide actionable suggestions for improving your manifest configuration. This endpoint is designed for AI agents and developers who want to optimize their Mixpeek setup.  **Lint Rules:** - `UNUSED_EXTRACTOR`: Feature extractor defined but not used by any collection - `UNUSED_COLLECTION`: Collection not referenced by any retriever - `MISSING_INPUT_SCHEMA`: Retriever uses templates but has no input_schema - `SUBOPTIMAL_STAGE_ORDER`: Filter stages after expensive operations - `DUPLICATE_FEATURE_URI`: Same feature searched multiple times - `MISSING_DESCRIPTION`: Resources without descriptions - `NO_SEARCH_STAGE`: Retriever with no search stages - `EXTRACTOR_NOT_IN_NAMESPACE`: Collection uses extractor not in namespace - `MISSING_SECRET`: Secret reference not configured  **Severity Levels:** - `error`: Must be fixed before applying - `warning`: Best practice violation, should be fixed - `info`: Suggestion for improvement  **Example:** ```bash curl -X POST /v1/manifest/lint \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Response includes actionable suggestions:** ```json {   \"valid\": true,   \"results\": [     {       \"code\": \"MISSING_INPUT_SCHEMA\",       \"severity\": \"warning\",       \"message\": \"Retriever 'product_search' uses template variables but has no input_schema defined\",       \"location\": \"retrievers[0]\",       \"suggestion\": \"Define input_schema to document and validate retriever inputs\",       \"fix_example\": \"input_schema:\\n  type: object\\n  properties:\\n    query:\\n      type: string\"     }   ],   \"summary\": {\"error\": 0, \"warning\": 1, \"info\": 0} } ```
+        Lint a YAML manifest for best practices and potential issues.  Goes beyond basic validation to provide actionable suggestions for improving your manifest configuration. This endpoint is designed for AI agents and developers who want to optimize their Mixpeek setup.  **Lint Rules:** - `UNUSED_EXTRACTOR`: Feature extractor defined but not used by any collection - `UNUSED_COLLECTION`: Collection not referenced by any retriever - `MISSING_INPUT_SCHEMA`: Retriever uses templates but has no input_schema - `SUBOPTIMAL_STAGE_ORDER`: Filter stages after expensive operations - `DUPLICATE_FEATURE_URI`: Same feature searched multiple times - `MISSING_DESCRIPTION`: Resources without descriptions - `NO_SEARCH_STAGE`: Retriever with no search stages - `EXTRACTOR_NOT_IN_NAMESPACE`: Collection uses extractor not in namespace - `MISSING_SECRET`: Secret reference not configured - `UNUSED_BUCKET`: Bucket that no collection reads - `TAXONOMY_INPUT_NOT_WRITTEN`: Taxonomy reads a feature its collection does not write - `RETRIEVER_FEATURE_NOT_IN_COLLECTIONS`: Retriever searches a feature none of its collections write  **Severity Levels:** - `error`: Must be fixed before applying - `warning`: Best practice violation, should be fixed - `info`: Suggestion for improvement  **Example:** ```bash curl -X POST /v1/manifest/lint \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Response includes actionable suggestions:** ```json {   \"valid\": true,   \"results\": [     {       \"code\": \"MISSING_INPUT_SCHEMA\",       \"severity\": \"warning\",       \"message\": \"Retriever 'product_search' uses template variables but has no input_schema defined\",       \"location\": \"retrievers[0]\",       \"suggestion\": \"Define input_schema to document and validate retriever inputs\",       \"fix_example\": \"input_schema:\\n  type: object\\n  properties:\\n    query:\\n      type: string\"     }   ],   \"summary\": {\"error\": 0, \"warning\": 1, \"info\": 0} } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
         :param skip_rules: Rule codes to skip (e.g., MISSING_DESCRIPTION)
         :type skip_rules: List[str]
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1636,6 +1784,7 @@ class ManifestApi:
         _param = self._lint_manifest_serialize(
             manifest_file=manifest_file,
             skip_rules=skip_rules,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1648,8 +1797,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1667,6 +1818,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         skip_rules: Annotated[Optional[List[StrictStr]], Field(description="Rule codes to skip (e.g., MISSING_DESCRIPTION)")] = None,
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1682,12 +1834,14 @@ class ManifestApi:
     ) -> ApiResponse[LintResponse]:
         """Lint Manifest
 
-        Lint a YAML manifest for best practices and potential issues.  Goes beyond basic validation to provide actionable suggestions for improving your manifest configuration. This endpoint is designed for AI agents and developers who want to optimize their Mixpeek setup.  **Lint Rules:** - `UNUSED_EXTRACTOR`: Feature extractor defined but not used by any collection - `UNUSED_COLLECTION`: Collection not referenced by any retriever - `MISSING_INPUT_SCHEMA`: Retriever uses templates but has no input_schema - `SUBOPTIMAL_STAGE_ORDER`: Filter stages after expensive operations - `DUPLICATE_FEATURE_URI`: Same feature searched multiple times - `MISSING_DESCRIPTION`: Resources without descriptions - `NO_SEARCH_STAGE`: Retriever with no search stages - `EXTRACTOR_NOT_IN_NAMESPACE`: Collection uses extractor not in namespace - `MISSING_SECRET`: Secret reference not configured  **Severity Levels:** - `error`: Must be fixed before applying - `warning`: Best practice violation, should be fixed - `info`: Suggestion for improvement  **Example:** ```bash curl -X POST /v1/manifest/lint \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Response includes actionable suggestions:** ```json {   \"valid\": true,   \"results\": [     {       \"code\": \"MISSING_INPUT_SCHEMA\",       \"severity\": \"warning\",       \"message\": \"Retriever 'product_search' uses template variables but has no input_schema defined\",       \"location\": \"retrievers[0]\",       \"suggestion\": \"Define input_schema to document and validate retriever inputs\",       \"fix_example\": \"input_schema:\\n  type: object\\n  properties:\\n    query:\\n      type: string\"     }   ],   \"summary\": {\"error\": 0, \"warning\": 1, \"info\": 0} } ```
+        Lint a YAML manifest for best practices and potential issues.  Goes beyond basic validation to provide actionable suggestions for improving your manifest configuration. This endpoint is designed for AI agents and developers who want to optimize their Mixpeek setup.  **Lint Rules:** - `UNUSED_EXTRACTOR`: Feature extractor defined but not used by any collection - `UNUSED_COLLECTION`: Collection not referenced by any retriever - `MISSING_INPUT_SCHEMA`: Retriever uses templates but has no input_schema - `SUBOPTIMAL_STAGE_ORDER`: Filter stages after expensive operations - `DUPLICATE_FEATURE_URI`: Same feature searched multiple times - `MISSING_DESCRIPTION`: Resources without descriptions - `NO_SEARCH_STAGE`: Retriever with no search stages - `EXTRACTOR_NOT_IN_NAMESPACE`: Collection uses extractor not in namespace - `MISSING_SECRET`: Secret reference not configured - `UNUSED_BUCKET`: Bucket that no collection reads - `TAXONOMY_INPUT_NOT_WRITTEN`: Taxonomy reads a feature its collection does not write - `RETRIEVER_FEATURE_NOT_IN_COLLECTIONS`: Retriever searches a feature none of its collections write  **Severity Levels:** - `error`: Must be fixed before applying - `warning`: Best practice violation, should be fixed - `info`: Suggestion for improvement  **Example:** ```bash curl -X POST /v1/manifest/lint \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Response includes actionable suggestions:** ```json {   \"valid\": true,   \"results\": [     {       \"code\": \"MISSING_INPUT_SCHEMA\",       \"severity\": \"warning\",       \"message\": \"Retriever 'product_search' uses template variables but has no input_schema defined\",       \"location\": \"retrievers[0]\",       \"suggestion\": \"Define input_schema to document and validate retriever inputs\",       \"fix_example\": \"input_schema:\\n  type: object\\n  properties:\\n    query:\\n      type: string\"     }   ],   \"summary\": {\"error\": 0, \"warning\": 1, \"info\": 0} } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
         :param skip_rules: Rule codes to skip (e.g., MISSING_DESCRIPTION)
         :type skip_rules: List[str]
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1713,6 +1867,7 @@ class ManifestApi:
         _param = self._lint_manifest_serialize(
             manifest_file=manifest_file,
             skip_rules=skip_rules,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1725,8 +1880,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1744,6 +1901,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         skip_rules: Annotated[Optional[List[StrictStr]], Field(description="Rule codes to skip (e.g., MISSING_DESCRIPTION)")] = None,
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1759,12 +1917,14 @@ class ManifestApi:
     ) -> RESTResponseType:
         """Lint Manifest
 
-        Lint a YAML manifest for best practices and potential issues.  Goes beyond basic validation to provide actionable suggestions for improving your manifest configuration. This endpoint is designed for AI agents and developers who want to optimize their Mixpeek setup.  **Lint Rules:** - `UNUSED_EXTRACTOR`: Feature extractor defined but not used by any collection - `UNUSED_COLLECTION`: Collection not referenced by any retriever - `MISSING_INPUT_SCHEMA`: Retriever uses templates but has no input_schema - `SUBOPTIMAL_STAGE_ORDER`: Filter stages after expensive operations - `DUPLICATE_FEATURE_URI`: Same feature searched multiple times - `MISSING_DESCRIPTION`: Resources without descriptions - `NO_SEARCH_STAGE`: Retriever with no search stages - `EXTRACTOR_NOT_IN_NAMESPACE`: Collection uses extractor not in namespace - `MISSING_SECRET`: Secret reference not configured  **Severity Levels:** - `error`: Must be fixed before applying - `warning`: Best practice violation, should be fixed - `info`: Suggestion for improvement  **Example:** ```bash curl -X POST /v1/manifest/lint \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Response includes actionable suggestions:** ```json {   \"valid\": true,   \"results\": [     {       \"code\": \"MISSING_INPUT_SCHEMA\",       \"severity\": \"warning\",       \"message\": \"Retriever 'product_search' uses template variables but has no input_schema defined\",       \"location\": \"retrievers[0]\",       \"suggestion\": \"Define input_schema to document and validate retriever inputs\",       \"fix_example\": \"input_schema:\\n  type: object\\n  properties:\\n    query:\\n      type: string\"     }   ],   \"summary\": {\"error\": 0, \"warning\": 1, \"info\": 0} } ```
+        Lint a YAML manifest for best practices and potential issues.  Goes beyond basic validation to provide actionable suggestions for improving your manifest configuration. This endpoint is designed for AI agents and developers who want to optimize their Mixpeek setup.  **Lint Rules:** - `UNUSED_EXTRACTOR`: Feature extractor defined but not used by any collection - `UNUSED_COLLECTION`: Collection not referenced by any retriever - `MISSING_INPUT_SCHEMA`: Retriever uses templates but has no input_schema - `SUBOPTIMAL_STAGE_ORDER`: Filter stages after expensive operations - `DUPLICATE_FEATURE_URI`: Same feature searched multiple times - `MISSING_DESCRIPTION`: Resources without descriptions - `NO_SEARCH_STAGE`: Retriever with no search stages - `EXTRACTOR_NOT_IN_NAMESPACE`: Collection uses extractor not in namespace - `MISSING_SECRET`: Secret reference not configured - `UNUSED_BUCKET`: Bucket that no collection reads - `TAXONOMY_INPUT_NOT_WRITTEN`: Taxonomy reads a feature its collection does not write - `RETRIEVER_FEATURE_NOT_IN_COLLECTIONS`: Retriever searches a feature none of its collections write  **Severity Levels:** - `error`: Must be fixed before applying - `warning`: Best practice violation, should be fixed - `info`: Suggestion for improvement  **Example:** ```bash curl -X POST /v1/manifest/lint \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```  **Response includes actionable suggestions:** ```json {   \"valid\": true,   \"results\": [     {       \"code\": \"MISSING_INPUT_SCHEMA\",       \"severity\": \"warning\",       \"message\": \"Retriever 'product_search' uses template variables but has no input_schema defined\",       \"location\": \"retrievers[0]\",       \"suggestion\": \"Define input_schema to document and validate retriever inputs\",       \"fix_example\": \"input_schema:\\n  type: object\\n  properties:\\n    query:\\n      type: string\"     }   ],   \"summary\": {\"error\": 0, \"warning\": 1, \"info\": 0} } ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
         :param skip_rules: Rule codes to skip (e.g., MISSING_DESCRIPTION)
         :type skip_rules: List[str]
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1790,6 +1950,7 @@ class ManifestApi:
         _param = self._lint_manifest_serialize(
             manifest_file=manifest_file,
             skip_rules=skip_rules,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1802,8 +1963,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1816,6 +1979,7 @@ class ManifestApi:
         self,
         manifest_file,
         skip_rules,
+        parameters,
         _request_auth,
         _content_type,
         _headers,
@@ -1847,6 +2011,8 @@ class ManifestApi:
         # process the form parameters
         if manifest_file is not None:
             _form_params.append(('manifest_file', manifest_file))
+        if parameters is not None:
+            _form_params.append(('parameters', parameters))
         # process the body parameter
 
 
@@ -1899,6 +2065,7 @@ class ManifestApi:
     def validate_manifest(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1914,10 +2081,12 @@ class ManifestApi:
     ) -> ValidateResult:
         """Validate Manifest
 
-        Validate a YAML manifest without applying.  Checks: - YAML syntax validity - Schema validation against manifest models - Cross-resource reference validation - Dependency resolution (no circular dependencies) - Secret reference existence  Returns detailed validation results including: - Resource counts by type - Missing secrets that need to be configured - Validation errors and warnings  **Example:** ```bash curl -X POST /v1/manifest/validate \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```
+        Validate a YAML manifest without applying.  Checks: - YAML syntax validity - Schema validation against manifest models - Cross-resource reference validation - Dependency resolution (no circular dependencies) - Secret reference existence - Every extractor a namespace or collection names exists and is turned on - Retriever stages are registered and their parameters valid - Every feature URI a retriever or cluster names is written by a collection - Alert applications map every input their alert's retriever requires - Namespace budgets above the organization's bound (a warning: apply sets   the bound)  These are the checks apply runs before creating anything, so a manifest that validates with no errors is one apply will not refuse on references.  Returns detailed validation results including: - Resource counts by type - Missing secrets that need to be configured - Validation errors and warnings  **Example:** ```bash curl -X POST /v1/manifest/validate \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1942,6 +2111,7 @@ class ManifestApi:
 
         _param = self._validate_manifest_serialize(
             manifest_file=manifest_file,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1954,8 +2124,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1972,6 +2144,7 @@ class ManifestApi:
     def validate_manifest_with_http_info(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1987,10 +2160,12 @@ class ManifestApi:
     ) -> ApiResponse[ValidateResult]:
         """Validate Manifest
 
-        Validate a YAML manifest without applying.  Checks: - YAML syntax validity - Schema validation against manifest models - Cross-resource reference validation - Dependency resolution (no circular dependencies) - Secret reference existence  Returns detailed validation results including: - Resource counts by type - Missing secrets that need to be configured - Validation errors and warnings  **Example:** ```bash curl -X POST /v1/manifest/validate \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```
+        Validate a YAML manifest without applying.  Checks: - YAML syntax validity - Schema validation against manifest models - Cross-resource reference validation - Dependency resolution (no circular dependencies) - Secret reference existence - Every extractor a namespace or collection names exists and is turned on - Retriever stages are registered and their parameters valid - Every feature URI a retriever or cluster names is written by a collection - Alert applications map every input their alert's retriever requires - Namespace budgets above the organization's bound (a warning: apply sets   the bound)  These are the checks apply runs before creating anything, so a manifest that validates with no errors is one apply will not refuse on references.  Returns detailed validation results including: - Resource counts by type - Missing secrets that need to be configured - Validation errors and warnings  **Example:** ```bash curl -X POST /v1/manifest/validate \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2015,6 +2190,7 @@ class ManifestApi:
 
         _param = self._validate_manifest_serialize(
             manifest_file=manifest_file,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2027,8 +2203,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2045,6 +2223,7 @@ class ManifestApi:
     def validate_manifest_without_preload_content(
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
+        parameters: Annotated[Optional[StrictStr], Field(description="JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2060,10 +2239,12 @@ class ManifestApi:
     ) -> RESTResponseType:
         """Validate Manifest
 
-        Validate a YAML manifest without applying.  Checks: - YAML syntax validity - Schema validation against manifest models - Cross-resource reference validation - Dependency resolution (no circular dependencies) - Secret reference existence  Returns detailed validation results including: - Resource counts by type - Missing secrets that need to be configured - Validation errors and warnings  **Example:** ```bash curl -X POST /v1/manifest/validate \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```
+        Validate a YAML manifest without applying.  Checks: - YAML syntax validity - Schema validation against manifest models - Cross-resource reference validation - Dependency resolution (no circular dependencies) - Secret reference existence - Every extractor a namespace or collection names exists and is turned on - Retriever stages are registered and their parameters valid - Every feature URI a retriever or cluster names is written by a collection - Alert applications map every input their alert's retriever requires - Namespace budgets above the organization's bound (a warning: apply sets   the bound)  These are the checks apply runs before creating anything, so a manifest that validates with no errors is one apply will not refuse on references.  Returns detailed validation results including: - Resource counts by type - Missing secrets that need to be configured - Validation errors and warnings  **Example:** ```bash curl -X POST /v1/manifest/validate \\   -H \"Authorization: Bearer $API_KEY\" \\   -F \"manifest_file=@mixpeek.yaml\" ```
 
         :param manifest_file: YAML manifest file (required)
         :type manifest_file: str
+        :param parameters: JSON object of values for the manifest's declared parameters, e.g. {\\\"camera_url\\\": \\\"rtsp://host/stream\\\", \\\"polling_seconds\\\": 300}. Each value must match its declared type. Omit when the manifest declares none.
+        :type parameters: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2088,6 +2269,7 @@ class ManifestApi:
 
         _param = self._validate_manifest_serialize(
             manifest_file=manifest_file,
+            parameters=parameters,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2100,8 +2282,10 @@ class ManifestApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2113,6 +2297,7 @@ class ManifestApi:
     def _validate_manifest_serialize(
         self,
         manifest_file,
+        parameters,
         _request_auth,
         _content_type,
         _headers,
@@ -2139,6 +2324,8 @@ class ManifestApi:
         # process the form parameters
         if manifest_file is not None:
             _form_params.append(('manifest_file', manifest_file))
+        if parameters is not None:
+            _form_params.append(('parameters', parameters))
         # process the body parameter
 
 

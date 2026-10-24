@@ -54,7 +54,6 @@ function serializeResults(results_) {
     return results;
 }
 export class SpeechToTextView extends HTMLBoxView {
-    static __name__ = "SpeechToTextView";
     recognition;
     buttonEl;
     initialize() {
@@ -161,7 +160,6 @@ export class SpeechToTextView extends HTMLBoxView {
     }
 }
 export class SpeechToText extends HTMLBox {
-    static __name__ = "SpeechToText";
     constructor(attrs) {
         super(attrs);
     }

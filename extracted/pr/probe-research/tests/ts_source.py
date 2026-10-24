@@ -9,6 +9,7 @@ needed), for the shapes the package writes them in:
     export const NAME = String.raw`...`;                -> ts_raw
     export const NAME: ReadonlySet<string> = new Set([...]);  -> ts_set
     export const NAME = { Key: "value", ... } as const;  -> ts_object
+    export const NAME = ["a", "b"] as const;             -> ts_list
 
 `export` is optional: a module-private copy is pinned the same way.
 
@@ -65,3 +66,12 @@ def ts_object(path: Path, name: str) -> dict[str, str]:
     pairs = re.findall(rf"(\w+):\s*{_LITERAL}", match.group(1))
     assert pairs, f"{path.name}: {name} has no `Key: \"value\"` entries"
     return {key: _decode(value) for key, value in pairs}
+
+
+def ts_list(path: Path, name: str) -> list[str]:
+    """`[...]` of string literals (`as const` optional), in order."""
+    match = re.fullmatch(r"\[(.*)\](?:\s+as const)?", _declaration(path, name).strip(), re.S)
+    assert match, f"{path.name}: {name} is not an array literal"
+    items = [_decode(literal) for literal in re.findall(_LITERAL, match.group(1))]
+    assert items, f"{path.name}: {name} has no string literal"
+    return items

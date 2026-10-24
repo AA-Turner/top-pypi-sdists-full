@@ -48,11 +48,11 @@ def recompute_w_u_fwd_kernel(
     STORE_VG: tl.constexpr,
     IS_VARLEN: tl.constexpr
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -137,11 +137,11 @@ def prepare_wy_repr_bwd_kernel(
     BV: tl.constexpr,
     IS_VARLEN: tl.constexpr
 ):
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -171,7 +171,7 @@ def prepare_wy_repr_bwd_kernel(
         b_vbg = b_v * b_b[:, None] * b_gv_exp
         b_dw = tl.load(p_dw, mask=m_tv, other=0.0)
 
-        b_dA += tl.dot(b_dw, tl.trans(b_vbg).to(b_dw.dtype))
+        b_dA = tl.dot(b_dw, tl.trans(b_vbg).to(b_dw.dtype), b_dA)
         b_dvbg = tl.dot(b_A, b_dw)
         b_dv = b_dvbg * b_gv_exp * b_b[:, None]
         b_db += tl.sum(b_dvbg * b_v * b_gv_exp, 1)
@@ -191,7 +191,7 @@ def prepare_wy_repr_bwd_kernel(
         b_k = tl.load(p_k, mask=m_tk, other=0.0)
         b_kb = (b_k * b_b[:, None]).to(b_k.dtype)  # BT BK
         b_du = tl.load(p_du, mask=m_tk, other=0.0)  # BT BK
-        b_dA += tl.dot(b_du, tl.trans(b_kb))  # BT BT
+        b_dA = tl.dot(b_du, tl.trans(b_kb), b_dA)  # BT BT
         b_dkb = tl.dot(b_A, b_du)  # BT BK
         b_dk = b_dkb * b_b[:, None]
         b_db += tl.sum(b_dkb * b_k, 1)

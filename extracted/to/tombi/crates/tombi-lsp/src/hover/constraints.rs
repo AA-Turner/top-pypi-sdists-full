@@ -79,11 +79,11 @@ pub struct ValueConstraints {
 impl std::fmt::Display for ValueConstraints {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(r#enum) = &self.r#enum {
-            write!(f, "Enum Values:\n\n")?;
-            for value in r#enum {
-                write!(f, "- `{value}`\n\n")?;
-            }
-            writeln!(f)?;
+            write_list(
+                f,
+                "Enum Values:",
+                r#enum.iter().map(|value| format!("`{value}`")),
+            )?;
         }
 
         if let Some(default) = &self.default {
@@ -91,11 +91,11 @@ impl std::fmt::Display for ValueConstraints {
         }
 
         if let Some(examples) = &self.examples {
-            write!(f, "Examples:\n\n")?;
-            for example in examples {
-                write!(f, "  - `{example}`\n\n")?;
-            }
-            writeln!(f)?;
+            write_list(
+                f,
+                "Examples:",
+                examples.iter().map(|example| format!("`{example}`")),
+            )?;
         }
 
         if let Some(minimum) = &self.minimum {
@@ -151,10 +151,11 @@ impl std::fmt::Display for ValueConstraints {
         }
 
         if let Some(required_keys) = &self.required_keys {
-            write!(f, "Required Keys:\n\n")?;
-            for key in required_keys.iter() {
-                write!(f, "- `{key}`\n\n")?;
-            }
+            write_list(
+                f,
+                "Required Keys:",
+                required_keys.iter().map(|key| format!("`{key}`")),
+            )?;
         }
 
         if let Some(min_keys) = self.min_keys {
@@ -166,10 +167,11 @@ impl std::fmt::Display for ValueConstraints {
         }
 
         if let Some(key_patterns) = &self.key_patterns {
-            write!(f, "Key Patterns:\n\n")?;
-            for pattern_property in key_patterns.iter() {
-                write!(f, "- `{pattern_property}`\n\n")?;
-            }
+            write_list(
+                f,
+                "Key Patterns:",
+                key_patterns.iter().map(|pattern| format!("`{pattern}`")),
+            )?;
         }
 
         if self.additional_keys.unwrap_or_default() {
@@ -202,20 +204,20 @@ fn write_array_values_order(
             writeln!(f, "Values Order: {}\n", markdown_code(values_order, strike))
         }
         XTombiArrayValuesOrder::Groups(values_order) => match values_order {
-            ArrayValuesOrderGroup::OneOf(values_order) => {
-                writeln!(f, "Values Order: {}\n", markdown_code("oneOf", strike))?;
-                for value in values_order.iter() {
-                    writeln!(f, "  - {}\n", markdown_code(value, strike))?;
-                }
-                Ok(())
-            }
-            ArrayValuesOrderGroup::AnyOf(values_order) => {
-                writeln!(f, "Values Order: {}\n", markdown_code("anyOf", strike))?;
-                for value in values_order.iter() {
-                    writeln!(f, "  - {}\n", markdown_code(value, strike))?;
-                }
-                Ok(())
-            }
+            ArrayValuesOrderGroup::OneOf(values_order) => write_list(
+                f,
+                &format!("Values Order: {}", markdown_code("oneOf", strike)),
+                values_order
+                    .iter()
+                    .map(|value| markdown_code(value, strike)),
+            ),
+            ArrayValuesOrderGroup::AnyOf(values_order) => write_list(
+                f,
+                &format!("Values Order: {}", markdown_code("anyOf", strike)),
+                values_order
+                    .iter()
+                    .map(|value| markdown_code(value, strike)),
+            ),
         },
     }
 }
@@ -229,19 +231,29 @@ fn write_table_keys_order(
         XTombiTableKeysOrder::All(keys_order) => {
             writeln!(f, "Keys Order: {}\n", markdown_code(keys_order, strike))
         }
-        XTombiTableKeysOrder::Groups(keys_order) => {
-            writeln!(f, "Keys Order:\n")?;
-            for key in keys_order.iter() {
-                writeln!(
-                    f,
-                    "  - {}: {}\n",
-                    key.target,
-                    markdown_code(key.order, strike)
-                )?;
-            }
-            Ok(())
-        }
+        XTombiTableKeysOrder::Groups(keys_order) => write_list(
+            f,
+            "Keys Order:",
+            keys_order
+                .iter()
+                .map(|key| format!("{}: {}", key.target, markdown_code(key.order, strike))),
+        ),
     }
+}
+
+/// Writes a header followed by a tight bullet list.
+///
+/// Blank lines only separate blocks, never the lines inside one.
+fn write_list(
+    f: &mut std::fmt::Formatter<'_>,
+    header: &str,
+    items: impl Iterator<Item = String>,
+) -> std::fmt::Result {
+    writeln!(f, "{header}")?;
+    for item in items {
+        writeln!(f, "- {item}")?;
+    }
+    writeln!(f)
 }
 
 fn markdown_code(value: impl std::fmt::Display, strike: bool) -> String {
@@ -255,7 +267,7 @@ mod tests {
     use tombi_schema_store::{ResolvedFormatOrder, XTombiArrayValuesOrder, XTombiTableKeysOrder};
     use tombi_x_keyword::{ArrayValuesOrder, TableKeysOrder};
 
-    use super::ValueConstraints;
+    use super::{DisplayValue, ValueConstraints};
 
     #[test]
     fn renders_disabled_sort_orders_with_strikethrough() {
@@ -278,6 +290,32 @@ mod tests {
                 Values Order: ~~`descending`~~
 
                 Keys Order: ~~`ascending`~~
+                "#
+            )
+            .trim()
+        );
+    }
+
+    #[test]
+    fn renders_enum_values_as_a_tight_list() {
+        let constraints = ValueConstraints {
+            r#enum: Some(vec![
+                DisplayValue::String("function".to_string()),
+                DisplayValue::String("class".to_string()),
+            ]),
+            default: Some(DisplayValue::String("function".to_string())),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            constraints.to_string().trim(),
+            textwrap::dedent(
+                r#"
+                Enum Values:
+                - `"function"`
+                - `"class"`
+
+                Default: `"function"`
                 "#
             )
             .trim()

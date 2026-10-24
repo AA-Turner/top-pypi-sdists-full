@@ -1,14 +1,13 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use nom::{
-	AsChar, Mode, Parser,
+	AsChar, Parser,
 	branch::alt,
 	character::{
 		complete::{char, digit1, one_of},
 		satisfy,
 	},
 	combinator::{map, map_opt, opt, recognize},
-	error::ErrorKind,
 	multi::{many0_count, many1_count},
 	sequence::delimited,
 };
@@ -19,9 +18,8 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::{ByteHint, Grammar},
 	node::Element,
-	rule::RuleSet,
+	scope::Scope,
 	span::{Span, Spanned, TraceOk, TraceParse, WithSpan},
 };
 
@@ -72,7 +70,7 @@ where
 /// Convert a Markdown-style email address or phone number to a URL
 #[must_use]
 fn verify_phone_email<'data, E>(
-	rules: RuleSet,
+	dev_links: bool,
 ) -> impl Parser<Input<'data>, Output = ParsedContact<'data>, Error = E>
 where
 	E: ParseError<'data>,
@@ -84,14 +82,14 @@ where
 				Some(ParsedContact {
 					url: parse_and_validate_url(
 						&format!("tel:{}", input.content.replace([' ', '/'], "-")),
-						rules,
+						dev_links,
 					)?,
 					text: input.content,
 				})
 			}),
 			map_opt(email(), move |input: Input<'data>| {
 				Some(ParsedContact {
-					url: parse_and_validate_url(&format!("mailto:{}", input.content), rules)?,
+					url: parse_and_validate_url(&format!("mailto:{}", input.content), dev_links)?,
 					text: input.content,
 				})
 			}),
@@ -129,17 +127,12 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		if *self.context.hints.get(&Grammar::AutoLink) == ByteHint::Absent {
-			return Err(nom::Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input.clone(), ErrorKind::Alt)
-			})));
-		}
 		nom::error::context(
 			"link::contact",
 			map(
 				delimited(
 					char('<'),
-					verify_phone_email(self.context.allowed_rules).span::<S>(),
+					verify_phone_email(self.context.dev_links).span::<S>(),
 					char('>'),
 				),
 				|Spanned { value, span }| Link {
@@ -174,7 +167,7 @@ where
 	E: ParseError<'data>,
 {
 	ContactParser {
-		context: context.with_grammar(Grammar::AutoLink),
+		context: context.with_scope(Scope::AutoLink),
 		span: PhantomData,
 		error: PhantomData,
 	}

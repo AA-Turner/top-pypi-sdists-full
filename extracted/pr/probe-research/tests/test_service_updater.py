@@ -1,21 +1,22 @@
 """The service's updater (plan X1, R2, R3, D3, D4, Q4): real service, real processes.
 
 A cycle runs CLI-and-plugins (one `probe.core.run update` child), then the
-desktop app's own updater, then reads the installed CLI version and restarts
-the service when it moved. Step 1 runs only on a quiet machine: a daemon
+desktop app's step (handed to the open app, never a launch of it), then reads
+the installed CLI version and restarts the service when it moved. Step 1 runs only on a quiet machine: a daemon
 worker's lock, a run lock, `wizard.lock` or a running action defers it (with a
 skip `probe doctor` reads, and a retry when a session ends), and the update
 barrier is up while it runs, which a CLI start waits for. A cycle holds the
 service alive. Automatic updates off: nothing runs. The CLI and the plugin hook
 ask the service instead of spawning their own updater while the switch is on.
 
-`FakeCore` plays the `probe.core.run` children, `fake_open` macOS's `open` (it
-writes the app's report as the app would), `fake_app` a `Probe.app` bundle.
+`FakeCore` plays the `probe.core.run` children, `fake_open` macOS's `open`
+(every call recorded: the service must never make one), `fake_app` a
+`Probe.app` bundle. The desktop app is a connection whose hello says `app`.
 """
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import fcntl
 import importlib.util
 import json
@@ -33,7 +34,7 @@ import pytest
 import probe
 from probe.service import appupdate, barrier, client, paths
 from probe.service import updater
-from probe.service.protocol import Method, Mode, StopReason
+from probe.service.protocol import Client, Method, Mode, StopReason
 from tests.service_fakes import (
     FakeCore,
     autoupdate_state,
@@ -102,33 +103,34 @@ def _hold(path: Path):
 @no_real_app
 def test_a_cycle_runs_cli_and_plugins_then_the_app_then_reads_the_version(service_home, machine, monkeypatch):
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_launcher_secret")
-    app = fake_app(service_home.home)
+    fake_app(service_home.home)
     service_home.start()
     with service_home.connect() as conn:
         conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
         started = _check_now(conn, "session")
-        assert started["outcome"] == "started"
+        assert started["outcome"] == "started" and "app" not in started  # nobody asked for the app
         seen = _done(conn)
         status = conn.call(Method.UPDATE_STATUS)
     steps = [(e["step"], e.get("state")) for e in seen if e["topic"] == "update.step" and "state" in e]
     assert steps == [
         ("cli_and_plugins", "started"),
         ("cli_and_plugins", "done"),
-        ("app", "started"),
-        ("app", "done"),
+        ("app", "skipped"),
         ("self", "done"),
     ]
     forwarded = [e["event"] for e in seen if e["topic"] == "update.step" and "event" in e]
     assert [e["event"] for e in forwarded] == ["step", "done"]
     done = seen[-1]
     assert done["cycle_id"] == started["cycle_id"] and done["ok"] is True and done["restart"] is False
-    assert done["steps"]["app"]["outcome"] == "updated" and done["steps"]["app"]["version_after"] == "0.1.4"
-    # In that order, as processes: the update child, then `open`, then the version read.
+    # The app is installed but not open: nothing is launched, and its next launch is due.
+    assert done["steps"]["app"] == {"state": "skipped", "outcome": "app_closed", "version": "0.1.3"}
+    assert open_calls(service_home.home) == []
+    assert status["app"]["due"] is True and status["app"]["reason"] == "never_checked"
+    assert status["app"]["last_check"] is None and status["app"]["last"] is None
+    # In that order, as processes: the update child, then the version read.
     (update,) = machine.calls("update")
     (version,) = machine.calls("version")
-    (opened,) = open_calls(service_home.home)
-    assert update["at"] < opened["at"] < version["at"]
-    assert opened["argv"] == ["-n", "-g", "-j", str(app), "--args", "--background-update"]
+    assert update["at"] < version["at"]
     # The child: the barrier up, its token and the trigger in its env, no launcher credential.
     assert update["barrier"] is True
     assert update["env"]["PROBE_UPDATE_BARRIER_TOKEN"]
@@ -470,16 +472,14 @@ def test_a_new_cli_version_restarts_the_service_after_the_cycle(service_home, ma
     assert machine.calls("update").__len__() == 1  # just checked: no second cycle
 
 
-@no_real_app
 def test_a_restart_for_a_new_cli_waits_for_a_running_action(service_home, machine):
     """The update lets go of the mutating slot after its first step, so an
-    action can start while the app step runs. A new CLI then restarts the
+    action can start while the later steps run. A new CLI then restarts the
     service -- after that action, never under it (it would read as stopped)."""
-    machine.plan("version", stdout={"cli_version": "9.9.9"})
+    version_read = service_home.home / "version-may-answer"
+    machine.plan("version", stdout={"cli_version": "9.9.9"}, before=[{"wait": str(version_read)}])
     gate = service_home.home / "action-may-finish"
     machine.plan("logout", steps=[{"wait": str(gate)}])
-    fake_open(service_home.home / "bin", delay=1.5)
-    fake_app(service_home.home)
     first = service_home.start()
     with service_home.connect() as conn:
         conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
@@ -487,6 +487,7 @@ def test_a_restart_for_a_new_cli_waits_for_a_running_action(service_home, machin
         events_until(conn, lambda e: e["topic"] == "update.step" and e.get("step") == "app", 20.0)
         body = {"action": "logout", "params": {}, "client_request_id": "mid"}
         action_id = conn.call(Method.ACTION_RUN, body)["action_id"]
+        version_read.touch()  # the self step reads the new version only now
         done = events_until(conn, lambda e: e["topic"] == "update.done", 20.0)[-1]
         assert done["restart"] is True
         time.sleep(1.0)
@@ -535,105 +536,573 @@ def test_a_cycle_makes_the_next_status_fresh(service_home, machine):
     assert len(machine.calls("status")) == 2
 
 
-# -- the desktop app (D3, X4) --------------------------------------------------
+# -- the desktop app: the service decides, the app's own updater acts ---------------
+#
+# The service never launches the app (no `open`, no hidden copy): an open app
+# that takes `app.check` is handed its check, a closed one is checked at its
+# next launch, and the app's launch check is answered `app: {due, reason}`.
+
+#: The topics the desktop app's link takes (`app.check` only reaches a hello `app`).
+APP_TOPICS = ["app.check", *UPDATE_TOPICS]
 
 
-@pytest.fixture
-def app_home(tmp_path, monkeypatch):
-    if (Path("/Applications") / appupdate.APP_NAME).exists():
-        pytest.skip("a real /Applications/Probe.app is found first")
-    home = tmp_path / "home"
-    (home / ".local" / "state" / "probe" / "service").mkdir(parents=True)
-    monkeypatch.setenv("HOME", str(home))
-    bin_dir = home / "bin"
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
-    return home
+def _app_window(service_home, *, topics=APP_TOPICS):
+    """The desktop app's link to the service, as an open app keeps it."""
+    conn = service_home.connect(who=Client.APP, keepalive=True)
+    conn.call(Method.EVENTS_SUBSCRIBE, {"topics": topics})
+    return conn
 
 
-def _app_update(**kwargs) -> dict:
-    return asyncio.run(appupdate.update(**kwargs))
+def _launch_check(conn, **app) -> dict:
+    return conn.call(Method.UPDATE_CHECK_NOW, {"trigger": "app", "app": {"version": "0.1.3", **app}})
+
+
+def _report(conn, result: str, **extra) -> dict:
+    after = "0.1.4" if result in ("updated", "ready") else "0.1.3"
+    params = {"result": result, "version_before": "0.1.3", "version_after": after, **extra}
+    return conn.call(Method.UPDATE_APP_RESULT, params)
+
+
+def _app_step(seen: list, state: str | None = None) -> dict:
+    steps = [e for e in seen if e["topic"] == "update.step" and e.get("step") == "app"]
+    steps = [e for e in steps if state is None or e.get("state") == state]
+    assert steps, seen
+    return steps[-1]
+
+
+def _drain(conn, quiet: float = 0.5) -> list:
+    """Every event `conn` has waiting, until none comes for `quiet` seconds."""
+    seen = []
+    while (event := conn.next_event(quiet)) is not None:
+        seen.append(event)
+    return seen
+
+
+def _quiet(service_home) -> dict:
+    status = wait_for(lambda: (s := service_home.call(Method.UPDATE_STATUS)) and not s["in_progress"] and s, 10.0)
+    assert status, service_home.log()
+    return status
+
+
+def _restart(service_home, *, last_check_hours_ago: float | None) -> None:
+    """Stop the service, move its last cycle back (the rest of its record as
+    it is) and start it again, so the next check runs a cycle."""
+    pid = _quiet(service_home) and service_home.status()["pid"]
+    service_home.call(Method.STOP)
+    assert service_home.wait_exit(pid, 10.0), service_home.log()
+    if last_check_hours_ago is not None:
+        record = json.loads(paths.update_state_path().read_text(encoding="utf-8"))
+        record["last_check"] = time.time() - last_check_hours_ago * 3600
+        paths.update_state_path().write_text(json.dumps(record), encoding="utf-8")
+    service_home.start()
+
+
+def _next_cycle(service_home, previous: str | None) -> dict:
+    """`update.status` once a cycle after `previous` is done, whatever started it."""
+    with service_home.connect() as conn:
+        assert _check_now(conn)["outcome"] in ("started", "running", "scheduled", "recent")
+
+    def finished():
+        status = service_home.call(Method.UPDATE_STATUS)
+        last = status.get("last_result") or {}
+        return status if last.get("cycle_id") not in (None, previous) and not status["in_progress"] else None
+
+    status = wait_for(finished, 20.0)
+    assert status, service_home.log()
+    return status
+
+
+@no_real_app
+@pytest.mark.parametrize(
+    ("machine_has", "outcome"),
+    [
+        ("an app, closed", {"state": "skipped", "outcome": "app_closed", "version": "0.1.3"}),
+        ("an app never opened", {"state": "skipped", "outcome": "app_closed", "version": "0.1.3"}),
+        ("no app", {"state": "skipped", "outcome": "not_installed"}),
+        ("an older app, open", {"state": "skipped", "outcome": "app_not_listening"}),
+        ("an app, open", {"state": "delegated", "outcome": "app_check_sent"}),
+    ],
+)
+def test_no_cycle_ever_launches_the_app(service_home, machine, machine_has, outcome):
+    """Whatever the machine has, the app step starts no process: the open app
+    is handed its check, anything else waits for the app's next launch."""
+    if machine_has != "no app":
+        fake_app(service_home.home, quarantined=machine_has == "an app never opened")
+    service_home.start()
+    window = None
+    if machine_has == "an older app, open":
+        window = _app_window(service_home, topics=UPDATE_TOPICS)  # an older build takes no app.check
+    elif machine_has == "an app, open":
+        window = _app_window(service_home)
+    try:
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            assert _check_now(conn)["outcome"] == "started"
+            done = _done(conn)[-1]
+            status = conn.call(Method.UPDATE_STATUS)
+    finally:
+        if window is not None:
+            window.close()
+    assert open_calls(service_home.home) == []
+    step = {k: v for k, v in done["steps"]["app"].items() if k != "delegated_at"}
+    assert step == outcome
+    assert done["ok"] is True
+    if outcome["state"] == "skipped":
+        # Nothing was handed over: the app's next launch is due.
+        assert status["app"]["due"] is True and status["app"]["last_check"] is None
+    else:
+        assert status["app"]["reason"] == "in_progress" and status["app"]["last_check"] > time.time() - 60
+
+
+@no_real_app
+def test_an_app_open_then_closed_is_not_launched_by_the_next_cycle(service_home, machine):
+    """The bug this replaced: while the app ran the app step recorded no
+    check, so the first cycle after the app closed launched a hidden copy
+    of it (`open -g ... --background-update`: a Dock icon for seconds and
+    "Stop Running in Background"). An app open (here an older build, which
+    takes no `app.check`) and then closed: the next cycle starts nothing,
+    and the app's next launch is due."""
+    app = fake_app(service_home.home)
+    service_home.start()
+    executable = app / "Contents" / "MacOS" / "Probe"
+    process = subprocess.Popen([str(executable), "60"], executable=shutil.which("sleep"))  # the app runs
+    try:
+        with _app_window(service_home, topics=UPDATE_TOPICS):
+            first = _next_cycle(service_home, None)["last_result"]
+    finally:
+        process.kill()
+        process.wait()
+    # Closed now: the next cycle.
+    _restart(service_home, last_check_hours_ago=7)
+    second = _next_cycle(service_home, first["cycle_id"])
+    assert open_calls(service_home.home) == []
+    assert first["steps"]["app"] == {"state": "skipped", "outcome": "app_not_listening"}
+    assert second["last_result"]["steps"]["app"]["outcome"] == "app_closed"
+    assert second["app"]["due"] is True and second["app"]["reason"] == "never_checked"
+
+
+@no_real_app
+def test_an_open_app_is_sent_app_check_and_its_result_is_the_app_step(service_home, machine):
+    fake_app(service_home.home)
+    service_home.start()
+    with _app_window(service_home) as app, service_home.connect() as cli:
+        # A connection that is not the app's never gets `app.check`, subscribed or not.
+        cli.call(Method.EVENTS_SUBSCRIBE, {"topics": APP_TOPICS})
+        started = _check_now(cli)
+        assert started["outcome"] == "started"
+        seen = events_until(app, lambda e: e["topic"] == "update.done", 20.0)
+        cli_seen = events_until(cli, lambda e: e["topic"] == "update.done", 20.0)
+        assert [e for e in seen if e["topic"] == "app.check"] == [
+            {"topic": "app.check", "cycle_id": started["cycle_id"]}
+        ]
+        delegated = _app_step(seen)
+        assert delegated["state"] == "delegated" and delegated["outcome"] == "app_check_sent"
+        assert seen[-1]["steps"]["app"]["state"] == "delegated"
+        status = cli.call(Method.UPDATE_STATUS)["app"]
+        assert status["due"] is False and status["reason"] == "in_progress" and status["listening"] == 1
+        last = status["last"]
+        assert last["state"] == "delegated" and last["cycle_id"] == started["cycle_id"] and last["via"] == "app.check"
+        assert last["trigger"] == "cli" and status["last_check"] == last["delegated_at"]
+        # The app's own updater installed 0.1.4 (it runs after a restart):
+        answer = _report(app, "updated", cycle_id=started["cycle_id"])
+        assert answer["recorded"] is True
+        assert answer["app"]["due"] is False and answer["app"]["reason"] == "checked_recently"
+        assert answer["app"]["last"]["state"] == "done" and answer["app"]["last"]["result"] == "updated"
+        step = _app_step(events_until(app, lambda e: e["topic"] == "update.step" and e.get("step") == "app", 5.0))
+        assert step == {
+            "topic": "update.step",
+            "cycle_id": started["cycle_id"],
+            "step": "app",
+            "state": "done",
+            "outcome": "updated",
+            "version_before": "0.1.3",
+            "version_after": "0.1.4",
+            "delegated_at": last["delegated_at"],
+        }
+        cli_seen += events_until(cli, lambda e: e["topic"] == "update.step" and e.get("step") == "app", 5.0)
+        assert not [e for e in cli_seen if e["topic"] == "app.check"]
+        # The cycle's record says what the app did.
+        result = cli.call(Method.UPDATE_STATUS)["last_result"]
+        assert result["cycle_id"] == started["cycle_id"] and result["ok"] is True
+        assert result["steps"]["app"]["state"] == "done" and result["steps"]["app"]["outcome"] == "updated"
+        # Not a report: refused, nothing recorded.
+        for bad in ({}, {"result": "installed"}, {"result": "updated", "version_after": 5}, {"result": "failed", "error": 1}):
+            with pytest.raises(client.ServiceError) as raised:
+                app.call(Method.UPDATE_APP_RESULT, bad)
+            assert raised.value.code == -32602, bad
+    assert open_calls(service_home.home) == []
+
+
+def _on_disk() -> dict:
+    """The updater's state file, as written (not what the service holds in memory)."""
+    return json.loads(paths.update_state_path().read_text(encoding="utf-8"))
+
+
+def test_the_app_s_launch_check_is_answered_due_or_not(service_home, machine):
+    """`update.check_now {trigger: app, app: {version}}` runs the cycle as
+    ever and answers the app's own check in `app`: due, it is the app's now,
+    written to the state file before the answer, kept across a restart, and
+    no `app.check` follows; the app's report is that cycle's app step."""
+    version_read = service_home.home / "version-may-answer"
+    machine.plan("version", stdout={"cli_version": probe.__version__}, before=[{"wait": str(version_read)}])
+    service_home.start()
+    with _app_window(service_home) as app:
+        first = _launch_check(app)
+        assert first["outcome"] == "started"
+        assert first["app"] == {"due": True, "reason": "never_checked", "cycle_id": first["cycle_id"]}
+        # On disk by the time the answer came, while the cycle still runs.
+        on_disk = _on_disk()
+        assert app.call(Method.UPDATE_STATUS)["in_progress"] is True
+        assert on_disk["app"]["state"] == "delegated" and on_disk["app"]["cycle_id"] == first["cycle_id"]
+        assert on_disk["app"]["via"] == "update.check_now" and on_disk["app"]["version"] == "0.1.3"
+        assert on_disk["app"]["trigger"] == "app" and on_disk["app"]["owner"] is None
+        assert on_disk["last_app_check"] == on_disk["app"]["delegated_at"]
+        status = app.call(Method.UPDATE_STATUS)["app"]
+        assert status["due"] is False and status["reason"] == "in_progress"
+        seen = events_until(app, lambda e: e["topic"] == "update.step" and e.get("step") == "app", 20.0)
+        assert _app_step(seen)["state"] == "delegated" and _app_step(seen)["outcome"] == "already_delegated"
+        version_read.touch()
+        seen += events_until(app, lambda e: e["topic"] == "update.done", 20.0)
+        assert not [e for e in seen if e["topic"] == "app.check"]
+        assert seen[-1]["steps"]["app"]["state"] == "delegated"
+    # A restart while the app still checks: the check is still the app's.
+    _restart(service_home, last_check_hours_ago=None)
+    assert _on_disk()["app"] == on_disk["app"]
+    with _app_window(service_home) as app:
+        status = app.call(Method.UPDATE_STATUS)
+        assert status["app"]["reason"] == "in_progress" and status["app"]["last"] == on_disk["app"]
+        assert _report(app, "current", cycle_id=first["cycle_id"])["recorded"] is True
+        status = app.call(Method.UPDATE_STATUS)
+        assert status["last_result"]["steps"]["app"]["state"] == "done"
+        assert status["last_result"]["steps"]["app"]["outcome"] == "current"
+        assert _on_disk()["app"]["result"] == "current"
+        # Checked: another launch within CHECK_EVERY_S is not due ...
+        again = _launch_check(app)
+        assert again["outcome"] == "recent"
+        assert again["app"] == {"due": False, "reason": "checked_recently", "cycle_id": None}
+        # ... unless forced (a person's "Check for updates") ...
+        assert _launch_check(app, force=True)["app"] == {"due": True, "reason": "forced", "cycle_id": None}
+        _report(app, "failed", error="the update server could not be reached")
+        # ... or the last one failed: due again at the next launch.
+        assert _launch_check(app)["app"] == {"due": True, "reason": "last_failed", "cycle_id": None}
+        _report(app, "current")
+        assert app.call(Method.UPDATE_STATUS)["app"]["reason"] == "checked_recently"
+        # Automatic updates off: never due on its own.
+        enable_auto_update(service_home.home, False)
+        off = _launch_check(app)
+        assert off["outcome"] == "deferred"
+        assert off["app"] == {"due": False, "reason": "auto_update_off", "cycle_id": None}
+        enable_auto_update(service_home.home, True)
+        # An older app sends no `app` and gets none; only the app's trigger takes one.
+        assert "app" not in app.call(Method.UPDATE_CHECK_NOW, {"trigger": "app"})
+        for bad in (
+            {"trigger": "cli", "app": {"version": "0.1.3"}},
+            {"trigger": "app", "app": "0.1.3"},
+            {"trigger": "app", "app": {"force": "yes"}},
+            {"trigger": "app", "app": {"version": 3}},
+        ):
+            with pytest.raises(client.ServiceError) as raised:
+                app.call(Method.UPDATE_CHECK_NOW, bad)
+            assert raised.value.code == -32602, bad
+    assert open_calls(service_home.home) == []
+
+
+@no_real_app
+def test_app_check_goes_to_the_newest_app_only_and_its_close_fails_the_check(service_home, machine):
+    """Two app connections that take `app.check` (an app relaunched before
+    its old link closed, say): one hand-off reaches one of them, the newest,
+    which owns it. Closed before it reports, the check is failed and due again."""
+    service_home.start()
+    older = _app_window(service_home)
+    newer = _app_window(service_home)
+    try:
+        with service_home.connect() as cli:
+            cli.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            started = _check_now(cli)
+            assert started["outcome"] == "started"
+            newer_seen = events_until(newer, lambda e: e["topic"] == "update.done", 20.0)
+            older_seen = events_until(older, lambda e: e["topic"] == "update.done", 20.0)
+            assert [e for e in newer_seen if e["topic"] == "app.check"] == [
+                {"topic": "app.check", "cycle_id": started["cycle_id"]}
+            ]
+            assert [e for e in older_seen if e["topic"] == "app.check"] == []
+            status = cli.call(Method.UPDATE_STATUS)["app"]
+            assert status["listening"] == 2 and status["reason"] == "in_progress"
+            assert isinstance(status["last"]["owner"], int) and _on_disk()["app"]["owner"] == status["last"]["owner"]
+            # The app that has the check quits before it reports.
+            newer.close()
+            seen = events_until(
+                cli, lambda e: e["topic"] == "update.step" and e.get("step") == "app" and e.get("state") == "failed", 5.0
+            )
+            failed = _app_step(seen, "failed")
+            assert failed["cycle_id"] == started["cycle_id"] and failed["owner_gone"] is True
+            status = cli.call(Method.UPDATE_STATUS)
+            assert status["app"]["due"] is True and status["app"]["reason"] == "last_failed"
+            assert status["app"]["last"]["owner_gone"] is True
+            assert status["last_result"]["steps"]["app"]["state"] == "failed"
+            # The other app's connection closing changes nothing more.
+            older.close()
+            time.sleep(0.3)
+            assert cli.call(Method.UPDATE_STATUS)["app"]["last"] == status["app"]["last"]
+    finally:
+        older.close()
+        newer.close()
+    assert open_calls(service_home.home) == []
+
+
+def test_force_never_hands_over_a_second_check_while_one_is_in_the_app_s_hands(service_home, machine):
+    """`force` passes over the interval, never over a check the app has not
+    reported yet: one check at a time."""
+    service_home.start()
+    with _app_window(service_home) as app:
+        first = _launch_check(app)
+        assert first["app"]["due"] is True
+        handed = _on_disk()["app"]
+        forced = _launch_check(app, force=True)
+        assert forced["app"] == {"due": False, "reason": "in_progress", "cycle_id": None}
+        assert _on_disk()["app"] == handed  # the same check, not a second one
+        assert _report(app, "current", cycle_id=first["cycle_id"])["recorded"] is True
+        # Reported: now force passes over the interval.
+        assert _launch_check(app, force=True)["app"]["reason"] == "forced"
+
+
+def test_a_report_for_an_earlier_check_never_settles_the_current_one(service_home, machine):
+    """A report's `cycle_id` names the check it answers: one for an earlier
+    check (it arrived late) changes nothing; one with none (an older app
+    build) answers the check in the app's hands."""
+    service_home.start()
+    window = _app_window(service_home)
+    with service_home.connect() as cli:
+        cli.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+        earlier = _check_now(cli)
+        events_until(window, lambda e: e["topic"] == "app.check", 20.0)
+        _done(cli)
+        window.close()  # the app quit mid-check: that check is failed
+        events_until(
+            cli, lambda e: e["topic"] == "update.step" and e.get("step") == "app" and e.get("state") == "failed", 5.0
+        )
+    _quiet(service_home)
+    with _app_window(service_home) as app:
+        # Its next launch is handed a new check (no cycle: one just ran).
+        current = _launch_check(app)
+        assert current["outcome"] == "recent"
+        assert current["app"] == {"due": True, "reason": "last_failed", "cycle_id": None}
+        handed = _on_disk()["app"]
+        late = _report(app, "updated", cycle_id=earlier["cycle_id"])
+        assert late["recorded"] is False and late["reason"] == "stale"
+        assert _on_disk()["app"] == handed
+        assert app.call(Method.UPDATE_STATUS)["app"]["reason"] == "in_progress"
+        settled = _report(app, "current")
+        assert settled["recorded"] is True
+        assert settled["app"]["last"]["delegated_at"] == handed["delegated_at"]
+        assert settled["app"]["last"]["result"] == "current"
+
+
+def test_a_second_report_of_a_settled_check_changes_nothing(service_home, machine):
+    """The app reports twice (a retry after a lost answer, say): the second
+    report, the same or not, changes nothing, and the cycle's app step is the
+    first report's."""
+    version_read = service_home.home / "version-may-answer"
+    machine.plan("version", stdout={"cli_version": probe.__version__}, before=[{"wait": str(version_read)}])
+    service_home.start()
+    with _app_window(service_home) as app:
+        first = _launch_check(app)
+        events_until(app, lambda e: e["topic"] == "update.step" and e.get("step") == "app", 20.0)
+        assert _report(app, "current", cycle_id=first["cycle_id"])["recorded"] is True
+        reported = _on_disk()
+        for again in (
+            {"result": "current", "cycle_id": first["cycle_id"]},
+            {"result": "current"},
+            {"result": "failed", "error": "offline", "cycle_id": first["cycle_id"]},
+        ):
+            answer = _report(app, **again)
+            assert answer["recorded"] is False and answer["reason"] == "duplicate", again
+        assert _on_disk() == reported
+        version_read.touch()  # the cycle ends after both reports
+        done = events_until(app, lambda e: e["topic"] == "update.done", 20.0)[-1]
+        assert done["steps"]["app"]["state"] == "done" and done["steps"]["app"]["outcome"] == "current"
+        last = _quiet(service_home)["last_result"]
+        assert last["steps"]["app"]["state"] == "done" and last["ok"] is True
+
+
+@no_real_app
+def test_a_ready_update_stops_the_timeout_and_holds_off_a_second_check(service_home, machine, monkeypatch):
+    """`ready`: the open app downloaded and verified 0.1.4, which installs
+    when it quits. The check's timeout stops, no second check is handed over
+    while it waits (the app's own forced check included, and after the app
+    quit), and the check stays open for ONE final report."""
+    monkeypatch.setenv("PROBE_SERVICE_APP_RESULT_TIMEOUT_S", "2")
+    service_home.start()
+    window = _app_window(service_home)
+    try:
+        with service_home.connect() as cli:
+            cli.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            started = _check_now(cli)
+            events_until(window, lambda e: e["topic"] == "app.check", 20.0)
+            _done(cli)
+            ready = _report(window, "ready", cycle_id=started["cycle_id"])
+            assert ready["recorded"] is True
+            assert ready["app"]["due"] is False and ready["app"]["reason"] == "in_progress"
+            last = ready["app"]["last"]
+            assert last["state"] == "ready" and last["result"] == "ready" and last["version_after"] == "0.1.4"
+            assert "reported_at" not in last
+            step = _app_step(events_until(
+                cli, lambda e: e["topic"] == "update.step" and e.get("step") == "app" and e.get("state") == "ready", 5.0
+            ))
+            assert step["outcome"] == "ready" and step["version_after"] == "0.1.4"
+            assert cli.call(Method.UPDATE_STATUS)["last_result"]["steps"]["app"]["state"] == "ready"
+            time.sleep(2.5)  # past the 2 s timeout: still ready, never failed
+            assert _on_disk()["app"]["state"] == "ready"
+            # The open app's own "Check for updates" while it waits: no second check.
+            assert _launch_check(window, force=True)["app"] == {"due": False, "reason": "in_progress", "cycle_id": None}
+            assert _on_disk()["app"]["state"] == "ready"
+            for again in ("ready", "current"):
+                answer = _report(window, again, cycle_id=started["cycle_id"])
+                assert answer["recorded"] is False and answer["reason"] == "duplicate", again
+    finally:
+        window.close()
+    # The app quit to install it: the check stays ready.
+    assert wait_for(lambda: service_home.call(Method.UPDATE_STATUS)["app"]["listening"] == 0, 5.0)
+    assert _on_disk()["app"]["state"] == "ready"
+    # A later cycle hands nothing over while the update waits, the app open or not.
+    _restart(service_home, last_check_hours_ago=7)
+    with _app_window(service_home) as app:
+        status = _next_cycle(service_home, started["cycle_id"])
+        assert status["last_result"]["steps"]["app"] == {
+            "state": "skipped", "outcome": "ready_waiting", "version_after": "0.1.4"
+        }
+        assert not [e for e in _drain(app) if e["topic"] == "app.check"]
+        # The one final report closes it, and is not a duplicate.
+        final = _report(app, "updated", cycle_id=started["cycle_id"])
+        assert final["recorded"] is True
+        last = final["app"]["last"]
+        assert last["state"] == "done" and last["result"] == "updated" and last["version_after"] == "0.1.4"
+        assert last["reported_at"] is not None
+        assert _report(app, "updated", cycle_id=started["cycle_id"])["reason"] == "duplicate"
+    assert open_calls(service_home.home) == []
+
+
+@no_real_app
+@pytest.mark.parametrize(
+    ("launched", "answer", "state", "result"),
+    [
+        ("0.1.4", {"due": False, "reason": "checked_recently"}, "done", "updated"),  # it installed at the quit
+        ("0.1.3", {"due": True, "reason": "last_failed"}, "failed", "failed"),  # it did not: due again
+    ],
+)
+def test_the_next_launch_settles_a_waiting_update_by_the_version_it_runs(
+    service_home, machine, launched, answer, state, result
+):
+    """A `ready` update whose app quit before it said more: the app's next
+    launch check settles it by the version that launch runs."""
+    service_home.start()
+    window = _app_window(service_home)
+    with service_home.connect() as cli:
+        started = _check_now(cli)
+        events_until(window, lambda e: e["topic"] == "app.check", 20.0)
+        assert _report(window, "ready", cycle_id=started["cycle_id"])["recorded"] is True
+    _quiet(service_home)
+    window.close()  # the app quits to install it
+    assert wait_for(lambda: service_home.call(Method.UPDATE_STATUS)["app"]["listening"] == 0, 5.0)
+    assert _on_disk()["app"]["state"] == "ready"
+    with _app_window(service_home) as app:
+        got = _launch_check(app, version=launched)
+        assert {k: got["app"][k] for k in ("due", "reason")} == answer
+        seen = events_until(
+            app, lambda e: e["topic"] == "update.step" and e.get("step") == "app" and e.get("state") == state, 5.0
+        )
+        settled = _app_step(seen, state)
+        assert settled["cycle_id"] == started["cycle_id"] and settled["outcome"] == result
+        last = app.call(Method.UPDATE_STATUS)["app"]["last"]
+        if result == "updated":
+            assert last["state"] == "done" and last["version_after"] == "0.1.4" and last["settled_at_launch"] is True
+        else:
+            # Due again: this launch is handed a new check.
+            assert last["state"] == "delegated" and last["via"] == "update.check_now"
+    assert open_calls(service_home.home) == []
+
+
+#: The app step the service before this one recorded, by its outcome.
+_OLD_STEP_STATE = {"updated": "done", "current": "done", "failed": "failed", "timeout": "failed"}
 
 
 @pytest.mark.parametrize(
-    ("bundle", "capability", "outcome"),
+    ("old_outcome", "due"),
     [
-        ("ai.prbe.desktop", None, "not_capable"),
-        ("ai.prbe.desktop", 0, "not_capable"),
-        ("com.example.other", 1, "not_installed"),
+        ("updated", False),
+        ("current", False),
+        ("quarantined", True),
+        ("not_installed", True),
+        ("not_capable", True),
+        ("failed", True),
+        ("timeout", True),
+        ("checked_recently", True),  # the check before that one: its outcome is unknown
     ],
 )
-def test_the_app_is_launched_only_when_it_is_ours_and_capable(app_home, bundle, capability, outcome):
-    fake_open(app_home / "bin")
-    fake_app(app_home, bundle_id=bundle, capability=capability)
-    assert _app_update(timeout=1.0)["outcome"] == outcome
-    assert open_calls(app_home) == []
-
-
-def test_no_app_installed_launches_nothing(app_home):
-    fake_open(app_home / "bin")
-    assert _app_update(timeout=1.0) == {"outcome": "not_installed"}
-    assert open_calls(app_home) == []
-
-
-def test_a_running_app_is_never_launched(app_home):
-    fake_open(app_home / "bin")
-    app = fake_app(app_home)
-    executable = app / "Contents" / "MacOS" / "Probe"
-    running = subprocess.Popen([str(executable), "30"], executable=shutil.which("sleep"))
-    try:
-        assert wait_for(lambda: appupdate.running(app), 5.0)
-        result = _app_update(timeout=1.0)
-    finally:
-        running.kill()
-        running.wait()
-    assert result["outcome"] == "running"
-    assert open_calls(app_home) == []
-
-
-def test_the_app_s_report_for_this_attempt_is_read(app_home):
-    fake_open(app_home / "bin", result="failed", delay=0.3)
-    app = fake_app(app_home)
-    result = _app_update(timeout=10.0, poll=0.05)
-    assert result == {
-        "app": str(app),
-        "outcome": "failed",
-        "version_before": "0.1.3",
-        "version_after": "0.1.3",
-        "error": "signature check failed",
-    }
-    (opened,) = open_calls(app_home)
-    assert opened["argv"] == ["-n", "-g", "-j", str(app), "--args", "--background-update"]
-
-
-def test_a_copy_never_opened_is_not_launched(app_home):
-    """A downloaded Probe.app nobody has opened yet still carries
-    com.apple.quarantine: launching it would show Gatekeeper's prompt."""
-    fake_open(app_home / "bin")
-    fake_app(app_home, quarantined=True)
-    assert _app_update(timeout=1.0)["outcome"] == "quarantined"
-    assert open_calls(app_home) == []
-
-
-def test_an_app_that_found_itself_running_checked_nothing(app_home):
-    """`current` with an error is the app's own "another Probe holds my lock":
-    it checked nothing, so it is a running app (asked again next cycle)."""
-    fake_open(app_home / "bin", result="current", error="Probe is already running; it installs its own updates")
-    fake_app(app_home)
-    result = _app_update(timeout=10.0, poll=0.05)
-    assert result["outcome"] == "running" and "already running" in result["error"]
-    assert len(open_calls(app_home)) == 1
-
-
-@pytest.mark.parametrize("report", ["none", "an earlier attempt's"])
-def test_no_report_for_this_attempt_times_out(app_home, report):
-    if report == "none":
-        fake_open(app_home / "bin", result=None)
+def test_a_check_the_older_service_recorded_counts_only_when_the_app_was_found_current(
+    service_home, machine, old_outcome, due
+):
+    """The service before this one wrote `last_app_check` for every launch
+    attempt, also for an app it never checked. Only an `updated` or `current`
+    one is a recent check; anything else leaves the next launch due."""
+    an_hour_ago = time.time() - 3600
+    step = {"state": _OLD_STEP_STATE.get(old_outcome, "skipped"), "outcome": old_outcome, "version_before": "0.1.3"}
+    paths.update_state_path().write_text(json.dumps({
+        "v": 1,
+        "last_check": an_hour_ago,
+        "last_app_check": an_hour_ago,
+        "last_result": {"cycle_id": "c-old", "at": an_hour_ago, "trigger": "schedule", "ok": True, "restart": False,
+                        "steps": {"app": step}},
+    }), encoding="utf-8")
+    service_home.start()
+    with _app_window(service_home) as app:
+        status = app.call(Method.UPDATE_STATUS)["app"]
+        answer = _launch_check(app)
+    if due:
+        assert status["due"] is True and status["reason"] == "never_checked" and status["last_check"] is None
+        assert answer["app"]["due"] is True and answer["app"]["reason"] == "never_checked"
     else:
-        fake_open(app_home / "bin", result="updated", finished_offset=-3600)
-    fake_app(app_home)
-    result = _app_update(timeout=0.5, poll=0.05)
-    assert result["outcome"] == "timeout"
-    assert len(open_calls(app_home)) == 1
+        assert status["due"] is False and status["reason"] == "checked_recently"
+        assert status["last_check"] == an_hour_ago and status["last"]["result"] == old_outcome
+        assert answer["app"] == {"due": False, "reason": "checked_recently", "cycle_id": None}
+
+
+def test_a_delegated_check_that_never_reports_reads_as_failed_and_is_due_again(service_home, machine, monkeypatch):
+    """The app crashed mid-check: past APP_RESULT_TIMEOUT_S its delegation is
+    failed (an `update.step` like any step's), the next launch is due, and a
+    late report still counts."""
+    monkeypatch.setenv("PROBE_SERVICE_APP_RESULT_TIMEOUT_S", "1")
+    service_home.start()
+    with _app_window(service_home) as app:
+        first = _launch_check(app)
+        assert first["app"]["due"] is True
+        seen = events_until(
+            app, lambda e: e["topic"] == "update.step" and e.get("step") == "app" and e.get("state") == "failed", 20.0
+        )
+        failed = _app_step(seen, "failed")
+        assert failed["cycle_id"] == first["cycle_id"] and failed["outcome"] == "failed"
+        assert failed["timed_out"] is True and failed["error"] == "no result from the app within 1 s"
+        status = _quiet(service_home)
+        assert status["app"]["due"] is True and status["app"]["reason"] == "last_failed"
+        assert status["app"]["last"]["state"] == "failed" and status["app"]["last"]["timed_out"] is True
+        assert status["last_result"]["steps"]["app"]["state"] == "failed"
+        assert status["last_result"]["ok"] is False
+        # The app reports after all: that is the check's result.
+        late = _report(app, "current")
+        assert late["app"]["reason"] == "checked_recently" and late["app"]["last"]["state"] == "done"
+        assert "timed_out" not in late["app"]["last"]
+        assert app.call(Method.UPDATE_STATUS)["last_result"]["steps"]["app"]["outcome"] == "current"
+    assert open_calls(service_home.home) == []
+
+
+def test_only_a_caller_that_may_run_work_records_the_app_s_result():
+    """`update.app_result` only records, but what it records decides when the
+    app checks next: a caller in a sandbox is refused it (WORK), as an error,
+    never a quiet success."""
+    from probe.service import server
+
+    assert server.METHOD_POLICY[Method.UPDATE_APP_RESULT] == server.Policy.WORK
+    assert Method.UPDATE_APP_RESULT not in server.CONFINED_ANSWERS
 
 
 # -- who asks: the CLI and the plugin hook (Q4) ------------------------------------
@@ -763,6 +1232,484 @@ def test_an_update_child_that_wrote_no_done_failed(service_home, machine):
     assert done["steps"]["cli_and_plugins"]["state"] == "failed" and done["ok"] is False
 
 
+# -- an update child past its time limit (UPDATE_TIMEOUT_S) ---------------------------
+
+
+def _state_dir(service_home) -> Path:
+    return service_home.home / ".local" / "state" / "probe"
+
+
+def _pid_in(path: Path) -> int:
+    assert wait_for(lambda: path.exists() and path.read_text().strip(), 10.0), f"{path} never written"
+    return int(path.read_text())
+
+
+#: The update's own command ignores SIGTERM: started ignoring it (inherited),
+#: the update itself answering it again after.
+_ITS_COMMAND_IGNORES = ([{"ignore": "SIGTERM"}], [{"default": "SIGTERM"}])
+
+
+@pytest.mark.parametrize(
+    ("plan", "grace", "stopped_by", "exit_code"),
+    [
+        (([], []), None, "SIGTERM", 143),
+        (([{"ignore": "SIGTERM"}], []), "1", "SIGKILL", 137),
+        (_ITS_COMMAND_IGNORES, "1", "SIGKILL", 143),
+    ],
+    ids=["answers-sigterm", "ignores-sigterm", "its-command-ignores-sigterm"],
+)
+def test_an_update_past_the_time_limit_is_stopped_and_the_next_cycle_can_run(
+    service_home, machine, monkeypatch, plan, grace, stopped_by, exit_code
+):
+    """An update child that never returned kept its cycle in progress for good:
+    every `update.check_now` answered `running`, and no update ran again. Past
+    the limit its process group is stopped (SIGTERM, then SIGKILL past the
+    grace to whatever is left of it), the step fails saying why, in the record
+    `probe doctor` prints too, and the barrier and the slot are let go."""
+    monkeypatch.setenv("PROBE_SERVICE_UPDATE_TIMEOUT_S", "1")
+    if grace:
+        monkeypatch.setenv("PROBE_SERVICE_UPDATE_STOP_GRACE_S", grace)
+    command = service_home.home / "command.pid"
+    before_spawn, after_spawn = plan
+    machine.plan("update", steps=[
+        *before_spawn,
+        {"event": STEP},
+        {"lock": str(_state_dir(service_home) / "wizard.lock")},
+        {"spawn": ["sleep", "60"], "pidfile": str(command)},
+        *after_spawn,
+        {"wait": str(service_home.home / "never")},
+    ])
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+        assert _check_now(conn)["outcome"] == "started"
+        done = _done(conn, timeout=15.0)[-1]
+        status = conn.call(Method.UPDATE_STATUS)
+        again = _check_now(conn)
+    step = done["steps"]["cli_and_plugins"]
+    assert step["state"] == "failed" and done["ok"] is False, step
+    assert step["detail"] == "the update ran past 1 s and was stopped"
+    assert (step["stopped_by"], step["exit_code"]) == (stopped_by, exit_code)
+    (child,) = machine.calls("update")
+    assert not pid_running(child["pid"])
+    assert wait_for(lambda: not pid_running(_pid_in(command)), 5.0), "the command the update ran outlived the stop"
+    assert status["in_progress"] is False
+    assert again["outcome"] != "running", again
+    assert barrier.wait(0.0) is True
+    attempt = autoupdate_state(service_home.home)["last_attempt"]
+    assert (attempt["ok"], attempt["detail"]) == (False, "the update ran past 1 s and was stopped")
+
+
+def test_the_next_service_stops_an_update_a_service_before_it_left_running_past_the_limit(
+    service_home, machine, monkeypatch
+):
+    """A service stopped under its update leaves the child running (it must
+    outlive the service) and the barrier naming it. The next service found its
+    `wizard.lock` and deferred, cycle after cycle, for good: a setup is never
+    overridden. Past the limit that child -- and only it -- is stopped first."""
+    command = service_home.home / "command.pid"
+    machine.plan("update", steps=[
+        {"lock": str(_state_dir(service_home) / "wizard.lock")},
+        {"spawn": ["sleep", "60"], "pidfile": str(command)},
+        {"wait": str(service_home.home / "never")},
+    ])
+    first = service_home.start()
+    with service_home.connect() as conn:
+        assert _check_now(conn)["outcome"] == "started"
+    assert wait_for(lambda: machine.calls("update"), 10.0)
+    (old,) = machine.calls("update")
+    assert wait_for(lambda: (barrier.read() or {}).get("pid") == old["pid"], 5.0), barrier.read()
+    spawned = _pid_in(command)  # written after the lock was taken
+    os.kill(first["pid"], signal.SIGTERM)
+    assert service_home.wait_exit(first["pid"], 5.0), service_home.log()
+    assert pid_running(old["pid"]), "the service's exit killed its update child"
+
+    machine.plan("update", steps=[{"event": STEP}])
+    monkeypatch.setenv("PROBE_SERVICE_UPDATE_TIMEOUT_S", "1")
+    time.sleep(max(0.0, 1.2 - (time.time() - barrier.read()["created_at"])))
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+        assert _check_now(conn)["outcome"] == "started"
+        done = _done(conn)[-1]
+    assert done["deferred"] is None, done
+    step = done["steps"]["cli_and_plugins"]
+    assert step["state"] == "done", step
+    assert step["stopped_previous"]["pid"] == old["pid"]
+    assert step["stopped_previous"]["stopped_by"] == "SIGTERM"
+    detail = "the update a service before this one started ran past 1 s and was stopped"
+    assert step["stopped_previous"]["detail"] == detail
+    assert not pid_running(old["pid"]) and wait_for(lambda: not pid_running(spawned), 5.0)
+    assert len(machine.calls("update")) == 2  # and the update ran
+    attempt = autoupdate_state(service_home.home)["last_attempt"]
+    assert (attempt["ok"], attempt["detail"]) == (False, detail)
+
+
+#: A `probe wizard` in a terminal, as far as wizard.lock goes: not an update child.
+_PERSON_S_WIZARD = r"""
+import fcntl, os, sys, time
+lock = open(sys.argv[1], "a")
+fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+open(sys.argv[2], "w").close()
+while os.path.isdir(os.path.dirname(sys.argv[2])):
+    time.sleep(0.05)
+"""
+
+
+@pytest.mark.parametrize("holder", ["the-app-s-update-action", "a-reused-pid", "a-person-s-wizard"])
+def test_a_wizard_lock_the_barrier_does_not_prove_ours_is_never_overridden(service_home, machine, monkeypatch, holder):
+    """Only the update child the barrier names, still that exact process (pid
+    and kernel start time) and running `probe.core.run update`, is ever
+    stopped. The app's Update action is an update child by its command line but
+    raises no barrier; a reused pid has another start time; a person's
+    `probe wizard` is not an update child. Each keeps its lock, and the update
+    defers as it always did."""
+    wizard = _state_dir(service_home) / "wizard.lock"
+    ready = service_home.home / "holder-ready"
+    if holder == "a-person-s-wizard":
+        argv = [sys.executable, "-c", _PERSON_S_WIZARD, str(wizard), str(ready)]
+    else:
+        machine.plan("update", steps=[
+            {"lock": str(wizard)}, {"touch": str(ready)}, {"wait": str(service_home.home / "never")}
+        ])
+        argv = [str(machine.python), "-I", "-m", "probe.core.run", "update"]
+    wizard.parent.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, start_new_session=True)
+    try:
+        assert wait_for(ready.exists, 10.0)
+        if holder != "the-app-s-update-action":
+            from probe.service import procid
+
+            start = procid.start_time(proc.pid) if holder == "a-person-s-wizard" else "1"
+            paths.barrier_path().write_text(json.dumps(
+                {"pid": proc.pid, "start_time": start, "token": "t", "created_at": time.time() - 3600}
+            ))
+        monkeypatch.setenv("PROBE_SERVICE_UPDATE_TIMEOUT_S", "1")
+        time.sleep(1.2)
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            done = _done(conn)[-1]
+        assert done["deferred"] == "setup_running", done
+        assert "stopped_previous" not in done["steps"]["cli_and_plugins"]
+        assert proc.poll() is None, f"{holder} was stopped"
+    finally:
+        with contextlib.suppress(OSError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait(5)
+
+
+def test_an_overrun_is_only_past_its_limit_and_never_this_process(service_home):
+    """`overrun_update`'s age and self checks (the identity checks run against
+    real services above). The age is the barrier's, written as the child
+    started; a clock set back reads as not past."""
+    sleeper = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)", "-m", "probe.core.run", "update"],
+        start_new_session=True,
+    )
+    try:
+        from probe.service import procid
+
+        start = wait_for(lambda: procid.start_time(sleeper.pid), 5.0)
+
+        def named(pid, created_at):
+            paths.barrier_path().write_text(json.dumps(
+                {"pid": pid, "start_time": procid.start_time(pid), "token": "t", "created_at": created_at}
+            ))
+
+        now = time.time()
+        assert updater.overrun_update(60.0) is None  # no barrier
+        named(sleeper.pid, now - 30)
+        assert updater.overrun_update(60.0, now) is None  # not past the limit yet
+        named(sleeper.pid, now + 3600)
+        assert updater.overrun_update(60.0, now) is None  # the clock went back
+        named(os.getpid(), now - 3600)
+        assert updater.overrun_update(60.0, now) is None  # this process
+        named(sleeper.pid, now - 3600)
+        assert updater.overrun_update(60.0, now) == updater.Overrun(sleeper.pid, start, now - 3600)
+    finally:
+        sleeper.kill()
+        sleeper.wait(5)
+
+
+#: A process group's leader that starts two commands in its group and writes
+#: their pids. `ignore`: it and its commands ignore SIGTERM; `kids-ignore`: only
+#: its commands do (inherited at their start, so before any signal can come);
+#: `note`: it notes a SIGTERM (`<pids>.term`) and runs on.
+_GROUP = r"""
+import os, signal, subprocess, sys, time
+if sys.argv[2] in ("ignore", "kids-ignore"):
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+kids = [subprocess.Popen(["sleep", "60"]) for _ in range(2)]
+if sys.argv[2] == "kids-ignore":
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+if sys.argv[2] == "note":
+    signal.signal(signal.SIGTERM, lambda *_: open(sys.argv[1] + ".term", "w").close())
+with open(sys.argv[1] + ".tmp", "w") as out:
+    out.write(" ".join(str(k.pid) for k in kids))
+os.replace(sys.argv[1] + ".tmp", sys.argv[1])
+time.sleep(60)
+"""
+
+
+def _group(tmp_path, mode: str) -> tuple[subprocess.Popen, int, int]:
+    """`_GROUP` as a group leader of its own, reaped by a thread here as soon
+    as it exits (as init reaps one whose service is gone): its group then
+    holds only what is left of it. With its two commands' pids."""
+    import threading
+
+    pids = tmp_path / "pids"
+    leader = subprocess.Popen([sys.executable, "-c", _GROUP, str(pids), mode], start_new_session=True)
+    _STAND_INS.append(leader)  # its group killed at the test's end, pass or fail
+    threading.Thread(target=leader.wait, daemon=True).start()
+    assert wait_for(pids.exists, 10.0)
+    first, second = (int(p) for p in pids.read_text().split())
+    return leader, first, second
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [("answer", "SIGTERM"), ("ignore", "SIGKILL"), ("kids-ignore", "SIGKILL"), ("group-member", "SIGTERM")],
+)
+def test_a_previous_update_is_stopped_with_its_group_and_never_its_neighbours(tmp_path, mode, expected):
+    """`stop_process`: an update child of this version leads its own group,
+    which is stopped whole (SIGTERM, then SIGKILL past the grace to whatever
+    is left of it, a command that ignores SIGTERM included); one an older
+    service started shares that service's group with other processes, so only
+    it is signalled, never its neighbours."""
+    import asyncio
+
+    from probe.service import procid
+
+    leader, first, second = _group(tmp_path, "answer" if mode == "group-member" else mode)
+    target = first if mode == "group-member" else leader.pid
+    how = asyncio.run(updater.stop_process(target, procid.start_time(target), 1.0))
+    assert how == expected
+    if mode == "group-member":
+        assert wait_for(lambda: not pid_running(first), 5.0)
+        assert pid_running(second) and leader.poll() is None, "a neighbour in its group was stopped"
+    else:
+        assert wait_for(lambda: leader.poll() is not None, 5.0)
+        assert wait_for(lambda: not pid_running(first) and not pid_running(second), 5.0), "its commands outlived it"
+    assert asyncio.run(updater.stop_process(target, "not-its-start", 1.0)) == updater.Stopped.GONE
+
+
+@pytest.mark.realtime
+def test_a_cancelled_stop_sends_nothing_more(tmp_path):
+    """The service stopping while it stops a previous update: once its SIGTERM
+    is out, no SIGKILL follows from an abandoned wait (a thread did, before)."""
+    import asyncio
+
+    from probe.service import procid
+
+    leader, _, _ = _group(tmp_path, "note")
+    noted = tmp_path / "pids.term"
+
+    async def cancel_after_the_sigterm() -> None:
+        task = asyncio.ensure_future(updater.stop_process(leader.pid, procid.start_time(leader.pid), 2.0))
+        deadline = time.monotonic() + 10.0
+        while not noted.exists() and time.monotonic() < deadline:
+            await asyncio.sleep(0.02)
+        assert noted.exists(), "no SIGTERM reached it"
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(cancel_after_the_sigterm())
+    time.sleep(2.5)  # past the grace, where the SIGKILL would have come
+    assert leader.poll() is None, "a cancelled stop went on to kill it"
+
+
+#: In a process that reaps nothing and is its orphans' reaper (Linux's
+#: PR_SET_CHILD_SUBREAPER): a group whose leader answers SIGTERM and whose
+#: command ignores it, stopped. Both end as zombies nobody reaps.
+_UNREAPED = r"""
+import asyncio, ctypes, os, subprocess, sys, time
+from probe.service import children, procid
+ctypes.CDLL(None).prctl(36, 1)  # PR_SET_CHILD_SUBREAPER
+ready = sys.argv[1]
+leader = subprocess.Popen([sys.executable, "-c", (
+    "import signal, subprocess, sys, time\n"
+    "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+    "subprocess.Popen(['sleep', '60'])\n"
+    "signal.signal(signal.SIGTERM, signal.SIG_DFL)\n"
+    "open(sys.argv[1], 'w').close()\n"
+    "time.sleep(60)\n"), ready], start_new_session=True)
+while not os.path.exists(ready):
+    time.sleep(0.02)
+start = procid.start_time(leader.pid)
+async def there():
+    return procid.alive(leader.pid, start) is True
+how = asyncio.run(children.stop(leader=there, send=lambda sig: os.killpg(leader.pid, sig), group=leader.pid, grace=1.0))
+print(how)
+"""
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_CHILD_SUBREAPER is Linux's")
+def test_a_stopped_group_left_as_unreaped_zombies_reads_as_stopped(tmp_path):
+    """A group whose members are dead but not reaped (a reaper that is slow, or
+    none, as in a container without an init) is stopped, not `running`: a
+    zombie is gone. The command that ignored SIGTERM took the SIGKILL."""
+    done = subprocess.run(
+        [sys.executable, "-c", _UNREAPED, str(tmp_path / "ready")], capture_output=True, text=True, timeout=60
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert done.stdout.split() == [updater.Stopped.SIGKILL]
+
+
+#: A group leader that, on SIGTERM, starts a command ignoring SIGTERM (its pid
+#: to `<path>.late`) and exits at once. `with-anchor`: it also started one such
+#: command at its own start, which outlives it.
+_SPAWNS_ON_TERM = r"""
+import os, signal, subprocess, sys, time
+path, mode = sys.argv[1], sys.argv[2]
+IGNORING = [sys.executable, "-c", "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"]
+def late(*_):
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    child = subprocess.Popen(IGNORING)
+    with open(path + ".late.tmp", "w") as out:
+        out.write(str(child.pid))
+    os.replace(path + ".late.tmp", path + ".late")
+    os._exit(0)
+pids = []
+if mode == "with-anchor":
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    pids.append(subprocess.Popen(IGNORING).pid)
+signal.signal(signal.SIGTERM, late)
+with open(path + ".tmp", "w") as out:
+    out.write(" ".join(map(str, pids)))
+os.replace(path + ".tmp", path)
+time.sleep(60)
+"""
+
+
+@pytest.mark.realtime
+@pytest.mark.parametrize("mode", ["with-anchor", "alone"])
+def test_a_command_started_as_the_group_is_stopped_is_found_or_never_signalled(tmp_path, mode):
+    """Once the leader is gone its group's number can name another group, so
+    the group is listed and signalled only while a process of it that was
+    listed is still there. A command the leader starts on its way out is found
+    through one that outlives it (`with-anchor`: killed past the grace), and
+    with none left to prove the group is still its own (`alone`) it is never
+    signalled: the stop says `running` instead of claiming the group is gone."""
+    import asyncio
+    import threading
+
+    from probe.service import procid
+
+    path = tmp_path / "pids"
+    leader = subprocess.Popen([sys.executable, "-c", _SPAWNS_ON_TERM, str(path), mode], start_new_session=True)
+    _STAND_INS.append(leader)
+    threading.Thread(target=leader.wait, daemon=True).start()
+    assert wait_for(path.exists, 10.0)
+    early = [int(p) for p in path.read_text().split()]
+    late_pid = None
+    try:
+        how = asyncio.run(updater.stop_process(leader.pid, procid.start_time(leader.pid), 1.0))
+        late_pid = _pid_in(Path(str(path) + ".late"))
+        if mode == "with-anchor":
+            assert how == updater.Stopped.SIGKILL
+            assert wait_for(lambda: not pid_running(late_pid) and not any(pid_running(p) for p in early), 5.0)
+        else:
+            assert how == updater.Stopped.RUNNING
+            assert pid_running(late_pid), "a process nobody could prove to be of its group was signalled"
+    finally:
+        for pid in [*early, *([late_pid] if late_pid else [])]:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+
+
+#: A group leader whose command, on SIGTERM, leaves the group (`setsid`, as a
+#: daemon the run started on purpose would) and runs on (`<path>.left` once out).
+_LEAVES_ON_TERM = r"""
+import os, signal, subprocess, sys, time
+path = sys.argv[1]
+LEAVER = [sys.executable, "-c", (
+    "import os, signal, sys, time\n"
+    "def leave(*_):\n"
+    "    os.setsid()\n"
+    "    open(sys.argv[1], 'w').close()\n"
+    "signal.signal(signal.SIGTERM, leave)\n"
+    "open(sys.argv[1] + '.ready', 'w').close()\n"
+    "time.sleep(60)\n"), path + ".left"]
+kid = subprocess.Popen(LEAVER)
+while not os.path.exists(path + ".left.ready"):
+    time.sleep(0.02)
+with open(path + ".tmp", "w") as out:
+    out.write(str(kid.pid))
+os.replace(path + ".tmp", path)
+time.sleep(60)
+"""
+
+
+def test_a_process_that_left_the_group_is_neither_its_anchor_nor_signalled(tmp_path):
+    """A command that left the group (a daemon the update started on purpose)
+    proves nothing about the group's number once the leader is gone: it is
+    not waited for, and nothing more is sent its way or to the group."""
+    import asyncio
+    import threading
+
+    from probe.service import procid
+
+    path = tmp_path / "pids"
+    leader = subprocess.Popen([sys.executable, "-c", _LEAVES_ON_TERM, str(path)], start_new_session=True)
+    _STAND_INS.append(leader)
+    threading.Thread(target=leader.wait, daemon=True).start()
+    kid = _pid_in(path)
+    try:
+        how = asyncio.run(updater.stop_process(leader.pid, procid.start_time(leader.pid), 1.0))
+        assert (tmp_path / "pids.left").exists(), "it never left the group"
+        assert how == updater.Stopped.SIGTERM  # done once its group was gone, not anchored by the one that left
+        assert pid_running(kid), "a process that left the group was killed"
+    finally:
+        with contextlib.suppress(OSError):
+            os.kill(kid, signal.SIGKILL)
+
+
+def test_this_service_s_child_whose_identity_could_not_be_read_is_never_signalled(tmp_path):
+    """`Popen.wait` reaps before it sets `returncode`, so "not reaped yet" is
+    proven only by the kernel start time read as the child started. Without
+    it nothing is sent (on POSIX), and the stop says the child is still there."""
+    import asyncio
+
+    from probe.service import children
+
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
+    _STAND_INS.append(child)
+
+    async def at_the_limit():
+        exited = asyncio.get_running_loop().create_future()
+        return await children._stop_overrun(child, exited, 1.0, None)
+
+    overran = asyncio.run(at_the_limit())
+    assert overran.how == children.Stopped.RUNNING and overran.code is None
+    assert child.poll() is None, "a child with no identity to prove it by was signalled"
+
+
+def test_the_stopped_update_keeps_what_its_child_recorded_since_it_started(service_home, monkeypatch):
+    from probe._shared import autoupdate
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(service_home.home / ".local" / "state"))
+    autoupdate.record_attempt(autoupdate.Attempt(at=int(time.time()) - 3600, ok=True, from_version="0.1.0"))
+    assert updater.record_stopped("stopped", version="0.2.0", since=time.time() - 60)
+    first = autoupdate.load().last_attempt
+    assert (first.ok, first.detail, first.from_version) == (False, "stopped", "0.2.0")  # older: replaced
+
+    since = time.time() - 1
+    autoupdate.record_attempt(autoupdate.Attempt(
+        at=int(time.time()), ok=True, from_version="0.2.0", plugin_ok=False, plugin_detail="codex: x",
+    ))
+    assert updater.record_stopped("ran past 30 min", version="0.2.0", since=since)
+    kept = autoupdate.load().last_attempt
+    assert (kept.ok, kept.detail, kept.plugin_ok, kept.plugin_detail) == (False, "ran past 30 min", False, "codex: x")
+
+    # Its lock held (by a child that would not stop, say): skipped, never waited on.
+    with _hold(autoupdate.state_dir() / "state.lock"):
+        assert updater.record_stopped("later", version="0.2.0", since=since) is False
+    assert autoupdate.load().last_attempt.detail == "ran past 30 min"
+
+
 # -- busy machines still update (plan D7, D12, D13, D33, D11, D14) ------------------
 
 #: A stand-in `probe daemon worker`: holds its session's lock, says it takes
@@ -807,9 +1754,27 @@ sys.exit(child.wait())
 """
 
 
+#: Every stand-in worker a test started: their process groups are killed when
+#: it ends, pass or fail (`_no_stand_in_left`). `proc.kill()` alone killed only
+#: the stand-in `tap watch`, and its worker lived on, an orphan, for hours.
+_STAND_INS: list = []
+
+
+@pytest.fixture(autouse=True)
+def _no_stand_in_left():
+    yield
+    while _STAND_INS:
+        proc = _STAND_INS.pop()
+        with contextlib.suppress(OSError):
+            os.killpg(proc.pid, signal.SIGKILL)  # its own group: the stand-in and the worker under it
+        with contextlib.suppress(Exception):
+            proc.wait(5)
+
+
 def _spawn_worker(state: Path, sid: str, mode: str, *, supervised: bool = True) -> subprocess.Popen:
     """A stand-in worker; `supervised`: under a stand-in `tap watch` (its session
-    live), else straight under this test (its session ended)."""
+    live), else straight under this test (its session ended). In a process
+    group of its own, killed whole at the test's end."""
     (state / "daemon").mkdir(parents=True, exist_ok=True)
     script = state.parent / f"worker-{sid}.py"
     script.write_text(_WORKER)
@@ -818,7 +1783,8 @@ def _spawn_worker(state: Path, sid: str, mode: str, *, supervised: bool = True) 
         supervisor = state.parent / "supervisor.py"
         supervisor.write_text(_SUPERVISOR)
         argv = [sys.executable, str(supervisor), "tap", "watch", *argv]
-    proc = subprocess.Popen(argv)
+    proc = subprocess.Popen(argv, start_new_session=True)
+    _STAND_INS.append(proc)
     assert wait_for(lambda: (state / f"{sid}.ready").exists(), 10.0)
     return proc
 

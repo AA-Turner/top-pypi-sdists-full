@@ -20,7 +20,7 @@ from fla.ops.nsa.parallel import parallel_nsa
 from fla.ops.utils.index import prepare_lens_from_mask
 
 if TYPE_CHECKING:
-    from fla.models.utils import Cache
+    from fla.models.cache_utils import Cache
 
 logger = logging.get_logger(__name__)
 
@@ -49,6 +49,7 @@ class NativeSparseAttention(nn.Module):
             self.num_kv_heads = self.num_heads
         else:
             self.num_kv_heads = num_kv_heads
+        assert self.num_heads % self.num_kv_heads == 0, "num_heads must be divisible by num_kv_heads"
         self.num_kv_groups = num_heads // self.num_kv_heads
         self.head_dim = head_dim
         self.kv_dim = self.num_kv_heads * self.head_dim
@@ -99,8 +100,8 @@ class NativeSparseAttention(nn.Module):
             seqlen_offset = past_key_values.get_seq_length(self.layer_idx)
             max_seqlen = q.shape[1] + seqlen_offset
 
-            if attention_mask is not None:
-                # to deliminate the offsets of padding tokens
+            if cu_seqlens is None and attention_mask is not None:
+                # to eliminate the offsets of padding tokens
                 seqlen_offset = seqlen_offset + prepare_lens_from_mask(attention_mask) - attention_mask.shape[-1]
                 max_seqlen = q.shape[1] + max(seqlen_offset)
 
@@ -110,6 +111,8 @@ class NativeSparseAttention(nn.Module):
 
         if past_key_values is not None:
             cache_has_content = past_key_values.get_seq_length(self.layer_idx) > 0
+            assert cu_seqlens is None or not cache_has_content, \
+                "cu_seqlens should not be provided when past_key_values has content"
             k_cached, v_cached = past_key_values.update(
                 attn_state=(k.flatten(-2, -1), v.flatten(-2, -1)),
                 layer_idx=self.layer_idx,
@@ -120,7 +123,7 @@ class NativeSparseAttention(nn.Module):
                 k = rearrange(k, '... (h d) -> ... h d', d=self.head_dim)
                 v = rearrange(v, '... (h d) -> ... h d', d=self.head_dim)
 
-        if attention_mask is not None:
+        if cu_seqlens is None and attention_mask is not None:
             (q, g), (k, v), indices_q, cu_seqlens, max_seq_lens = unpad_input(
                 (q, g), (k, v), attention_mask, q_len, keepdim=True)
             g_cmp, g_slc, g_swa = g.sigmoid().unbind(-1)

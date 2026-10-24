@@ -11,7 +11,10 @@ from ..types.update_workspace_disclaimer_in import UpdateWorkspaceDisclaimerIn
 from ..types.update_workspace_tool_registry_tool_in import UpdateWorkspaceToolRegistryToolIn
 from ..types.workspace_configuration_response_out import WorkspaceConfigurationResponseOut
 from ..types.workspace_member_search_response_out import WorkspaceMemberSearchResponseOut
+from ..types.workspace_membership_list_response_out import WorkspaceMembershipListResponseOut
 from ..types.workspace_tool_registry_response_out import WorkspaceToolRegistryResponseOut
+from ..types.workspace_usage_response_out import WorkspaceUsageResponseOut
+from ..types.workspace_usage_sessions_response_out import WorkspaceUsageSessionsResponseOut
 from .raw_client import AsyncRawWorkspacesClient, RawWorkspacesClient
 
 # this is used as the default value for optional parameters
@@ -153,6 +156,59 @@ class WorkspacesClient:
         )
         """
         _response = self._raw_client.search_members(workspace_id, q=q, limit=limit, request_options=request_options)
+        return _response.data
+
+    def list_memberships(
+        self,
+        workspace_id: str,
+        *,
+        include_archived: typing.Optional[bool] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceMembershipListResponseOut:
+        """
+        The full membership roster of one workspace with each member's user id, name, email, role and join date — built for usage reporting and licence reconciliation, unlike the share-picker search at `GET /workspaces/{workspace_id}/members`. Removed members are left out unless `include_archived=true`. Pages are ordered by user id; `next_cursor` is returned while more remain. Requires workspace owner or manager (or Athena admin) permissions.
+
+        Parameters
+        ----------
+        workspace_id : str
+            Unique identifier of the workspace
+
+        include_archived : typing.Optional[bool]
+            Also return memberships that were removed from the workspace
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum memberships per page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceMembershipListResponseOut
+            One page of memberships
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.workspaces.list_memberships(
+            workspace_id="workspace_eb171baf",
+            include_archived=False,
+            limit=200,
+        )
+        """
+        _response = self._raw_client.list_memberships(
+            workspace_id, include_archived=include_archived, cursor=cursor, limit=limit, request_options=request_options
+        )
         return _response.data
 
     def create_presence_token(
@@ -342,6 +398,108 @@ class WorkspacesClient:
         )
         return _response.data
 
+    def get_usage(
+        self,
+        workspace_id: str,
+        *,
+        days: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceUsageResponseOut:
+        """
+        Aggregate LLM token usage (and cost) for one workspace over the last `days` days: workspace totals plus per-member, per-day and per-Computer breakdowns. Token counters are summed from each session's usage ledger; dry-run (test) sessions are reported separately and excluded from the totals. Requires workspace owner or manager (or Athena admin) permissions — the same gate as the in-app Usage page.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        days : typing.Optional[int]
+            Reporting window in days, ending now (1-365)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceUsageResponseOut
+            Workspace usage retrieved successfully
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.workspaces.get_usage(
+            workspace_id="workspace_id",
+            days=30,
+        )
+        """
+        _response = self._raw_client.get_usage(workspace_id, days=days, request_options=request_options)
+        return _response.data
+
+    def list_usage_sessions(
+        self,
+        workspace_id: str,
+        *,
+        from_: typing.Optional[str] = None,
+        to: typing.Optional[str] = None,
+        days: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceUsageSessionsResponseOut:
+        """
+        Per-session LLM token usage for one workspace — the same rows as the workspace usage CSV export, as JSON. Each session yields one row per provider/model/status combination with its token breakdown and billed cost; dry-run (test) sessions are excluded. Pick the window with `from`/`to` (UTC dates, inclusive, at most 365 days) or a rolling `days`. Pages are keyset-paginated newest first: `limit` counts sessions, and `next_cursor` is returned while more sessions remain. Requires workspace owner or manager (or Athena admin) permissions.
+
+        Parameters
+        ----------
+        workspace_id : str
+            Unique identifier of the workspace
+
+        from_ : typing.Optional[str]
+            First UTC day of the window (YYYY-MM-DD); requires `to`
+
+        to : typing.Optional[str]
+            Last UTC day of the window, inclusive (YYYY-MM-DD); requires `from`
+
+        days : typing.Optional[int]
+            Rolling window in days ending now; ignored when `from`/`to` are given
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum sessions per page (each may yield several rows)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceUsageSessionsResponseOut
+            One page of session rows
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.workspaces.list_usage_sessions(
+            workspace_id="workspace_eb171baf",
+            days=30,
+            limit=100,
+        )
+        """
+        _response = self._raw_client.list_usage_sessions(
+            workspace_id, from_=from_, to=to, days=days, cursor=cursor, limit=limit, request_options=request_options
+        )
+        return _response.data
+
 
 class AsyncWorkspacesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -503,6 +661,67 @@ class AsyncWorkspacesClient:
         """
         _response = await self._raw_client.search_members(
             workspace_id, q=q, limit=limit, request_options=request_options
+        )
+        return _response.data
+
+    async def list_memberships(
+        self,
+        workspace_id: str,
+        *,
+        include_archived: typing.Optional[bool] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceMembershipListResponseOut:
+        """
+        The full membership roster of one workspace with each member's user id, name, email, role and join date — built for usage reporting and licence reconciliation, unlike the share-picker search at `GET /workspaces/{workspace_id}/members`. Removed members are left out unless `include_archived=true`. Pages are ordered by user id; `next_cursor` is returned while more remain. Requires workspace owner or manager (or Athena admin) permissions.
+
+        Parameters
+        ----------
+        workspace_id : str
+            Unique identifier of the workspace
+
+        include_archived : typing.Optional[bool]
+            Also return memberships that were removed from the workspace
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum memberships per page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceMembershipListResponseOut
+            One page of memberships
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.list_memberships(
+                workspace_id="workspace_eb171baf",
+                include_archived=False,
+                limit=200,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_memberships(
+            workspace_id, include_archived=include_archived, cursor=cursor, limit=limit, request_options=request_options
         )
         return _response.data
 
@@ -722,5 +941,123 @@ class AsyncWorkspacesClient:
         """
         _response = await self._raw_client.update_tool_registry(
             workspace_id, default_visibility=default_visibility, tool=tool, request_options=request_options
+        )
+        return _response.data
+
+    async def get_usage(
+        self,
+        workspace_id: str,
+        *,
+        days: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceUsageResponseOut:
+        """
+        Aggregate LLM token usage (and cost) for one workspace over the last `days` days: workspace totals plus per-member, per-day and per-Computer breakdowns. Token counters are summed from each session's usage ledger; dry-run (test) sessions are reported separately and excluded from the totals. Requires workspace owner or manager (or Athena admin) permissions — the same gate as the in-app Usage page.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        days : typing.Optional[int]
+            Reporting window in days, ending now (1-365)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceUsageResponseOut
+            Workspace usage retrieved successfully
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.get_usage(
+                workspace_id="workspace_id",
+                days=30,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_usage(workspace_id, days=days, request_options=request_options)
+        return _response.data
+
+    async def list_usage_sessions(
+        self,
+        workspace_id: str,
+        *,
+        from_: typing.Optional[str] = None,
+        to: typing.Optional[str] = None,
+        days: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceUsageSessionsResponseOut:
+        """
+        Per-session LLM token usage for one workspace — the same rows as the workspace usage CSV export, as JSON. Each session yields one row per provider/model/status combination with its token breakdown and billed cost; dry-run (test) sessions are excluded. Pick the window with `from`/`to` (UTC dates, inclusive, at most 365 days) or a rolling `days`. Pages are keyset-paginated newest first: `limit` counts sessions, and `next_cursor` is returned while more sessions remain. Requires workspace owner or manager (or Athena admin) permissions.
+
+        Parameters
+        ----------
+        workspace_id : str
+            Unique identifier of the workspace
+
+        from_ : typing.Optional[str]
+            First UTC day of the window (YYYY-MM-DD); requires `to`
+
+        to : typing.Optional[str]
+            Last UTC day of the window, inclusive (YYYY-MM-DD); requires `from`
+
+        days : typing.Optional[int]
+            Rolling window in days ending now; ignored when `from`/`to` are given
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum sessions per page (each may yield several rows)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceUsageSessionsResponseOut
+            One page of session rows
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.list_usage_sessions(
+                workspace_id="workspace_eb171baf",
+                days=30,
+                limit=100,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_usage_sessions(
+            workspace_id, from_=from_, to=to, days=days, cursor=cursor, limit=limit, request_options=request_options
         )
         return _response.data

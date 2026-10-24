@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openslide-python
-Version: 1.4.6
+Version: 1.4.7
 Summary: Python interface to OpenSlide
 Maintainer-email: OpenSlide project <openslide-users@lists.andrew.cmu.edu>
 License-Expression: LGPL-2.1-only AND BSD-3-Clause AND MIT AND LicenseRef-Public-Domain
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Typing :: Typed
@@ -50,7 +51,7 @@ closest to a desired zoom level.
 
 OpenSlide can read virtual slides in several formats:
 
-* [Aperio][] (`.svs`, `.tif`)
+* [Aperio][] (`.svs`)
 * [ARGOS][] (`.avs`)
 * [DICOM][] (`.dcm`)
 * [Hamamatsu][] (`.ndpi`, `.vms`, `.vmu`)

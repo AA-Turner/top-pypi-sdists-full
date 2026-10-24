@@ -73,6 +73,22 @@ def _stub_promotion_guard(
 
 
 @pytest.fixture(autouse=True)
+def _stub_recreate_renames(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OMN-17427: keep the pre-compose-up rename pass out of argv captures.
+
+    ``_compose_up`` lists the lane's containers before every compose up to
+    finish a recreate whose rename never ran. Tests that capture ``_run`` argv
+    are not testing that pass, so it is a no-op here. Tests that drive it opt
+    out via the ``recreate_renames`` marker.
+    """
+    if request.node.get_closest_marker("recreate_renames") is not None:
+        return
+    monkeypatch.setattr(executor_mod, "finish_recreate_renames", lambda lane: [])
+
+
+@pytest.fixture(autouse=True)
 def _declare_lane_fence(monkeypatch: pytest.MonkeyPatch) -> None:
     """OMN-16939: DEPLOY_AGENT_ALLOWED_LANES is required and has no default.
 
@@ -183,6 +199,15 @@ def _derive_runtime_budget_from_this_checkout(monkeypatch: pytest.MonkeyPatch) -
         )
 
     monkeypatch.setattr(executor_mod, "runtime_compose_up_budget", _budget)
+
+    def _health_budget(lane: object, service: str) -> int:
+        return compose_budget.derive_runtime_health_budget(
+            compose_files,
+            service,
+            floor_seconds=executor_mod.RUNTIME_COMPOSE_UP_FLOOR_SECONDS,
+        )
+
+    monkeypatch.setattr(executor_mod, "runtime_health_probe_budget", _health_budget)
 
 
 @pytest.fixture(autouse=True)

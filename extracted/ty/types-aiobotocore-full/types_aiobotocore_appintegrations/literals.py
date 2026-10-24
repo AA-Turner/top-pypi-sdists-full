@@ -43,7 +43,7 @@ __all__ = (
 
 
 ApplicationTypeType = Literal["A2A_SERVER", "MCP_SERVER", "SERVICE", "STANDARD"]
-AuthTypeType = Literal["API_KEY"]
+AuthTypeType = Literal["API_KEY", "CONNECT_JWT"]
 ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -207,13 +207,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -281,6 +280,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -415,6 +415,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -465,7 +466,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

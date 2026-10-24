@@ -1,8 +1,9 @@
 Metadata-Version: 2.5
 Name: gladiaio-sdk
-Version: 2.2.0
+Version: 2.2.1
 Summary: Gladia SDK for Python
 Requires-Python: <4,>=3.10
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: dataclasses-json>=0.6.0
 Requires-Dist: httpx>=0.28.0
 Requires-Dist: marshmallow>=3.26.2

@@ -80,6 +80,14 @@ from vercel.sandbox._internal.process_output import (
     ProcessOutputRouter,
     _validate_reader_destination,
 )
+from vercel.sandbox._internal.process_stdin import (
+    ProcessInput,
+    StdinMode,
+    SyncProcessStdin,
+    _coerce_input,
+    _sync_stdin,
+    _validate_stdin,
+)
 from vercel.sandbox._internal.recovery import (
     SandboxLifecycle,
     classify_sandbox_lifecycle_error,
@@ -93,6 +101,7 @@ from vercel.sandbox._internal.runtime_common import (
     _coerce_remote_path,
     _normalize_tar_path,
     _ProcessHandleState,
+    _ProcessStartHook,
     _SandboxFilesystemBatchBase,
     _signal_number,
     _UploadFileEntry,
@@ -120,6 +129,8 @@ from vercel.sandbox._internal.text_reader import SyncTextReader, _sync_text_read
 if TYPE_CHECKING:
     from _typeshed import ReadableBuffer, WriteableBuffer
 
+    from vercel.sandbox.sync.user import SyncSandboxUser
+
 
 def _terminal_error(error: _SandboxTerminalState, sandbox: object) -> SandboxTerminalStateError:
     return SandboxTerminalStateError(
@@ -135,11 +146,15 @@ class SyncProcess(_ProcessHandleState):
     The ``stdout`` and ``stderr`` readers each consume their process log
     stream once; reads make forward progress through the stream and cannot
     rewind. A reader is ``None`` when its stream was dropped with
-    ``subprocess.DEVNULL`` or merged with ``subprocess.STDOUT``.
+    ``subprocess.DEVNULL`` or merged with ``subprocess.STDOUT``. ``stdin`` is
+    ``None`` for a process created without ``stdin=subprocess.PIPE``; a
+    looked-up process always has a writer, which fails on first use if the
+    process has no stdin.
     """
 
-    __slots__ = ("_service", "stderr", "stdout")
+    __slots__ = ("_service", "stderr", "stdin", "stdout")
 
+    stdin: SyncProcessStdin | None
     stdout: SyncTextReader | None
     stderr: SyncTextReader | None
 
@@ -148,11 +163,13 @@ class SyncProcess(_ProcessHandleState):
         *,
         payload: ProcessState,
         service: SandboxService,
+        stdin: StdinMode = None,
         stdout: int = subprocess.PIPE,
         stderr: int = subprocess.PIPE,
     ) -> None:
         super().__init__(payload)
         self._service = service
+        self.stdin = _sync_stdin(service, payload, stdin)
         self.stdout, self.stderr = _sync_text_readers(
             lambda: service.process_logs_response(session_id=self._session_id, process_id=self.id),
             stdout=stdout,
@@ -182,12 +199,19 @@ class SyncProcess(_ProcessHandleState):
             raise SandboxResponseError("Wait response did not include a process return code")
         return self.returncode
 
-    def communicate(self, input: None = None) -> tuple[str | None, str | None]:
-        """Read all output and wait for the process to exit.
+    def communicate(self, input: ProcessInput | None = None) -> tuple[str | None, str | None]:
+        """Send input, read all output, and wait for the process to exit.
+
+        Stdin is closed whenever ``input`` is given, even if it is empty. With
+        ``input=None`` it is closed only if this handle owns it: the process
+        was created with ``stdin=subprocess.PIPE``, or this handle has written
+        to it. So calling ``communicate()`` on a looked-up process reads its
+        output without ending its input.
 
         Args:
-            input: Reserved for subprocess compatibility. Process standard
-                input is not supported and must be ``None``.
+            input: Bytes, or text encoded as UTF-8, to write to stdin before
+                closing it. It is not an error if the process exits or stops
+                reading before taking all of it.
 
         Returns:
             A ``(stdout, stderr)`` tuple. A stream without a reader is
@@ -195,10 +219,15 @@ class SyncProcess(_ProcessHandleState):
             ``(merged, None)``.
 
         Raises:
-            NotImplementedError: If ``input`` is not ``None``.
+            ValueError: If ``input`` is given and ``stdin`` is ``None``.
+            SandboxStdinError: If writing or closing stdin fails, including
+                writing to a looked-up process that has no stdin.
         """
-        if input is not None:
-            raise NotImplementedError("process stdin is not supported")
+        data = None if input is None else _coerce_input(input)
+        if self.stdin is not None:
+            self.stdin._communicate(data)
+        elif data is not None:
+            raise ValueError("input requires a process created with stdin=subprocess.PIPE")
         stdout = None if self.stdout is None else self.stdout.read()
         stderr = None if self.stderr is None else self.stderr.read()
         self.wait()
@@ -434,6 +463,15 @@ class SyncDrive(DriveHandleBase):
     def __init__(self, *, payload: DriveState, service: SandboxService) -> None:
         super().__init__(payload)
         self._service = service
+
+    def fork(self, *, name: str) -> "SyncDrive":
+        """Fork this Drive's committed data, inheriting its region and maximum size.
+
+        Return a new handle using the same service without changing this Drive.
+        API failures propagate as SandboxApiError, including missing source
+        (404) and conflicting or uninitialized Drives (409).
+        """
+        return fork_drive(self._service, source=self.name, name=name)
 
     def snapshot(self) -> DriveMount:
         """Return a read-only snapshot mount for this Drive."""
@@ -986,6 +1024,39 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
                 stacklevel=2,
             )
 
+    def as_user(self, username: str) -> "SyncSandboxUser":
+        """Select an existing account without I/O; validate the username now.
+
+        The account's actual home is resolved lazily on first use.
+        This handle stays pinned to this runtime session.
+        """
+        from vercel.sandbox._internal.user_core import UserContext
+        from vercel.sandbox.sync.user import SyncSandboxUser
+
+        context = UserContext(
+            username=username,
+            service=self._service,
+            execution=self.fs._execution,
+            home_dir="/root" if username == "root" else None,
+        )
+        filesystem = SyncSandboxFilesystem(
+            service=context.service,
+            execution=context.filesystem_execution,
+            write_files_cwd=context.write_files_cwd,
+        )
+        return SyncSandboxUser(context, filesystem)
+
+    def create_user(self, username: str) -> "SyncSandboxUser":
+        """Create a Linux account with /bin/bash and a group-accessible (0770) home.
+
+        The home belongs to the account and the sandbox default group for HTTP
+        uploads. Existing accounts raise ``SandboxUserAlreadyExistsError``;
+        use ``as_user()`` to reuse one. Other provisioning failures raise ``SandboxError``.
+        """
+        user = self.as_user(username)
+        iter_coroutine(user._context.provision())
+        return user
+
     def run_process(
         self,
         command: str,
@@ -999,6 +1070,8 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
         stdout: TextIO | int | None = None,
         stderr: TextIO | int | None = None,
         capture_output: bool = False,
+        input: ProcessInput | None = None,
+        on_start: Callable[[SyncProcess], None] | None = None,
     ) -> CompletedProcess:
         """Run a process to completion.
 
@@ -1017,6 +1090,18 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
                 stderr. ``None`` inherits the local stderr stream; ``STDOUT``
                 merges stderr into the stdout destination.
             capture_output: Whether to capture stdout and stderr in the result.
+            input: Data written to the process's stdin, which is then closed;
+                text is encoded as UTF-8. Without it the process reads an
+                empty stdin. A process that exits or stops reading before
+                taking all of it is not an error.
+            on_start: Callable called once with a ``SyncProcess`` handle as
+                soon as the process starts, before any of its output is
+                delivered. Output is held until it returns, so keep it short.
+                It may call handle methods such as ``kill()`` or
+                ``refresh()``, which send their own requests. The handle has
+                no ``stdout`` or ``stderr`` readers; output still goes to
+                ``stdout`` and ``stderr`` above. Once the run completes, the
+                same handle reports the final return code.
 
         Returns:
             The completed process result.
@@ -1024,9 +1109,31 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
         Raises:
             subprocess.CalledProcessError: If ``check`` is true and the process
                 exits unsuccessfully.
+            SandboxStdinError: If writing ``input`` fails. The process is
+                killed, since nothing else could stop it waiting for input.
+            TypeError: If ``on_start`` is not a synchronous callable, checked
+                before the process starts, or if it returns an awaitable.
+
+        An exception raised by ``on_start`` propagates unchanged without
+        killing the process, which keeps running in the sandbox, and ``check``
+        is not applied. A process that has started is never run again. With
+        ``input``, ``on_start`` runs before the input is written, and the input
+        is still written if it raises. If that write fails, the process is
+        killed as for any failure to write ``input``, and the callback's
+        exception is still the one raised.
         """
         output_router = ProcessOutputRouter(
             stdout=stdout, stderr=stderr, capture_output=capture_output
+        )
+        data = None if input is None else _coerce_input(input)
+        start_hook = _ProcessStartHook.create(
+            on_start,
+            lambda payload: SyncProcess(
+                payload=payload,
+                service=self._service,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ),
         )
         state = iter_coroutine(
             self._service.run_process(
@@ -1038,8 +1145,12 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
                 sudo=sudo,
                 kill_after=parse_duration_seconds(kill_after),
                 output_router=output_router,
+                input=data,
+                on_start=start_hook,
             )
         )
+        if start_hook is not None:
+            start_hook.complete(state.process)
         assert state.process.returncode is not None
         result = CompletedProcess(
             id=state.process.id,
@@ -1065,6 +1176,7 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
         env: Mapping[str, str] | None = None,
         sudo: bool = False,
         kill_after: float | timedelta | None = None,
+        stdin: int | None = None,
         stdout: int = subprocess.PIPE,
         stderr: int = subprocess.PIPE,
     ) -> SyncProcess:
@@ -1078,6 +1190,8 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
             sudo: Whether to run with elevated privileges.
             kill_after: Duration after which the service kills the process
                 with ``SIGKILL``.
+            stdin: ``subprocess.PIPE`` for a writer at ``stdin``, or ``None``
+                (default) or ``subprocess.DEVNULL`` for an empty stdin.
             stdout: ``subprocess.PIPE`` (default) for a live reader or
                 ``subprocess.DEVNULL`` to drop the stream.
             stderr: ``subprocess.PIPE`` (default), ``subprocess.DEVNULL``, or
@@ -1089,6 +1203,7 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
         """
         stdout = _validate_reader_destination(stdout, name="stdout")
         stderr = _validate_reader_destination(stderr, name="stderr", allow_stdout_merge=True)
+        attach_stdin = _validate_stdin(stdin)
         state = iter_coroutine(
             self._service.create_process(
                 session_id=self.id,
@@ -1098,9 +1213,16 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
                 env=env,
                 sudo=sudo,
                 kill_after=parse_duration_seconds(kill_after),
+                attach_stdin=attach_stdin,
             )
         )
-        return SyncProcess(payload=state, service=self._service, stdout=stdout, stderr=stderr)
+        return SyncProcess(
+            payload=state,
+            service=self._service,
+            stdin="attached" if attach_stdin else None,
+            stdout=stdout,
+            stderr=stderr,
+        )
 
     def open_interactive(
         self,
@@ -1148,16 +1270,29 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
         )
 
     def get_process(self, process_id: str, *, wait: bool = False) -> SyncProcess:
-        """Get a process in this session."""
+        """Get a process in this session.
+
+        Args:
+            process_id: Process identifier.
+            wait: Whether the API call should wait for process completion.
+
+        Returns:
+            A process handle populated with the latest state. Its ``stdin``
+            writer continues after any input already written, so it can take
+            over from the handle that started the process; only one handle
+            should write at a time.
+        """
         state = iter_coroutine(
             self._service.get_process(session_id=self.id, process_id=process_id, wait=wait)
         )
-        return SyncProcess(payload=state, service=self._service)
+        return SyncProcess(payload=state, service=self._service, stdin="fetched")
 
     def query_processes(self) -> list[SyncProcess]:
         """Return handles for the processes in this session."""
         states = iter_coroutine(self._service.query_processes(session_id=self.id))
-        return [SyncProcess(payload=state, service=self._service) for state in states]
+        return [
+            SyncProcess(payload=state, service=self._service, stdin="fetched") for state in states
+        ]
 
     def refresh(self, *, include_system_routes: bool | None = None) -> Self:
         """Refresh this session's state and return the same handle."""
@@ -1183,13 +1318,18 @@ class SyncSandboxRuntimeSession(RuntimeSessionHandleBase):
         return self
 
     def update_network_policy(self, network_policy: NetworkPolicy) -> Self:
-        """Replace the session network policy."""
+        """Replace this session's network policy without saving it.
+
+        Only this session changes, even if the sandbox has since moved to a
+        newer session. Use ``update(network_policy=...)`` on the sandbox to
+        also save the policy for future sessions.
+        """
         payload = iter_coroutine(
             self._service.update_runtime_session_network_policy(
                 session_id=self.id, network_policy=network_policy
             )
         )
-        self._apply_payload(payload)
+        self._apply_payload_with_parent(payload)
         return self
 
     def snapshot(self, *, expiration: SnapshotExpirationInput = None) -> SyncSnapshot:
@@ -1387,6 +1527,39 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         """
         return iter_coroutine(self._acquire_session())
 
+    def as_user(self, username: str) -> "SyncSandboxUser":
+        """Select an existing account without I/O; validate the username now.
+
+        The account's actual home is resolved lazily on first use.
+        This handle follows this sandbox through lazy resume.
+        """
+        from vercel.sandbox._internal.user_core import UserContext
+        from vercel.sandbox.sync.user import SyncSandboxUser
+
+        context = UserContext(
+            username=username,
+            service=self._service,
+            execution=self.fs._execution,
+            home_dir="/root" if username == "root" else None,
+        )
+        filesystem = SyncSandboxFilesystem(
+            service=context.service,
+            execution=context.filesystem_execution,
+            write_files_cwd=context.write_files_cwd,
+        )
+        return SyncSandboxUser(context, filesystem)
+
+    def create_user(self, username: str) -> "SyncSandboxUser":
+        """Create a Linux account with /bin/bash and a group-accessible (0770) home.
+
+        The home belongs to the account and the sandbox default group for HTTP
+        uploads. Existing accounts raise ``SandboxUserAlreadyExistsError``;
+        use ``as_user()`` to reuse one. Other provisioning failures raise ``SandboxError``.
+        """
+        user = self.as_user(username)
+        iter_coroutine(user._context.provision())
+        return user
+
     def run_process(
         self,
         command: str,
@@ -1400,13 +1573,30 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         stdout: TextIO | int | None = None,
         stderr: TextIO | int | None = None,
         capture_output: bool = False,
+        input: ProcessInput | None = None,
+        on_start: Callable[[SyncProcess], None] | None = None,
     ) -> CompletedProcess:
         """Run a process to completion in the current session.
 
         See ``SyncSandboxRuntimeSession.run_process`` for argument behavior.
+
+        A stopped sandbox is resumed and the run replayed only if the process
+        never started, so ``on_start`` runs at most once, against the session
+        that runs the process. Once it has been called, failures are raised,
+        including lifecycle errors raised by ``on_start`` itself.
         """
         output_router = ProcessOutputRouter(
             stdout=stdout, stderr=stderr, capture_output=capture_output
+        )
+        data = None if input is None else _coerce_input(input)
+        start_hook = _ProcessStartHook.create(
+            on_start,
+            lambda payload: SyncProcess(
+                payload=payload,
+                service=self._service,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ),
         )
         parsed_kill_after = parse_duration_seconds(kill_after)
         state = iter_coroutine(
@@ -1420,10 +1610,15 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
                     sudo=sudo,
                     kill_after=parsed_kill_after,
                     output_router=output_router,
+                    input=data,
+                    on_start=start_hook,
                 ),
                 coordinator=self,
+                can_replay=None if start_hook is None else start_hook.can_replay,
             )
         )
+        if start_hook is not None:
+            start_hook.complete(state.process)
         assert state.process.returncode is not None
         result = CompletedProcess(
             id=state.process.id,
@@ -1449,6 +1644,7 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         env: Mapping[str, str] | None = None,
         sudo: bool = False,
         kill_after: float | timedelta | None = None,
+        stdin: int | None = None,
         stdout: int = subprocess.PIPE,
         stderr: int = subprocess.PIPE,
     ) -> SyncProcess:
@@ -1461,6 +1657,7 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         """
         stdout = _validate_reader_destination(stdout, name="stdout")
         stderr = _validate_reader_destination(stderr, name="stderr", allow_stdout_merge=True)
+        attach_stdin = _validate_stdin(stdin)
         parsed_args = list(args) if args is not None else None
         parsed_kill_after = parse_duration_seconds(kill_after)
         state = iter_coroutine(
@@ -1473,11 +1670,18 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
                     env=env,
                     sudo=sudo,
                     kill_after=parsed_kill_after,
+                    attach_stdin=attach_stdin,
                 ),
                 coordinator=self,
             )
         )
-        return SyncProcess(payload=state, service=self._service, stdout=stdout, stderr=stderr)
+        return SyncProcess(
+            payload=state,
+            service=self._service,
+            stdin="attached" if attach_stdin else None,
+            stdout=stdout,
+            stderr=stderr,
+        )
 
     def open_interactive(
         self,
@@ -1528,7 +1732,7 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
                 coordinator=self,
             )
         )
-        return SyncProcess(payload=state, service=self._service)
+        return SyncProcess(payload=state, service=self._service, stdin="fetched")
 
     def query_processes(self) -> list[SyncProcess]:
         """Return handles for processes in the current session."""
@@ -1538,7 +1742,9 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
                 coordinator=self,
             )
         )
-        return [SyncProcess(payload=state, service=self._service) for state in states]
+        return [
+            SyncProcess(payload=state, service=self._service, stdin="fetched") for state in states
+        ]
 
     def list_sessions(
         self,
@@ -1594,7 +1800,20 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         return self._apply_current_session_payload_if_current(payload, target_id)
 
     def update_network_policy(self, network_policy: NetworkPolicy) -> SyncSandboxRuntimeSession:
-        """Replace the current session's network policy."""
+        """Replace the current session's network policy.
+
+        .. deprecated::
+            Use ``update(network_policy=...)``, which saves the policy for
+            future sessions and applies it to the current session. This method
+            only changes the current session, resuming the sandbox if it is
+            stopped.
+        """
+        warnings.warn(
+            "SyncSandbox.update_network_policy() is deprecated; use "
+            "SyncSandbox.update(network_policy=...) instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         async def update(
             session_id: str,
@@ -1626,17 +1845,8 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
     def _apply_current_session_payload_if_current(
         self, payload: SandboxRuntimeSessionState, target_id: str
     ) -> SyncSandboxRuntimeSession:
-        """Ignore an operation reply superseded by a concurrent recovery."""
         with self._recovery_condition:
-            if target_id == self.current_session_id:
-                return self._apply_current_session_payload(payload)
-            session = self.current_session
-            if session is None:
-                raise SandboxResponseError(
-                    "Sandbox current-session operation returned a different session identity",
-                    data=payload,
-                )
-            return session
+            return super()._apply_current_session_payload_if_current(payload, target_id)
 
     def stop(self) -> Self:
         """Stop the current session and return this sandbox handle."""
@@ -1698,6 +1908,11 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         Only non-``None`` values are sent, except ``snapshot_retention`` where
         explicitly passing ``None`` removes the retention policy.
 
+        A larger ``execution_time_limit`` also extends a running current
+        session. ``network_policy`` is applied to an active current session
+        before the configuration and tags are saved; a live-policy failure
+        raises without saving. These operations are not atomic.
+
         Args:
             mounts: Complete Drive mount replacement for the next session.
                 Pass ``None`` to leave mounts unchanged or ``{}`` to remove all
@@ -1708,27 +1923,30 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         Returns:
             This handle refreshed with the updated sandbox state.
         """
-        payload = iter_coroutine(
-            self._service.update_sandbox(
-                name=self.name,
-                project_id=self.project_id,
-                ports=ports,
-                execution_time_limit=parse_duration_seconds(execution_time_limit),
-                resources=resources,
-                persistent=persistent,
-                network_policy=network_policy,
-                network_id=network_id,
-                env=env,
-                tags=tags,
-                mounts=mounts,
-                snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
-                snapshot_retention=snapshot_retention,
-                region=region,
-                failover_regions=normalize_failover_regions(failover_regions),
-                current_snapshot_id=current_snapshot_id,
+        session = self.current_session
+        iter_coroutine(
+            self._apply_update_steps(
+                self._service.update_sandbox(
+                    name=self.name,
+                    project_id=self.project_id,
+                    current_session=None if session is None else session._payload,
+                    ports=ports,
+                    execution_time_limit=parse_duration_seconds(execution_time_limit),
+                    resources=resources,
+                    persistent=persistent,
+                    network_policy=network_policy,
+                    network_id=network_id,
+                    env=env,
+                    tags=tags,
+                    mounts=mounts,
+                    snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
+                    snapshot_retention=snapshot_retention,
+                    current_snapshot_id=current_snapshot_id,
+                    region=region,
+                    failover_regions=normalize_failover_regions(failover_regions),
+                )
             )
         )
-        self._apply_payload(payload)
         return self
 
 
@@ -2007,6 +2225,13 @@ def resume_sandbox(
         service=service,
         destroy_on_exit=False,
         include_system_routes=include_system_routes,
+    )
+
+
+def fork_drive(service: SandboxService, *, source: str, name: str) -> SyncDrive:
+    return SyncDrive(
+        payload=iter_coroutine(service.fork_drive(name=source, fork_name=name)),
+        service=service,
     )
 
 

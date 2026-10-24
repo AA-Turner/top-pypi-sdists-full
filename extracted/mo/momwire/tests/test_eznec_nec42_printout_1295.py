@@ -38,12 +38,15 @@ import pytest
 from momwire.deck._cards import parse_card
 from momwire.eznec import _nec4, _printout, _shell
 from momwire.eznec._nec4_printout import (
+    ArcRow,
     FarFieldGround,
+    HelixRow,
     Nec4Printout,
     Nec4Report,
     MoveRow,
     Nec4Run,
     Preamble,
+    ReflectRow,
     ScaleRow,
     SegmentRow,
     SegmentValueRow,
@@ -164,7 +167,7 @@ def _unstamped(text: str) -> list[str]:
 def test_the_fixtures_pair_each_deck_with_its_printout():
     """One printout per deck, and each echoes its own deck's comment block —
     the stamp EZNEC checks a printout's age by."""
-    assert len(CAPTURES) == 17 and len(PROBES) == 43 and MULTI == ("m1", "m2")
+    assert len(CAPTURES) == 17 and len(PROBES) == 90 and MULTI == ("m1", "m2")
     assert sorted(p.name.split("_")[0] for p in PRINTOUTS.glob("*.out")) == sorted(
         CASES
     )
@@ -501,6 +504,14 @@ def _parse_run(lines: list[str], echo_through: int | None) -> Nec4Run:
         )
     except StopIteration:
         charges = None
+    # PT -1 in force prints no CURRENTS AND LOCATION section (p86-p90,
+    # momwire#1650).
+    try:
+        currents = _value_rows(
+            lines, _section(lines, "- - - CURRENTS AND LOCATION - - -") + 6
+        )
+    except StopIteration:
+        currents = None
     power_at = _section(lines, "- - - POWER BUDGET - - -")
     budget = {}
     for line in _rows_after(lines, power_at + 2):
@@ -514,9 +525,7 @@ def _parse_run(lines: list[str], echo_through: int | None) -> Nec4Run:
             _port_rows(lines, excitation_heading) if has_excitation else ()
         ),
         sources=_port_rows(lines, "- - - ANTENNA INPUT PARAMETERS - - -"),
-        currents=_value_rows(
-            lines, _section(lines, "- - - CURRENTS AND LOCATION - - -") + 6
-        ),
+        currents=currents,
         charges=charges,
         power=PowerBudget(
             budget["INPUT POWER"],
@@ -578,6 +587,16 @@ def parse_printout(deck: str, text: str) -> Nec4Printout:
         if line.startswith("      STRUCTURE SCALED BY FACTOR"):
             wires.append(ScaleRow(float(line.split()[-1])))
             continue
+        # A GX card's line (p54-p85, momwire#1651): the three axis columns.
+        if line.startswith("      STRUCTURE REFLECTED ALONG THE AXES "):
+            axes = line[len("      STRUCTURE REFLECTED ALONG THE AXES ") :][:5]
+            wires.append(
+                ReflectRow(
+                    (axes[0] == "X", axes[2] == "Y", axes[4] == "Z"),
+                    int(line.split()[-1]),
+                )
+            )
+            continue
         if line.startswith("      THE STRUCTURE HAS BEEN MOVED"):
             v = table[k + 1].split()
             wires.append(
@@ -593,6 +612,39 @@ def parse_printout(deck: str, text: str) -> Nec4Printout:
             continue
         if k and table[k - 1].startswith("      THE STRUCTURE HAS BEEN MOVED"):
             continue
+        # A GA card's row and a GH card's three lines (p46-p53).
+        if line[6:20] == "  ARC RADIUS =":
+            c = _cells(line, (6, 20, 29, 35, 43, 46, 54, 73, *_WIRE_EDGES[7:]))
+            wires.append(
+                ArcRow(
+                    int(c[0]),
+                    float(c[2]),
+                    float(c[4]),
+                    float(c[6]),
+                    float(c[8]),
+                    *(int(v) for v in c[9:]),
+                )
+            )
+            continue
+        if line[6:].startswith("      THIS WIRE IS A LOG-SPIRAL OR HELIX"):
+            c = _cells(line, _WIRE_EDGES)
+            v = [float(x) for x in re.findall(r"-?\d+\.\d+(?:E[-+]\d+)?", table[k + 1])]
+            wires.append(
+                HelixRow(
+                    int(c[0]),
+                    v[0],
+                    v[1],
+                    (v[2], v[3]),
+                    (v[4], v[5]),
+                    float(table[k + 2].split("=")[1]),
+                    *(int(x) for x in c[8:]),
+                )
+            )
+            continue
+        if line.startswith(
+            ("          SPIRAL DATA:", "          TOTAL LENGTH OF WIRE")
+        ):
+            continue
         c = _cells(line, _WIRE_EDGES)
         wires.append(
             WireRow(
@@ -606,8 +658,15 @@ def parse_printout(deck: str, text: str) -> Nec4Printout:
                 int(c[11]),
             )
         )
-    total = next(
-        int(ln.split("=")[1].split()[0]) for ln in lines if "TOTAL SEGMENTS USED=" in ln
+    count_line = next(ln for ln in lines if "TOTAL SEGMENTS USED=" in ln)
+    total, cell, flag = (int(part.split()[0]) for part in count_line.split("=")[1:])
+    planes = next(
+        (
+            int(ln.split()[2])
+            for ln in lines
+            if ln.startswith(" STRUCTURE HAS ") and "PLANES OF SYMMETRY" in ln
+        ),
+        0,
     )
     junction_at = next(i for i, ln in enumerate(lines) if ln.startswith(" JUNCTION"))
     junctions = tuple(
@@ -675,6 +734,9 @@ def parse_printout(deck: str, text: str) -> Nec4Printout:
         segments=tuple(segments),
         runs=tuple(runs),
         run_seconds=_number_after(run_time, "RUN TIME ="),
+        cell_segments=cell,
+        symmetry_flag=flag,
+        symmetry_planes=planes,
     )
 
 
@@ -703,6 +765,77 @@ def test_the_nec5_header_is_untouched():
 
 def render_header_lines(deck: str, dialect: str) -> list[str]:
     return _printout.render_header(deck, basis=BASIS, dialect=dialect).split("\n")
+
+
+# ==========================================================================
+# the geometry, no solve: GA and GH (momwire#1592)
+# ==========================================================================
+
+# The probes whose geometry carries NEC-4.2's arc or helix (p46-p53, and
+# momwire#1651's: an arc or helix beside a GX, the issue's arc, and seven
+# more helices confirming the reading of GH).
+ARC_HELIX = tuple(
+    c for c in PROBES if re.search(r"^G[AH] ", deck_text(c), flags=re.MULTILINE)
+)
+
+
+def _wire_table(text: str) -> list[str]:
+    lines = text.split("\n")
+    at = next(i for i, ln in enumerate(lines) if ln.startswith("  NO.        X1"))
+    return _rows_after(lines, at + 1)
+
+
+def test_the_arc_and_helix_probes_are_the_ones_the_readme_lists():
+    assert ARC_HELIX == (
+        *("p46", "p47", "p48", "p49", "p50", "p51", "p52", "p53"),
+        *("p72", "p74", "p78", "p79", "p80", "p81", "p82", "p83", "p84", "p85"),
+    )
+
+
+@pytest.mark.parametrize("capture", CASES)
+def test_the_wire_table_is_the_licensed_bytes(capture):
+    """Every entry of the STRUCTURE SPECIFICATION wire table, read off the
+    deck alone (a GW row, a GA row, a GH card's three lines with its chords'
+    total length, a GS or GM card's lines), is the licensed printout's."""
+    from momwire.eznec._nec4_printout import _structure_rows
+    from momwire.portal._portal import parse_deck
+
+    deck = parse_deck(deck_text(capture), dialect="nec4")
+    ours = [ln for row in _nec4._wire_rows(deck) for ln in _structure_rows(row)]
+    assert ours == _wire_table(licensed(capture))
+
+
+@pytest.mark.parametrize("capture", ARC_HELIX)
+def test_the_arc_and_helix_segments_are_the_licensed_ones(capture):
+    """The segments the reader builds for GA and GH: each segment's centre,
+    length, both orientation angles and wire radius against the licensed
+    SEGMENTATION DATA to its printed digits.  BETA is the azimuth of a
+    segment's direction, so it is held modulo 360 and not at all on a
+    vertical segment, where it has no value (NEC-4.2 prints 0 there)."""
+    from momwire.portal._portal import parse_deck
+
+    deck = deck_text(capture)
+    want = parse_printout(deck, licensed(capture)).segments
+    got = [
+        (w, k)
+        for w in parse_deck(deck, dialect="nec4").structure.wires
+        for k in range(w.n_seg)
+    ]
+    assert len(got) == len(want)
+    for (w, k), row in zip(got, want, strict=True):
+        d = [(b - a) / w.n_seg for a, b in zip(w.p1, w.p2, strict=True)]
+        centre = [a + (k + 0.5) * dc for a, dc in zip(w.p1, d, strict=True)]
+        length = math.hypot(*d)
+        alpha = math.degrees(math.atan2(d[2], math.hypot(d[0], d[1])))
+        assert centre == pytest.approx(row.centre, abs=6e-6), row.number
+        assert length == pytest.approx(row.length, abs=6e-6), row.number
+        assert alpha == pytest.approx(row.alpha_deg, abs=6e-6), row.number
+        assert w.radius == pytest.approx(row.radius, abs=6e-6), row.number
+        if abs(row.alpha_deg) < 89.9999:
+            beta = math.degrees(math.atan2(d[1], d[0]))
+            assert (beta - row.beta_deg + 180.0) % 360.0 - 180.0 == pytest.approx(
+                0.0, abs=6e-6
+            ), row.number
 
 
 # ==========================================================================
@@ -894,14 +1027,18 @@ def test_the_numbers_against_the_licensed_engine(served, capsys):
             report.append((label, complex(*b[6:8]), complex(*a[6:8]), None, None))
         z_ours = complex(*ours["input"][0][6:8])
         z_theirs = complex(*theirs["input"][0][6:8])
-        peak = max(abs(complex(*r[6:8])) for r in theirs["currents"])
-        i_rel = (
-            max(
-                abs(complex(*a[6:8]) - complex(*b[6:8]))
-                for a, b in zip(ours["currents"], theirs["currents"], strict=True)
+        # A deck under PT -1 prints no currents (p86, p88, p90).
+        assert len(ours["currents"]) == len(theirs["currents"]), capture
+        i_rel = None
+        if theirs["currents"]:
+            peak = max(abs(complex(*r[6:8])) for r in theirs["currents"])
+            i_rel = (
+                max(
+                    abs(complex(*a[6:8]) - complex(*b[6:8]))
+                    for a, b in zip(ours["currents"], theirs["currents"], strict=True)
+                )
+                / peak
             )
-            / peak
-        )
         gain = [
             abs(a[4] - b[4])
             for a, b in zip(ours["pattern"], theirs["pattern"], strict=True)
@@ -969,6 +1106,7 @@ def test_the_near_fields_against_the_licensed_engine(served, capsys):
         *("p11", "p12", "p13", "p14", "p15"),
         *("p20", "p21", "p22", "p23", "p24", "p25", "p26", "p27", "p28"),
         "p4",
+        "p90",
     )
     lines = []
     for case in NEAR_CASES:
@@ -1177,6 +1315,21 @@ def _edited(capture: str, old: str, new: str) -> str:
             id="gw-after-gm",
         ),
         pytest.param(
+            _edited("p39", "GE 0", "GA 9 3 1 0 90 0.001\nGE 0"),
+            "a GA card after a GS or GM card",
+            id="ga-after-gm",
+        ),
+        pytest.param(
+            _edited("p53", "GE 0", "GH 5 8 1 100 10 10 1 1\nGE 0"),
+            "a GH card after a GS or GM card",
+            id="gh-after-gs",
+        ),
+        pytest.param(
+            _edited("p44", "RP 0 3 4 1012", "RP 0 3 4 1014"),
+            "RP with XNDA 1014",
+            id="xnda-1014",
+        ),
+        pytest.param(
             _edited("p38", "GS 0 0 0.001", "GS 1 1 0.001"),
             "GS scaling a range of tags",
             id="gs-tag-range",
@@ -1190,6 +1343,46 @@ def _edited(capture: str, old: str, new: str) -> str:
             _edited("0230", "GD 2,", "GD 1,"),
             "GD 1",
             id="gd-kind",
+        ),
+        # momwire#1651: GX is served where p54-p85 measured it, not after a
+        # GS; GR has no NEC-4.2 printout at all; and a wire lying in a plane
+        # of symmetry stops the licensed engine (refused/r3) and refuses in
+        # the reader, as a 360-degree arc does (refused/r4).
+        pytest.param(
+            _edited("p62", "GX 10 100\nGS 0 0 0.001", "GS 0 0 0.001\nGX 10 100"),
+            "a GX card after a GS card",
+            id="gx-after-gs",
+        ),
+        pytest.param(
+            _edited("p54", "GX 10 100", "GR 10 4"),
+            "the GR geometry card",
+            id="gr",
+        ),
+        pytest.param(
+            (FIXTURES / "refused" / "r3_gx_wire_in_plane.nec").read_text(),
+            "lies in or crosses the X=0 symmetry plane",
+            id="gx-wire-in-plane",
+        ),
+        pytest.param(
+            (FIXTURES / "refused" / "r4_ga_full_circle.nec").read_text(),
+            "sweeps 360 degrees, which NEC-4.2 stops on",
+            id="ga-full-circle",
+        ),
+        # momwire#1650: PT -1 is served (p86-p90); no other form is measured.
+        pytest.param(
+            _edited("p88", "PT -1", "PT 0 1 3 5"),
+            "PT 0 is not served by this engine's NEC-4.2 printout",
+            id="pt-range",
+        ),
+        pytest.param(
+            _edited("p89", "PT -1", "PT -2"),
+            "PT -2 is not served",
+            id="pt-restore",
+        ),
+        pytest.param(
+            _edited("p88", "PT -1", "PT 1"),
+            "PT 1 is not served",
+            id="pt-one",
         ),
     ],
 )
@@ -1210,6 +1403,24 @@ def test_a_refusal_is_a_nec_error_under_the_nec42_banner():
     # The comment box still echoes, so EZNEC shows the refusal rather than
     # discarding the file as stale.
     assert "Written by EZNEC/Pro+ v. 7.0 in NEC-4.2 format." in text
+
+
+def test_ex4_refuses_and_names_ex6():
+    """``EX 4`` on this slot (momwire#1592, refused/r2): NEC-4.2 reads it as
+    a current element at the point its first three reals give, so the
+    licensed printout of ``EX 4 1 11 0 1.0 0`` places a CURRENT SOURCE at
+    (1, 0, 0) and no current flows.  This engine refuses it and says what a
+    NEC-5 user writing EX 4 wants instead: EX 6 on the segment."""
+    refused = FIXTURES / "refused"
+    deck = (refused / "r2_ex4_current_element.nec").read_bytes().decode("latin-1")
+    theirs = (refused / "r2_ex4_current_element.out").read_text(encoding="latin-1")
+    assert re.search(r"CURRENT SOURCE +1\.00000 +0\.00000 +0\.00000", theirs)
+    assert "ANTENNA INPUT PARAMETERS" not in theirs
+    text = render(deck, basis=BASIS, dialect="nec4")
+    assert " ***** NEC ERROR - EX 4 is not served by this engine's nec4 dialect" in text
+    assert "current element at the point its first three real fields give" in text
+    assert "write EX 6 with that tag and segment" in text
+    assert "ANTENNA INPUT PARAMETERS" not in text
 
 
 # ==========================================================================

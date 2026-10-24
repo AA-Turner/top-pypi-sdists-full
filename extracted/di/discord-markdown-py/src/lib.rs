@@ -19,16 +19,16 @@ use span::Spanned;
 pub mod context;
 /// Error types for the parser.
 pub mod error;
-/// Markdown grammar definitions.
-pub mod grammar;
 mod input;
 /// Markdown nodes.
 pub mod node;
 pub mod range;
-/// Rules for parsing markdown content.
-pub mod rule;
+/// Scopes a parser enters, which shape the parsers inside them.
+pub mod scope;
 /// Spans for Markdown nodes
 pub mod span;
+/// The syntax a caller can enable or disable.
+pub mod syntax;
 #[cfg(test)]
 mod test_utils;
 /// Convert nodes back into markdown.
@@ -85,7 +85,7 @@ where
 		};
 		match range::resolve(
 			parsed.value,
-			options.allowed_rules,
+			options.syntaxes,
 			unmatched,
 			&mut node::Ids::default(),
 		) {
@@ -108,11 +108,11 @@ mod test {
 	use crate::context::{DEFAULT_FUEL, Options};
 	use crate::error::Error;
 	use crate::node::{Block, Inline};
-	use crate::rule::{Rule, RuleSet};
+	use crate::syntax::{Syntax, SyntaxSet};
 	use crate::test_utils::handle_nom_err;
 	use crate::{
-		bold, code_block, heading, italic, link, list, list_item, paragraph, spanned_vec, spoiler,
-		text,
+		bold, code, code_block, heading, italic, link, list, list_item, paragraph, spanned_vec,
+		spoiler, text, underline,
 	};
 	use ntest::timeout;
 
@@ -222,11 +222,12 @@ mod test {
 		);
 	}
 
-	/// Every way of writing a `dev` link is a link with [`Rule::DevLink`], and text without it.
+	/// Every way of writing a `dev` link is a link with [`Options::dev_links`], and text without
+	/// it.
 	#[test]
-	fn dev_links_need_their_rule() {
+	fn dev_links_need_their_option() {
 		let without_dev = Options {
-			allowed_rules: RuleSet::all() - Rule::DevLink,
+			dev_links: false,
 			..Default::default()
 		};
 
@@ -259,12 +260,12 @@ mod test {
 			assert_eq!(
 				res,
 				spanned_vec![paragraph!(Inline::Text(s.into()))],
-				"unexpected output for {s:?} without the rule"
+				"unexpected output for {s:?} without dev links"
 			);
 		}
 	}
 
-	/// The rule does not widen what the `dev` scheme accepts.
+	/// The option does not widen what the `dev` scheme accepts.
 	#[test]
 	fn dev_link_with_an_unrouted_domain_is_text() {
 		let s = "dev://nonsense/foo";
@@ -292,7 +293,7 @@ mod test {
 		assert_eq!(res, spanned_vec![paragraph!(bold!("bazbaab"))]);
 	}
 
-	/// Both italic grammars share [`Rule::Italic`], so one delimiter nests inside the other. The
+	/// Both italic syntaxes write the same node, so one delimiter nests inside the other. The
 	/// inner wrapper applies nothing, and keeping it would round trip as an underline, since
 	/// italics always unparse to `_`.
 	#[test]
@@ -305,6 +306,121 @@ mod test {
 				res,
 				spanned_vec![paragraph!(italic!("a"))],
 				"unexpected output for {s:?}"
+			);
+		}
+	}
+
+	/// Each italic syntax is enabled on its own, and so is each that shares an opener with
+	/// another.
+	#[test]
+	fn syntaxes_are_independent() {
+		let without = |syntaxes: SyntaxSet| Options {
+			syntaxes: SyntaxSet::all() - syntaxes,
+			..Default::default()
+		};
+
+		for (s, disabled, expected) in [
+			(
+				"*a* _b_",
+				Syntax::UnderscoreItalic.into(),
+				spanned_vec![paragraph!(italic!("a"), text!(" _b_"))],
+			),
+			(
+				"*a* _b_",
+				Syntax::AsteriskItalic.into(),
+				spanned_vec![paragraph!(text!("*a* "), italic!("b"))],
+			),
+			(
+				"`a` ``b`c``",
+				Syntax::DoubleCode.into(),
+				// the second backtick opens nothing, so the first is text
+				spanned_vec![paragraph!(
+					code!("a"),
+					text!(" `"),
+					code!("b"),
+					text!("c``")
+				)],
+			),
+			(
+				"<https://discord.com> https://discord.com",
+				Syntax::AutoLink.into(),
+				// a URL straight after `<` does not start a token, so detection leaves it too
+				spanned_vec![paragraph!(
+					text!("<https://discord.com> "),
+					link!("https://discord.com/")
+				)],
+			),
+			(
+				"<https://discord.com> https://discord.com",
+				Syntax::DetectedLink.into(),
+				spanned_vec![paragraph!(
+					link!("https://discord.com/"),
+					text!(" https://discord.com")
+				)],
+			),
+		] {
+			let res = parse::<(), _>(s, without(disabled))
+				.map_err(handle_nom_err(s))
+				.expect("unable to parse");
+			assert_eq!(
+				res, expected,
+				"unexpected output for {s:?} without {disabled:?}"
+			);
+		}
+	}
+
+	/// With one italic syntax off, its character still writes the bold or underline: a lone
+	/// delimiter is text rather than an opener the bold yields to, and a run of three spends a
+	/// bold rather than an italic it cannot write.
+	#[test]
+	fn bold_and_underline_without_their_italic() {
+		for (s, disabled, expected) in [
+			(
+				"***a***",
+				Syntax::AsteriskItalic,
+				spanned_vec![paragraph!(text!("*"), bold!("a"), text!("*"))],
+			),
+			(
+				"**a *b* c**",
+				Syntax::AsteriskItalic,
+				spanned_vec![paragraph!(bold!("a *b* c"))],
+			),
+			(
+				"**a *b**",
+				Syntax::AsteriskItalic,
+				spanned_vec![paragraph!(bold!("a *b"))],
+			),
+			(
+				"*a*",
+				Syntax::AsteriskItalic,
+				spanned_vec![paragraph!(text!("*a*"))],
+			),
+			(
+				"___a___",
+				Syntax::UnderscoreItalic,
+				spanned_vec![paragraph!(text!("_"), underline!("a"), text!("_"))],
+			),
+			(
+				"__a _b_ c__",
+				Syntax::UnderscoreItalic,
+				spanned_vec![paragraph!(underline!("a _b_ c"))],
+			),
+			(
+				"__a _b__",
+				Syntax::UnderscoreItalic,
+				spanned_vec![paragraph!(underline!("a _b"))],
+			),
+		] {
+			let options = Options {
+				syntaxes: SyntaxSet::all() - disabled,
+				..Default::default()
+			};
+			let res = parse::<(), _>(s, options)
+				.map_err(handle_nom_err(s))
+				.expect("unable to parse");
+			assert_eq!(
+				res, expected,
+				"unexpected output for {s:?} without {disabled:?}"
 			);
 		}
 	}
@@ -576,7 +692,7 @@ mod test {
 		};
 		let s = "*a ".to_string() + &"_ ".repeat(n) + &"* ".repeat(n);
 		let options = Options {
-			allowed_rules: RuleSet::all() - Rule::Italic,
+			syntaxes: SyntaxSet::all() - Syntax::ITALIC,
 			..Default::default()
 		};
 		let _ = parse::<(), _>(&*s, options)

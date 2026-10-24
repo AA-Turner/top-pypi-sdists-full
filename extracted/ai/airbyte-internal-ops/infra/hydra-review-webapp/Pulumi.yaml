@@ -1,0 +1,20 @@
+name: hydra-review-webapp
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi infrastructure for the Hydra Everywhere Cloud Run production, My PRs
+  preview, and default-Hydra comparison services.
+
+  The stack manages the Artifact Registry repository, Cloud Run services,
+  Secret Manager access grants, IAP-protected load balancer, TLS certificates,
+  and internal DNS records.
+
+config:
+  gcp:project:
+    description: GCP project ID for Hydra Everywhere runtime infrastructure
+    value: internal-airbyte-ai-infra
+  gcp:region:
+    description: GCP region for Hydra Everywhere runtime infrastructure
+    value: us-west3

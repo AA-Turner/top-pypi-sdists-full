@@ -23,6 +23,7 @@ from typing_extensions import Annotated
 from mixpeek.models.body_create_subscription_v1_marketplace_subscriptions_post import BodyCreateSubscriptionV1MarketplaceSubscriptionsPost
 from mixpeek.models.body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post import BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost
 from mixpeek.models.marketplace_listing import MarketplaceListing
+from mixpeek.models.marketplace_listing_detail import MarketplaceListingDetail
 from mixpeek.models.retriever_execution_request import RetrieverExecutionRequest
 from mixpeek.models.subscription_status import SubscriptionStatus
 
@@ -103,8 +104,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -176,8 +179,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -249,8 +254,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -326,7 +333,7 @@ class MarketplaceApi:
     @validate_call
     def create_marketplace_listing(
         self,
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -344,7 +351,7 @@ class MarketplaceApi:
 
         Create a new marketplace listing for a retriever.  This endpoint allows retriever owners to publish their retrievers to the marketplace with custom tiers, pricing, and display configuration.
 
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -382,8 +389,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -399,7 +408,7 @@ class MarketplaceApi:
     @validate_call
     def create_marketplace_listing_with_http_info(
         self,
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -417,7 +426,7 @@ class MarketplaceApi:
 
         Create a new marketplace listing for a retriever.  This endpoint allows retriever owners to publish their retrievers to the marketplace with custom tiers, pricing, and display configuration.
 
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -455,8 +464,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -472,7 +483,7 @@ class MarketplaceApi:
     @validate_call
     def create_marketplace_listing_without_preload_content(
         self,
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -490,7 +501,7 @@ class MarketplaceApi:
 
         Create a new marketplace listing for a retriever.  This endpoint allows retriever owners to publish their retrievers to the marketplace with custom tiers, pricing, and display configuration.
 
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -528,8 +539,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -618,7 +631,7 @@ class MarketplaceApi:
     @validate_call
     def create_subscription_marketplace(
         self,
-        body_create_subscription_v1_marketplace_subscriptions_post: BodyCreateSubscriptionV1MarketplaceSubscriptionsPost,
+        body_create_subscription_v1_marketplace_subscriptions_post: Annotated[BodyCreateSubscriptionV1MarketplaceSubscriptionsPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -636,7 +649,7 @@ class MarketplaceApi:
 
         Subscribe to a marketplace listing.  Free Tier:     - Immediately active     - Returns access_token (prk_xxx format)     - No Stripe checkout required  Paid Tiers:     - Creates pending subscription     - Returns checkout_url for Stripe payment     - Subscription activates after payment via webhook
 
-        :param body_create_subscription_v1_marketplace_subscriptions_post: (required)
+        :param body_create_subscription_v1_marketplace_subscriptions_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_create_subscription_v1_marketplace_subscriptions_post: BodyCreateSubscriptionV1MarketplaceSubscriptionsPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -674,8 +687,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -691,7 +706,7 @@ class MarketplaceApi:
     @validate_call
     def create_subscription_marketplace_with_http_info(
         self,
-        body_create_subscription_v1_marketplace_subscriptions_post: BodyCreateSubscriptionV1MarketplaceSubscriptionsPost,
+        body_create_subscription_v1_marketplace_subscriptions_post: Annotated[BodyCreateSubscriptionV1MarketplaceSubscriptionsPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -709,7 +724,7 @@ class MarketplaceApi:
 
         Subscribe to a marketplace listing.  Free Tier:     - Immediately active     - Returns access_token (prk_xxx format)     - No Stripe checkout required  Paid Tiers:     - Creates pending subscription     - Returns checkout_url for Stripe payment     - Subscription activates after payment via webhook
 
-        :param body_create_subscription_v1_marketplace_subscriptions_post: (required)
+        :param body_create_subscription_v1_marketplace_subscriptions_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_create_subscription_v1_marketplace_subscriptions_post: BodyCreateSubscriptionV1MarketplaceSubscriptionsPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -747,8 +762,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -764,7 +781,7 @@ class MarketplaceApi:
     @validate_call
     def create_subscription_marketplace_without_preload_content(
         self,
-        body_create_subscription_v1_marketplace_subscriptions_post: BodyCreateSubscriptionV1MarketplaceSubscriptionsPost,
+        body_create_subscription_v1_marketplace_subscriptions_post: Annotated[BodyCreateSubscriptionV1MarketplaceSubscriptionsPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -782,7 +799,7 @@ class MarketplaceApi:
 
         Subscribe to a marketplace listing.  Free Tier:     - Immediately active     - Returns access_token (prk_xxx format)     - No Stripe checkout required  Paid Tiers:     - Creates pending subscription     - Returns checkout_url for Stripe payment     - Subscription activates after payment via webhook
 
-        :param body_create_subscription_v1_marketplace_subscriptions_post: (required)
+        :param body_create_subscription_v1_marketplace_subscriptions_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_create_subscription_v1_marketplace_subscriptions_post: BodyCreateSubscriptionV1MarketplaceSubscriptionsPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -820,8 +837,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -966,8 +985,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1039,8 +1060,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1112,8 +1135,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1190,7 +1215,7 @@ class MarketplaceApi:
     def execute_marketplace_retriever_catalog_name(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the marketplace listing")],
-        retriever_execution_request: RetrieverExecutionRequest,
+        retriever_execution_request: Annotated[RetrieverExecutionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in response")] = None,
         _request_timeout: Union[
@@ -1212,7 +1237,7 @@ class MarketplaceApi:
 
         :param public_name: Public name of the marketplace listing (required)
         :type public_name: str
-        :param retriever_execution_request: (required)
+        :param retriever_execution_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retriever_execution_request: RetrieverExecutionRequest
         :param return_presigned_urls: Generate fresh presigned download URLs for all blobs with S3 storage
         :type return_presigned_urls: bool
@@ -1257,8 +1282,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1275,7 +1302,7 @@ class MarketplaceApi:
     def execute_marketplace_retriever_catalog_name_with_http_info(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the marketplace listing")],
-        retriever_execution_request: RetrieverExecutionRequest,
+        retriever_execution_request: Annotated[RetrieverExecutionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in response")] = None,
         _request_timeout: Union[
@@ -1297,7 +1324,7 @@ class MarketplaceApi:
 
         :param public_name: Public name of the marketplace listing (required)
         :type public_name: str
-        :param retriever_execution_request: (required)
+        :param retriever_execution_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retriever_execution_request: RetrieverExecutionRequest
         :param return_presigned_urls: Generate fresh presigned download URLs for all blobs with S3 storage
         :type return_presigned_urls: bool
@@ -1342,8 +1369,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1360,7 +1389,7 @@ class MarketplaceApi:
     def execute_marketplace_retriever_catalog_name_without_preload_content(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the marketplace listing")],
-        retriever_execution_request: RetrieverExecutionRequest,
+        retriever_execution_request: Annotated[RetrieverExecutionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in response")] = None,
         _request_timeout: Union[
@@ -1382,7 +1411,7 @@ class MarketplaceApi:
 
         :param public_name: Public name of the marketplace listing (required)
         :type public_name: str
-        :param retriever_execution_request: (required)
+        :param retriever_execution_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retriever_execution_request: RetrieverExecutionRequest
         :param return_presigned_urls: Generate fresh presigned download URLs for all blobs with S3 storage
         :type return_presigned_urls: bool
@@ -1427,8 +1456,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1530,7 +1561,8 @@ class MarketplaceApi:
     @validate_call
     def get_marketplace_catalog(
         self,
-        category: Annotated[Optional[StrictStr], Field(description="Filter by category (e.g., 'Content Moderation', 'Search')")] = None,
+        category: Annotated[Optional[StrictStr], Field(description="Filter by category label or slug (e.g., 'Brand Safety' or 'brand-safety').")] = None,
+        group: Annotated[Optional[StrictStr], Field(description="Filter by curated group slug (e.g., 'ip-screening').")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags (AND logic - listing must have all tags)")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Search in title and description")] = None,
         skip: Annotated[Optional[Annotated[int, Field(strict=True, ge=0)]], Field(description="Number of listings to skip")] = None,
@@ -1552,8 +1584,10 @@ class MarketplaceApi:
 
         Browse marketplace catalog with optional filters.  Returns published, listed marketplace listings only. Unlisted retrievers are still accessible via direct link but don't appear here.
 
-        :param category: Filter by category (e.g., 'Content Moderation', 'Search')
+        :param category: Filter by category label or slug (e.g., 'Brand Safety' or 'brand-safety').
         :type category: str
+        :param group: Filter by curated group slug (e.g., 'ip-screening').
+        :type group: str
         :param tags: Filter by tags (AND logic - listing must have all tags)
         :type tags: List[str]
         :param search: Search in title and description
@@ -1586,6 +1620,7 @@ class MarketplaceApi:
 
         _param = self._get_marketplace_catalog_serialize(
             category=category,
+            group=group,
             tags=tags,
             search=search,
             skip=skip,
@@ -1602,8 +1637,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1619,7 +1656,8 @@ class MarketplaceApi:
     @validate_call
     def get_marketplace_catalog_with_http_info(
         self,
-        category: Annotated[Optional[StrictStr], Field(description="Filter by category (e.g., 'Content Moderation', 'Search')")] = None,
+        category: Annotated[Optional[StrictStr], Field(description="Filter by category label or slug (e.g., 'Brand Safety' or 'brand-safety').")] = None,
+        group: Annotated[Optional[StrictStr], Field(description="Filter by curated group slug (e.g., 'ip-screening').")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags (AND logic - listing must have all tags)")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Search in title and description")] = None,
         skip: Annotated[Optional[Annotated[int, Field(strict=True, ge=0)]], Field(description="Number of listings to skip")] = None,
@@ -1641,8 +1679,10 @@ class MarketplaceApi:
 
         Browse marketplace catalog with optional filters.  Returns published, listed marketplace listings only. Unlisted retrievers are still accessible via direct link but don't appear here.
 
-        :param category: Filter by category (e.g., 'Content Moderation', 'Search')
+        :param category: Filter by category label or slug (e.g., 'Brand Safety' or 'brand-safety').
         :type category: str
+        :param group: Filter by curated group slug (e.g., 'ip-screening').
+        :type group: str
         :param tags: Filter by tags (AND logic - listing must have all tags)
         :type tags: List[str]
         :param search: Search in title and description
@@ -1675,6 +1715,7 @@ class MarketplaceApi:
 
         _param = self._get_marketplace_catalog_serialize(
             category=category,
+            group=group,
             tags=tags,
             search=search,
             skip=skip,
@@ -1691,8 +1732,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1708,7 +1751,8 @@ class MarketplaceApi:
     @validate_call
     def get_marketplace_catalog_without_preload_content(
         self,
-        category: Annotated[Optional[StrictStr], Field(description="Filter by category (e.g., 'Content Moderation', 'Search')")] = None,
+        category: Annotated[Optional[StrictStr], Field(description="Filter by category label or slug (e.g., 'Brand Safety' or 'brand-safety').")] = None,
+        group: Annotated[Optional[StrictStr], Field(description="Filter by curated group slug (e.g., 'ip-screening').")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags (AND logic - listing must have all tags)")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Search in title and description")] = None,
         skip: Annotated[Optional[Annotated[int, Field(strict=True, ge=0)]], Field(description="Number of listings to skip")] = None,
@@ -1730,8 +1774,10 @@ class MarketplaceApi:
 
         Browse marketplace catalog with optional filters.  Returns published, listed marketplace listings only. Unlisted retrievers are still accessible via direct link but don't appear here.
 
-        :param category: Filter by category (e.g., 'Content Moderation', 'Search')
+        :param category: Filter by category label or slug (e.g., 'Brand Safety' or 'brand-safety').
         :type category: str
+        :param group: Filter by curated group slug (e.g., 'ip-screening').
+        :type group: str
         :param tags: Filter by tags (AND logic - listing must have all tags)
         :type tags: List[str]
         :param search: Search in title and description
@@ -1764,6 +1810,7 @@ class MarketplaceApi:
 
         _param = self._get_marketplace_catalog_serialize(
             category=category,
+            group=group,
             tags=tags,
             search=search,
             skip=skip,
@@ -1780,8 +1827,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1793,6 +1842,7 @@ class MarketplaceApi:
     def _get_marketplace_catalog_serialize(
         self,
         category,
+        group,
         tags,
         search,
         skip,
@@ -1823,6 +1873,10 @@ class MarketplaceApi:
         if category is not None:
             
             _query_params.append(('category', category))
+            
+        if group is not None:
+            
+            _query_params.append(('group', group))
             
         if tags is not None:
             
@@ -1892,7 +1946,7 @@ class MarketplaceApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> MarketplaceListing:
+    ) -> MarketplaceListingDetail:
         """Get Marketplace Listing by Public Name
 
         Get detailed information about a marketplace listing by its public name.  Example: /marketplace/catalog/brand-safety-api
@@ -1930,13 +1984,15 @@ class MarketplaceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MarketplaceListing",
+            '200': "MarketplaceListingDetail",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1965,7 +2021,7 @@ class MarketplaceApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[MarketplaceListing]:
+    ) -> ApiResponse[MarketplaceListingDetail]:
         """Get Marketplace Listing by Public Name
 
         Get detailed information about a marketplace listing by its public name.  Example: /marketplace/catalog/brand-safety-api
@@ -2003,13 +2059,15 @@ class MarketplaceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MarketplaceListing",
+            '200': "MarketplaceListingDetail",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2076,13 +2134,15 @@ class MarketplaceApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MarketplaceListing",
+            '200': "MarketplaceListingDetail",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2213,8 +2273,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2286,8 +2348,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2359,8 +2423,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2491,8 +2557,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2564,8 +2632,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2637,8 +2707,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2769,8 +2841,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2842,8 +2916,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2915,8 +2991,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3048,8 +3126,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3121,8 +3201,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3194,8 +3276,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3329,8 +3413,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3402,8 +3488,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3475,8 +3563,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3553,7 +3643,7 @@ class MarketplaceApi:
     def update_marketplace_listing(
         self,
         listing_id: StrictStr,
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3573,7 +3663,7 @@ class MarketplaceApi:
 
         :param listing_id: (required)
         :type listing_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3612,8 +3702,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3630,7 +3722,7 @@ class MarketplaceApi:
     def update_marketplace_listing_with_http_info(
         self,
         listing_id: StrictStr,
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3650,7 +3742,7 @@ class MarketplaceApi:
 
         :param listing_id: (required)
         :type listing_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3689,8 +3781,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3707,7 +3801,7 @@ class MarketplaceApi:
     def update_marketplace_listing_without_preload_content(
         self,
         listing_id: StrictStr,
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3727,7 +3821,7 @@ class MarketplaceApi:
 
         :param listing_id: (required)
         :type listing_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3766,8 +3860,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3860,7 +3956,7 @@ class MarketplaceApi:
     def verify_marketplace_listing_password_catalog_name(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the marketplace listing")],
-        body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost,
+        body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: Annotated[BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3880,7 +3976,7 @@ class MarketplaceApi:
 
         :param public_name: Public name of the marketplace listing (required)
         :type public_name: str
-        :param body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: (required)
+        :param body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3919,8 +4015,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3937,7 +4035,7 @@ class MarketplaceApi:
     def verify_marketplace_listing_password_catalog_name_with_http_info(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the marketplace listing")],
-        body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost,
+        body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: Annotated[BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3957,7 +4055,7 @@ class MarketplaceApi:
 
         :param public_name: Public name of the marketplace listing (required)
         :type public_name: str
-        :param body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: (required)
+        :param body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3996,8 +4094,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4014,7 +4114,7 @@ class MarketplaceApi:
     def verify_marketplace_listing_password_catalog_name_without_preload_content(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the marketplace listing")],
-        body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost,
+        body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: Annotated[BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4034,7 +4134,7 @@ class MarketplaceApi:
 
         :param public_name: Public name of the marketplace listing (required)
         :type public_name: str
-        :param body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: (required)
+        :param body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_verify_marketplace_listing_password_v1_marketplace_catalog_public_name_verify_post: BodyVerifyMarketplaceListingPasswordV1MarketplaceCatalogPublicNameVerifyPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4073,8 +4173,10 @@ class MarketplaceApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -50,6 +50,7 @@ from .literals import (
     SlaMetType,
     SourceTypeType,
     StorageEncryptionTypeType,
+    TlsModeType,
     TransitEncryptionModeType,
     UpdateActionStatusType,
 )
@@ -217,6 +218,7 @@ __all__ = (
     "ListTagsForResourceMessageTypeDef",
     "LogDeliveryConfigurationRequestTypeDef",
     "LogDeliveryConfigurationTypeDef",
+    "MigrationSummaryTypeDef",
     "ModifyCacheClusterMessageTypeDef",
     "ModifyCacheClusterResultTypeDef",
     "ModifyCacheParameterGroupMessageTypeDef",
@@ -246,6 +248,8 @@ __all__ = (
     "ParameterTypeDef",
     "PendingLogDeliveryConfigurationTypeDef",
     "PendingModifiedValuesTypeDef",
+    "PrepareMigrationRequestTypeDef",
+    "PrepareMigrationResponseTypeDef",
     "ProcessedUpdateActionTypeDef",
     "PurchaseReservedCacheNodesOfferingMessageTypeDef",
     "PurchaseReservedCacheNodesOfferingResultTypeDef",
@@ -270,6 +274,7 @@ __all__ = (
     "RevokeCacheSecurityGroupIngressMessageTypeDef",
     "RevokeCacheSecurityGroupIngressResultTypeDef",
     "ScaleConfigTypeDef",
+    "SecretManagerAuthConfigTypeDef",
     "SecurityGroupMembershipTypeDef",
     "ServerlessCacheConfigurationTypeDef",
     "ServerlessCacheSnapshotTypeDef",
@@ -278,8 +283,12 @@ __all__ = (
     "ServiceUpdatesMessageTypeDef",
     "SlotMigrationTypeDef",
     "SnapshotTypeDef",
+    "SourceAuthenticationConfigurationTypeDef",
+    "SourceTlsConfigurationTypeDef",
     "StartMigrationMessageTypeDef",
     "StartMigrationResponseTypeDef",
+    "StopMigrationRequestTypeDef",
+    "StopMigrationResponseTypeDef",
     "SubnetOutpostTypeDef",
     "SubnetTypeDef",
     "TagListMessageTypeDef",
@@ -447,7 +456,8 @@ class CloudWatchLogsDestinationDetailsTypeDef(TypedDict):
 
 
 class CompleteMigrationMessageTypeDef(TypedDict):
-    ReplicationGroupId: str
+    ReplicationGroupId: NotRequired[str]
+    ServerlessCacheName: NotRequired[str]
     Force: NotRequired[bool]
 
 
@@ -784,6 +794,11 @@ class NodeGroupMemberUpdateStatusTypeDef(TypedDict):
     NodeUpdateStatusModifiedDate: NotRequired[datetime]
 
 
+class SourceTlsConfigurationTypeDef(TypedDict):
+    SourceTlsMode: NotRequired[TlsModeType]
+    SourceTlsCertificate: NotRequired[str]
+
+
 class ProcessedUpdateActionTypeDef(TypedDict):
     ReplicationGroupId: NotRequired[str]
     CacheClusterId: NotRequired[str]
@@ -826,6 +841,10 @@ class RevokeCacheSecurityGroupIngressMessageTypeDef(TypedDict):
     EC2SecurityGroupOwnerId: str
 
 
+class SecretManagerAuthConfigTypeDef(TypedDict):
+    SecretArn: NotRequired[str]
+
+
 class ServerlessCacheConfigurationTypeDef(TypedDict):
     ServerlessCacheName: NotRequired[str]
     Engine: NotRequired[str]
@@ -845,6 +864,10 @@ class ServiceUpdateTypeDef(TypedDict):
     EngineVersion: NotRequired[str]
     AutoUpdateAfterRecommendedApplyByDate: NotRequired[bool]
     EstimatedUpdateTime: NotRequired[str]
+
+
+class StopMigrationRequestTypeDef(TypedDict):
+    ServerlessCacheName: str
 
 
 class SubnetOutpostTypeDef(TypedDict):
@@ -1022,6 +1045,12 @@ class CacheNodeTypeDef(TypedDict):
     CustomerOutpostArn: NotRequired[str]
 
 
+class MigrationSummaryTypeDef(TypedDict):
+    Status: NotRequired[str]
+    MigrationEndpoint: NotRequired[EndpointTypeDef]
+    CutoverMode: NotRequired[str]
+
+
 class NodeGroupMemberTypeDef(TypedDict):
     CacheClusterId: NotRequired[str]
     CacheNodeId: NotRequired[str]
@@ -1089,8 +1118,11 @@ class IncreaseReplicaCountMessageTypeDef(TypedDict):
 
 
 class StartMigrationMessageTypeDef(TypedDict):
-    ReplicationGroupId: str
-    CustomerNodeEndpointList: Sequence[CustomerNodeEndpointTypeDef]
+    ServerlessCacheName: NotRequired[str]
+    ReplicationGroupId: NotRequired[str]
+    CustomerNodeEndpointList: NotRequired[Sequence[CustomerNodeEndpointTypeDef]]
+    AutoCutover: NotRequired[bool]
+    ClearTargetCacheData: NotRequired[bool]
 
 
 class TestMigrationMessageTypeDef(TypedDict):
@@ -1376,6 +1408,10 @@ class ReshardingStatusTypeDef(TypedDict):
     SlotMigration: NotRequired[SlotMigrationTypeDef]
 
 
+class SourceAuthenticationConfigurationTypeDef(TypedDict):
+    SecretManagerConfig: NotRequired[SecretManagerAuthConfigTypeDef]
+
+
 class ServerlessCacheSnapshotTypeDef(TypedDict):
     ServerlessCacheSnapshotName: NotRequired[str]
     ARN: NotRequired[str]
@@ -1534,6 +1570,7 @@ class ServerlessCacheTypeDef(TypedDict):
     DailySnapshotTime: NotRequired[str]
     NetworkType: NotRequired[NetworkTypeType]
     ConnectionType: NotRequired[ConnectionTypeType]
+    Migration: NotRequired[MigrationSummaryTypeDef]
 
 
 class DescribeUpdateActionsMessagePaginateTypeDef(TypedDict):
@@ -1707,6 +1744,13 @@ class ReservedCacheNodesOfferingMessageTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class PrepareMigrationRequestTypeDef(TypedDict):
+    ServerlessCacheName: str
+    CustomerNodeEndpointList: Sequence[CustomerNodeEndpointTypeDef]
+    SourceAuthenticationConfiguration: NotRequired[SourceAuthenticationConfigurationTypeDef]
+    SourceTlsConfiguration: NotRequired[SourceTlsConfigurationTypeDef]
+
+
 class CopyServerlessCacheSnapshotResponseTypeDef(TypedDict):
     ServerlessCacheSnapshot: ServerlessCacheSnapshotTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1770,6 +1814,16 @@ class DescribeServerlessCachesResponseTypeDef(TypedDict):
 
 
 class ModifyServerlessCacheResponseTypeDef(TypedDict):
+    ServerlessCache: ServerlessCacheTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PrepareMigrationResponseTypeDef(TypedDict):
+    ServerlessCache: ServerlessCacheTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopMigrationResponseTypeDef(TypedDict):
     ServerlessCache: ServerlessCacheTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2079,6 +2133,7 @@ class RebootCacheClusterResultTypeDef(TypedDict):
 
 class CompleteMigrationResponseTypeDef(TypedDict):
     ReplicationGroup: ReplicationGroupTypeDef
+    ServerlessCache: ServerlessCacheTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2120,6 +2175,7 @@ class ReplicationGroupMessageTypeDef(TypedDict):
 
 class StartMigrationResponseTypeDef(TypedDict):
     ReplicationGroup: ReplicationGroupTypeDef
+    ServerlessCache: ServerlessCacheTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

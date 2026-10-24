@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.batch_cost_estimate import BatchCostEstimate
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,7 +33,8 @@ class BulkSubmittedBatch(BaseModel):
     object_count: StrictInt
     queue_position: Optional[StrictInt] = None
     error: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["batch_id", "status", "object_count", "queue_position", "error"]
+    estimate: Optional[BatchCostEstimate] = Field(default=None, description="OPTIONAL. What this batch was estimated to cost when it was submitted: the same calculation submit bills by, read from the batch before it ran. Absent when the estimate could not be computed in time.")
+    __properties: ClassVar[List[str]] = ["batch_id", "status", "object_count", "queue_position", "error", "estimate"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +75,9 @@ class BulkSubmittedBatch(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of estimate
+        if self.estimate:
+            _dict['estimate'] = self.estimate.to_dict()
         return _dict
 
     @classmethod
@@ -89,7 +94,8 @@ class BulkSubmittedBatch(BaseModel):
             "status": obj.get("status"),
             "object_count": obj.get("object_count"),
             "queue_position": obj.get("queue_position"),
-            "error": obj.get("error")
+            "error": obj.get("error"),
+            "estimate": BatchCostEstimate.from_dict(obj["estimate"]) if obj.get("estimate") is not None else None
         })
         return _obj
 

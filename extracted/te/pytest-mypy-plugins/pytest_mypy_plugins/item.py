@@ -334,8 +334,11 @@ class YamlTestItem(pytest.Item):
         mypy_config: str,
         parsed_test_data: Dict[str, Any],
         expect_fail: bool,
+        marks: List[str],
     ) -> None:
         super().__init__(name, parent, config)
+        for mark in marks:
+            self.add_marker(mark)
         self.files = files
         self.environment_variables = environment_variables
         self.disable_cache = disable_cache
@@ -364,6 +367,11 @@ class YamlTestItem(pytest.Item):
         else:
             self.base_pyproject_toml_fpath = None
         self.incremental_cache_dir = os.path.join(self.root_directory, ".mypy_cache")
+
+        # The mypy cache is not safe for concurrent use;
+        # give each `pytest-xdist` worker its own cache directory.
+        if xdist_worker := os.environ.get("PYTEST_XDIST_WORKER"):
+            self.incremental_cache_dir = os.path.join(self.incremental_cache_dir, xdist_worker)
 
     def remove_cache_files(self, fpath_no_suffix: Path) -> None:
         cache_dir = os.path.join(
@@ -405,8 +413,8 @@ class YamlTestItem(pytest.Item):
         shard_dbs = glob.glob(os.path.join(cache_dir, "cache.*.db"))
         if shard_dbs:
             try:
-                # `num_shards` was added in mypy 2.0; pinned lint mypy is older.
-                stores.append(SqliteMetadataStore(cache_dir, num_shards=len(shard_dbs)))  # type: ignore[call-arg]
+                # `num_shards` was added in mypy 2.0.
+                stores.append(SqliteMetadataStore(cache_dir, num_shards=len(shard_dbs)))
             except TypeError:
                 # For backward compatibility with `SqliteMetadataStore` with no `num_shards` arg.
                 stores.append(SqliteMetadataStore(cache_dir))

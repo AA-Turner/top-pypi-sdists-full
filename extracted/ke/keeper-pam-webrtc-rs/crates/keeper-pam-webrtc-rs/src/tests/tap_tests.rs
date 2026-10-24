@@ -45,7 +45,7 @@ impl TubeDataTap for NoopTap {
 }
 
 /// Every production data channel is constructed with a CLONE of the
-/// tube's `Arc<TapSlot>` (`WebRTCDataChannel::new_with_outbound_tap_slot`),
+/// tube's `Arc<TapSlot>` (`WebRTCDataChannel::new_with_send_limit`),
 /// so one write to the tube slot must be observable from each channel's
 /// view. This is the invariant that makes per-channel propagation loops
 /// in `Tube::set_outbound_tap` / `clear_outbound_tap` unnecessary.

@@ -39,6 +39,8 @@ jobs:
               - 'infra/internal-mcp-servers/**'
             airmux-control-plane:
               - 'infra/airmux-control-plane/**'
+            hydra-review-webapp:
+              - 'infra/hydra-review-webapp/**'
             workflow:
               - '.github/workflows/pulumi-preview.yml'
 
@@ -66,6 +68,9 @@ jobs:
             }
             if (${{ steps.changes.outputs['airmux-control-plane'] }} || workflowChanged) {
               stacks.push({name: 'airmux-control-plane', dir: 'infra/airmux-control-plane'});
+            }
+            if (${{ steps.changes.outputs['hydra-review-webapp'] }} || workflowChanged) {
+              stacks.push({name: 'hydra-review-webapp', dir: 'infra/hydra-review-webapp'});
             }
             const result = JSON.stringify(stacks);
             core.setOutput('stacks', result);
@@ -153,9 +158,11 @@ jobs:
         run: |
           set -o pipefail
           pulumi preview --stack prod 2>&1 | tee /tmp/pulumi-preview.txt
-          echo "preview_output<<EOF" >> $GITHUB_OUTPUT
-          cat /tmp/pulumi-preview.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "preview_output<<EOF"
+            cat /tmp/pulumi-preview.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Pulumi Preview (Detailed Diff)
         id: preview_diff
@@ -165,9 +172,11 @@ jobs:
         run: |
           set -o pipefail
           pulumi preview --stack prod --diff 2>&1 | tee /tmp/pulumi-preview-diff.txt
-          echo "preview_diff_output<<EOF" >> $GITHUB_OUTPUT
-          cat /tmp/pulumi-preview-diff.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "preview_diff_output<<EOF"
+            cat /tmp/pulumi-preview-diff.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # ---------- PR comment ----------
 

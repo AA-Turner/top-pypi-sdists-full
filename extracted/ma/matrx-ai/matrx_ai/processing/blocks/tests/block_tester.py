@@ -64,7 +64,7 @@ from matrx_ai.processing.blocks.stream_processor import StreamBlockProcessor  # 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_CONTENT_FILE = os.path.join(_THIS_DIR, "test_content.md")
 RESULTS_DIR = os.path.join(_THIS_DIR, "test_results")
-TS_BRIDGE_SCRIPT = os.path.join(_THIS_DIR, "ts_bridge", "parse_blocks.ts")
+TS_BRIDGE_SCRIPT = os.path.join(_THIS_DIR, "ts_bridge", "parse_blocks.mts")
 
 # ---------------------------------------------------------------------------
 # ANSI colors (no external dependency)
@@ -206,7 +206,7 @@ def run_ts_parser(
     """
     Run content through the TypeScript splitContentIntoBlocksV2 parser.
 
-    Invokes parse_blocks.ts via npx tsx from the matrx-frontend directory so that
+    Invokes parse_blocks.mts via npx tsx from the matrx-frontend directory so that
     the @/ path alias resolves correctly.
 
     Returns a list of RenderBlock dicts, or None if the subprocess failed.
@@ -244,7 +244,7 @@ def run_ts_parser(
             print(_c(C.GREY, f"     [TS stderr] {line}"))
 
     if result.returncode != 0:
-        print(_c(C.RED, f"[TS] ERROR: parse_blocks.ts exited with code {result.returncode}"))
+        print(_c(C.RED, f"[TS] ERROR: parse_blocks.mts exited with code {result.returncode}"))
         return None
 
     try:
@@ -623,7 +623,7 @@ def run_test(
                 for db in ts_decision:
                     vcprint(db, title=f"decision block (TypeScript)", color="cyan")
         else:
-            print(_c(C.YELLOW, "TS comparison skipped (parse_blocks.ts failed — see errors above)"))
+            print(_c(C.YELLOW, "TS comparison skipped (parse_blocks.mts failed — see errors above)"))
 
     # ── Comparison ────────────────────────────────────────────────────────────
     report: dict[str, Any] | None = None
@@ -659,7 +659,7 @@ if __name__ == "__main__":
     SAVE_RESULTS          = True
     COMPARE_WITH_FRONTEND = True
     MATRX_FRONTEND_ROOT   = os.environ.get(
-        "MATRX_FRONTEND_ROOT", "/Users/armanisadeghi/code/matrx-frontend"
+        "MATRX_FRONTEND_ROOT", "/Users/armanisadeghi/code/aidream/apps/matrx-frontend"
     )
     # ─────────────────────────────────────────────────────────────────────────
 

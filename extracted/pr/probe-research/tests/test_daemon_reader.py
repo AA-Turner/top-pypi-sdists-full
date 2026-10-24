@@ -699,6 +699,26 @@ def test_an_unasked_message_goes_stale_after_the_next_turn(tmp_path):
     assert not _waiting()
 
 
+def test_the_reader_never_drops_or_withdraws_a_hint(tmp_path):
+    """Plan probe-hints R2: a hint the Probe service posted is not the reader's
+    to remove -- not as stale, not withdrawn by an answer, not replaced by its
+    newer message."""
+    w = _worker(tmp_path)
+    lane = _lane(w, Reader(end="about the SVM"))
+    hint = mailbox.Message(id="h1", session=SID, kind=mailbox.Kind.MESSAGE, text="[Probe] hint",
+                           origin=mailbox.ORIGIN_HINT, origin_turn=1)
+    mailbox.publish(hint)
+    asyncio.run(lane.run_turn("prompt"))
+    assert sorted(m.origin or "reader" for m in _waiting()) == ["hint", "reader"], "its message replaced no hint"
+    for prompt in ("turn 2", "turn 3"):
+        _append_turn(w, prompt)
+        w.read_new()
+        lane.drop_stale_unasked()
+    assert [m.id for m in _waiting()] == ["h1"], "the reader's own went stale; the hint stays"
+    assert mailbox.withdraw_unasked(SID, made_before=time.time() + 60) == 0
+    assert [m.id for m in _waiting()] == ["h1"]
+
+
 def test_a_store_transaction_cannot_nest(tmp_path):
     store = store_mod.Store(tmp_path / "s.db")
     with store.tx():
@@ -1100,6 +1120,32 @@ def test_with_its_timer_off_only_a_prompt_or_an_ask_wakes_the_reader(tmp_path, m
     _append_turn(w, "and now?")
     w.read_new()
     assert lane.due() == "prompt"
+
+
+@pytest.mark.parametrize("switch", ["server", "environment"])
+def test_with_prompt_wakes_off_a_prompt_alone_wakes_nothing(tmp_path, monkeypatch, switch):
+    """Plan probe-hints T5: the server (per team) or PROBE_READER_PROMPT_WAKE turns
+    the reader's prompt wakes off; an ask and the new-events timer still wake it."""
+    from probe.daemon import model as model_mod
+
+    monkeypatch.setattr(model_mod, "_PUSHED", {})
+    monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
+    if switch == "server":
+        model_mod.remember_pushed_settings({model_mod.READER_PROMPT_WAKE_HEADER: "off"})
+    else:
+        monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "off")
+    now = [1000.0]
+    w = _worker(tmp_path, clock=lambda: now[0])
+    lane = _lane(w, Reader())
+    lane.last_turn_at = now[0]  # the events timer is not due
+    assert w.store.has_prompt_after(lane.mark(), new=True)
+    assert lane.due() is None, "the researcher's prompt alone: no turn"
+    now[0] += rl.READ_EVERY_S
+    assert lane.due() == "events", "the new events still wake it on the timer"
+    lane.last_turn_at = now[0]
+    mailbox.write_ask(SID, "q")
+    lane.take_asks()
+    assert lane.due() == "ask"
 
 
 @pytest.mark.parametrize("raw,expected", [("0", 0.0), ("120", 120.0), ("", 1800.0), ("soon", 1800.0), ("-5", 0.0)])

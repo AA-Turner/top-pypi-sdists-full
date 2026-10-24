@@ -37,6 +37,7 @@ __all__ = (
     "ContributorInsightsModeType",
     "ContributorInsightsStatusType",
     "DestinationStatusType",
+    "DisassociationModeType",
     "DynamoDBServiceName",
     "ExportCompletedWaiterName",
     "ExportFormatType",
@@ -129,6 +130,7 @@ ContributorInsightsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENA
 DestinationStatusType = Literal[
     "ACTIVE", "DISABLED", "DISABLING", "ENABLE_FAILED", "ENABLING", "UPDATING"
 ]
+DisassociationModeType = Literal["WAIT_FOR_REPLICATION"]
 ExportCompletedWaiterName = Literal["export_completed"]
 ExportFormatType = Literal["DYNAMODB_JSON", "ION"]
 ExportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -344,13 +346,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -418,6 +419,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -552,6 +554,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -602,7 +605,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

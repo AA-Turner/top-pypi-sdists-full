@@ -7,7 +7,7 @@ import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
 import { debounce } from "debounce";
 import { HTMLBox, HTMLBoxView, set_size } from "./layout";
 import { convertUndefined, deepCopy, get, reshape, throttle } from "./util";
-import plotly_css from "../styles/models/plotly.css";
+import plotly_css from "styles/models/plotly.css";
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 function isRecord(value) {
     return typeof value === "object" && value !== null;
@@ -27,7 +27,6 @@ function getSafeParent(obj, path) {
 }
 export class PlotlyEvent extends ModelEvent {
     data;
-    static __name__ = "PlotlyEvent";
     constructor(data) {
         super();
         this.data = data;
@@ -147,7 +146,6 @@ const _isHidden = (gd) => {
     return !display || display === "none";
 };
 export class PlotlyPlotView extends HTMLBoxView {
-    static __name__ = "PlotlyPlotView";
     _setViewport;
     _settingViewport = false;
     _plotInitialized = false;
@@ -326,12 +324,18 @@ export class PlotlyPlotView extends HTMLBoxView {
         });
         //  - plotly_unhover
         this.container.on("plotly_unhover", () => {
-            // Override hoverdata to ensure click event has context
-            this.container._hoverdata = this._hoverdata;
             this.model.trigger_event(new PlotlyEvent({ type: "hover", data: null }));
+            // Plotly already stored the new point when moving straight to it
+            if (this.container._hoverdata != null) {
+                return;
+            }
+            // Override hoverdata to ensure click event has context
+            const hoverdata = this.container._hoverdata = this._hoverdata;
             setTimeout(() => {
                 // Remove hoverdata once events have been processed
-                delete this.container._hoverdata;
+                if (this.container._hoverdata === hoverdata) {
+                    delete this.container._hoverdata;
+                }
             }, 0);
         });
     }
@@ -450,7 +454,6 @@ export class PlotlyPlotView extends HTMLBoxView {
     }
 }
 export class PlotlyPlot extends HTMLBox {
-    static __name__ = "PlotlyPlot";
     constructor(attrs) {
         super(attrs);
     }

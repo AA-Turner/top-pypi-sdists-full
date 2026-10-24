@@ -5,7 +5,7 @@ the process's stdout, which a server cannot give one request), and the
 desktop app can too. The contract is `probe wizard --json`'s:
 
     argv    one action: configure | recorder | logout | uninstall | update |
-            session_default | status | version. Spawn it as `<python> -I -m
+            session_default | status | version | report | desktop. Spawn it as `<python> -I -m
             probe.core.run <action>` from a directory of its own: `-m` puts
             the working directory first on `sys.path`, so a `probe/` folder or
             a `json.py` there would run instead (`-I` keeps it off).
@@ -20,7 +20,13 @@ desktop app can too. The contract is `probe wizard --json`'s:
             "<the newest release, or null>"}` (`{"latest": true}`: asked of the
             manifest itself, else the cached manifest; `{"refresh": true}`:
             the cached manifest refreshed first, as the CLI's own refresher
-            does, adding `"ok"` and `"fetched_at"`).
+            does, adding `"ok"` and `"fetched_at"`). `report` is a read too:
+            one diagnostic report to the Probe team (`probe.core.report`;
+            params `{"auto", "family", "reason", "sid", "env", "facts"}`),
+            writing `{"sent", "id", "skipped", "path"}`. `desktop` reads one
+            desktop management request (`probe desktop request --json`'s
+            stdin) and writes that command's v1 envelope, with its exit status
+            (the Probe service's `desktop.request`).
     stderr  everything else: the run's own text and its child processes'.
     exit    0 done, 1 failed, 2 usage (an unknown action or a request it
             refuses: `error{code: usage}` + `done`), 75 another setup holds
@@ -58,6 +64,8 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
         if len(args) != 1 or args[0].startswith("-"):
             raise requests.RequestError(f"expected exactly one action, got {args!r}\n{USAGE}")
         action = requests.action_name(args[0])
+        if action is requests.ActionName.DESKTOP:
+            return _desktop(sys.stdin if stdin is None else stdin)
         request = requests.parse_json(action, _request_text(action, sys.stdin if stdin is None else stdin))
     except requests.RequestError as exc:
         return _usage_error(str(exc))
@@ -76,6 +84,11 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
     from probe.sdk import agent_session
 
     try:
+        if action is requests.ActionName.REPORT:
+            # The service's child: the session is the request's `sid`, never one
+            # found by walking this process's ancestors.
+            agent_session.forgo_harness_process_session()
+            return _report(request)
         if action is requests.ActionName.STATUS:
             # As `probe status`: it reads no session, so it walks no ancestors (`ps`).
             agent_session.forgo_harness_process_session()
@@ -95,6 +108,96 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
         telemetry_mod.report_crash(exc, surface="cli")
         raise
+
+
+def _report(request) -> int:
+    """`report`: one diagnostic report, its answer as ONE object on the real
+    stdout. Whatever the collectors print goes to stderr meanwhile."""
+    import json
+
+    from probe.core import events, report
+
+    with events.redirect_stdout() as out:
+        answer = report.run(request)
+        out.write(json.dumps(answer.as_json()) + "\n")
+    return 0
+
+
+#: The command `desktop` answers for, as the CLI's gates read it.
+DESKTOP_ARGV = ("desktop", "request", "--json")
+
+
+def _desktop_refusal() -> str | None:
+    """The CLI's own gate for `probe desktop request --json` (`write_gate`),
+    before anything reads an account, a transcript or a job: what `probe`
+    refuses in a session the daemon records (or one switched off) is refused
+    here, by the session's saved policy, registered with the service or not.
+    Two sessions are gated: the one this child's environment names (the
+    request's context, or the registered session the service handed on), and
+    the one the CALLER runs in, resolved from its process exactly as its own
+    `probe` would (`agent_session.session_env_of_process`: its environment, a
+    harness-process marker above it, the CLI's precedence), the service having
+    named that process (`management.CALLER_PID_ENV`). A caller that has
+    exited since cannot be checked: refused."""
+    import os
+
+    from probe.cli import write_gate
+    from probe.sdk import agent_session
+    from probe.service import management, procid
+
+    caller = os.environ.pop(management.CALLER_PID_ENV, "")
+    started = os.environ.pop(management.CALLER_START_ENV, "")
+    excluded = write_gate.excluded_refusal(DESKTOP_ARGV)
+    if excluded is not None:
+        return excluded[0]
+    refused = write_gate.refusal(DESKTOP_ARGV, directed=False)
+    if refused or not caller.isdigit():
+        return refused
+    if started and procid.alive(int(caller), started) is False:
+        return "The process that asked has exited, so the session it runs in cannot be checked; ask again."
+    peer = agent_session.session_env_of_process(int(caller))
+    if not peer:
+        return None
+    return write_gate.refusal(DESKTOP_ARGV, directed=False, env=peer)
+
+
+def _desktop(source: TextIO | None) -> int:
+    """`desktop`: one management request on stdin, its v1 envelope on stdout,
+    and the exit status, exactly as `probe desktop request --json` (both are
+    `probe.cli.desktop.respond`), for the Probe service's `desktop.request`.
+    Whatever else the request's code prints goes to stderr: stdout is the
+    envelope alone. Like `probe desktop` (a read-only command), it walks no
+    process ancestry of its own for a session (its parent is the service; the
+    caller's is walked instead, `_desktop_refusal`); and like every `probe` command
+    (`probe._entry`), it waits out an update's barrier before it imports the
+    CLI, else answers busy (exit 75) with nothing loaded from replaced files."""
+    import json
+
+    from probe.service import barrier
+
+    if not barrier.wait():
+        sys.stdout.write(json.dumps({"v": 1, "ok": False, "error": f"{barrier.MESSAGE}."}) + "\n")
+        return barrier.BUSY_EXIT_CODE
+    from probe.cli import desktop, write_gate
+    from probe.core import events
+    from probe.sdk import agent_session
+
+    agent_session.forgo_harness_process_session()
+    refused = _desktop_refusal()
+    if refused:
+        from probe.sdk.redaction import scrub_string
+
+        print(refused, file=sys.stderr)
+        sys.stdout.write(json.dumps({"v": 1, "ok": False, "error": scrub_string(refused)[:1500]}) + "\n")
+        return write_gate.EXIT_REFUSED
+    raw = getattr(source, "buffer", None) if source is not None else None
+    data = b"" if source is None else (raw.read(desktop.MAX_INPUT + 1) if raw is not None else source.read())
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    with events.redirect_stdout() as out:
+        text, code = desktop.respond(data)
+        out.write(text + "\n")
+    return code
 
 
 def _cli_latest(*, fetch: bool) -> str | None:

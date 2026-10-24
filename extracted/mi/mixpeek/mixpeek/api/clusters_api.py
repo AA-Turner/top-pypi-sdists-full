@@ -20,11 +20,9 @@ from typing_extensions import Annotated
 from pydantic import Field, StrictBool, StrictStr
 from typing import Any, Optional
 from typing_extensions import Annotated
-from mixpeek.models.apply_cluster_enrichment_request import ApplyClusterEnrichmentRequest
 from mixpeek.models.cluster_groups_response import ClusterGroupsResponse
 from mixpeek.models.cluster_metadata import ClusterMetadata
 from mixpeek.models.cluster_model import ClusterModel
-from mixpeek.models.clustering_enrichment_response import ClusteringEnrichmentResponse
 from mixpeek.models.create_cluster_request import CreateClusterRequest
 from mixpeek.models.execute_cluster_by_id_request import ExecuteClusterByIdRequest
 from mixpeek.models.list_clusters_request import ListClustersRequest
@@ -51,302 +49,9 @@ class ClustersApi:
 
 
     @validate_call
-    def apply_cluster_enrichment_enrich(
-        self,
-        apply_cluster_enrichment_request: ApplyClusterEnrichmentRequest,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ClusteringEnrichmentResponse:
-        """Apply Cluster Enrichment
-
-        Apply clustering enrichments to a collection via engine.
-
-        :param apply_cluster_enrichment_request: (required)
-        :type apply_cluster_enrichment_request: ApplyClusterEnrichmentRequest
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._apply_cluster_enrichment_enrich_serialize(
-            apply_cluster_enrichment_request=apply_cluster_enrichment_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ClusteringEnrichmentResponse",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def apply_cluster_enrichment_enrich_with_http_info(
-        self,
-        apply_cluster_enrichment_request: ApplyClusterEnrichmentRequest,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[ClusteringEnrichmentResponse]:
-        """Apply Cluster Enrichment
-
-        Apply clustering enrichments to a collection via engine.
-
-        :param apply_cluster_enrichment_request: (required)
-        :type apply_cluster_enrichment_request: ApplyClusterEnrichmentRequest
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._apply_cluster_enrichment_enrich_serialize(
-            apply_cluster_enrichment_request=apply_cluster_enrichment_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ClusteringEnrichmentResponse",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def apply_cluster_enrichment_enrich_without_preload_content(
-        self,
-        apply_cluster_enrichment_request: ApplyClusterEnrichmentRequest,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Apply Cluster Enrichment
-
-        Apply clustering enrichments to a collection via engine.
-
-        :param apply_cluster_enrichment_request: (required)
-        :type apply_cluster_enrichment_request: ApplyClusterEnrichmentRequest
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._apply_cluster_enrichment_enrich_serialize(
-            apply_cluster_enrichment_request=apply_cluster_enrichment_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ClusteringEnrichmentResponse",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _apply_cluster_enrichment_enrich_serialize(
-        self,
-        apply_cluster_enrichment_request,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-        if apply_cluster_enrichment_request is not None:
-            _body_params = apply_cluster_enrichment_request
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-        # set the HTTP header `Content-Type`
-        if _content_type:
-            _header_params['Content-Type'] = _content_type
-        else:
-            _default_content_type = (
-                self.api_client.select_header_content_type(
-                    [
-                        'application/json'
-                    ]
-                )
-            )
-            if _default_content_type is not None:
-                _header_params['Content-Type'] = _default_content_type
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'NamespaceHeader', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/clusters/enrich',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
     def create_cluster(
         self,
-        create_cluster_request: CreateClusterRequest,
+        create_cluster_request: Annotated[CreateClusterRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -364,7 +69,7 @@ class ClustersApi:
 
         Create a new cluster configuration and output collection.      This endpoint:     1. Creates cluster metadata     2. Creates output collection for cluster documents     3. Returns cluster metadata with output_collection_id      The cluster can then be executed via POST /v1/clusters/{id}/execute
 
-        :param create_cluster_request: (required)
+        :param create_cluster_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_cluster_request: CreateClusterRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -402,8 +107,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -419,7 +126,7 @@ class ClustersApi:
     @validate_call
     def create_cluster_with_http_info(
         self,
-        create_cluster_request: CreateClusterRequest,
+        create_cluster_request: Annotated[CreateClusterRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -437,7 +144,7 @@ class ClustersApi:
 
         Create a new cluster configuration and output collection.      This endpoint:     1. Creates cluster metadata     2. Creates output collection for cluster documents     3. Returns cluster metadata with output_collection_id      The cluster can then be executed via POST /v1/clusters/{id}/execute
 
-        :param create_cluster_request: (required)
+        :param create_cluster_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_cluster_request: CreateClusterRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -475,8 +182,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -492,7 +201,7 @@ class ClustersApi:
     @validate_call
     def create_cluster_without_preload_content(
         self,
-        create_cluster_request: CreateClusterRequest,
+        create_cluster_request: Annotated[CreateClusterRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -510,7 +219,7 @@ class ClustersApi:
 
         Create a new cluster configuration and output collection.      This endpoint:     1. Creates cluster metadata     2. Creates output collection for cluster documents     3. Returns cluster metadata with output_collection_id      The cluster can then be executed via POST /v1/clusters/{id}/execute
 
-        :param create_cluster_request: (required)
+        :param create_cluster_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_cluster_request: CreateClusterRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -548,8 +257,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -699,8 +410,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -776,8 +489,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -853,8 +568,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -937,7 +654,7 @@ class ClustersApi:
     def execute_clustering_clusters(
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID to execute")],
-        execute_cluster_by_id_request: Optional[ExecuteClusterByIdRequest] = None,
+        execute_cluster_by_id_request: Annotated[Optional[ExecuteClusterByIdRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -953,11 +670,11 @@ class ClustersApi:
     ) -> TaskResponse:
         """Execute Clustering
 
-        Execute clustering on a specific cluster.      This endpoint:     1. Validates the cluster exists     2. Queues clustering job via Celery     3. Returns task_id immediately (non-blocking)     4. Celery prepares data and submits to Engine     5. Monitor progress via GET /v1/tasks/{task_id}      Flow:     - API: Receives request     - Celery: Fetches documents, creates parquet, uploads to S3     - Engine: Runs Ray job on parquet data     - Status: Automatically updates cluster when complete      Use GET /v1/clusters/{id}/executions to retrieve results.      Optional body (`ExecuteClusterByIdRequest`) accepts a `filters` override     that applies to this execution only and is not persisted on the cluster.
+        Execute clustering on a specific cluster.      This endpoint:     1. Validates the cluster exists     2. Queues a background clustering job     3. Returns task_id immediately (non-blocking)     4. The background job prepares data and submits to Engine     5. Monitor progress via GET /v1/tasks/{task_id}      Flow:     - API: Receives request     - Background job: Fetches documents, creates parquet, uploads to S3     - Engine: Runs Ray job on parquet data     - Status: Automatically updates cluster when complete      Use GET /v1/clusters/{id}/executions to retrieve results.      Optional body (`ExecuteClusterByIdRequest`) accepts a `filters` override     that applies to this execution only and is not persisted on the cluster.
 
         :param cluster_id: Cluster ID to execute (required)
         :type cluster_id: str
-        :param execute_cluster_by_id_request:
+        :param execute_cluster_by_id_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type execute_cluster_by_id_request: ExecuteClusterByIdRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -996,8 +713,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1014,7 +733,7 @@ class ClustersApi:
     def execute_clustering_clusters_with_http_info(
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID to execute")],
-        execute_cluster_by_id_request: Optional[ExecuteClusterByIdRequest] = None,
+        execute_cluster_by_id_request: Annotated[Optional[ExecuteClusterByIdRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1030,11 +749,11 @@ class ClustersApi:
     ) -> ApiResponse[TaskResponse]:
         """Execute Clustering
 
-        Execute clustering on a specific cluster.      This endpoint:     1. Validates the cluster exists     2. Queues clustering job via Celery     3. Returns task_id immediately (non-blocking)     4. Celery prepares data and submits to Engine     5. Monitor progress via GET /v1/tasks/{task_id}      Flow:     - API: Receives request     - Celery: Fetches documents, creates parquet, uploads to S3     - Engine: Runs Ray job on parquet data     - Status: Automatically updates cluster when complete      Use GET /v1/clusters/{id}/executions to retrieve results.      Optional body (`ExecuteClusterByIdRequest`) accepts a `filters` override     that applies to this execution only and is not persisted on the cluster.
+        Execute clustering on a specific cluster.      This endpoint:     1. Validates the cluster exists     2. Queues a background clustering job     3. Returns task_id immediately (non-blocking)     4. The background job prepares data and submits to Engine     5. Monitor progress via GET /v1/tasks/{task_id}      Flow:     - API: Receives request     - Background job: Fetches documents, creates parquet, uploads to S3     - Engine: Runs Ray job on parquet data     - Status: Automatically updates cluster when complete      Use GET /v1/clusters/{id}/executions to retrieve results.      Optional body (`ExecuteClusterByIdRequest`) accepts a `filters` override     that applies to this execution only and is not persisted on the cluster.
 
         :param cluster_id: Cluster ID to execute (required)
         :type cluster_id: str
-        :param execute_cluster_by_id_request:
+        :param execute_cluster_by_id_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type execute_cluster_by_id_request: ExecuteClusterByIdRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1073,8 +792,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1091,7 +812,7 @@ class ClustersApi:
     def execute_clustering_clusters_without_preload_content(
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID to execute")],
-        execute_cluster_by_id_request: Optional[ExecuteClusterByIdRequest] = None,
+        execute_cluster_by_id_request: Annotated[Optional[ExecuteClusterByIdRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1107,11 +828,11 @@ class ClustersApi:
     ) -> RESTResponseType:
         """Execute Clustering
 
-        Execute clustering on a specific cluster.      This endpoint:     1. Validates the cluster exists     2. Queues clustering job via Celery     3. Returns task_id immediately (non-blocking)     4. Celery prepares data and submits to Engine     5. Monitor progress via GET /v1/tasks/{task_id}      Flow:     - API: Receives request     - Celery: Fetches documents, creates parquet, uploads to S3     - Engine: Runs Ray job on parquet data     - Status: Automatically updates cluster when complete      Use GET /v1/clusters/{id}/executions to retrieve results.      Optional body (`ExecuteClusterByIdRequest`) accepts a `filters` override     that applies to this execution only and is not persisted on the cluster.
+        Execute clustering on a specific cluster.      This endpoint:     1. Validates the cluster exists     2. Queues a background clustering job     3. Returns task_id immediately (non-blocking)     4. The background job prepares data and submits to Engine     5. Monitor progress via GET /v1/tasks/{task_id}      Flow:     - API: Receives request     - Background job: Fetches documents, creates parquet, uploads to S3     - Engine: Runs Ray job on parquet data     - Status: Automatically updates cluster when complete      Use GET /v1/clusters/{id}/executions to retrieve results.      Optional body (`ExecuteClusterByIdRequest`) accepts a `filters` override     that applies to this execution only and is not persisted on the cluster.
 
         :param cluster_id: Cluster ID to execute (required)
         :type cluster_id: str
-        :param execute_cluster_by_id_request:
+        :param execute_cluster_by_id_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type execute_cluster_by_id_request: ExecuteClusterByIdRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1150,8 +871,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1260,7 +983,7 @@ class ClustersApi:
     ) -> ClusterMetadata:
         """Get Cluster
 
-        Retrieve a cluster by ID or name.      Returns cluster metadata including:     - Configuration (cluster_type, algorithm, parameters)     - Output collection information (output_collection_id, output_collection_name)     - Execution results (num_clusters, num_documents_clustered, status)     - Timestamps and metadata
+        Retrieve a cluster by ID or name.      Returns cluster metadata including:     - Configuration (cluster_type, algorithm, parameters)     - Output collection information (output_collection_ids, output_collection_names)     - Execution results (num_clusters, num_documents_clustered, status)     - Timestamps and metadata      Per-document cluster assignments are not on this object. They are documents in     the output collections listed in output_collection_ids: a member document     (is_centroid=false) carries cluster_id, cluster_label and source_document_id.     With enrich_source_collection=true they are fields on your source documents.
 
         :param cluster_identifier: Cluster ID or name (required)
         :type cluster_identifier: str
@@ -1300,8 +1023,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1333,7 +1058,7 @@ class ClustersApi:
     ) -> ApiResponse[ClusterMetadata]:
         """Get Cluster
 
-        Retrieve a cluster by ID or name.      Returns cluster metadata including:     - Configuration (cluster_type, algorithm, parameters)     - Output collection information (output_collection_id, output_collection_name)     - Execution results (num_clusters, num_documents_clustered, status)     - Timestamps and metadata
+        Retrieve a cluster by ID or name.      Returns cluster metadata including:     - Configuration (cluster_type, algorithm, parameters)     - Output collection information (output_collection_ids, output_collection_names)     - Execution results (num_clusters, num_documents_clustered, status)     - Timestamps and metadata      Per-document cluster assignments are not on this object. They are documents in     the output collections listed in output_collection_ids: a member document     (is_centroid=false) carries cluster_id, cluster_label and source_document_id.     With enrich_source_collection=true they are fields on your source documents.
 
         :param cluster_identifier: Cluster ID or name (required)
         :type cluster_identifier: str
@@ -1373,8 +1098,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1406,7 +1133,7 @@ class ClustersApi:
     ) -> RESTResponseType:
         """Get Cluster
 
-        Retrieve a cluster by ID or name.      Returns cluster metadata including:     - Configuration (cluster_type, algorithm, parameters)     - Output collection information (output_collection_id, output_collection_name)     - Execution results (num_clusters, num_documents_clustered, status)     - Timestamps and metadata
+        Retrieve a cluster by ID or name.      Returns cluster metadata including:     - Configuration (cluster_type, algorithm, parameters)     - Output collection information (output_collection_ids, output_collection_names)     - Execution results (num_clusters, num_documents_clustered, status)     - Timestamps and metadata      Per-document cluster assignments are not on this object. They are documents in     the output collections listed in output_collection_ids: a member document     (is_centroid=false) carries cluster_id, cluster_label and source_document_id.     With enrich_source_collection=true they are fields on your source documents.
 
         :param cluster_identifier: Cluster ID or name (required)
         :type cluster_identifier: str
@@ -1446,8 +1173,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1580,8 +1309,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1653,8 +1384,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1726,8 +1459,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1876,8 +1611,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1965,8 +1702,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2054,8 +1793,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2160,7 +1901,7 @@ class ClustersApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_clusters_request: Optional[ListClustersRequest] = None,
+        list_clusters_request: Annotated[Optional[ListClustersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2194,7 +1935,7 @@ class ClustersApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_clusters_request:
+        :param list_clusters_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_clusters_request: ListClustersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2240,8 +1981,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2265,7 +2008,7 @@ class ClustersApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_clusters_request: Optional[ListClustersRequest] = None,
+        list_clusters_request: Annotated[Optional[ListClustersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2299,7 +2042,7 @@ class ClustersApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_clusters_request:
+        :param list_clusters_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_clusters_request: ListClustersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2345,8 +2088,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2370,7 +2115,7 @@ class ClustersApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_clusters_request: Optional[ListClustersRequest] = None,
+        list_clusters_request: Annotated[Optional[ListClustersRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2404,7 +2149,7 @@ class ClustersApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_clusters_request:
+        :param list_clusters_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_clusters_request: ListClustersRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2450,8 +2195,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2669,8 +2416,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2774,8 +2523,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2879,8 +2630,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3000,7 +2753,7 @@ class ClustersApi:
     def patch_cluster(
         self,
         cluster_identifier: Annotated[StrictStr, Field(description="Cluster ID or name")],
-        patch_cluster_request: PatchClusterRequest,
+        patch_cluster_request: Annotated[PatchClusterRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3020,7 +2773,7 @@ class ClustersApi:
 
         :param cluster_identifier: Cluster ID or name (required)
         :type cluster_identifier: str
-        :param patch_cluster_request: (required)
+        :param patch_cluster_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_cluster_request: PatchClusterRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3059,8 +2812,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3077,7 +2832,7 @@ class ClustersApi:
     def patch_cluster_with_http_info(
         self,
         cluster_identifier: Annotated[StrictStr, Field(description="Cluster ID or name")],
-        patch_cluster_request: PatchClusterRequest,
+        patch_cluster_request: Annotated[PatchClusterRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3097,7 +2852,7 @@ class ClustersApi:
 
         :param cluster_identifier: Cluster ID or name (required)
         :type cluster_identifier: str
-        :param patch_cluster_request: (required)
+        :param patch_cluster_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_cluster_request: PatchClusterRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3136,8 +2891,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3154,7 +2911,7 @@ class ClustersApi:
     def patch_cluster_without_preload_content(
         self,
         cluster_identifier: Annotated[StrictStr, Field(description="Cluster ID or name")],
-        patch_cluster_request: PatchClusterRequest,
+        patch_cluster_request: Annotated[PatchClusterRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3174,7 +2931,7 @@ class ClustersApi:
 
         :param cluster_identifier: Cluster ID or name (required)
         :type cluster_identifier: str
-        :param patch_cluster_request: (required)
+        :param patch_cluster_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_cluster_request: PatchClusterRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3213,8 +2970,10 @@ class ClustersApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

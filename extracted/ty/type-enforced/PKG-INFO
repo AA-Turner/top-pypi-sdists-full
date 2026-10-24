@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: type_enforced
-Version: 2.13.0
+Version: 2.13.1
 Summary: A dependency free type enforcer for python type annotations
 Author-Email: Connor Makowski <conmak@mit.edu>
 Classifier: Programming Language :: Python :: 3

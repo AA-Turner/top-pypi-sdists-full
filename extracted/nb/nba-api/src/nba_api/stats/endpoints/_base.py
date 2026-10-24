@@ -1,16 +1,10 @@
+from __future__ import annotations
+
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
-try:
-    from pandas import DataFrame, MultiIndex
-
-    PANDAS = True
-except ImportError:
-    PANDAS = False
-    DataFrame = Any
-    MultiIndex = Any
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 
 class Endpoint:
@@ -30,15 +24,10 @@ class Endpoint:
             return self.data
 
         def get_data_frame(self) -> DataFrame:
-            """Return the data as a pandas DataFrame.
-
-            Raises:
-                Exception: If pandas is not installed.
-            """
-            if not PANDAS:
-                raise Exception(
-                    "Import Missing - Failed to import DataFrame from pandas."
-                )
+            """Return the data as a pandas DataFrame."""
+            # Imported here, not at the top: importing pandas takes most of the time
+            # `import nba_api.stats.endpoints` costs, and get_dict() doesn't need it.
+            from pandas import DataFrame, MultiIndex
 
             if "headers" not in self.data or not self.data["headers"]:
                 return DataFrame()
@@ -61,12 +50,11 @@ class Endpoint:
                         if "columnsToSkip" in level
                         else []
                     )
-                    column_names += list(
-                        np.repeat(
-                            np.array(level["columnNames"]),
-                            level.get("columnSpan", 1),
-                        )
-                    )
+                    column_names += [
+                        name
+                        for name in level["columnNames"]
+                        for _ in range(level.get("columnSpan", 1))
+                    ]
                     levels.append(column_names)
                 midx = MultiIndex.from_arrays(
                     levels, names=level_names

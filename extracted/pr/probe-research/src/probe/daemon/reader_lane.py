@@ -12,7 +12,8 @@ deliver.
         messages a crash left unpublished -> published
         asks held READ_ASK_TIMEOUT_S with no answer -> closed as failed
         when due -> one turn of the reader's conversation
-    due:  an ask waits -> now; the researcher's prompt arrived -> now; new
+    due:  an ask waits -> now; the researcher's prompt arrived -> now (unless the
+          server or PROBE_READER_PROMPT_WAKE turned prompt wakes off); new
           events and READ_EVERY_S since the last turn -> now
     turn: the next user message = only the events new since its last turn, plus
           the ask it answers; ends with final_result(message); history, cursor,
@@ -326,10 +327,11 @@ class ReaderLane:
     def drop_stale_unasked(self) -> None:
         """An unasked message not delivered by the end of the researcher turn after
         the one it was made in is out of date: dropped. Never the writer's: a
-        receipt is the record of what was filed, however late it is read."""
+        receipt is the record of what was filed, however late it is read. Never a
+        hint: the Probe service posted it, and withdraws it itself."""
         turn = self.store.current_turn()
         for path, msg in mailbox.waiting(self.sid):
-            if (msg.kind == mailbox.Kind.MESSAGE and not msg.keep and not msg.from_writer
+            if (msg.kind == mailbox.Kind.MESSAGE and not msg.keep and not msg.from_writer and not msg.from_hint
                     and msg.origin_turn is not None
                     and int(msg.origin_turn) < turn - 1):
                 path.unlink(missing_ok=True)
@@ -394,8 +396,12 @@ class ReaderLane:
         if not self.store.has_events_after(mark, other_than=READER_STREAM):
             return None
         # Anywhere in the backlog: a prompt past the first READ_MAX_EVENTS still wakes
-        # the reader, which then reads its way to it turn by turn.
-        if self.store.has_prompt_after(mark, new=True):
+        # the reader, which then reads its way to it turn by turn. With prompt wakes
+        # off (`model.reader_prompt_wake`), a prompt alone wakes nothing: the new
+        # events wake below, as any others do.
+        from probe.daemon import model as model_mod
+
+        if model_mod.reader_prompt_wake() and self.store.has_prompt_after(mark, new=True):
             return "prompt"
         if READ_EVERY_S > 0 and self.clock() - self.last_turn_at >= READ_EVERY_S:
             return "events"

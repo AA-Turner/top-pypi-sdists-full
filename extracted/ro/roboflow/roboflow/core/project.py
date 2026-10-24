@@ -1,19 +1,19 @@
-import datetime
 import json
 import mimetypes
 import os
 import sys
 import time
 import warnings
+from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 import filetype
-import requests
 
 from roboflow.adapters import rfapi
 from roboflow.adapters.rfapi import AnnotationSaveError, ImageUploadError
 from roboflow.config import API_URL, DEMO_KEYS
 from roboflow.core.version import Version
+from roboflow.util import http
 from roboflow.util.autolabel_utils import Ontology as _AutolabelOntology
 from roboflow.util.autolabel_utils import image_payload as _autolabel_image_payload
 from roboflow.util.autolabel_utils import ontology_payload as _autolabel_ontology_payload
@@ -68,7 +68,7 @@ class Project:
             self.annotation = a_project["annotation"]
             self.classes = a_project["classes"]
             self.colors = a_project["colors"]
-            self.created = datetime.datetime.fromtimestamp(a_project["created"])
+            self.created = datetime.fromtimestamp(a_project["created"])
             self.id = a_project["id"]
             self.images = a_project["images"]
             self.name = a_project["name"]
@@ -77,7 +77,7 @@ class Project:
             self.type = a_project["type"]
             self.multilabel = a_project.get("multilabel", False)
             self.unannotated = a_project["unannotated"]
-            self.updated = datetime.datetime.fromtimestamp(a_project["updated"])
+            self.updated = datetime.fromtimestamp(a_project["updated"])
             self.model_format = model_format
 
             temp = self.id.rsplit("/")
@@ -107,7 +107,7 @@ class Project:
 
             >>> version_info = project.get_version_information()
         """
-        dataset_info = requests.get(
+        dataset_info = http.get(
             API_URL + "/" + self.__workspace + "/" + self.__project_name + "?api_key=" + self.__api_key
         )
 
@@ -237,7 +237,7 @@ class Project:
                 )
             )
 
-        r = requests.post(
+        r = http.post(
             f"{API_URL}/{self.__workspace}/{self.__project_name}/generate?api_key={self.__api_key}",
             json=settings,
         )
@@ -573,13 +573,14 @@ class Project:
         retry = Retry(num_retry_uploads, AnnotationSaveError)
 
         try:
-            annotation = rfapi.save_annotation(
+            annotation = retry(
+                rfapi.save_annotation,
                 self.__api_key,
                 project_url,
-                annotation_name,  # type: ignore[type-var]
-                annotation_str,  # type: ignore[type-var]
+                annotation_name,
+                annotation_str,
                 image_id,
-                job_name=job_name,  # type: ignore[type-var]
+                job_name=job_name,
                 is_prediction=is_prediction,
                 annotation_labelmap=annotation_labelmap,
                 overwrite=annotation_overwrite,
@@ -754,6 +755,9 @@ class Project:
             (``"image"`` or ``"video"``); video hits add a signed ``videoUrl`` when ``url``
             is requested in ``fields``, while ``url`` itself stays the poster frame.
 
+        Raises:
+            RoboflowError: If the API answers with an error.
+
         Example:
             >>> import roboflow
 
@@ -825,12 +829,12 @@ class Project:
 
         payload["fields"] = fields
 
-        data = requests.post(
+        data = http.post(
             API_URL + "/" + self.__workspace + "/" + self.__project_name + "/search?api_key=" + self.__api_key,
             json=payload,
         )
 
-        return data.json()["results"]
+        return rfapi._json_response_or_raise(data)["results"]
 
     def search_all(
         self,
@@ -1032,7 +1036,7 @@ class Project:
         """
         url = f"{API_URL}/{self.__workspace}/{self.__project_name}/images/{image_id}?api_key={self.__api_key}"
 
-        data = requests.get(url).json()
+        data = http.get(url).json()
 
         if "error" in data:
             raise RuntimeError(data["error"])
@@ -1331,7 +1335,7 @@ class Project:
 
         Args:
             model: Foundation model id from ``Workspace.autolabel_models()``
-                (e.g. ``"gpt-6-astra-boxes"``, ``"sam3-rle"``, ``"gemini-boxes"``).
+                (e.g. ``"gpt-6-astra-boxes"``, ``"sam3-rle"``, ``"gemini-3-8-flash-boxes"``).
             image: HTTPS URL, local file path, or base64-encoded image.
             ontology: ``{"text prompt": "class name"}`` -- keyed by prompt, so
                 several prompts can share one class
@@ -1377,7 +1381,7 @@ class Project:
             batch_id: Source batch containing the images to auto-label.
             model: For ``model_type="foundational"``, a model id from
                 ``Workspace.autolabel_models()`` (e.g. ``"gpt-6-astra-boxes"``,
-                ``"sam3-rle"``, ``"sam3-polygon"``, ``"gemini-boxes"``). For
+                ``"sam3-rle"``, ``"sam3-polygon"``, ``"gemini-3-8-flash-boxes"``). For
                 ``model_type="roboflow"``, a Roboflow model id such as
                 ``"project-slug/3"`` or ``"workspace-slug/model-id"``.
             model_type: ``"foundational"`` (hosted foundation model, sent as-is;
@@ -1455,7 +1459,7 @@ class Project:
         """
         url = f"{API_URL}/{self.__workspace}/{self.__project_name}/batches?api_key={self.__api_key}"
 
-        response = requests.get(url)
+        response = http.get(url)
 
         if response.status_code != 200:
             try:
@@ -1489,7 +1493,7 @@ class Project:
         """
         url = f"{API_URL}/{self.__workspace}/{self.__project_name}/batches/{batch_id}?api_key={self.__api_key}"
 
-        response = requests.get(url)
+        response = http.get(url)
 
         if response.status_code != 200:
             try:
@@ -1564,7 +1568,7 @@ class Project:
 
         payload = {"images": image_ids}
 
-        response = requests.delete(url, headers={"Content-Type": "application/json"}, json=payload)
+        response = http.delete(url, headers={"Content-Type": "application/json"}, json=payload)
 
         if response.status_code != 204:
             try:

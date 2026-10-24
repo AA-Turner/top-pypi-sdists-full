@@ -46,12 +46,14 @@ class SyncMetricsResponse(BaseModel):
     intervals_since_last_sync: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="How overdue the sync is, measured in its OWN polling intervals: seconds_since_last_sync / polling_interval_seconds. 1.0 means one interval has elapsed, which is normal for a sync about to run. None when the sync has never run. Present so a caller can judge lateness without knowing where the threshold happens to sit.")
     stale_after_seconds: Optional[StrictInt] = Field(default=None, description="The threshold is_stale was evaluated against, in seconds, so the verdict can be checked rather than trusted. max(2 * polling_interval_seconds, 120).")
     failure_rate: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="total_files_failed / total_files_discovered (0..1).")
-    healthy: Optional[StrictBool] = Field(default=True, description="Composite: active, not paused, no consecutive failures, not stale. Because it folds in is_stale, a sync more than two intervals overdue reports healthy=false rather than true.")
+    healthy: Optional[StrictBool] = Field(default=True, description="Composite: active, not paused, no consecutive failures, not stale, running job not stalled. Because it folds in is_stale, a sync more than two intervals overdue reports healthy=false rather than true.")
     dlq_total: Optional[StrictInt] = Field(default=0, description="Objects stuck after all retries.")
     dlq_by_error: Optional[Dict[str, StrictInt]] = Field(default=None, description="DLQ counts grouped by normalized error reason (IDs stripped).")
     running_job: Optional[StrictBool] = False
+    stalled: Optional[StrictBool] = Field(default=False, description="The running job has made no progress: no heartbeat, or nothing discovered or synced, for longer than max(stale_after_seconds, 300). A first run that has not finished yet has no last sync to be stale against, so this is how it reports a stall. Folds into healthy.")
+    stalled_reason: Optional[StrictStr] = Field(default=None, description="Why the running job counts as stalled, when it does.")
     last_job: Optional[Dict[str, Any]] = Field(default=None, description="Summary of the most recent job: status, files_synced/failed, throughput_files_per_min, duration_seconds.")
-    __properties: ClassVar[List[str]] = ["sync_config_id", "status", "is_active", "paused", "total_files_discovered", "total_files_synced", "total_files_failed", "batches_created", "sync_run_counter", "consecutive_failures", "last_error", "last_sync_at", "next_sync_at", "seconds_since_last_sync", "is_stale", "intervals_since_last_sync", "stale_after_seconds", "failure_rate", "healthy", "dlq_total", "dlq_by_error", "running_job", "last_job"]
+    __properties: ClassVar[List[str]] = ["sync_config_id", "status", "is_active", "paused", "total_files_discovered", "total_files_synced", "total_files_failed", "batches_created", "sync_run_counter", "consecutive_failures", "last_error", "last_sync_at", "next_sync_at", "seconds_since_last_sync", "is_stale", "intervals_since_last_sync", "stale_after_seconds", "failure_rate", "healthy", "dlq_total", "dlq_by_error", "running_job", "stalled", "stalled_reason", "last_job"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -126,6 +128,8 @@ class SyncMetricsResponse(BaseModel):
             "dlq_total": obj.get("dlq_total") if obj.get("dlq_total") is not None else 0,
             "dlq_by_error": obj.get("dlq_by_error"),
             "running_job": obj.get("running_job") if obj.get("running_job") is not None else False,
+            "stalled": obj.get("stalled") if obj.get("stalled") is not None else False,
+            "stalled_reason": obj.get("stalled_reason"),
             "last_job": obj.get("last_job")
         })
         return _obj

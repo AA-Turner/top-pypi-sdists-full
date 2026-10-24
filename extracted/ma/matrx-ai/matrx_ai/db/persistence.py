@@ -119,6 +119,25 @@ def human_error_sentence(error: Any, *, fallback: str) -> str:
     return text or fallback
 
 
+def failed_turn_message_fields(error: Any) -> dict[str, Any]:
+    """The ONE shape of a failed run's assistant turn (closing a reservation or writing it new).
+
+    Visible to the person as a normal error message; hidden from the model
+    (``is_visible_to_model=False`` — the designed primitive, same as compaction). The thread gets
+    a sentence (:func:`human_error_sentence`); the raw structure goes to the ``error`` column
+    (presence => failed), a dict passed straight through, a bare string wrapped.
+    """
+    text = human_error_sentence(error, fallback="This response failed to generate.")
+    structured = error if isinstance(error, dict) else {"type": "turn_failed", "message": str(text)}
+    return {
+        "role": "assistant",
+        "status": "failed",
+        "is_visible_to_model": False,
+        "content": [{"type": "text", "text": text}],
+        "error": structured,
+    }
+
+
 def try_get_execution_state():
     from matrx_ai.orchestrator.execution_state import (
         try_get_execution_state as _tges,
@@ -837,16 +856,6 @@ def _final_assistant_text(msg_list: list[dict[str, Any]]) -> str:
     return ""
 
 
-def shares_callers_user_request(ctx: Any, user_request_id: Any) -> bool:
-    """True when this run is a sub-agent writing under its CALLER's user_request.
-
-    ``child_agent_context`` forks with the caller's ``request_id`` and records it as
-    ``parent_request_id``; a child given its own record (``independent_request``)
-    has a fresh id, so the two differ and it settles its own row."""
-    parent_request_id = str(getattr(ctx, "parent_request_id", "") or "")
-    return bool(parent_request_id) and parent_request_id == str(user_request_id or "")
-
-
 def user_request_outcome_fields(
     ur_data: dict[str, Any], req_list: list[dict[str, Any]], *, now: Any
 ) -> dict[str, Any]:
@@ -861,33 +870,6 @@ def user_request_outcome_fields(
     if ur_data.get("error"):
         fields["error"] = _cx_error_text(ur_data["error"])
     return fields
-
-
-async def run_settles_user_request(
-    ctx: Any, user_request_id: Any, conversation_id: Any
-) -> bool:
-    """Does THIS run settle the outcome of ``user_request_id``?
-
-    Yes for every run on its own row. A sub-agent writing under its caller's row
-    settles it only when the row is its own conversation's (it was the first to
-    run there — e.g. a workflow or tool fan-out with no AI turn of its own above
-    it). When the row belongs to another conversation, that conversation's run
-    settles it, and the child's outcome stays on its own conversation and in the
-    tool result its caller reads. An unreadable or missing row keeps the old
-    behavior (settle) so a row can never be left unsettled by this rule."""
-    if not shares_callers_user_request(ctx, user_request_id):
-        return True
-    try:
-        rows = await _cxm().user_request.filter_user_requests(id=user_request_id)
-    except Exception as exc:  # noqa: BLE001 — never strand a row on a read failure
-        vcprint(
-            f"[CX PERSISTENCE] could not read user_request {user_request_id} to check who "
-            f"settles it ({type(exc).__name__}: {exc}); this sub-agent settles it.",
-            color="yellow",
-        )
-        return True
-    owner = str(getattr(rows[0], "conversation_id", "") or "") if rows else ""
-    return not owner or owner == str(conversation_id or "")
 
 
 def _call_request_settled_hook(
@@ -1637,6 +1619,7 @@ async def persist_completed_request(
             # message list are unfilled — prior committed turns ARE in msg_list, so
             # their reservations are never touched. See
             # docs/persistence/STATUS_AND_ERROR_FIELDS.md.
+            _closed_failed_turn = False
             if ur_data.get("status") == "failed" and reserved_msg_ids:
                 _live_positions = {int(m["position"]) for m in msg_list}
                 for _pos, _mid in reserved_msg_ids.items():
@@ -1651,28 +1634,11 @@ async def persist_completed_request(
                     # keeping it for the USER (is_visible_to_user stays true) as a
                     # normal error message in history. The error text is the
                     # message content so the FE renders it like any other turn.
-                    _err_raw = ur_data.get("error")
-                    # The THREAD gets a sentence; the raw structure stays in the
-                    # error column below (and in the snapshot / inspector).
-                    _err_text = human_error_sentence(
-                        _err_raw, fallback="This response failed to generate."
-                    )
-                    # Structured error column (presence => failed). Replaces the old
-                    # metadata.{failed,error} smuggling. Pass a dict straight through
-                    # (already-structured upstream error); wrap a bare string.
-                    _err_struct = (
-                        _err_raw
-                        if isinstance(_err_raw, dict)
-                        else {"type": "turn_failed", "message": str(_err_text)}
-                    )
-                    _fail_fields: dict[str, Any] = {
-                        "status": "failed",
-                        "is_visible_to_model": False,
-                        "content": [{"type": "text", "text": _err_text}],
-                        "error": _err_struct,
-                    }
+                    _fail_fields = failed_turn_message_fields(ur_data.get("error"))
+                    _fail_fields.pop("role")
                     try:
                         _queue_message_update(_mid, **_fail_fields)
+                        _closed_failed_turn = True
                         vcprint(
                             f"[CX PERSISTENCE] Closed unfilled reserved message "
                             f"{_mid} (position={_pos_int}) → 'failed', hidden from "
@@ -1685,6 +1651,48 @@ async def persist_completed_request(
                             f"{_mid} on failed request (ignored): {_close_err}",
                             color="yellow",
                         )
+
+            # A run that FAILED or was REFUSED before any answer (a guardrail or usage refusal, a
+            # provider rejection before the first token, a run with no streaming reservation) had
+            # no assistant row to close above, so the person saw their own turn and nothing after
+            # it (agent_tests_judge, 380 conversations by 2026-10-23). Every failed run leaves the
+            # SAME visible error turn a chat shows: one assistant row, status 'failed', the
+            # sentence as its content, hidden from the model only. Owner ruling 2026-10-23.
+            _turn_from = start_pos if start_pos is not None else trigger_pos
+            _answered = any(
+                _row_role(m) == "assistant"
+                and (_turn_from is None or int(m["position"]) >= int(_turn_from))
+                for m in (msg_list if _turn_from is not None else new_messages)
+            )
+            if (
+                ur_data.get("status") == "failed"
+                and is_final
+                and not _closed_failed_turn
+                and not _answered
+                and db_conversation_id
+                and _is_valid_uuid(db_conversation_id)
+            ):
+                _turn_fields = failed_turn_message_fields(ur_data.get("error"))
+                if _pinned_agent_id:
+                    _turn_fields["agent_id"] = _pinned_agent_id
+                from uuid import uuid4 as _uuid4
+
+                _failed_mid = str(_uuid4())
+                try:
+                    _queue_message_create(
+                        id=_failed_mid,
+                        conversation_id=db_conversation_id,
+                        position=APPEND_MESSAGE_POSITION,
+                        created_by=user_id or None,
+                        **_turn_fields,
+                    )
+                    result["message_ids"].append(_failed_mid)
+                except Exception as _turn_err:
+                    vcprint(
+                        f"[CX PERSISTENCE] Could not write the failed run's error turn for "
+                        f"{db_conversation_id}: {_turn_err}",
+                        color="red",
+                    )
 
             # A SUCCESSFUL final turn supersedes the prior FAILED attempts at this
             # turn — collapse them out of the USER's view (rows KEPT for the
@@ -2019,20 +2027,10 @@ async def persist_completed_request(
                     "user_request", user_request_id, request_metadata
                 ),
             }
-            # 🚨 ONLY THE ROW'S OWN RUN SETTLES ITS OUTCOME (2026-10-21). A sub-agent
-            # forked without its own request record runs under its caller's
-            # user_request id (child_agent_context keeps request_id and records
-            # it as parent_request_id). Its rows and cost belong there, but its
-            # OUTCOME is its own: a helper stopping at its ceiling wrote "paused"
-            # over its parent's finished turn (user_request 5add6922), and a
-            # child's tool failure wrote its error there (c462f1d9). The child's
-            # outcome lives on its own conversation (last_request_status) and in
-            # the tool result its caller reads.
-            settles_row = await run_settles_user_request(
-                _ctx, user_request_id, db_conversation_id
-            )
-            if settles_row:
-                ur_update_data.update(user_request_outcome_fields(ur_data, req_list, now=now))
+            # Every run settles its OWN row: a child agent run owns its own turn
+            # (the fork mints its request id), so a helper stopping at its ceiling
+            # or failing a tool settles its own turn, never its caller's.
+            ur_update_data.update(user_request_outcome_fields(ur_data, req_list, now=now))
 
             # Queue the aggregate UPDATE. This is THE write whose loss caused
             # the 261-stuck-cx_user_request-rows leak. Coalescing with the
@@ -2049,7 +2047,7 @@ async def persist_completed_request(
                     msg_list=msg_list,
                 )
 
-            if tracker and emitter and settles_row:
+            if tracker and emitter:
                 # Emit the ACTUAL terminal status — never hardcode 'completed'.
                 # On a failed request the row was written status='failed' (see
                 # to_storage_dict); emitting 'completed' here told the FE the

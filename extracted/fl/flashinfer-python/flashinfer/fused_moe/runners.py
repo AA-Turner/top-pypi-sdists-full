@@ -451,6 +451,11 @@ def _validate_prepared_activation_params(
             required += ("gemm1_beta",)
         if activation.limit != default.limit:
             required += ("gemm1_clamp_limit",)
+    elif isinstance(activation, SwiGLUStep):
+        if view.get("gemm1_alpha") is not None or view.get("gemm1_beta") is not None:
+            raise ValueError(f"{runner}: SwiGLUStep consumes gemm1_clamp_limit only.")
+        if activation.limit != SwiGLUStep().limit:
+            required = ("gemm1_clamp_limit",)
     elif isinstance(activation, SiTU):
         # TRTLLM reuses gemm1_alpha/beta, whose null SiTU defaults are 1/1
         # rather than the typed 4/25. Require explicit tensors even at default.
@@ -567,6 +572,7 @@ class MoERunner(TunableRunner):
     """
 
     backend_key: ClassVar[str] = ""
+    weight_view_aliases: ClassVar[tuple[str, ...]] = ()
     supported_routing_modes: tuple[RoutingInputMode, ...] = ()
     supported_quant_variants: ClassVar[tuple[tuple[QuantFormat, QuantFormat], ...]] = ()
     supported_output_formats: ClassVar[tuple[QuantFormat, ...]] = (QuantFormat.BF16,)
@@ -577,6 +583,10 @@ class MoERunner(TunableRunner):
     ] = {}
     # Set to True only after S is wired through validation and launch.
     supports_fused_shared_experts: ClassVar[bool] = False
+    # Whether the kernel consumes ``MoEActivationPack.per_token_scale``. Runners
+    # that leave this False reject ``QuantConfig(per_token_scale=True)`` and a
+    # non-None pack scale instead of silently dropping them.
+    supports_per_token_scale: ClassVar[bool] = False
     # Cleared by backends whose kernels cannot map global expert ids onto a
     # local shard (local_expert_offset / local_num_experts != num_experts).
     supports_expert_parallelism: ClassVar[bool] = True
@@ -626,7 +636,15 @@ class MoERunner(TunableRunner):
         self._support_checked = True
 
     def accepts(self, act: MoEActivationPack, weights: MoEWeightPack) -> bool:
-        """Return per-call eligibility; override for input-dependent constraints."""
+        """Select candidates with prepared weights and supported input geometry."""
+        if self.backend_key not in weights.native_views and not any(
+            key in weights.native_views for key in self.weight_view_aliases
+        ):
+            return False
+        return self._accepts_shape(act)
+
+    def _accepts_shape(self, act: MoEActivationPack) -> bool:
+        """Check cheap input-dependent limits before packing and kernel preparation."""
         return True
 
     def _check_support(self) -> None:
@@ -675,6 +693,7 @@ class MoERunner(TunableRunner):
         self._assert_shared_experts_supported()
         self._assert_expert_parallelism_supported()
         self._assert_nvfp4_4over6_supported()
+        self._assert_per_token_scale_supported()
         self._check_activation_parameters()
 
     def _check_activation_parameters(self) -> None:
@@ -705,6 +724,37 @@ class MoERunner(TunableRunner):
             "directly. Leave the field unset to use them, or "
             "select a backend that implements it."
         )
+
+    def _assert_per_token_scale_supported(self) -> None:
+        """Reject a declared per-token scale the kernel would ignore."""
+        if self.config.quant.per_token_scale and not self.supports_per_token_scale:
+            raise NotImplementedError(
+                f"{type(self).__name__} does not support per_token_scale=True."
+            )
+
+    def _validate_pack_contract(self, act: MoEActivationPack) -> None:
+        """Reject a pack this runner cannot execute; call first in ``pack_inputs``.
+
+        ``MoELayer`` already filters runners by routing mode, so this guards
+        the direct-runner path. The per-token check is here rather than in
+        ``check_support`` because it is a per-call tensor: a pack scale is
+        accepted only when the runner was built with
+        ``QuantConfig(per_token_scale=True)``, since the TRT-LLM and Prims-TS
+        launchers switch kernels on the tensor's presence while tactics were
+        enumerated for the configured mode.
+        """
+        if act.routing_input_mode not in self.supported_routing_modes:
+            names = ", ".join(mode.name for mode in self.supported_routing_modes)
+            raise NotImplementedError(
+                f"{type(self).__name__} does not support "
+                f"routing_input_mode={act.routing_input_mode!r}; supported: {names}."
+            )
+        if act.per_token_scale is not None and not self.config.quant.per_token_scale:
+            raise ValueError(
+                f"{type(self).__name__} was configured without "
+                "QuantConfig(per_token_scale=True) and does not consume "
+                "MoEActivationPack.per_token_scale."
+            )
 
     def _assert_expert_parallelism_supported(self) -> None:
         """Reject EP shards for backends that cannot compute a local expert subset."""
@@ -923,10 +973,6 @@ class CakeWarpDecodeRunner(MoERunner):
         if self.config.execution.enable_pdl is not True:
             raise NotImplementedError(
                 "CakeWarpDecodeRunner requires ExecutionConfig(enable_pdl=True)."
-            )
-        if self.config.quant.per_token_scale:
-            raise NotImplementedError(
-                "CakeWarpDecodeRunner does not support per-token activation scaling."
             )
         if self.config.quant.swizzled_scale_factors is True:
             raise NotImplementedError(
@@ -1314,11 +1360,7 @@ class CakeWarpDecodeRunner(MoERunner):
     ) -> List[torch.Tensor]:
         """Validate and flatten the exact warp-decode TVM-FFI input ABI."""
         self._require_built()
-        if act.routing_input_mode is not RoutingInputMode.UnpackedPrecomputed:
-            raise NotImplementedError(
-                "CakeWarpDecodeRunner requires "
-                "routing_input_mode=RoutingInputMode.UnpackedPrecomputed."
-            )
+        self._validate_pack_contract(act)
 
         num_tokens = int(act.hidden_states_q.shape[0])
         if not 1 <= num_tokens <= 32:
@@ -1384,9 +1426,6 @@ class CakeWarpDecodeRunner(MoERunner):
             shape=(num_tokens, hidden_size // 16),
             device=device,
         )
-        if act.per_token_scale is not None:
-            raise ValueError("CakeWarpDecodeRunner does not consume per_token_scale.")
-
         view = weights.get_view(self.backend_key)
         activation = self.config.activation
         activation_parameter_keys = self._ACTIVATION_PARAMETER_KEYS.get(activation, ())
@@ -1678,12 +1717,6 @@ class _CutlassRunnerBase(MoERunner):
                 f"{type(self).__name__} does not support "
                 f"SM{self._device_arch}; supported architectures are "
                 f"{self._supported_archs}."
-            )
-        if self.config.quant.per_token_scale:
-            # The flat CUTLASS ABI has no per-token activation scale input;
-            # packing would silently drop ``act.per_token_scale``.
-            raise NotImplementedError(
-                f"{type(self).__name__} does not support per_token_scale=True."
             )
         if self.config.quant.swizzled_scale_factors is True and self._linear_act_sf:
             # Only the MXFP8 runners have a swizzled input_sf path; silently
@@ -2002,10 +2035,7 @@ class _CutlassRunnerBase(MoERunner):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
-        if act.routing_input_mode is not RoutingInputMode.PackedPrecomputed:
-            raise NotImplementedError(
-                f"{type(self).__name__} supports only PackedPrecomputed routing."
-            )
+        self._validate_pack_contract(act)
         hidden_states = act.hidden_states_q
         if hidden_states.ndim != 2 or hidden_states.dtype is not self._x_dtype:
             raise TypeError(
@@ -2099,8 +2129,6 @@ class _CutlassRunnerBase(MoERunner):
         ]
 
     def _validate_activation_scale(self, act: MoEActivationPack) -> None:
-        if act.per_token_scale is not None:
-            raise ValueError(f"{type(self).__name__} does not consume per_token_scale.")
         if self._linear_act_sf:
             scale = act.hidden_states_scale
             num_tokens = act.hidden_states_q.shape[0]
@@ -3375,10 +3403,7 @@ class CuTileBf16Runner(MoERunner):
 
     def _validate_inputs(self, act: MoEActivationPack) -> tuple[torch.Tensor, int, int]:
         self._require_built()
-        if act.routing_input_mode is not RoutingInputMode.PackedPrecomputed:
-            raise NotImplementedError(
-                f"{type(self).__name__} supports only PackedPrecomputed routing."
-            )
+        self._validate_pack_contract(act)
         hidden_states = act.hidden_states_q
         if hidden_states.ndim != 2 or hidden_states.dtype is not torch.bfloat16:
             raise TypeError(
@@ -3866,8 +3891,6 @@ class _CuTileFp8Runner(CuTileBf16Runner):
 
     def _check_support(self) -> None:
         super()._check_support()
-        if self.config.quant.per_token_scale:
-            raise NotImplementedError("cuTile FP8 does not support per-token scales.")
 
     def _build(self) -> None:
         from .cutile import fp8
@@ -4862,6 +4885,7 @@ class CuteDslRunner(MoERunner):
     """Translate activation and weight packs into a CuTe DSL runner input list."""
 
     backend_key = "cute_dsl"
+    supports_per_token_scale = True
     # CuteDSL has no in-kernel router; it only consumes pre-routed packs.
     supported_routing_modes = (RoutingInputMode.PackedPrecomputed,)
     supported_quant_variants = (
@@ -5098,15 +5122,7 @@ class CuteDslRunner(MoERunner):
         it for each token bucket.
         """
         self._require_built()
-        # MoELayer already filters by supported_routing_modes; this guards the
-        # direct-runner path (tests/benchmarks) against silently forwarding a
-        # logits pack's None topk tensors into the kernel launch.
-        if act.routing_input_mode not in self.supported_routing_modes:
-            raise NotImplementedError(
-                f"CuteDslRunner does not support "
-                f"routing_input_mode={act.routing_input_mode!r} "
-                "(only PackedPrecomputed is wired; CuteDSL has no in-kernel router)."
-            )
+        self._validate_pack_contract(act)
         v = weights.get_view(self.backend_key)
         num_tokens = act.hidden_states_q.shape[0]
         _validate_prerouted_inputs(act, num_tokens, self._inner.top_k, "CuteDslRunner")
@@ -5477,6 +5493,7 @@ class TrtllmFp4RoutedRunner(_TrtllmRunnerBase):
     """
 
     backend_key = "trtllm_fp4_routed"
+    supports_per_token_scale = True
     supported_routing_modes = (
         RoutingInputMode.PackedPrecomputed,
         RoutingInputMode.UnpackedPrecomputed,
@@ -5491,7 +5508,13 @@ class TrtllmFp4RoutedRunner(_TrtllmRunnerBase):
     supported_activation_classes_by_quant: ClassVar[
         dict[tuple[QuantFormat, QuantFormat], tuple[type[ActivationConfig], ...]]
     ] = {
-        (QuantFormat.NVFP4, QuantFormat.NVFP4): (SwiGLU, GeGLU, SiTU, ReLU2),
+        (QuantFormat.NVFP4, QuantFormat.NVFP4): (
+            SwiGLU,
+            SwiGLUStep,
+            GeGLU,
+            SiTU,
+            ReLU2,
+        ),
         (QuantFormat.MXFP4, QuantFormat.MXFP8): (SwiGLU, GeGLU, SiTU, ReLU2),
         (QuantFormat.MXFP4, QuantFormat.BF16): (SwiGLU,),
     }
@@ -5662,6 +5685,7 @@ class TrtllmFp4RoutedRunner(_TrtllmRunnerBase):
         ``[offset, offset + local_num_experts)``.
         """
         self._require_built()
+        self._validate_pack_contract(act)
         from ..tllm_enums import SfLayout
         from .core import MoeRunnerInputs, RoutingInputMode
 
@@ -5884,7 +5908,7 @@ class TrtllmFp8BlockRunner(_TrtllmRunnerBase):
         dict[tuple[QuantFormat, QuantFormat], tuple[type[ActivationConfig], ...]]
     ] = {
         (QuantFormat.DeepSeekFp8, QuantFormat.DeepSeekFp8): (SwiGLU,),
-        (QuantFormat.MXFP8, QuantFormat.MXFP8): (SwiGLU, GeGLU, ReLU2),
+        (QuantFormat.MXFP8, QuantFormat.MXFP8): (SwiGLU, SwiGLUStep, GeGLU, ReLU2),
     }
 
     def _check_support(self) -> None:
@@ -6081,6 +6105,7 @@ class TrtllmFp8BlockRunner(_TrtllmRunnerBase):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
         from ..tllm_enums import WeightLayout
         from .core import MoeRunnerInputs, RoutingInputMode
 
@@ -6237,9 +6262,8 @@ class TrtllmFp8PerTensorRunner(_TrtllmRunnerBase):
         RoutingInputMode.FromLogits,
     )
     supported_quant_variants = ((QuantFormat.FP8PerTensor, QuantFormat.FP8PerTensor),)
-    # The per-tensor cubin manifest has SwiGLU and ReLU2 epilogues. GeGLU is
-    # representable by the enum but has no matching generated kernel.
-    supported_activation_classes = (SwiGLU, ReLU2)
+    # GeGLU is representable by the enum but has no matching generated kernel.
+    supported_activation_classes = (SwiGLU, SwiGLUStep, ReLU2)
 
     def _check_activation_parameters(self) -> None:
         if (
@@ -6400,10 +6424,31 @@ class TrtllmFp8PerTensorRunner(_TrtllmRunnerBase):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
         from ..tllm_enums import RoutingMethodType
         from .core import MoeRunnerInputs
 
         view = weights.get_view(self.backend_key)
+        _validate_prepared_activation_params(
+            view, self.config.activation, type(self).__name__
+        )
+        _validate_optional_gemm1_activation_params(
+            view,
+            self._num_local_experts,
+            act.hidden_states_q.device,
+            type(self).__name__,
+        )
+        if not isinstance(self.config.activation, SwiGLUStep):
+            unsupported = [
+                key
+                for key in ("gemm1_alpha", "gemm1_beta", "gemm1_clamp_limit")
+                if view.get(key) is not None
+            ]
+            if unsupported:
+                raise ValueError(
+                    f"{type(self).__name__} cannot consume {unsupported}; "
+                    "only SwiGLUStep accepts per-expert activation limits."
+                )
         routing = self.config.routing
         num_tokens, hidden_size = act.hidden_states_q.shape
         self._validate_tensors(act, view, hidden_size)
@@ -6475,6 +6520,7 @@ class TrtllmFp8PerTensorRunner(_TrtllmRunnerBase):
             gemm1_weights=view["gemm1_weights"],
             output1_scales_scalar=view["output1_scales_scalar"],
             output1_scales_gate_scalar=view["output1_scales_gate_scalar"],
+            gemm1_clamp_limit=view.get("gemm1_clamp_limit"),
             gemm2_weights=view["gemm2_weights"],
             output2_scales_scalar=view["output2_scales_scalar"],
             num_experts=routing.num_experts,
@@ -6534,9 +6580,8 @@ class TrtllmBf16RoutedRunner(_TrtllmRunnerBase):
         RoutingInputMode.FromLogits,
     )
     supported_quant_variants = ((QuantFormat.BF16, QuantFormat.BF16),)
-    # The BF16 cubin manifest currently contains SwiGLU and ReLU2. GeGLU and
-    # SiTU are represented by the launcher enum but have no matching kernels.
-    supported_activation_classes = (SwiGLU, ReLU2)
+    # GeGLU and SiTU are represented by the launcher enum but have no matching kernels.
+    supported_activation_classes = (SwiGLU, SwiGLUStep, ReLU2)
 
     def _check_support(self) -> None:
         super()._check_support()
@@ -6630,6 +6675,7 @@ class TrtllmBf16RoutedRunner(_TrtllmRunnerBase):
         ``act.hidden_states_scale`` is unused.
         """
         self._require_built()
+        self._validate_pack_contract(act)
         from .core import MoeRunnerInputs, RoutingInputMode
 
         v = weights.get_view(self.backend_key)
@@ -6767,6 +6813,7 @@ class PrimsTsRunner(_TrtllmRunnerBase):
     """
 
     backend_key = "prims_ts"
+    supports_per_token_scale = True
     supported_routing_modes = (
         RoutingInputMode.PackedPrecomputed,
         RoutingInputMode.UnpackedPrecomputed,
@@ -6780,8 +6827,14 @@ class PrimsTsRunner(_TrtllmRunnerBase):
     supported_activation_classes_by_quant: ClassVar[
         dict[tuple[QuantFormat, QuantFormat], tuple[type[ActivationConfig], ...]]
     ] = {
-        (QuantFormat.NVFP4, QuantFormat.NVFP4): (SwiGLU, GeGLU, SiTU, ReLU2),
-        (QuantFormat.BF16, QuantFormat.BF16): (SwiGLU, ReLU2),
+        (QuantFormat.NVFP4, QuantFormat.NVFP4): (
+            SwiGLU,
+            GeGLU,
+            SiTU,
+            ReLU2,
+            SiLU,
+        ),
+        (QuantFormat.BF16, QuantFormat.BF16): (SwiGLU, ReLU2, SiLU),
     }
 
     def _check_support(self) -> None:
@@ -6995,6 +7048,8 @@ class PrimsTsRunner(_TrtllmRunnerBase):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
+
         from flashinfer.prims_ts.moe.support import (
             is_prims_ts_bf16_supported,
             is_prims_ts_nvfp4_supported,
@@ -7230,6 +7285,7 @@ class TrtllmMxInt4RoutedRunner(_TrtllmRunnerBase):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
         from .core import MoeRunnerInputs
 
         view = weights.get_view(self.backend_key)
@@ -7487,10 +7543,6 @@ class SM12xFp8Runner(MoERunner):
             raise NotImplementedError("SM12x FP8 requires do_finalize=True.")
         if not self.config.finalize.use_fused_finalize:
             raise NotImplementedError("SM12x FP8 requires use_fused_finalize=True.")
-        if self.config.quant.per_token_scale:
-            raise NotImplementedError(
-                "SM12x FP8 quantizes BF16 activations internally."
-            )
 
     def _build(self) -> None:
         from .cute_dsl.blackwell_sm12x.moe_fp8_fc1_act_q1 import (
@@ -7521,10 +7573,11 @@ class SM12xFp8Runner(MoERunner):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
         if act.hidden_states_q.dtype is not torch.bfloat16:
             raise TypeError("SM12x FP8 requires BF16 hidden states.")
-        if act.hidden_states_scale is not None or act.per_token_scale is not None:
-            raise ValueError("SM12x FP8 requires activation scales to be None.")
+        if act.hidden_states_scale is not None:
+            raise ValueError("SM12x FP8 requires hidden_states_scale to be None.")
         _validate_prerouted_inputs(
             act,
             act.hidden_states_q.shape[0],
@@ -7732,10 +7785,6 @@ class SM12xMxfp8Mxfp4Runner(MoERunner):
             raise NotImplementedError(
                 "SM12x MXFP8 x MXFP4 requires use_fused_finalize=True."
             )
-        if self.config.quant.per_token_scale:
-            raise NotImplementedError(
-                "SM12x MXFP8 x MXFP4 quantizes BF16 activations internally."
-            )
 
     def _build(self) -> None:
         from .cute_dsl.blackwell_sm12x.moe_mxfp8_mxfp4_fc1_act_q1 import (
@@ -7766,11 +7815,12 @@ class SM12xMxfp8Mxfp4Runner(MoERunner):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
         if act.hidden_states_q.dtype is not torch.bfloat16:
             raise TypeError("SM12x MXFP8 x MXFP4 requires BF16 hidden states.")
-        if act.hidden_states_scale is not None or act.per_token_scale is not None:
+        if act.hidden_states_scale is not None:
             raise ValueError(
-                "SM12x MXFP8 x MXFP4 requires activation scales to be None."
+                "SM12x MXFP8 x MXFP4 requires hidden_states_scale to be None."
             )
         _validate_prerouted_inputs(
             act,
@@ -7901,7 +7951,8 @@ class SM12xNvfp4Bf16Runner(MoERunner):
 
     backend_key = "sm12x_nvfp4_bf16"
     # A view prepared for the cuTile NVFP4 runners is the same tensors.
-    weight_view_keys = (backend_key, "cutile_nvfp4")
+    weight_view_aliases = ("cutile_nvfp4",)
+    weight_view_keys = (backend_key, *weight_view_aliases)
     supported_routing_modes = (RoutingInputMode.PackedPrecomputed,)
     supported_quant_variants = ((QuantFormat.NVFP4, QuantFormat.BF16),)
     supported_activation_classes = (SwiGLU, ReLU2)
@@ -8044,17 +8095,16 @@ class SM12xNvfp4Bf16Runner(MoERunner):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
-        if act.routing_input_mode is not RoutingInputMode.PackedPrecomputed:
-            raise NotImplementedError(
-                f"{type(self).__name__} supports only PackedPrecomputed routing."
-            )
+        self._validate_pack_contract(act)
         x = act.hidden_states_q
         if x.ndim != 2 or x.dtype is not torch.bfloat16 or not x.is_contiguous():
             raise TypeError(
                 f"{type(self).__name__} requires contiguous 2D BF16 hidden states."
             )
-        if act.hidden_states_scale is not None or act.per_token_scale is not None:
-            raise ValueError(f"{type(self).__name__} requires activation scales None.")
+        if act.hidden_states_scale is not None:
+            raise ValueError(
+                f"{type(self).__name__} requires hidden_states_scale to be None."
+            )
         num_tokens, hidden_size = x.shape
         if num_tokens == 0:
             raise NotImplementedError(
@@ -8191,10 +8241,7 @@ class SM12xNvfp4Runner(SM12xNvfp4Bf16Runner):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
-        if act.routing_input_mode is not RoutingInputMode.PackedPrecomputed:
-            raise NotImplementedError(
-                f"{type(self).__name__} supports only PackedPrecomputed routing."
-            )
+        self._validate_pack_contract(act)
         x = act.hidden_states_q
         if x.ndim != 2 or x.dtype is not torch.bfloat16 or not x.is_contiguous():
             raise TypeError(
@@ -8438,6 +8485,7 @@ class _B12xRunner(MoERunner):
         self, act: MoEActivationPack, weights: MoEWeightPack
     ) -> List[torch.Tensor]:
         self._require_built()
+        self._validate_pack_contract(act)
         v = weights.get_view(self.backend_key)
         self._validate_prepared_weights(v)
         # Only the packed weights are expert-major; SFs are swizzled, alphas may broadcast.

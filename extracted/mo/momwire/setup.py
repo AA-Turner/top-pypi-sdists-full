@@ -314,6 +314,10 @@ _ACCEL_HEADERS = [
     "src/momwire/_exact_kernel_table_inline.h",
     # momwire#1438: the two-radius point moments, included by the 1433 TU.
     "src/momwire/_exact_kernel_cross_inline.h",
+    # momwire#1615: the two-radius kernel those and bs2's Galerkin cross
+    # moments share, and the cross moments (the 1410 TU and its core twin).
+    "src/momwire/_exact_kernel_ring2_inline.h",
+    "src/momwire/_exact_kernel_coaxial_cross_inline.h",
     "src/momwire/_bspline_static_moments_inline.h",
     "src/momwire/_bspline_ek_moments_inline.h",
     "src/momwire/_contour_engine_inline.h",
@@ -351,6 +355,10 @@ _ACCEL_HEADERS = [
     # The complex-k Galerkin far fill's vector sweep (momwire#1224), included
     # by `_accel_sinusoidal.cpp`.
     "src/momwire/_accel_sinusoidal_cplx.h",
+    # The point-matched kernels' Python-free core and the series helpers it
+    # shares with the Galerkin far fill (momwire#1607 B1).
+    "src/momwire/_sinusoidal_core.h",
+    "src/momwire/_sinusoidal_series_inline.h",
     # The SIMD lane layer (momwire#1372), included by the lane kernels'
     # TUs and `_accel_somm_proj_inline.h`.
     "src/momwire/_lanes.h",
@@ -382,9 +390,13 @@ _ACCEL_HEADERS = [
     "src/momwire/_somm_below_remainder_inline.h",
     "src/momwire/_near_interface_core.h",
     "src/momwire/_near_interface_eval.h",
+    "src/momwire/_near_interface_point_core.h",
+    "src/momwire/_near_buried_core.h",
     # The column machinery the near-interface core's twin reads (momwire#1512
     # B4a), shared with `_near_interface_accel`.
     "src/momwire/_near_interface_columns_inline.h",
+    # The steepest-descent path both column twins read (momwire#1653).
+    "src/momwire/_near_interface_sdp_inline.h",
     "src/momwire/_vmath_inline.h",
     "src/momwire/_razor_crossing_core.h",
     # The crossing fill's shared pieces, razor's and bs2's (momwire#1517 step 4).
@@ -412,6 +424,11 @@ _ACCEL_HEADERS = [
     "src/momwire/_nec4_deck_core.h",
     "src/momwire/_nec4_seam_core.h",
     "src/momwire/_nec4_build_core.h",
+    "src/momwire/_nec4_printout_core.h",
+    "src/momwire/_sinusoidal_front_core.h",
+    "src/momwire/_sinusoidal_fill_core.h",
+    "src/momwire/_nec4_run_core.h",
+    "src/momwire/_sinusoidal_run_core.h",
     "src/momwire/_nec5_seam_core.h",
     "src/momwire/_nec5_razor_seam_core.h",
     "src/momwire/_nec5_bspline_seam_core.h",
@@ -441,6 +458,9 @@ _ACCEL_SOURCES = [
     # (momwire#1517 step 0); `_accel_bspline.cpp` is their binding. The
     # extension TU's kernel text, moved verbatim, over `_mw_nd.h`'s arrays.
     "src/momwire/_bspline_core.cpp",
+    # The point-matched sinusoidal kernels, Python-free (momwire#1607 B1);
+    # `_accel_sinusoidal.cpp` binds them beside the Galerkin far fill.
+    "src/momwire/_sinusoidal_core.cpp",
     "src/momwire/_accel_sinusoidal.cpp",
     "src/momwire/_accel_somm.cpp",
     # The Sommerfeld near-field remainder (`_field_point`), one spelled
@@ -545,6 +565,13 @@ _ACCEL_SOURCES = [
     "src/momwire/_razor_crossing_core.cpp",
     "src/momwire/_near_interface_eval.cpp",
     "src/momwire/_near_interface_core.cpp",
+    # The point-observer column twin, Python-free (momwire#1653), for the
+    # buried near-field readout; its own TU (its own renamed xsf copy).
+    "src/momwire/_near_interface_point_core.cpp",
+    # The buried near-field readout (momwire#1653), Python-free, and its
+    # binding (`near_buried_parts`); the executables link the core.
+    "src/momwire/_near_buried_core.cpp",
+    "src/momwire/_accel_near_buried.cpp",
     # The front half's exact ring kernel (momwire#1479): the plan and the
     # correction, and the point moments' Python-free twin of
     # `_accel_exact_kernel_point.cpp` (the same inline text, so the same
@@ -572,6 +599,19 @@ _ACCEL_SOURCES = [
     # The NEC-4.2 build (momwire#1607 A2b): DeckSolver's construction and
     # the solver's constructor arguments, over that seam.
     "src/momwire/_nec4_build_core.cpp",
+    # The NEC-4.2 printout writer (momwire#1607 A3), and its test-facing
+    # binding (a Python Nec4Printout read into the C++ record).
+    "src/momwire/_nec4_printout_core.cpp",
+    # The sinusoidal front half over the NEC-4.2 build's solver arguments
+    # (momwire#1607 B2).
+    "src/momwire/_sinusoidal_front_core.cpp",
+    # The sinusoidal free-space fill and port solve over it (momwire#1607 B3).
+    "src/momwire/_sinusoidal_fill_core.cpp",
+    # The NEC-4.2 run half and the sinusoidal basis' answers to it
+    # (momwire#1607 B4a).
+    "src/momwire/_nec4_run_core.cpp",
+    "src/momwire/_sinusoidal_run_core.cpp",
+    "src/momwire/_accel_nec4_printout.cpp",
     "src/momwire/_accel_nec5_deck.cpp",
     # The NEC-5 seam's structure half (unit 2b): the scope ladder, the mesh
     # and the ports, for any basis (`_nec5_seam_core.cpp`), and razor-2p's
@@ -622,10 +662,15 @@ _NEAR_HEADERS = [
     "src/momwire/_contour_lanes_inline.h",
     # The column machinery both TUs of this extension share (momwire#1224).
     "src/momwire/_near_interface_columns_inline.h",
+    # The steepest-descent path both column twins read (momwire#1653).
+    "src/momwire/_near_interface_sdp_inline.h",
     "src/momwire/_vmath_inline.h",
     # The Python-free column twin and sheet interpolator's interface
     # (momwire#1512 B4a), which this extension binds.
     "src/momwire/_near_interface_core.h",
+    # The point-observer twin's Python-free core (momwire#1653), which the
+    # point extension binds.
+    "src/momwire/_near_interface_point_core.h",
     # The SIMD lane layer (momwire#1372): the sheet's fixed-width cell sum.
     "src/momwire/_lanes.h",
 ] + sorted(glob.glob("extern/xsf/include/xsf/**/*.h", recursive=True))
@@ -737,7 +782,10 @@ for _suffix, _accel_args, _near_args in _VARIANTS:
         _variant(
             "_near_interface_point_accel",
             _suffix,
-            ["src/momwire/_near_interface_point_accel.cpp"],
+            [
+                "src/momwire/_near_interface_point_accel.cpp",
+                "src/momwire/_near_interface_point_core.cpp",
+            ],
             depends=_NEAR_HEADERS,
             compile_args=_near_args,
             include_dirs=["extern/xsf/include"],

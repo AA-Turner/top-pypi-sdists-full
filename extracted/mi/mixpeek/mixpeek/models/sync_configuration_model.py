@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.file_filters import FileFilters
+from mixpeek.models.ingest_filter import IngestFilter
 from mixpeek.models.reconcile_settings import ReconcileSettings
 from mixpeek.models.schema_mapping_output import SchemaMappingOutput
 from mixpeek.models.sync_mode import SyncMode
@@ -50,6 +51,7 @@ class SyncConfigurationModel(BaseModel):
     skip_duplicates: Optional[StrictBool] = Field(default=True, description="Skip files whose hashes already exist in the bucket.")
     skip_batch_submission: Optional[StrictBool] = Field(default=False, description="Sync-only mode: download and store files in the bucket without running them through the collection processing pipeline. Set to True during initial bulk ingestion, then flip to False to trigger processing once all files are synced.")
     batch_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collections this sync's auto-batch processes. None auto-discovers every enabled collection sourced from the bucket, which is the historical behaviour. Name a subset when a collection on the same bucket is fed some other way, for example a collection that only an alert's batch action writes to: without this the sync would process every synced object into it and the alert's selection would mean nothing.")
+    ingest_filter: Optional[IngestFilter] = Field(default=None, description="A pinned saved retriever every candidate object this sync brings in runs through before it is committed. Wins over the bucket's own ingest_filter. None falls back to the bucket's.")
     reconcile: Optional[ReconcileSettings] = Field(default=None, description="Controls how Mixpeek reconciles objects when the source changes. on_delete: cascade-delete when source asset is removed. on_update: propagate metadata changes and re-process. on_filter_drift: remove objects that no longer match filters. All default to True for full consistency.")
     status: Optional[TaskStatusEnum] = Field(default=None, description="Current lifecycle status for the sync configuration. PENDING: Not yet started. ACTIVE: Currently running/polling. SUSPENDED: Temporarily paused. COMPLETED: Initial sync completed (for initial_only mode). FAILED: Sync encountered errors.")
     is_active: Optional[StrictBool] = Field(default=True, description="Convenience flag used for filtering active syncs.")
@@ -97,7 +99,7 @@ class SyncConfigurationModel(BaseModel):
     schedule: Optional[Dict[str, Any]] = Field(default=None, description="Derived scheduling summary: mode, interval, next run, and last successful run.")
     sync_progress: Optional[Dict[str, Any]] = Field(default=None, description="Derived progress summary for API observability.")
     locked: StrictBool = Field(description="Whether a worker currently holds this sync's run lock.")
-    __properties: ClassVar[List[str]] = ["sync_config_id", "bucket_id", "connection_id", "internal_id", "namespace_id", "source_path", "file_filters", "schema_mapping", "sync_mode", "polling_interval_seconds", "batch_size", "create_object_on_confirm", "skip_duplicates", "skip_batch_submission", "batch_collection_ids", "reconcile", "status", "is_active", "total_files_discovered", "total_files_synced", "total_files_failed", "total_bytes_synced", "stats", "created_at", "updated_at", "last_sync_at", "per_shard_last_sync_at", "next_sync_at", "created_by_user_id", "last_error", "consecutive_failures", "provider_filters", "source_type", "metadata", "locked_by_worker_id", "locked_at", "lock_expires_at", "pending_full_sync", "paused", "pause_reason", "paused_at", "paused_by_user_id", "description", "max_objects_per_run", "max_batch_chunk_size", "batch_chunk_size", "sync_concurrency", "current_sync_run_id", "sync_run_counter", "batch_ids", "task_ids", "batches_created", "resume_enabled", "resume_cursor", "resume_last_primary_key", "resume_objects_processed", "resume_checkpoint_frequency", "current_cursor", "sync_checkpoints", "schedule", "sync_progress", "locked"]
+    __properties: ClassVar[List[str]] = ["sync_config_id", "bucket_id", "connection_id", "internal_id", "namespace_id", "source_path", "file_filters", "schema_mapping", "sync_mode", "polling_interval_seconds", "batch_size", "create_object_on_confirm", "skip_duplicates", "skip_batch_submission", "batch_collection_ids", "ingest_filter", "reconcile", "status", "is_active", "total_files_discovered", "total_files_synced", "total_files_failed", "total_bytes_synced", "stats", "created_at", "updated_at", "last_sync_at", "per_shard_last_sync_at", "next_sync_at", "created_by_user_id", "last_error", "consecutive_failures", "provider_filters", "source_type", "metadata", "locked_by_worker_id", "locked_at", "lock_expires_at", "pending_full_sync", "paused", "pause_reason", "paused_at", "paused_by_user_id", "description", "max_objects_per_run", "max_batch_chunk_size", "batch_chunk_size", "sync_concurrency", "current_sync_run_id", "sync_run_counter", "batch_ids", "task_ids", "batches_created", "resume_enabled", "resume_cursor", "resume_last_primary_key", "resume_objects_processed", "resume_checkpoint_frequency", "current_cursor", "sync_checkpoints", "schedule", "sync_progress", "locked"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -146,6 +148,9 @@ class SyncConfigurationModel(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of schema_mapping
         if self.schema_mapping:
             _dict['schema_mapping'] = self.schema_mapping.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of ingest_filter
+        if self.ingest_filter:
+            _dict['ingest_filter'] = self.ingest_filter.to_dict()
         # override the default output from pydantic by calling `to_dict()` of reconcile
         if self.reconcile:
             _dict['reconcile'] = self.reconcile.to_dict()
@@ -179,6 +184,7 @@ class SyncConfigurationModel(BaseModel):
             "skip_duplicates": obj.get("skip_duplicates") if obj.get("skip_duplicates") is not None else True,
             "skip_batch_submission": obj.get("skip_batch_submission") if obj.get("skip_batch_submission") is not None else False,
             "batch_collection_ids": obj.get("batch_collection_ids"),
+            "ingest_filter": IngestFilter.from_dict(obj["ingest_filter"]) if obj.get("ingest_filter") is not None else None,
             "reconcile": ReconcileSettings.from_dict(obj["reconcile"]) if obj.get("reconcile") is not None else None,
             "status": obj.get("status"),
             "is_active": obj.get("is_active") if obj.get("is_active") is not None else True,

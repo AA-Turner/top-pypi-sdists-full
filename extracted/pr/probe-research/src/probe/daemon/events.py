@@ -40,6 +40,13 @@ READER_STREAM = "reader"
 REQUEST_STREAM = "request"
 REQUEST_SOURCE = "request"
 REQUEST_TOOL = "probe-request"
+#: A message another AGENT sent this session (Claude Code's `origin.kind:
+#: "peer"`: another session's cross-session message, or a helper agent's
+#: SendMessage; Codex's `agent_message`): a META event with this `tool`, its
+#: sender in `command` (`tool_input["command"]`, with `from` / `from_name` as the
+#: harness gave them) and, as its text, the message without the harness's wrapper.
+#: Never the researcher's. Every other META event has no tool of the harness's.
+PEER_TOOL = "peer-message"
 
 
 @dataclass

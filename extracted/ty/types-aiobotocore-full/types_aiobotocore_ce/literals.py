@@ -121,6 +121,7 @@ DimensionType = Literal[
     "PAYER_ACCOUNT",
     "PAYMENT_OPTION",
     "PLATFORM",
+    "PRODUCT_ATTRIBUTE",
     "PURCHASE_TYPE",
     "RECORD_TYPE",
     "REGION",
@@ -173,7 +174,7 @@ GetReservationPurchaseRecommendationPaginatorName = Literal[
 ]
 GetRightsizingRecommendationPaginatorName = Literal["get_rightsizing_recommendation"]
 GranularityType = Literal["DAILY", "HOURLY", "MONTHLY"]
-GroupDefinitionTypeType = Literal["COST_CATEGORY", "DIMENSION", "TAG"]
+GroupDefinitionTypeType = Literal["COST_CATEGORY", "DIMENSION", "PRODUCT_ATTRIBUTE", "TAG"]
 ListCommitmentPurchaseAnalysesPaginatorName = Literal["list_commitment_purchase_analyses"]
 ListCostAllocationTagBackfillHistoryPaginatorName = Literal[
     "list_cost_allocation_tag_backfill_history"
@@ -391,13 +392,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -465,6 +465,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -599,6 +600,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -649,7 +651,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

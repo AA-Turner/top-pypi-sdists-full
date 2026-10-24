@@ -28,7 +28,7 @@ class BatchDocumentUpdate(BaseModel):
     Single document update specification for batch operations.  Represents one document's update within a batch request.
     """ # noqa: E501
     document_id: StrictStr = Field(description="REQUIRED. Document ID to update. Must exist in the collection. Format: 'doc_' prefix + alphanumeric characters.")
-    update_data: Dict[str, Any] = Field(description="REQUIRED. Fields to update for this specific document. Can update any document field except vectors. Supported fields: metadata, source_blobs, document_blobs, lineage fields (root_object_id, source_type, etc.), and any custom fields. Each document in the batch can have different update_data.")
+    update_data: Dict[str, Any] = Field(description="REQUIRED. Fields to update for this specific document. Can update any document field except vectors. Supported fields: metadata, source_blobs, document_blobs, lineage fields (root_object_id, source_type, etc.), and any custom fields. Each document in the batch can have different update_data. A dotted key sets one nested field and keeps its siblings: {'metadata.status': 'processed'} changes only metadata.status. A key without a dot replaces that whole top-level field, so {'metadata': {'status': 'processed'}} replaces the entire metadata object and drops its other keys. ")
     __properties: ClassVar[List[str]] = ["document_id", "update_data"]
 
     model_config = ConfigDict(

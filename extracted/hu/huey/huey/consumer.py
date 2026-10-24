@@ -180,7 +180,10 @@ class Scheduler(BaseProcess):
         else:
             for task in task_list:
                 self._logger.debug('Enqueueing %s', task)
-                self.huey.enqueue(task)
+                try:
+                    self.huey.enqueue(task)
+                except Exception:
+                    self._logger.exception('Error enqueueing %s.', task)
 
         if self.periodic and self._next_periodic <= time.monotonic():
             # If the scheduler stalled (e.g. suspend/resume), skip past any
@@ -196,7 +199,11 @@ class Scheduler(BaseProcess):
         self._logger.debug('Checking periodic tasks')
         for task in self.huey.read_periodic(now):
             self._logger.info('Enqueueing periodic task %s.', task)
-            self.huey.enqueue(task)
+            try:
+                self.huey.enqueue(task)
+            except Exception:
+                self._logger.exception('Error enqueueing periodic task %s.',
+                                       task)
 
 
 class Environment(object):
@@ -458,6 +465,10 @@ class Consumer(object):
 
         self._logger.info('\n'.join(msg))
 
+        # Forked children must not share the parent's storage connection.
+        if self.worker_type == WORKER_PROCESS:
+            self.huey.storage.close()
+
         # Start the scheduler and workers.
         self.scheduler.start()
         for _, worker_process in self.worker_threads:
@@ -551,21 +562,26 @@ class Consumer(object):
             self._logger.info('Consumer exiting.')
 
     def loop(self, health_check_ts=None):
+        # Do not touch the stop-flag after stop(). An interrupted worker may
+        # have exited holding its shared lock.
         try:
-            self.stop_flag.wait(timeout=self._stop_flag_timeout)
+            stopped = self.stop_flag.wait(timeout=self._stop_flag_timeout)
         except KeyboardInterrupt:
             self._logger.info('Received SIGINT')
             self.stop(graceful=True)
+            stopped = True
         except:
             self._logger.exception('Error in consumer.')
             self.stop()
+            stopped = True
         else:
             if self._received_signal:
                 self._logger.info('Received %s',
                                   signal.Signals(self._signum).name)
                 self.stop(graceful=self._graceful)
+                stopped = True
 
-        if self.stop_flag.is_set():
+        if stopped:
             # Flag to caller that the main consumer loop should shut down.
             raise ConsumerStopped
 

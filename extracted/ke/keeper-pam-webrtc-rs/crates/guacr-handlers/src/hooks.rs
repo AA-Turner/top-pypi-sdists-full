@@ -7,6 +7,7 @@
 
 use bytes::Bytes;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Receives raw outbound bytes from a guacr handler session.
@@ -47,7 +48,6 @@ pub type ThreatSignalRx = mpsc::Receiver<ThreatSignal>;
 /// Optional gateway hooks injected at session start.
 ///
 /// All fields are None — handlers run unchanged when passed the default.
-#[derive(Default)]
 pub struct SessionHooks {
     /// Receives raw outbound frames from the handler.
     /// Gateway implements FrameTap; guacr calls it before sending to client.
@@ -57,6 +57,19 @@ pub struct SessionHooks {
     /// None = non-blocking mode (default).
     /// Some = guacr checks at user-action boundaries (proactive mode).
     pub threat_rx: Option<ThreatSignalRx>,
+
+    /// Cancellation backstop after an adapter's forwarder seals output.
+    pub handler_finalization_timeout: Duration,
+}
+
+impl Default for SessionHooks {
+    fn default() -> Self {
+        Self {
+            frame_tap: None,
+            threat_rx: None,
+            handler_finalization_timeout: Duration::from_secs(30),
+        }
+    }
 }
 
 impl std::fmt::Debug for SessionHooks {
@@ -64,6 +77,10 @@ impl std::fmt::Debug for SessionHooks {
         f.debug_struct("SessionHooks")
             .field("frame_tap", &self.frame_tap.is_some())
             .field("threat_rx", &self.threat_rx.is_some())
+            .field(
+                "handler_finalization_timeout",
+                &self.handler_finalization_timeout,
+            )
             .finish()
     }
 }

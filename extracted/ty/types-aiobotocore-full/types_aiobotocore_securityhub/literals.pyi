@@ -42,6 +42,7 @@ __all__ = (
     "ConnectorStatusType",
     "ControlFindingGeneratorType",
     "ControlStatusType",
+    "CriticalitySourceTypeType",
     "CspmConnectorProviderNameType",
     "CspmConnectorStatusType",
     "CspmEnablementStatusType",
@@ -54,9 +55,16 @@ __all__ = (
     "DescribeStandardsPaginatorName",
     "DiscoveryTypeType",
     "EnablementStatusType",
+    "ExportDataTypeType",
+    "ExportFailureCodeType",
+    "ExportStatusType",
+    "ExposureImpactType",
+    "ExposureSeverityType",
     "FeatureNameType",
     "FeatureStatusType",
     "FindingHistoryUpdateSourceTypeType",
+    "FindingsExportFormatType",
+    "FindingsSelectableFieldType",
     "FindingsTrendsStringFieldType",
     "FreeTrialStatusValueType",
     "FreeTrialTypeType",
@@ -67,10 +75,12 @@ __all__ = (
     "GetFindingsV2PaginatorName",
     "GetInsightsPaginatorName",
     "GetRecommendedPolicyV2PaginatorName",
+    "GetRemediationsV2PaginatorName",
     "GetResourcesTrendsV2PaginatorName",
     "GetResourcesV2PaginatorName",
     "GranularityFieldType",
     "GroupByFieldType",
+    "GuidanceFormatType",
     "HealthIssueCodeType",
     "IntegrationTypeType",
     "IntegrationV2TypeType",
@@ -78,6 +88,8 @@ __all__ = (
     "ListConfigurationPoliciesPaginatorName",
     "ListConfigurationPolicyAssociationsPaginatorName",
     "ListEnabledProductsForImportPaginatorName",
+    "ListExportJobsV2PaginatorName",
+    "ListExposuresByRemediationV2PaginatorName",
     "ListFindingAggregatorsPaginatorName",
     "ListFreeTrialStatusesV2PaginatorName",
     "ListInvitationsPaginatorName",
@@ -105,7 +117,11 @@ __all__ = (
     "RecordStateType",
     "RegionAvailabilityStatusType",
     "RegionName",
+    "RemediationPriorityType",
+    "RemediationStatusType",
+    "RemediationStringFieldType",
     "ResourceCategoryType",
+    "ResourceCriticalityType",
     "ResourceGroupByFieldType",
     "ResourceServiceName",
     "ResourceSubCategoryType",
@@ -150,7 +166,9 @@ AssociationStatusType = Literal["DISABLED", "ENABLED"]
 AssociationTypeType = Literal["APPLIED", "INHERITED"]
 AutoEnableStandardsType = Literal["DEFAULT", "NONE"]
 AutomationRulesActionTypeType = Literal["FINDING_FIELDS_UPDATE"]
-AutomationRulesActionTypeV2Type = Literal["EXTERNAL_INTEGRATION", "FINDING_FIELDS_UPDATE"]
+AutomationRulesActionTypeV2Type = Literal[
+    "EXTERNAL_INTEGRATION", "FINDING_FIELDS_UPDATE", "RESOURCE_FIELDS_UPDATE"
+]
 AwsIamAccessKeyStatusType = Literal["Active", "Inactive"]
 AwsS3BucketNotificationConfigurationS3KeyFilterRuleNameType = Literal["Prefix", "Suffix"]
 BatchUpdateFindingsV2UnprocessedFindingErrorCodeType = Literal[
@@ -175,6 +193,7 @@ ConnectorStatusType = Literal[
 ]
 ControlFindingGeneratorType = Literal["SECURITY_CONTROL", "STANDARD_CONTROL"]
 ControlStatusType = Literal["DISABLED", "ENABLED"]
+CriticalitySourceTypeType = Literal["AutomationRule", "ResourceName", "TagInference"]
 CspmConnectorProviderNameType = Literal["AZURE"]
 CspmConnectorStatusType = Literal["CONNECTED", "DEGRADED", "FAILED_TO_CONNECT", "UNKNOWN"]
 CspmEnablementStatusType = Literal[
@@ -197,9 +216,126 @@ EnablementStatusType = Literal[
     "PENDING_ENABLEMENT",
     "PENDING_UPDATE",
 ]
+ExportDataTypeType = Literal["FINDINGS"]
+ExportFailureCodeType = Literal["ACCESS_DENIED", "INTERNAL_ERROR", "RESOURCE_NOT_FOUND"]
+ExportStatusType = Literal["CANCELLED", "FAILED", "RUNNING", "SUCCEEDED"]
+ExposureImpactType = Literal["Reduces", "Resolves", "Unchanged"]
+ExposureSeverityType = Literal["Critical", "High", "Informational", "Low", "Medium"]
 FeatureNameType = Literal["NETWORK_SCANNING"]
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 FindingHistoryUpdateSourceTypeType = Literal["BATCH_IMPORT_FINDINGS", "BATCH_UPDATE_FINDINGS"]
+FindingsExportFormatType = Literal["CSV", "OCSF_JSON"]
+FindingsSelectableFieldType = Literal[
+    "activity_id",
+    "activity_name",
+    "class_name",
+    "cloud.account.name",
+    "cloud.account.uid",
+    "cloud.provider",
+    "cloud.region",
+    "comment",
+    "compliance.assessments.category",
+    "compliance.assessments.meets_criteria",
+    "compliance.assessments.name",
+    "compliance.control",
+    "compliance.control_parameters",
+    "compliance.standards",
+    "compliance.status",
+    "compliance.status_id",
+    "confidence_score",
+    "databucket.encryption_details.algorithm",
+    "databucket.encryption_details.key_uid",
+    "databucket.file.data_classifications.classifier_details.type",
+    "databucket.tags",
+    "evidences.actor.user.account.uid",
+    "evidences.api.operation",
+    "evidences.api.response.code",
+    "evidences.api.response.error_message",
+    "evidences.api.service.name",
+    "evidences.connection_info.direction",
+    "evidences.connection_info.protocol_name",
+    "evidences.dst_endpoint.autonomous_system.name",
+    "evidences.dst_endpoint.autonomous_system.number",
+    "evidences.dst_endpoint.ip",
+    "evidences.dst_endpoint.location.city",
+    "evidences.dst_endpoint.location.country",
+    "evidences.dst_endpoint.port",
+    "evidences.src_endpoint.autonomous_system.name",
+    "evidences.src_endpoint.autonomous_system.number",
+    "evidences.src_endpoint.hostname",
+    "evidences.src_endpoint.ip",
+    "evidences.src_endpoint.location.city",
+    "evidences.src_endpoint.location.country",
+    "evidences.src_endpoint.port",
+    "finding_info.analytic.name",
+    "finding_info.created_time_dt",
+    "finding_info.desc",
+    "finding_info.first_seen_time_dt",
+    "finding_info.last_seen_time_dt",
+    "finding_info.modified_time_dt",
+    "finding_info.related_events.product.uid",
+    "finding_info.related_events.title",
+    "finding_info.related_events.traits.category",
+    "finding_info.related_events.uid",
+    "finding_info.related_events_count",
+    "finding_info.src_url",
+    "finding_info.tags",
+    "finding_info.title",
+    "finding_info.types",
+    "finding_info.uid",
+    "malware.name",
+    "malware.severity",
+    "malware_scan_info.uid",
+    "metadata.product.feature.uid",
+    "metadata.product.name",
+    "metadata.product.uid",
+    "metadata.product.vendor_name",
+    "metadata.uid",
+    "remediation.desc",
+    "remediation.references",
+    "resources.cloud_function.layers.uid_alt",
+    "resources.cloud_function.runtime",
+    "resources.cloud_function.user.uid",
+    "resources.cloud_partition",
+    "resources.device.encryption_details.key_uid",
+    "resources.device.image.uid",
+    "resources.image.architecture",
+    "resources.image.created_time_dt",
+    "resources.image.in_use_count",
+    "resources.image.last_used_time_dt",
+    "resources.image.registry_uid",
+    "resources.image.repository_name",
+    "resources.image.uid",
+    "resources.modified_time_dt",
+    "resources.name",
+    "resources.owner.account.name",
+    "resources.owner.account.uid",
+    "resources.owner.org.uid",
+    "resources.provider",
+    "resources.region",
+    "resources.subnet_info.uid",
+    "resources.tags",
+    "resources.type",
+    "resources.uid",
+    "resources.vpc_uid",
+    "severity",
+    "severity_id",
+    "status",
+    "status_id",
+    "vendor_attributes.severity",
+    "vendor_attributes.severity_id",
+    "vulnerabilities.affected_code.file.path",
+    "vulnerabilities.affected_packages.name",
+    "vulnerabilities.cve.cvss.base_score",
+    "vulnerabilities.cve.cvss.vendor_name",
+    "vulnerabilities.cve.cvss.version",
+    "vulnerabilities.cve.epss.score",
+    "vulnerabilities.cve.uid",
+    "vulnerabilities.fix_coverage",
+    "vulnerabilities.is_exploit_available",
+    "vulnerabilities.is_fix_available",
+    "vulnerabilities.related_vulnerabilities",
+]
 FindingsTrendsStringFieldType = Literal[
     "account_id",
     "finding_activity_name",
@@ -225,6 +361,7 @@ GetFindingsTrendsV2PaginatorName = Literal["get_findings_trends_v2"]
 GetFindingsV2PaginatorName = Literal["get_findings_v2"]
 GetInsightsPaginatorName = Literal["get_insights"]
 GetRecommendedPolicyV2PaginatorName = Literal["get_recommended_policy_v2"]
+GetRemediationsV2PaginatorName = Literal["get_remediations_v2"]
 GetResourcesTrendsV2PaginatorName = Literal["get_resources_trends_v2"]
 GetResourcesV2PaginatorName = Literal["get_resources_v2"]
 GranularityFieldType = Literal["Daily", "Monthly", "Weekly"]
@@ -243,10 +380,13 @@ GroupByFieldType = Literal[
     "finding_info.related_events.traits.category",
     "finding_info.title",
     "finding_info.types",
+    "impact",
+    "likelihood",
     "metadata.product.name",
     "metadata.product.uid",
     "metadata.product.vendor_name",
     "resources.cloud_partition",
+    "resources.criticality",
     "resources.name",
     "resources.owner.account.name",
     "resources.owner.account.uid",
@@ -260,6 +400,9 @@ GroupByFieldType = Literal[
     "vendor_attributes.severity",
     "vulnerabilities.affected_packages.name",
     "vulnerabilities.fix_coverage",
+]
+GuidanceFormatType = Literal[
+    "All", "AwsCli", "Cdk", "Cli", "CloudFormation", "IaC", "Python", "Template", "Terraform"
 ]
 HealthIssueCodeType = Literal[
     "AUTHENTICATION_FAILURE",
@@ -285,6 +428,8 @@ ListAggregatorsV2PaginatorName = Literal["list_aggregators_v2"]
 ListConfigurationPoliciesPaginatorName = Literal["list_configuration_policies"]
 ListConfigurationPolicyAssociationsPaginatorName = Literal["list_configuration_policy_associations"]
 ListEnabledProductsForImportPaginatorName = Literal["list_enabled_products_for_import"]
+ListExportJobsV2PaginatorName = Literal["list_export_jobs_v2"]
+ListExposuresByRemediationV2PaginatorName = Literal["list_exposures_by_remediation_v2"]
 ListFindingAggregatorsPaginatorName = Literal["list_finding_aggregators"]
 ListFreeTrialStatusesV2PaginatorName = Literal["list_free_trial_statuses_v2"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
@@ -385,6 +530,8 @@ OcsfStringFieldType = Literal[
     "finding_info.title",
     "finding_info.types",
     "finding_info.uid",
+    "impact",
+    "likelihood",
     "malware.name",
     "malware.severity",
     "malware_scan_info.uid",
@@ -398,6 +545,7 @@ OcsfStringFieldType = Literal[
     "resources.cloud_function.runtime",
     "resources.cloud_function.user.uid",
     "resources.cloud_partition",
+    "resources.criticality",
     "resources.device.encryption_details.key_uid",
     "resources.device.image.uid",
     "resources.image.architecture",
@@ -432,9 +580,20 @@ RecommendationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 RecommendationTypeType = Literal["UNUSED_PERMISSION_RECOMMENDATION"]
 RecordStateType = Literal["ACTIVE", "ARCHIVED"]
 RegionAvailabilityStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
+RemediationPriorityType = Literal["Critical", "High", "Low", "Medium"]
+RemediationStatusType = Literal["New", "Resolved", "Updated"]
+RemediationStringFieldType = Literal[
+    "Priority",
+    "Resource.CloudProvider",
+    "Resource.Id",
+    "Resource.ResourceOwnerAccountId",
+    "Resource.Type",
+    "Status",
+]
 ResourceCategoryType = Literal[
     "AI/ML", "Code", "Compute", "Database", "Identity", "Messaging", "Network", "Other", "Storage"
 ]
+ResourceCriticalityType = Literal["High", "Low", "Medium", "Unknown", "Very High"]
 ResourceGroupByFieldType = Literal[
     "AccountId",
     "AccountName",
@@ -443,6 +602,7 @@ ResourceGroupByFieldType = Literal[
     "Region",
     "ResourceCategory",
     "ResourceCloudPartition",
+    "ResourceCriticality",
     "ResourceInfo.AIDetails.CanonicalId",
     "ResourceInfo.AIDetails.HostResourceType",
     "ResourceName",
@@ -496,6 +656,7 @@ ResourcesStringFieldType = Literal[
     "Region",
     "ResourceCategory",
     "ResourceCloudPartition",
+    "ResourceCriticality",
     "ResourceGuid",
     "ResourceId",
     "ResourceInfo.AIDetails.CanonicalId",
@@ -727,13 +888,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -801,6 +961,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -935,6 +1096,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -985,7 +1147,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -1025,12 +1186,15 @@ PaginatorName = Literal[
     "get_findings_v2",
     "get_insights",
     "get_recommended_policy_v2",
+    "get_remediations_v2",
     "get_resources_trends_v2",
     "get_resources_v2",
     "list_aggregators_v2",
     "list_configuration_policies",
     "list_configuration_policy_associations",
     "list_enabled_products_for_import",
+    "list_export_jobs_v2",
+    "list_exposures_by_remediation_v2",
     "list_finding_aggregators",
     "list_free_trial_statuses_v2",
     "list_invitations",

@@ -414,7 +414,19 @@ def _daemon_rows(caps: Capabilities | None = None) -> list[str]:
     errors_seen = daemon_error_lines()
     for index, line in enumerate(errors_seen):
         rows.append(_row("Recent errors" if index == 0 else "", line[:200]))
+    rows.append(_row("Diagnostic reports", _diagnostic_reports()))
     return rows
+
+
+def _diagnostic_reports() -> str:
+    """Whether the daemon and the Probe service send the Probe team a report
+    when they misbehave (`probe.core.report`), and the last one sent."""
+    try:
+        from probe.core import report
+
+        return report.doctor_row()
+    except Exception:  # noqa: BLE001 - a diagnostic must never crash
+        return "unknown"
 
 
 def _who_records_rows() -> list[str]:
@@ -665,6 +677,13 @@ def service_rows(view: dict) -> list[str]:
         view.get("runs") or [],
         lambda r: f"{r.get('run')} (pid {r.get('pid')}, since {service_calls.when(r.get('since'))})",
     )
+    imports = view.get("imports") or []
+    if imports:
+        listed(
+            "Imports running",
+            imports,
+            lambda i: f"{_short(i.get('job_id'))} (pid {i.get('pid')}, since {service_calls.when(i.get('since'))})",
+        )
     update = view.get("update") or {}
     rows.append(_row("Updates", service_calls.update_text(update)))
     if update.get("deferred_reason"):
@@ -764,7 +783,12 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
     lines.append("Session capture")
     tap_name = TAP_PLUGIN_NAME
     lines.append(_row("Plugin", tap_name if caps.capture_plugin_installed else _MISSING))
-    lines.append(_row("Status", "capturing" if caps.capture_on else _OFF))
+    capture_status = "capturing" if caps.capture_on else _OFF
+    if caps.capture_on and caps.capture_python_missing:
+        # Installed, paired and switched on, and still nothing records: the tap
+        # found no interpreter to run on (`capture_python_missing`).
+        capture_status = f"not running: needs Python 3.11 or newer ({caps.capture_python_missing})"
+    lines.append(_row("Status", capture_status))
     if caps.capture_device_id:
         lines.append(_row("Paired device", caps.capture_device_id))
     if caps.capture_killswitched:
@@ -863,6 +887,23 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
             lines.append(_row("Paused", "yes (`probe outbox resume`)"))
         if status.get("last_error"):
             lines.append(_row("Last error", str(status["last_error"])))
+        rescue = status.get("rescue") or {}
+        for fp, writes in (rescue.get("rescued") or {}).items():
+            lines.append(
+                _row("Rescued", f"credential {fp}: {writes} write(s) of a revoked token, sending "
+                     "with your login (same team and user)")
+            )
+        if rescue.get("adopted_waiting") and not rescue.get("rescued"):
+            waiting = rescue["adopted_waiting"]
+            lines.append(
+                _row("Rescued earlier", f"{waiting} write(s) queued to go out with your login; "
+                     "`probe outbox drain` says why any stay")
+            )
+        for fp, why in (rescue.get("cannot_rescue") or {}).items():
+            lines.append(
+                _row("Stranded", f"credential {fp}: cannot be sent with your login ({why}); "
+                     "`probe outbox status` says what to do")
+            )
 
     if caps.warnings:
         lines.append("")
@@ -1169,6 +1210,13 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
     tap_warning = tap_behind_warning(version_rows)
     if tap_warning:
         warnings.append(tap_warning)
+    python_missing = capture_python_missing(selected_agent)
+    if python_missing:
+        warnings.append(
+            "session capture cannot run: it needs Python 3.11 or newer, and the last "
+            f"session start found {python_missing}. Install Python 3.11 or newer, "
+            "then start a new session."
+        )
     return Capabilities(
         # Not `__version__`: after the wizard's own Update that is the number
         # this process started with, while the Versions block above it grades
@@ -1193,6 +1241,7 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
         capture_token_sources=sources,
         capture_credential_valid=credential_valid,
         capture_killswitched=(tap_plugin_dir(selected_agent) / ".disabled").exists(),
+        capture_python_missing=python_missing,
         capture_device_id=capture_device_id(selected_agent),
         capture_last_stop=_capture_last_stop(),
         mcp_authenticated=mcp_authenticated,
@@ -1245,6 +1294,28 @@ def _capture_last_stop() -> str | None:
         return capture.describe_last_stop()
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
         return None
+
+
+#: Left in the tap's state folder by its SessionStart when it found no Python
+#: 3.11+ to run the tap on (`hooks/tap-python.sh` TAP_PYTHON_MISSING), holding
+#: what it found instead; removed by the next one that finds one.
+TAP_PYTHON_MISSING = ".python-missing"
+
+
+def capture_python_missing(source: str) -> str | None:
+    """What the tap's last SessionStart found instead of a Python 3.11+
+    ("python3 3.9.6", "no python3"), or None when it found one.
+
+    The hook is the one that knows: it resolves the interpreter the way it runs
+    the tap, so this reads its verdict rather than guessing at its search."""
+    from probe.cli.capabilities import tap_plugin_dir
+
+    try:
+        text = (tap_plugin_dir(source) / TAP_PYTHON_MISSING).read_text(encoding="utf-8")
+    except (OSError, KeyError, ValueError):  # no tap for this agent, no file, not text
+        return None
+    lines = text.strip().splitlines()
+    return (lines[0].strip()[:80] if lines else "") or "no python3 that runs"
 
 
 def _agent_version(source: str) -> str | None:
@@ -1311,9 +1382,51 @@ def _live_runs() -> list[str]:
 
 
 def _outbox_status() -> dict | None:
+    """The outbox's status.json, read only (`collect` runs from `probe
+    status`, which promises no request and no process)."""
     try:
         from probe.sdk.journal import Journal
 
         return Journal.read_status()
+    except Exception:  # noqa: BLE001 - a diagnostic must never crash
+        return None
+
+
+def rescue_outbox() -> dict | None:
+    """`probe doctor`'s fix: rescue, now, writes stranded under a dead
+    credential of the logged-in account (`journal.rescue_stranded`; any
+    `probe` command does it by itself every 10 minutes) and start sending
+    them in the background. Under the one rescue lock; None when there is
+    nothing to say, or another rescue is running."""
+    try:
+        from probe.sdk import outbox_worker
+        from probe.sdk.journal import (
+            Journal,
+            _stored_login_fingerprint,
+            _try_lock,
+            rescue_lock_path,
+            rescue_stranded,
+        )
+
+        root = Journal()
+        if not outbox_worker.rescue_enabled() or root.paused:
+            return None
+        login = _stored_login_fingerprint(None)
+        here = set(outbox_worker.env_fingerprints()) | ({login} if login else set())
+        lock = rescue_lock_path()
+        lock.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with _try_lock(lock) as mine:
+            if not mine:
+                return None
+            report = rescue_stranded(root, here=here)
+        if report.rescued or report.adopted_waiting:
+            outbox_worker.spawn_rescuer(root)
+        if not (report.rescued or report.refused or report.adopted_waiting):
+            return None
+        return {
+            "rescued": dict(report.rescued),
+            "cannot_rescue": {fp: str(why) for fp, why in report.refused.items()},
+            "adopted_waiting": report.adopted_waiting,
+        }
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
         return None

@@ -980,10 +980,17 @@ class Client:
         #: Where the token came from, which is the ONLY place a refresh may look
         #: again: "env" re-reads PROBE_TOKEN alone (never the stored login, which
         #: can be another account on a shared box), "config" re-reads this
-        #: context's stored token. None: passed in code, never re-read.
+        #: context's stored token. None: passed in code, never re-read. A
+        #: PROBE_TOKEN that is a copy of the stored login IS the login
+        #: (`_is_the_stored_login`): a job that exported it keeps working after
+        #: a re-login instead of holding a revoked token until restarted.
         self._credential_source: str | None = None
         if self._ambient_credentials and self.settings.token:
-            self._credential_source = "env" if os.environ.get("PROBE_TOKEN") else "config"
+            self._credential_source = "config"
+            if os.environ.get("PROBE_TOKEN") and not self._is_the_login(
+                config_module.current_context_name() or None
+            ):
+                self._credential_source = "env"
         self._credential_lock = threading.Lock()
         self._credential_checked_at = float("-inf")
         self._credential_stale_warned = False
@@ -1126,6 +1133,17 @@ class Client:
             stamp = self._credential_stamp(name)
             if stamp is not None:
                 self.journal.context["principal"] = stamp
+                if (
+                    self.async_writes
+                    and stamp["source"] in (CredentialSource.ENV, CredentialSource.CODE)
+                    and not os.environ.get("PROBE_OUTBOX_WORKER")
+                    and surface != Surface.CLI.value  # one command: gone in a moment
+                ):
+                    # Who holds a credential only it can send with, for
+                    # `probe outbox status` when its writes wait.
+                    from .journal import record_holder
+
+                    record_holder(stamp["fingerprint"])
                 if (
                     journal is None
                     and stamp["source"] in (CredentialSource.ENV, CredentialSource.CODE)
@@ -2294,18 +2312,73 @@ class Client:
 
     def _is_the_stored_login(self, context_name: str | None) -> bool:
         """Whether this client's credential IS the context's stored login, by
-        value, however it arrived (a `PROBE_TOKEN` set to the same token, say).
-        Its writes then stay in the shared queue: every drainer, older ones
-        included, sends them with that same token, and they keep their order
-        against the stored login's own writes -- a close queued there cannot
-        overtake them (#2041 round 3)."""
-        token, ingest = self.settings.token, self.settings.ingest_token
+        value, however it arrived (a `PROBE_TOKEN` set to the same token, say),
+        for the same server. Its writes then stay in the shared queue: every
+        drainer, older ones included, sends them with that same token, and
+        they keep their order against the stored login's own writes -- a close
+        queued there cannot overtake them (#2041 round 3). They are stamped as
+        the login (`_credential_stamp`) and this client re-reads the login
+        after a refusal (`_credential_source`), so a re-login carries them on.
+        The one test all three ask, so they cannot disagree."""
         try:
             stored = config_module.load_context(context_name)
         except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
             return False
+        return self._matches_login(stored, same_server=True)
+
+    def _is_the_login(self, context_name: str | None) -> bool:
+        """`_is_the_stored_login`, or a copy of it that a client of this process
+        found when it started: after a re-login the copy no longer equals the
+        login, and a later client of the same job (`probe.init()` in a sweep)
+        must not then take it for a token of its own (`outbox_worker._COPIED_LOGINS`).
+        Records the copy -- token and ingest token -- when it is one, so the
+        workers this process starts never inherit it."""
+        from . import outbox_worker
+
+        token, ingest = self.settings.token, self.settings.ingest_token
+        if self._is_the_stored_login(context_name):
+            for fingerprint, var, value in (
+                (credential_fingerprint(token, None), "PROBE_TOKEN", token),
+                (credential_fingerprint(None, ingest), "PROBE_INGEST_TOKEN", ingest),
+            ):
+                if value and os.environ.get(var) == value:
+                    outbox_worker.note_copied_login(fingerprint)
+            return True
+        if not token:
+            return False
+        fingerprint = credential_fingerprint(token, None)
+        here = (self.settings.base_url or "").rstrip("/")
+        if outbox_worker.is_copied_login(fingerprint):
+            try:  # a copy of THIS server's login
+                stored = config_module.load_context(context_name)
+            except Exception:  # noqa: BLE001
+                return False
+            base = (stored.get("base_url") or config_module.DEFAULT_BASE_URL).rstrip("/")
+            return base == here
+        # Another process of the job, after the re-login: this machine
+        # recorded the token as its stored login for this server
+        # (`journal.record_account`'s ``login_of``) AND as the account the
+        # login stored now is -- never another context's or another person's.
+        from .journal import was_login
+
+        try:
+            identity = config_module.load_context(context_name).get("identity") or {}
+        except Exception:  # noqa: BLE001
+            identity = {}
+        account = (identity.get("customer_id"), identity.get("user_id"))
+        if all(account) and was_login(fingerprint, here, account=account):
+            outbox_worker.note_copied_login(fingerprint)
+            return True
+        return False
+
+    def _matches_login(self, stored: dict, *, same_server: bool) -> bool:
+        token, ingest = self.settings.token, self.settings.ingest_token
         if not (token or ingest):
             return False
+        if same_server:
+            base = (stored.get("base_url") or config_module.DEFAULT_BASE_URL).rstrip("/")
+            if base != (self.settings.base_url or "").rstrip("/"):
+                return False
         return (not token or token == stored.get("token")) and (
             not ingest or ingest == stored.get("ingest_token")
         )
@@ -2315,10 +2388,13 @@ class Client:
         where it came from and a fingerprint of it, never the token (#2035).
 
         Told apart by VALUE, not by which argument carried it: a token equal to
-        this environment's ``PROBE_TOKEN`` is an env credential however it got
-        here, and one equal to this context's stored login is that login. Only
-        a stored-login op may later go out with a NEW login of its context (a
-        re-login); see `journal._settings_for_op`.
+        this context's stored login is that login, a `PROBE_TOKEN` copied from
+        it included (a job told to export `config.json`'s token: its writes
+        were stamped env and stranded by the next re-login, a customer's
+        9,000 writes on 2026-10-23); any other token equal to this
+        environment's ``PROBE_TOKEN`` is an env credential however it got here.
+        Only a stored-login op may later go out with a NEW login of its context
+        (a re-login); see `journal._settings_for_op`.
         """
         token, ingest = self.settings.token, self.settings.ingest_token
         fingerprint = credential_fingerprint(token, ingest)
@@ -2329,11 +2405,12 @@ class Client:
             stored = config_module.load_context(context_name)
         except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
             stored = {}
-        if (token and token == env["PROBE_TOKEN"]) or (ingest and ingest == env["PROBE_INGEST_TOKEN"]):
+        from_env = (token and token == env["PROBE_TOKEN"]) or (
+            ingest and ingest == env["PROBE_INGEST_TOKEN"]
+        )
+        if from_env and not self._is_the_login(context_name):
             source = CredentialSource.ENV
-        elif (not token or token == stored.get("token")) and (
-            not ingest or ingest == stored.get("ingest_token")
-        ):
+        elif from_env or self._matches_login(stored, same_server=False):
             source = CredentialSource.CONFIG
         else:
             source = CredentialSource.CODE
@@ -2532,23 +2609,36 @@ class Client:
         self._credential_identity_started = True
         try:
             token = self.settings.token
-            who = self._whoami(token)
+            seen: dict = {}
+            who = self._whoami(token, seen=seen)
             if who is not None:
                 self._credential_identity = who
                 self._stamp_account(token, who)
-                from .journal import record_account
+                from .journal import _login_base_of, record_account
 
-                record_account(credential_fingerprint(token, None), who)
+                record_account(
+                    credential_fingerprint(token, None),
+                    who,
+                    scopes=seen.get("scopes"),  # [] stays [] (no scope), absent stays None
+                    # A login (stored, or copied into PROBE_TOKEN): any later
+                    # process holding the copy is taken for the login too.
+                    login_of=(
+                        _login_base_of(self.journal.context, self.settings.base_url)
+                        if self._credential_source == "config"
+                        else None
+                    ),
+                )
         except Exception:  # noqa: BLE001 -- unknown stays None; a thread traceback would reach stderr
             pass
         finally:
             self._credential_identity_ready.set()
 
-    def _whoami(self, token: str | None) -> tuple[str, str] | None:
+    def _whoami(self, token: str | None, *, seen: dict | None = None) -> tuple[str, str] | None:
         """(customer_id, user_id) that ``token`` belongs to: ONE attempt with a
         5 s timeout and no retries (the flush() or beat waiting on it must not
         sit through the transport's full retry budget). None when unknown.
-        Raises what the request raised."""
+        ``seen``, when given, gets the token's ``scopes`` when `/v1/me` named
+        them (an empty list included). Raises what the request raised."""
         import copy
 
         probe_transport = copy.copy(self.transport)
@@ -2557,6 +2647,8 @@ class Client:
         probe_transport.max_retries = 0
         response = probe_transport.request("GET", "/v1/me", idempotent=True, timeout=5.0)
         who = response.json() if response.content else {}
+        if seen is not None and isinstance(who.get("scopes"), list):
+            seen["scopes"] = [str(s) for s in who["scopes"]]
         if who.get("customer_id") and who.get("user_id"):
             return str(who["customer_id"]), str(who["user_id"])
         return None
@@ -2564,13 +2656,17 @@ class Client:
     def _different_account(self, candidate: str) -> str | None:
         """None when ``candidate`` belongs to the account this client started
         with, else why it may not be adopted. Asks `/v1/me` WITH the candidate."""
-        if not self._credential_identity_started:
-            return (
-                "the account the process started as is unknown (it was never looked up), "
-                "so a new login cannot be matched to it"
-            )
-        self._credential_identity_ready.wait(timeout=5.0)
-        started_as = self._credential_identity
+        started_as = None
+        if self._credential_identity_started:
+            self._credential_identity_ready.wait(timeout=5.0)
+            started_as = self._credential_identity
+        if started_as is None:
+            # Looked up too late (the token was already dead), or never: what
+            # this machine recorded for the token when it still worked -- one
+            # token is one account (`journal.record_account`).
+            from .journal import recorded_account
+
+            started_as = recorded_account(credential_fingerprint(self.settings.token, None))
         if started_as is None:
             return "the account the process started as is unknown, so a new login cannot be matched to it"
         try:
@@ -2944,10 +3040,13 @@ class Client:
         """
         from .device import device_authorize
 
+        # A named token is for another machine or a job: it must not take this
+        # machine's device slot, or minting it signs this machine out.
         return device_authorize(
             self.settings.base_url,
             scopes=scopes,
             token_name=name,
+            bind_device=False,
             open_browser=open_browser,
             on_prompt=on_prompt,
         )

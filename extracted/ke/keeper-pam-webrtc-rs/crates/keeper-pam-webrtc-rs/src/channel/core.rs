@@ -1481,8 +1481,8 @@ impl Channel {
         let total_connections = self.conns.len();
         let remaining_connections = self.get_connection_ids_except(conn_no);
 
-        debug!("Closing connection - Connection summary (channel_id: {}, conversation_id: {}, conn_no: {}, reason: {:?}, error_message: {:?}, total_connections: {}, remaining_connections: {:?})",
-              self.channel_id, self.conversation_id, conn_no, reason, error_message, total_connections, remaining_connections);
+        debug!("Closing connection - Connection summary (channel_id: {}, conversation_id: {}, conn_no: {}, reason: {:?}, error_present: {}, total_connections: {}, remaining_connections: {:?})",
+              self.channel_id, self.conversation_id, conn_no, reason, error_message.is_some(), total_connections, remaining_connections);
 
         let mut buffer = self.buffer_pool.acquire();
         buffer.clear();

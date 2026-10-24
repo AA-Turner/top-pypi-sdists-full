@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.61.1
+Version: 0.61.2
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -150,7 +150,7 @@ with UnifiedTo(
             "currency": "CAD",
             "customer_defined_code": "6170",
             "description": "Voluptatibus valde spoliatio.",
-            "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+            "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
             "is_payable": False,
             "metadata": [],
             "name": "Auto Loan Account",
@@ -163,7 +163,7 @@ with UnifiedTo(
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+            "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
         },
         "connection_id": "<id>",
     })
@@ -200,7 +200,7 @@ async def main():
                 "currency": "CAD",
                 "customer_defined_code": "6170",
                 "description": "Voluptatibus valde spoliatio.",
-                "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+                "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
                 "is_payable": False,
                 "metadata": [],
                 "name": "Auto Loan Account",
@@ -213,7 +213,7 @@ async def main():
                     },
                 ],
                 "type": shared.Type.ACCOUNTS_RECEIVABLE,
-                "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+                "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
             },
             "connection_id": "<id>",
         })
@@ -2965,7 +2965,7 @@ with UnifiedTo(
             "currency": "CAD",
             "customer_defined_code": "6170",
             "description": "Voluptatibus valde spoliatio.",
-            "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+            "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
             "is_payable": False,
             "metadata": [],
             "name": "Auto Loan Account",
@@ -2978,7 +2978,7 @@ with UnifiedTo(
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+            "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
         },
         "connection_id": "<id>",
     },
@@ -3012,7 +3012,7 @@ with UnifiedTo(
             "currency": "CAD",
             "customer_defined_code": "6170",
             "description": "Voluptatibus valde spoliatio.",
-            "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+            "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
             "is_payable": False,
             "metadata": [],
             "name": "Auto Loan Account",
@@ -3025,7 +3025,7 @@ with UnifiedTo(
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+            "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
         },
         "connection_id": "<id>",
     })
@@ -3073,7 +3073,7 @@ with UnifiedTo(
                 "currency": "CAD",
                 "customer_defined_code": "6170",
                 "description": "Voluptatibus valde spoliatio.",
-                "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+                "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
                 "is_payable": False,
                 "metadata": [],
                 "name": "Auto Loan Account",
@@ -3086,7 +3086,7 @@ with UnifiedTo(
                     },
                 ],
                 "type": shared.Type.ACCOUNTS_RECEIVABLE,
-                "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+                "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
             },
             "connection_id": "<id>",
         })
@@ -3164,7 +3164,7 @@ with UnifiedTo(
             "currency": "CAD",
             "customer_defined_code": "6170",
             "description": "Voluptatibus valde spoliatio.",
-            "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+            "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
             "is_payable": False,
             "metadata": [],
             "name": "Auto Loan Account",
@@ -3177,7 +3177,7 @@ with UnifiedTo(
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+            "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
         },
         "connection_id": "<id>",
     })
@@ -3212,7 +3212,7 @@ with UnifiedTo(
             "currency": "CAD",
             "customer_defined_code": "6170",
             "description": "Voluptatibus valde spoliatio.",
-            "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+            "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
             "is_payable": False,
             "metadata": [],
             "name": "Auto Loan Account",
@@ -3225,7 +3225,7 @@ with UnifiedTo(
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+            "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
         },
         "connection_id": "<id>",
     })
@@ -3368,7 +3368,7 @@ with UnifiedTo(
             "currency": "CAD",
             "customer_defined_code": "6170",
             "description": "Voluptatibus valde spoliatio.",
-            "id": "cb3a2ec1-34de-48ca-b8c2-f9589889220e",
+            "id": "834f9bf6-e287-4fe6-8831-2e93690e9680",
             "is_payable": False,
             "metadata": [],
             "name": "Auto Loan Account",
@@ -3381,7 +3381,7 @@ with UnifiedTo(
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-07T10:10:07.093Z"),
+            "updated_at": parse_datetime("2023-08-07T15:04:20.415Z"),
         },
         "connection_id": "<id>",
     })

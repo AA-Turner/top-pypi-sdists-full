@@ -49,6 +49,7 @@ dependencies = [
     "fastmcp==3.2.0",
     "jsonschema==4.23.0",
     "typesafe-sdk==0.7.2",
+    "pillow>=12.2.0,<13",
 ]
 
 [project.scripts]
@@ -67,7 +68,9 @@ test-harness-agent = "plato.agents.testing.harness_agent:TestHarnessAgent"
 
 [project.optional-dependencies]
 dev = ["pytest>=9.1.1", "pytest-asyncio>=0.21", "ruff>=0.1", "basedpyright>=1.18"]
-segmentation = ["numpy>=1.24.0", "Pillow>=10.0.0"]
+segmentation = [
+    "numpy>=1.24.0",
+]
 worlds = ["dvc", "dvc-s3"]
 db-cleanup = [
     "sqlalchemy[asyncio]>=2.0",

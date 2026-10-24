@@ -25,13 +25,13 @@ use std::collections::hash_map::Entry as HashEntry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow_array::builder::{Date32Builder, Float64Builder, Int32Builder, StringBuilder};
 use arrow_array::RecordBatch;
+use arrow_array::builder::{Date32Builder, Float64Builder, Int32Builder, StringBuilder};
 use arrow_schema::{DataType, Field, Schema};
 use chrono::NaiveDate;
 use xbbg_async::engine::state::{
-    FieldExceptionMeta, SecurityErrorMeta, METADATA_KEY_FIELD_EXCEPTIONS,
-    METADATA_KEY_SECURITY_ERRORS,
+    FieldExceptionMeta, METADATA_KEY_FIELD_EXCEPTIONS, METADATA_KEY_SECURITY_ERRORS,
+    SecurityErrorMeta,
 };
 use xbbg_async::engine::{Engine, RequestParams};
 use xbbg_async::services::{Operation, Service};
@@ -942,20 +942,6 @@ fn history_schema() -> Arc<Schema> {
     ]))
 }
 
-fn append_string_opt(builder: &mut StringBuilder, value: Option<&str>) {
-    match value {
-        Some(value) => builder.append_value(value),
-        None => builder.append_null(),
-    }
-}
-
-fn append_f64_opt(builder: &mut Float64Builder, value: Option<f64>) {
-    match value {
-        Some(value) => builder.append_value(value),
-        None => builder.append_null(),
-    }
-}
-
 fn append_target(
     ticker: &mut StringBuilder,
     sector: &mut StringBuilder,
@@ -966,9 +952,9 @@ fn append_target(
     match target {
         Some(target) => {
             ticker.append_value(&target.ticker);
-            append_string_opt(sector, target.market_sector_des.as_deref());
-            append_string_opt(name, target.name.as_deref());
-            append_string_opt(error, target.validation_error.as_deref());
+            sector.append_option(target.market_sector_des.as_deref());
+            name.append_option(target.name.as_deref());
+            error.append_option(target.validation_error.as_deref());
         }
         None => {
             ticker.append_null();
@@ -1046,16 +1032,13 @@ fn build_snapshot_batch(
         match resolution.nav.as_ref() {
             Some(nav) => {
                 nav_ticker.append_value(&nav.ticker);
-                append_f64_opt(&mut nav_value, nav.px_last);
+                nav_value.append_option(nav.px_last);
                 nav_source_ticker.append_value(&nav.ticker);
                 nav_source_field.append_value(FIELD_PX_LAST);
             }
             None => {
                 nav_ticker.append_null();
-                append_f64_opt(
-                    &mut nav_value,
-                    fallback_values.get(&resolution.etf_ticker).copied(),
-                );
+                nav_value.append_option(fallback_values.get(&resolution.etf_ticker).copied());
                 nav_source_ticker.append_value(&resolution.etf_ticker);
                 nav_source_field.append_value(FIELD_FUND_NET_ASSET_VAL);
             }
@@ -1063,7 +1046,7 @@ fn build_snapshot_batch(
         match resolution.inav.as_ref() {
             Some(inav) => {
                 inav_ticker.append_value(&inav.ticker);
-                append_f64_opt(&mut inav_value, inav.px_last);
+                inav_value.append_option(inav.px_last);
             }
             None => {
                 inav_ticker.append_null();
@@ -1102,12 +1085,12 @@ fn build_history_batch(rows: &[HistoryRow]) -> Result<RecordBatch> {
         input_order.append_value(row.input_order);
         etf_ticker.append_value(&row.etf_ticker);
         date.append_value(naive_to_date32(row.date));
-        append_string_opt(&mut nav_ticker, row.nav_ticker.as_deref());
-        append_f64_opt(&mut nav_value, row.nav_value);
+        nav_ticker.append_option(row.nav_ticker.as_deref());
+        nav_value.append_option(row.nav_value);
         nav_source_ticker.append_value(&row.nav_source_ticker);
         nav_source_field.append_value(row.nav_source_field);
-        append_string_opt(&mut inav_ticker, row.inav_ticker.as_deref());
-        append_f64_opt(&mut inav_value, row.inav_value);
+        inav_ticker.append_option(row.inav_ticker.as_deref());
+        inav_value.append_option(row.inav_value);
     }
 
     Ok(RecordBatch::try_new(
@@ -1337,9 +1320,11 @@ mod tests {
 
         let error = prepare_etf_inputs(&[QQQ.to_string(), "   ".to_string()]).unwrap_err();
         assert!(matches!(error, RecipeError::InvalidArgument(_)));
-        assert!(error
-            .to_string()
-            .contains("ETF ticker at input_order 1 is empty"));
+        assert!(
+            error
+                .to_string()
+                .contains("ETF ticker at input_order 1 is empty")
+        );
     }
 
     #[test]
@@ -1364,9 +1349,11 @@ mod tests {
 
         let error = parse_history_range("2026-07-01", "2026-06-01").unwrap_err();
         assert!(matches!(error, RecipeError::InvalidArgument(_)));
-        assert!(error
-            .to_string()
-            .contains("end_date 2026-06-01 is before start_date 2026-07-01"));
+        assert!(
+            error
+                .to_string()
+                .contains("end_date 2026-06-01 is before start_date 2026-07-01")
+        );
 
         assert!(parse_history_range("not-a-date", "2026-07-01").is_err());
     }
@@ -1531,15 +1518,19 @@ mod tests {
 
         let malformed = with_metadata(&batch, &[(METADATA_KEY_SECURITY_ERRORS, "{not json")]);
         let error = parse_response_diagnostics(&malformed).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("invalid xbbg.security_errors metadata:"));
+        assert!(
+            error
+                .to_string()
+                .contains("invalid xbbg.security_errors metadata:")
+        );
 
         let malformed = with_metadata(&batch, &[(METADATA_KEY_FIELD_EXCEPTIONS, "[42]")]);
         let error = parse_response_diagnostics(&malformed).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("invalid xbbg.field_exceptions metadata:"));
+        assert!(
+            error
+                .to_string()
+                .contains("invalid xbbg.field_exceptions metadata:")
+        );
     }
 
     #[test]
@@ -2059,9 +2050,11 @@ mod tests {
         assert_eq!(qqq_rows[1].inav_value, Some(500.5));
         assert_eq!(qqq_rows[2].nav_value, None);
         assert_eq!(qqq_rows[2].inav_value, Some(501.5));
-        assert!(qqq_rows
-            .iter()
-            .all(|row| row.nav_source_ticker == QQQ_NAV && row.nav_source_field == "PX_LAST"));
+        assert!(
+            qqq_rows
+                .iter()
+                .all(|row| row.nav_source_ticker == QQQ_NAV && row.nav_source_field == "PX_LAST")
+        );
 
         let at1_rows: Vec<_> = rows.iter().filter(|row| row.input_order == 1).collect();
         assert_eq!(
@@ -2083,10 +2076,12 @@ mod tests {
         // Duplicate inputs re-emit the same ordered series.
         let duplicate_rows: Vec<_> = rows.iter().filter(|row| row.input_order == 2).collect();
         assert_eq!(duplicate_rows.len(), at1_rows.len());
-        assert!(duplicate_rows
-            .iter()
-            .zip(&at1_rows)
-            .all(|(a, b)| a.date == b.date && a.nav_value == b.nav_value));
+        assert!(
+            duplicate_rows
+                .iter()
+                .zip(&at1_rows)
+                .all(|(a, b)| a.date == b.date && a.nav_value == b.nav_value)
+        );
 
         let batch = build_history_batch(&rows).unwrap();
         assert_eq!(batch.num_rows(), rows.len());

@@ -33,6 +33,7 @@ Usage::
         ListAssetTypesPaginator,
         ListBlueprintsPaginator,
         ListConnectionTypesPaginator,
+        ListDataQualityResultsV2Paginator,
         ListEntitiesPaginator,
         ListFormTypesPaginator,
         ListGlossariesPaginator,
@@ -77,6 +78,7 @@ Usage::
     list_asset_types_paginator: ListAssetTypesPaginator = client.get_paginator("list_asset_types")
     list_blueprints_paginator: ListBlueprintsPaginator = client.get_paginator("list_blueprints")
     list_connection_types_paginator: ListConnectionTypesPaginator = client.get_paginator("list_connection_types")
+    list_data_quality_results_v2_paginator: ListDataQualityResultsV2Paginator = client.get_paginator("list_data_quality_results_v2")
     list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
     list_form_types_paginator: ListFormTypesPaginator = client.get_paginator("list_form_types")
     list_glossaries_paginator: ListGlossariesPaginator = client.get_paginator("list_glossaries")
@@ -118,6 +120,7 @@ from .paginator import (
     ListAssetTypesPaginator,
     ListBlueprintsPaginator,
     ListConnectionTypesPaginator,
+    ListDataQualityResultsV2Paginator,
     ListEntitiesPaginator,
     ListFormTypesPaginator,
     ListGlossariesPaginator,
@@ -162,6 +165,7 @@ __all__ = (
     "ListAssetTypesPaginator",
     "ListBlueprintsPaginator",
     "ListConnectionTypesPaginator",
+    "ListDataQualityResultsV2Paginator",
     "ListEntitiesPaginator",
     "ListFormTypesPaginator",
     "ListGlossariesPaginator",

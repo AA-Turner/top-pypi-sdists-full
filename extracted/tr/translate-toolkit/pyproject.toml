@@ -6,44 +6,44 @@ requires = [
 
 [dependency-groups]
 dev = [
-  {include-group = "docs"},
-  {include-group = "lint"},
-  {include-group = "test"},
-  {include-group = "types"}
+  { include-group = "docs" },
+  { include-group = "lint" },
+  { include-group = "test" },
+  { include-group = "types" }
 ]
 docs = [
   # Do not attempt to build doc on older Python
-  "furo==2025.12.19; python_version >= '3.12'",
-  "matplotlib==3.11.1; python_version >= '3.12'",
-  "sphinx-copybutton==0.5.2; python_version >= '3.12'",
-  "Sphinx==9.1.0; python_version >= '3.12'",
-  "sphinxext-opengraph==0.13.0; python_version >= '3.12'"
+  "furo==2025.12.19; python_version >= '3.14'",
+  "matplotlib==3.11.2; python_version >= '3.14'",
+  "sphinx-copybutton==0.5.2; python_version >= '3.14'",
+  "Sphinx==9.2.0; python_version >= '3.14'",
+  "sphinxext-opengraph==0.13.0; python_version >= '3.14'"
 ]
 lint = [
-  {include-group = "pre-commit"},
-  {include-group = "pylint"}
+  { include-group = "pre-commit" },
+  { include-group = "pylint" }
 ]
 pre-commit = [
-  "prek==0.5.2"
+  "prek==0.5.5"
 ]
 pylint = [
-  "pylint==4.0.8"
+  "pylint==4.1.3"
 ]
 test = [
   "pytest-cov==7.1.0",
   "pytest-xdist==3.8.0",
   "pytest==9.1.1",
-  "syrupy==6.0.0"
+  "syrupy==6.1.1"
 ]
 types = [
   "setuptools>=61.2",
-  "ty==0.0.80",
+  "ty==0.0.91",
   "types-lxml==2026.2.16"
 ]
 
 [project]
 authors = [
-  {email = "translate-devel@lists.sourceforge.net", name = "Translate"}
+  { email = "translate-devel@lists.sourceforge.net", name = "Translate" }
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -53,20 +53,21 @@ classifiers = [
   "Operating System :: Microsoft :: Windows",
   "Operating System :: OS Independent",
   "Operating System :: Unix",
-  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Software Development :: Localization"
 ]
 dependencies = [
   "lxml>=6.1.0,<7.0",
-  "unicode-segmentation-rs>=0.2.0,<0.4"
+  "unicode-segmentation-rs>=0.2.0,<1.1"
 ]
 description = "Tools and API for translation and localization engineering."
 dynamic = [
@@ -395,6 +396,7 @@ ignore = [
   "FURB103",  # TODO: `open` and `write` should be replaced by `Path(outputfile.name).write_bytes(outputmo)`
   "FURB189",  # TODO: Subclassing `dict` can be error prone, use `collections.UserDict` instead
   "INP001",  # TODO: File is part of an implicit namespace package. Add an `__init__.py`.
+  'ISC001',  # CONFIG: formatter
   "N801",  # TODO: Class name should use CapWords convention
   "N802",  # TODO: Function name `FAIL` should be lowercase
   "N803",  # TODO: Argument name `attributeValue` should be lowercase
@@ -422,6 +424,10 @@ ignore = [
   "PT011",  # TODO: `pytest.raises(ValueError)` is too broad, set the `match` parameter or use a more specific exception
   "PT013",  # TODO: Found incorrect import of pytest, use simple `import pytest` instead
   "PTH",  # TODO: Not using pathlib for now
+  'Q000',  # CONFIG: formatter
+  'Q001',  # CONFIG: formatter
+  'Q002',  # CONFIG: formatter
+  'Q003',  # CONFIG: formatter
   "RUF001",  # WONTFIX: String contains ambiguous unicode character, we are using Unicode
   "RUF002",  # WONTFIX: Docstring contains ambiguous
   "RUF003",  # WONTFIX: Comment contains ambiguous
@@ -443,11 +449,6 @@ ignore = [
   "TD007",  # TODO: Missing space after colon in TODO
   "TID252",  # TODO: Relative imports from parent modules are banned
   "TRY003",  # WONTFIX: Avoid specifying long messages outside the exception class
-  'ISC001',  # CONFIG: formatter
-  'Q000',  # CONFIG: formatter
-  'Q001',  # CONFIG: formatter
-  'Q002',  # CONFIG: formatter
-  'Q003',  # CONFIG: formatter
   'W191'  # CONFIG: formatter
 ]
 preview = true
@@ -492,6 +493,10 @@ sort_inline_arrays = true
 sort_inline_tables = true
 sort_table_keys = true
 spaces_before_inline_comment = 2
+
+[tool.tomlsort.overrides."tool.pytest.ini_options.filterwarnings"]
+# Pytest applies the last matching filter, so preserve the warning precedence.
+inline_arrays = false
 
 [tool.typos.default]
 extend-ignore-re = [

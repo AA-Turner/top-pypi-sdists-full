@@ -25,7 +25,7 @@ pub fn unparse(code: &str, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 	}
 }
 
-/// Parse inline code.
+/// Parse inline code in either syntax.
 ///
 /// # Errors
 /// If the content does not begin with inline code.
@@ -34,18 +34,39 @@ pub fn code<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Erro
 where
 	E: ParseError<Input<'data>>,
 {
-	alt((
-		delimited(
-			tag(SINGLE_DELIMITER),
-			take_until1(SINGLE_DELIMITER),
-			tag(SINGLE_DELIMITER),
-		),
-		delimited(
-			tag(DOUBLE_DELIMITER),
-			take_until1(DOUBLE_DELIMITER),
-			tag(DOUBLE_DELIMITER),
-		),
-	))
+	alt((single(), double()))
+}
+
+/// Parse inline code delimited by [`SINGLE_DELIMITER`].
+///
+/// # Errors
+/// If the content does not begin with such code.
+#[must_use]
+pub fn single<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
+where
+	E: ParseError<Input<'data>>,
+{
+	delimited(
+		tag(SINGLE_DELIMITER),
+		take_until1(SINGLE_DELIMITER),
+		tag(SINGLE_DELIMITER),
+	)
+}
+
+/// Parse inline code delimited by [`DOUBLE_DELIMITER`], which can hold a single backtick.
+///
+/// # Errors
+/// If the content does not begin with such code.
+#[must_use]
+pub fn double<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
+where
+	E: ParseError<Input<'data>>,
+{
+	delimited(
+		tag(DOUBLE_DELIMITER),
+		take_until1(DOUBLE_DELIMITER),
+		tag(DOUBLE_DELIMITER),
+	)
 }
 
 #[cfg(test)]

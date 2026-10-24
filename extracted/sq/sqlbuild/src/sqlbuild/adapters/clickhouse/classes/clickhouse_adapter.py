@@ -51,6 +51,7 @@ from sqlbuild.adapter.contract.models import (
     RelationInfo,
     RelationReadProbe,
     RelationRowCountEstimate,
+    RelationUsageReport,
     RowDiffColumnResult,
     RowDiffCoverage,
     RowDiffPreparedRelations,
@@ -96,6 +97,7 @@ from sqlbuild.adapters.clickhouse._helpers.partition_rewrite import (
     generation_comment,
     rewrite_partitions,
 )
+from sqlbuild.adapters.clickhouse._helpers.relation_usage import read_relation_usage
 from sqlbuild.adapters.clickhouse._helpers.snapshot_rewrite import (
     nullable_offset_windows,
     rewrite_snapshot_statements,
@@ -665,6 +667,10 @@ class ClickHouseAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     def render_create_schema(self, *, database: str | None, schema: str) -> tuple[str, ...]:
         del database
         return (f"CREATE DATABASE IF NOT EXISTS {schema}",)
+
+    def render_drop_schema(self, *, database: str | None, schema: str) -> tuple[str, ...]:
+        del database
+        return (f"DROP DATABASE IF EXISTS {schema}",)
 
     def ensure_schema(
         self,
@@ -2305,6 +2311,21 @@ class ClickHouseAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     ) -> TableFreshnessMetadata:
         raise AdapterUserError(
             message=f"adapter '{self.adapter_name}' does not support table freshness metadata"
+        )
+
+    def relation_usage(
+        self,
+        *,
+        connection: Any,
+        relations: tuple[RelationInfo, ...],
+        window_seconds: int,
+    ) -> RelationUsageReport:
+        """Read candidate reads from this node's system.query_log."""
+
+        return read_relation_usage(
+            run_query=lambda sql: list(self.execute(connection=connection, sql=sql).fetchall()),
+            relations=relations,
+            window_seconds=window_seconds,
         )
 
     def get_tables_freshness_metadata(

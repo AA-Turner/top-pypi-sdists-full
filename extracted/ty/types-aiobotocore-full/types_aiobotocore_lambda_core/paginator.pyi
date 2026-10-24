@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_lambda_core.client import LambdaCoreClient
     from types_aiobotocore_lambda_core.paginator import (
+        ListNetworkConnectorVersionsPaginator,
         ListNetworkConnectorsPaginator,
     )
 
@@ -19,6 +20,7 @@ Usage::
     with session.create_client("lambda-core") as client:
         client: LambdaCoreClient
 
+        list_network_connector_versions_paginator: ListNetworkConnectorVersionsPaginator = client.get_paginator("list_network_connector_versions")
         list_network_connectors_paginator: ListNetworkConnectorsPaginator = client.get_paginator("list_network_connectors")
     ```
 """
@@ -33,6 +35,8 @@ from aiobotocore.paginate import AioPageIterator, AioPaginator
 from .type_defs import (
     ListNetworkConnectorsRequestPaginateTypeDef,
     ListNetworkConnectorsResponseTypeDef,
+    ListNetworkConnectorVersionsRequestPaginateTypeDef,
+    ListNetworkConnectorVersionsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -40,7 +44,27 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListNetworkConnectorsPaginator",)
+__all__ = ("ListNetworkConnectorVersionsPaginator", "ListNetworkConnectorsPaginator")
+
+if TYPE_CHECKING:
+    _ListNetworkConnectorVersionsPaginatorBase = AioPaginator[
+        ListNetworkConnectorVersionsResponseTypeDef
+    ]
+else:
+    _ListNetworkConnectorVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListNetworkConnectorVersionsPaginator(_ListNetworkConnectorVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-core/paginator/ListNetworkConnectorVersions.html#LambdaCore.Paginator.ListNetworkConnectorVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda_core/paginators/#listnetworkconnectorversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkConnectorVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListNetworkConnectorVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-core/paginator/ListNetworkConnectorVersions.html#LambdaCore.Paginator.ListNetworkConnectorVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda_core/paginators/#listnetworkconnectorversionspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListNetworkConnectorsPaginatorBase = AioPaginator[ListNetworkConnectorsResponseTypeDef]

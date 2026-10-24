@@ -33,7 +33,7 @@ Which server
 One server per ENGINE, and the engine is what the command line says it is:
 the socket name is a hash of the momwire version, the interpreter path, and
 the engine flags (``--basis``, ``--cache``, ``--cache-stats``,
-``--legacy-probe``, ``--idle-timeout``, ``--save-decks``). Two portal-dialog
+``--idle-timeout``, ``--save-decks``). Two portal-dialog
 entries differing only in ``--basis`` therefore reach two servers — the same
 "two entries are two engines" rule the flags already carried, now with
 process identity behind it. The winning client spawns the server with those
@@ -49,6 +49,12 @@ to the hash, so clients that had chosen different engines collided on one
 socket and the loser was served the other's physics with a banner naming it
 (momwire#628).
 
+The call forms every momwire launcher answers (momwire#1611) are served
+here too: ``- -`` is the protocol this client already pumps, and ``in out``
+or 4nec2's two names on stdin, one deck file each, are handed to the stock
+engine (``python -m momwire.portal`` with the same flags), which answers them
+through the shared launcher shell at the stock engine's speed.
+
 POSIX only. The transport is an AF_UNIX socket; Windows CPython gained
 ``AF_UNIX`` only in 3.12 and the spawn/lock discipline here has never been run
 there, so the client refuses on one line rather than half-working.
@@ -61,11 +67,14 @@ import sys
 
 import momwire_serve_client as _mech
 
-# The stock engine's two probe answers, reconstructed rather than imported —
-# importing them would cost the NumPy start-up this module exists to avoid.
-# Both shapes are pinned against ``_portal``'s own constants by
+# The stock engine's refusal of a removed flag (momwire#1658), restated rather
+# than imported — importing it would cost the NumPy start-up this module exists
+# to avoid. Pinned equal to ``_portal.REMOVED_FLAG_REFUSAL`` by
 # ``tests/test_portal_shared.py``; that test is the link this comment claims.
-_LEGACY_PROBE_VERSION = "nec2c.ae6ty.9.1"
+_REMOVED_FLAG_REFUSAL = (
+    "--legacy-probe was removed in momwire 0.83.0; "
+    "drop it from the portal dialog command line"
+)
 
 # Flags that take a value; everything else that survives is a bare flag.
 _VALUE_FLAGS = ("--basis", "--cache-stats", "--idle-timeout", "--save-decks")
@@ -111,7 +120,7 @@ DEFAULT_IDLE_TIMEOUT = 900.0
 _PUMP_CHUNK = 65536
 
 
-def probe_version(legacy: bool = False, suffix: str | None = None) -> str:
+def probe_version(suffix: str | None = None) -> str:
     """The ``-version`` line, answered without importing momwire.
 
     :func:`momwire_serve_client.version_line` (momwire#1606), the same line
@@ -121,8 +130,6 @@ def probe_version(legacy: bool = False, suffix: str | None = None) -> str:
     An editable install reports the version recorded at ``pip install -e``
     time, exactly as the stock engine does.
     """
-    if legacy:
-        return _LEGACY_PROBE_VERSION
     return _mech.version_line("NEC2", nec2_launcher_name(suffix))
 
 
@@ -174,6 +181,50 @@ def split_argv(argv: list[str]) -> tuple[list[str], bool, bool, float]:
             engine.append(arg)
         index += 1
     return engine, want_version, want_selftest, idle_timeout
+
+
+def split_positional(engine: list[str]) -> tuple[list[str], list[str]]:
+    """``(engine_flags, paths)``: :func:`split_argv`'s engine list with the
+    positional arguments (``in out``, ``- -``) taken out (momwire#1611).
+
+    A value flag keeps its value; ``-`` is a path; anything else starting
+    with ``-`` is a flag.  The paths are not engine identity, so they must
+    not reach the socket name or the server's command line.
+    """
+    flags: list[str] = []
+    paths: list[str] = []
+    index = 0
+    while index < len(engine):
+        arg = engine[index]
+        if arg in _VALUE_FLAGS:
+            flags += engine[index : index + 2]
+            index += 2
+            continue
+        if arg == "-" or not arg.startswith("-"):
+            paths.append(arg)
+        else:
+            flags.append(arg)
+        index += 1
+    return flags, paths
+
+
+def _first_stdin_line() -> bytes:
+    """One line off stdin, read a byte at a time so nothing after it is
+    taken from the deck stream; ``b""`` for a terminal, a closed stdin or
+    end of input.  A terminal goes straight to the pump, as it always has."""
+    try:
+        fd = sys.stdin.fileno()
+        if os.isatty(fd):
+            return b""
+        line = bytearray()
+        while not line.endswith(b"\n"):
+            byte = os.read(fd, 1)
+            if not byte:
+                break
+            line += byte
+        return bytes(line)
+    except (AttributeError, OSError, ValueError):
+        return b""
 
 
 def filename_basis(prog: str) -> str | None:
@@ -240,6 +291,11 @@ def resolve_engine(
     # flag, or two clients choosing differently would share one server.
     # Made absolute here as well, because the server is a different process
     # whose working directory is not this client's to promise.
+    # A removed flag is refused first, in the stock engine's words, so the
+    # probe that reads this error says what to change (momwire#1658).
+    if "--legacy-probe" in engine:
+        return engine, _REMOVED_FLAG_REFUSAL
+
     env_save = os.environ.get("MOMWIRE_NEC2C_SAVE_DECKS")
     if env_save and "--save-decks" not in engine:
         engine = [*engine, "--save-decks", env_save]
@@ -275,8 +331,8 @@ def config_key(engine: list[str], idle_timeout: float) -> str:
     Hashed rather than spelt out because the name has to fit in ``sun_path``
     (107 bytes) with a directory in front of it, and because a ``--cache-stats``
     path in a socket name would leak a user's filesystem into a world-listable
-    directory. Value flags keep their pairing; bare flags are sorted, so
-    ``--cache --legacy-probe`` and ``--legacy-probe --cache`` are one engine.
+    directory. Value flags keep their pairing and every flag is sorted, so
+    ``--cache --save-decks D`` and ``--save-decks D --cache`` are one engine.
 
     The momwire version and the interpreter path are in the key because an
     upgrade or a different venv is a different engine and must not be served
@@ -378,7 +434,7 @@ def _make_selector(stdin_fd: int):
     return selector
 
 
-def pump(conn, stdin_fd: int, stdout_fd: int) -> int:
+def pump(conn, stdin_fd: int, stdout_fd: int, prefix: bytes = b"") -> int:
     """Bytes both ways until one end is done. The client's whole job.
 
     Bidirectional because the protocol is: SimNEC blocks in ``readLine()``
@@ -398,6 +454,9 @@ def pump(conn, stdin_fd: int, stdout_fd: int) -> int:
     half-closes the socket rather than dropping it, so the server sees a clean
     EOF, finishes the deck it is on, and the remaining output is drained
     before we go.
+
+    ``prefix`` is stdin already read (the first line :func:`main` looked at
+    to tell decks from 4nec2's names, momwire#1611), sent ahead of the rest.
     """
     import selectors
     import socket as _socket
@@ -406,7 +465,7 @@ def pump(conn, stdin_fd: int, stdout_fd: int) -> int:
     selector.register(conn, selectors.EVENT_READ)
     conn.setblocking(False)
 
-    pending = bytearray()
+    pending = bytearray(prefix)
     stdin_open = stdin_fd >= 0
     watching_stdin = stdin_open
     half_closed = False
@@ -463,6 +522,15 @@ def _write_all(fd: int, data: bytes) -> None:
         view = view[os.write(fd, view) :]
 
 
+def _stock(engine: list[str], paths: list[str]) -> None:
+    """Become the stock engine for one deck file's call form (``in out``,
+    or 4nec2's names, momwire#1611): ``python -m momwire.portal`` with the
+    same engine flags and the paths on its command line, which answers them
+    through the launcher shell.  Never returns."""
+    sys.stdout.flush()
+    os.execv(sys.executable, [sys.executable, "-m", "momwire.portal", *engine, *paths])
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     engine, want_version, want_selftest, idle_timeout = split_argv(argv)
@@ -487,9 +555,17 @@ def main(argv: list[str] | None = None) -> int:
         # at every engine start, and a probe that waited on a cold server would
         # put the ~680 ms back in the one place the user watches for it.
         suffix = filename_basis(sys.argv[0])
-        sys.stdout.write(f"{probe_version('--legacy-probe' in engine, suffix)}\n")
+        sys.stdout.write(f"{probe_version(suffix)}\n")
         sys.stdout.flush()
         return 0
+
+    # momwire#1611: the call forms every momwire launcher answers.  `- -` is
+    # the resident protocol this client already pumps; `in out` and 4nec2's
+    # names on stdin are one deck file each, answered by the stock engine's
+    # own shell in this process's place (correct, at the stock speed).
+    engine, positional = split_positional(engine)
+    if positional and positional != ["-", "-"]:
+        _stock(engine, positional)
 
     import socket
 
@@ -520,9 +596,22 @@ def main(argv: list[str] | None = None) -> int:
         stdin_fd = sys.stdin.fileno() if sys.stdin is not None else -1
     except (AttributeError, OSError, ValueError):
         stdin_fd = -1
+    prefix = b""
+    if not positional:
+        # Read only once the server is on its way, so a SimNEC session's
+        # first deck still finds it warming.  A first line that is a file
+        # name is 4nec2's form: one deck file, the stock engine's to answer.
+        prefix = _first_stdin_line()
+        if prefix and _mech.is_names_line(_mech._decode_path(prefix)):
+            conn.close()
+            names = [_mech.strip_path_line(_mech._decode_path(prefix))]
+            second = _mech.strip_path_line(_mech._decode_path(_first_stdin_line()))
+            if second:
+                names.append(second)
+            _stock(engine, names)
     try:
         sys.stdout.flush()
-        return pump(conn, stdin_fd, sys.stdout.fileno())
+        return pump(conn, stdin_fd, sys.stdout.fileno(), prefix=prefix)
     except (BrokenPipeError, ConnectionResetError):
         # SimNEC ends a session by killing the engine, not by closing it; the
         # mirror image (our stdout going away) is an ordinary end of session.

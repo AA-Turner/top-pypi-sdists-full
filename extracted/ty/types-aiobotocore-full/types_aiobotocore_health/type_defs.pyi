@@ -71,6 +71,9 @@ __all__ = (
     "DescribeEventsRequestTypeDef",
     "DescribeEventsResponseTypeDef",
     "DescribeHealthServiceStatusForOrganizationResponseTypeDef",
+    "DescribeServiceLifecycleRequestPaginateTypeDef",
+    "DescribeServiceLifecycleRequestTypeDef",
+    "DescribeServiceLifecycleResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EntityAccountFilterTypeDef",
     "EntityAggregateTypeDef",
@@ -84,6 +87,7 @@ __all__ = (
     "EventTypeDef",
     "EventTypeFilterTypeDef",
     "EventTypeTypeDef",
+    "LifecycleEventTypeDef",
     "OrganizationAffectedEntitiesErrorItemTypeDef",
     "OrganizationEntityAggregateTypeDef",
     "OrganizationEventDetailsErrorItemTypeDef",
@@ -92,6 +96,8 @@ __all__ = (
     "OrganizationEventTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "ServiceLifecycleFilterTypeDef",
+    "ServiceLifecycleTypeDef",
     "TimestampTypeDef",
 )
 
@@ -219,8 +225,18 @@ class EventTypeDef(TypedDict):
     actionability: NotRequired[EventActionabilityType]
     personas: NotRequired[list[EventPersonaType]]
 
+class ServiceLifecycleFilterTypeDef(TypedDict):
+    service: NotRequired[str]
+
 class EventDescriptionTypeDef(TypedDict):
     latestDescription: NotRequired[str]
+
+class LifecycleEventTypeDef(TypedDict):
+    lifecycleEventType: NotRequired[str]
+    date: NotRequired[datetime]
+    regions: NotRequired[list[str]]
+    impactRisks: NotRequired[list[str]]
+    description: NotRequired[str]
 
 class OrganizationEntityAggregateTypeDef(TypedDict):
     eventArn: NotRequired[str]
@@ -323,6 +339,22 @@ class DescribeEventsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+DescribeServiceLifecycleRequestPaginateTypeDef = TypedDict(
+    "DescribeServiceLifecycleRequestPaginateTypeDef",
+    {
+        "filter": NotRequired[ServiceLifecycleFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+DescribeServiceLifecycleRequestTypeDef = TypedDict(
+    "DescribeServiceLifecycleRequestTypeDef",
+    {
+        "filter": NotRequired[ServiceLifecycleFilterTypeDef],
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+
 class EventDetailsTypeDef(TypedDict):
     event: NotRequired[EventTypeDef]
     eventDescription: NotRequired[EventDescriptionTypeDef]
@@ -333,6 +365,13 @@ class OrganizationEventDetailsTypeDef(TypedDict):
     event: NotRequired[EventTypeDef]
     eventDescription: NotRequired[EventDescriptionTypeDef]
     eventMetadata: NotRequired[dict[str, str]]
+
+class ServiceLifecycleTypeDef(TypedDict):
+    service: NotRequired[str]
+    version: NotRequired[str]
+    title: NotRequired[str]
+    recommendedVersion: NotRequired[str]
+    lifecycleEvents: NotRequired[list[LifecycleEventTypeDef]]
 
 class DescribeEntityAggregatesForOrganizationResponseTypeDef(TypedDict):
     organizationEntityAggregates: list[OrganizationEntityAggregateTypeDef]
@@ -387,6 +426,11 @@ class DescribeEventDetailsForOrganizationResponseTypeDef(TypedDict):
     successfulSet: list[OrganizationEventDetailsTypeDef]
     failedSet: list[OrganizationEventDetailsErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeServiceLifecycleResponseTypeDef(TypedDict):
+    serviceLifecycles: list[ServiceLifecycleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 DescribeAffectedEntitiesRequestPaginateTypeDef = TypedDict(
     "DescribeAffectedEntitiesRequestPaginateTypeDef",

@@ -26,7 +26,8 @@ D12): a hook that gives up busy beats a hook killed mid-run.
 `workers.hold` (same record) comes first, while the service asks the daemon
 workers to stop at a safe point before an update (plan D7): it stops NEW
 `probe daemon worker` starts only (they exit WORKER_BUSY_EXIT_CODE, which the
-tap's supervisor answers with a later respawn), so a worker restarted by its
+tap's supervisor answers with a later respawn; the service's own starts none
+while it is up: `workers.py`), so a worker restarted by its
 supervisor meanwhile does not start on the code about to be replaced, while
 every other `probe` command, the stopping workers' own included, runs on.
 

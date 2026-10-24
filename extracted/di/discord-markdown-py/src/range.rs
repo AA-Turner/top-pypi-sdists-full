@@ -19,8 +19,8 @@ use crate::{
 		flatten,
 		inline::link::Link,
 	},
-	rule::RuleSet,
 	span::{Span, Spanned},
+	syntax::SyntaxSet,
 };
 use delim::{Delim, Neighbor, Offset};
 use pair::{Matches, RangeId, RangeTree, Token, pair};
@@ -257,7 +257,7 @@ impl Place<'_> {
 struct Rebuild<'a> {
 	matches: &'a Matches,
 	ranges: &'a RangeTree,
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	/// The id of range zero; range `n` has its `n`th.
 	base: Id,
 	/// The ids of the parse, for the link text resolved inside this scope.
@@ -269,7 +269,7 @@ impl<'a> Rebuild<'a> {
 	fn new(
 		matches: &'a Matches,
 		ranges: &'a RangeTree,
-		allowed: RuleSet,
+		allowed: SyntaxSet,
 		ids: &'a mut Ids,
 	) -> Self {
 		// claimed before rebuilding, so link text resolved along the way takes ids after these
@@ -526,7 +526,7 @@ fn wrap<'data, S: Span>(
 /// Resolve link text on its own: the scope around it reads the link as one atom.
 fn resolve_link<'data, S: Span>(
 	link: Link<S, Element<'data, S>>,
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	ids: &mut Ids,
 ) -> Link<S, Inline<'data, S>> {
 	Link {
@@ -565,7 +565,7 @@ fn flatten_blocks<S: Span>(blocks: &mut [SpannedBlock<'_, S>]) {
 /// As [`resolve`].
 fn place<S: Span>(
 	nodes: &[SpannedElement<'_, S>],
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	content: Content,
 	unmatched: Unmatched,
 ) -> Result<(Matches, RangeTree, SeqInfo), Vec<Offset>> {
@@ -615,7 +615,7 @@ fn place<S: Span>(
 #[tracing::instrument(level = Level::TRACE, skip(nodes, ids), err(level = Level::TRACE, Debug))]
 pub fn resolve<'data, S: Span>(
 	nodes: Vec<SpannedElement<'data, S>>,
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	unmatched: Unmatched,
 	ids: &mut Ids,
 ) -> Result<Vec<SpannedBlock<'data, S>>, Vec<Offset>> {
@@ -630,7 +630,7 @@ pub fn resolve<'data, S: Span>(
 #[must_use]
 pub fn resolve_inline<'data, S: Span>(
 	nodes: Vec<SpannedElement<'data, S>>,
-	allowed: RuleSet,
+	allowed: SyntaxSet,
 	ids: &mut Ids,
 ) -> Vec<SpannedInline<'data, S>> {
 	let (matches, ranges, info) = place(&nodes, allowed, Content::Inline, Unmatched::Text)

@@ -128,13 +128,19 @@ def _request_once(
     proxy: str | None = None,
     silent: bool = False,
     follow_redirects: bool = True,
+    wire=None,
 ) -> httpx.Response:
-    """One attempt. Raises TransientHTTPError so the retry layer can see the status."""
+    """One attempt. Raises TransientHTTPError so the retry layer can see the status.
+
+    `wire` (a _wire.WireCapture) records the request for the API console when given.
+    """
     if not silent:
         _log.info("%s -> %s", method, url)
     start = time.time()
     with httpx.Client(timeout=timeout, follow_redirects=follow_redirects, verify=verify, proxy=proxy) as client:
         kwargs: dict = {"headers": headers}
+        if wire is not None:
+            wire.attach(client)
         if params:
             kwargs["params"] = params
         if json_data is not None:

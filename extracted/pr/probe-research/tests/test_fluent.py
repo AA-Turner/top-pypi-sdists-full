@@ -1801,6 +1801,20 @@ def test_drops_after_a_sent_verdict_are_warned_but_never_claimed_marked(app, cli
     assert "probe_finish" not in (app.runs[run.id].get("summary") or {})
 
 
+@pytest.fixture
+def _no_disk_sync(monkeypatch):
+    """`os.fsync` returns at once, for the tests that time a reinit's close.
+
+    Their bound is the close's NETWORK deadline. What the close cannot deliver
+    it journals, durably, after that deadline: 9 to 13 fsyncs on these paths.
+    On a busy CI disk each one can take 0.1-0.3 s, enough for the 1.8 / 2.5 /
+    3.0 / 3.3 s these tests failed with in agent-ci: an fsync made to sleep
+    0.1 s here turns 1.02 s into 1.92 s, and 0.2 s gives the hashing test its
+    3.2 s, where four processes on one CPU moved it only to 1.07 s. No fsync,
+    and the clock measures only what the bound is about."""
+    monkeypatch.setattr(os, "fsync", lambda fd: None)
+
+
 def _hang(app, monkeypatch, run_id, *, hang_s=30.0) -> list:
     """Every request about ``run_id`` stalls like a hung server: it waits out
     the attempt's own read timeout (at most ``hang_s``), then times out."""
@@ -1823,6 +1837,7 @@ def _hang(app, monkeypatch, run_id, *, hang_s=30.0) -> list:
     return hung
 
 
+@pytest.mark.usefixtures("_no_disk_sync")
 def test_a_reinit_against_a_hung_api_and_a_hashing_backlog_keeps_its_cap(
     app, wired, monkeypatch, tmp_path
 ):
@@ -1959,6 +1974,7 @@ class _HungSource:
         return [HwSample(key="gpu/util", value=1.0, coords={"gpu": "0"}, agg="mean")]
 
 
+@pytest.mark.usefixtures("_no_disk_sync")
 def test_a_reinit_with_a_hung_hardware_query_keeps_its_bound(app, wired, monkeypatch):
     """`HwMonitor.finish()` joined the collector for 5 s, then sampled again ON
     THE CALLER'S THREAD, which hung with no limit: 13 s at a 1 s cap. It now
@@ -2025,6 +2041,7 @@ def test_a_finish_that_stops_a_healthy_collector_still_flushes_its_windows():
     assert calls == [threading.current_thread().name, "probe-hw-monitor"], "finish() itself never sampled"
 
 
+@pytest.mark.usefixtures("_no_disk_sync")
 def test_a_reinit_with_an_exporter_stuck_mid_request_keeps_its_bound(app, tmp_path, monkeypatch):
     """Releasing the old client joined its exporter for up to 5 s AFTER the
     close's deadline: 6 s at a 1 s cap. The join now takes what is left of the
@@ -2064,6 +2081,7 @@ def test_a_reinit_with_an_exporter_stuck_mid_request_keeps_its_bound(app, tmp_pa
     assert queued[-1]["method"] == "PATCH" and queued[-1]["body"]["status"] == "completed"
 
 
+@pytest.mark.usefixtures("_no_disk_sync")
 def test_a_held_commit_false_row_is_sent_inside_the_reinit_bound(app, wired, monkeypatch):
     """A `log(commit=False)` row was flushed BEFORE the close's deadline began,
     so under sync writes a hung API held it for the transport's own timeout

@@ -13,10 +13,9 @@ Drives the real path: DB-shaped row → ``_row_to_body`` (provider) →
 
 from __future__ import annotations
 
+import importlib
 from types import SimpleNamespace
 from uuid import uuid4
-
-import importlib
 
 import pytest
 
@@ -182,12 +181,56 @@ async def test_long_document_reads_as_outline_plus_first_section(wired):
 async def test_section_argument_returns_exactly_that_section(wired):
     doc = _row("tax-guide", body=_doc())
     wired([doc])
-    out = await _get(skill_id=str(doc.id), section="1.2.1")
+    result = await skill_tool.skill(
+        {"action": "get", "skill_id": str(doc.id), "section": "1.2.1"}, _ctx()
+    )
+    assert result.success
+    assert result.output_kind == "skill_tool_result"
+    out = result.output
+    from matrx_ai.tools.kinds.workbench import SkillToolResult
+
+    assert SkillToolResult.model_validate(out).model_dump(mode="json") == out
     assert out["mode"] == "section"
     assert out["section"]["id"] == "standard"
     assert out["body"] == "### Standard\n\nSTANDARD-DEDUCTION-MARKER the flat amount.\n\n"
     assert out["next_section_id"] == "credits"
     assert "CREDITS-MARKER" not in out["body"]
+
+
+@pytest.mark.asyncio
+async def test_set_skill_result_uses_the_registered_wire_contract(wired):
+    member = _row("skill-member", body="A complete method.", skill_type="procedure")
+    skill_set = _set("research-set", [member])
+    wired([skill_set, member])
+
+    result = await skill_tool.skill(
+        {"action": "get", "skill_id": str(skill_set.id)}, _ctx()
+    )
+
+    assert result.success
+    assert result.output_kind == "skill_tool_result"
+    assert result.output["__kind"] == "skill_tool_result"
+    from matrx_ai.tools.kinds.workbench import SkillToolResult
+
+    assert SkillToolResult.model_validate(result.output).model_dump(mode="json") == result.output
+    assert result.output["mode"] == "set"
+    assert result.output["count"] == 1
+    assert result.output["members"][0]["skill_id"] == "skill-member"
+
+
+@pytest.mark.asyncio
+async def test_missing_section_refusal_stays_on_error_channel_without_a_kind(wired):
+    doc = _row("tax-guide", body=_doc())
+    wired([doc])
+
+    result = await skill_tool.skill(
+        {"action": "get", "skill_id": str(doc.id), "section": "not-a-section"}, _ctx()
+    )
+
+    assert not result.success
+    assert result.error is not None and result.error.error_type == "not_found"
+    assert result.output is None
+    assert result.output_kind is None
 
 
 @pytest.mark.asyncio

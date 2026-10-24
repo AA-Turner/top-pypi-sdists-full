@@ -25,11 +25,13 @@ THE POLICY, the consensus rule the team's earlier auto-tracking study kept
   SDK really ran), a notebook, `nvidia-smi`, a request the main agent sent the
   daemon's writer (`probe ask --writer`: Richard 2026-10-13, O6=B). One signal
   and the session is ML for good: the gate never asks again and lifts a pause at once.
-- JEV is asked when each of the researcher's first ASK_TURNS turns ends (or
-  the next prompt arrives). The gate pauses when the last PAUSE_ANSWERS
-  answers are all below PAUSE_BELOW and no signal fired -- two answers, and a
-  margin wide, because Jev drifts +-0.06 on identical input.
-- WHILE PAUSED: signals on every event, Jev at every new researcher prompt.
+- JEV is asked when each of the first ASK_TURNS turns ends (or the next
+  prompt arrives); a researcher's prompt or a peer agent's message starts one.
+  The gate pauses when the last PAUSE_ANSWERS answers are all below
+  PAUSE_BELOW and no signal fired -- two answers, and a margin wide, because
+  Jev drifts +-0.06 on identical input.
+- WHILE PAUSED: signals on every event, Jev at every new researcher prompt,
+  and at a peer agent's message at most every PEER_ASK_GAP_S.
   The pause holds only on an ACTING answer below RESUME_AT: an answer at or
   above it, the server off or in shadow, the team off its list, an outage or
   no answer lifts it (a rollback undoes every pause; an outage fails open).
@@ -41,8 +43,12 @@ In SHADOW (the server answers `act: false`) the gate never pauses: it writes
 `would_pause` it asks at every new prompt as a pause would, and writes
 `would_resume` where a pause would have lifted.
 
-The digest Jev reads is the researcher's prompts, the agent's commands (first
-line), the files it wrote and the tools it used: never a tool's output.
+The digest Jev reads is the researcher's prompts, the messages other agents
+sent the session (`[peer agent]` lines: an agent-driven session's work arrives
+that way), the agent's commands (first line), the files it wrote and the tools
+it used: never a tool's output. To the gate a peer agent's message is a prompt:
+it starts a turn, and while paused (or in shadow) a new one asks again -- at most
+every PEER_ASK_GAP_S, since another agent writes at machine pace.
 """
 
 from __future__ import annotations
@@ -56,12 +62,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from probe.daemon.events import REQUEST_TOOL
+from probe.daemon.events import PEER_TOOL, REQUEST_TOOL
 
 log = logging.getLogger("probe.daemon")
 
 ROUTE = "/v1/companion/classify"
-#: Ask Jev when each of the researcher's first this-many turns ends.
+#: Ask Jev when each of the first this-many turns ends (a researcher's prompt or
+#: a peer agent's message starts one).
 ASK_TURNS = 3
 #: Pause when the last PAUSE_ANSWERS answers are all below PAUSE_BELOW...
 PAUSE_ANSWERS = 2
@@ -74,6 +81,11 @@ PROMPT_CHARS = 2_000
 COMMAND_CHARS = 300
 #: One question's wall clock. The gate never waits longer than this per check.
 TIMEOUT_S = 10.0
+#: While paused (or in shadow) a peer agent's message asks again at most this
+#: long after the last ask; a researcher's prompt still asks at once. Another
+#: agent writes at machine pace (a helper's report every poll), and each ask
+#: sends Jev the whole digest (review 2026-10-23: 60 asks in 60 polls without it).
+PEER_ASK_GAP_S = 300.0
 #: Facts in the session's store, so a restarted worker carries on.
 FACT_SEQ = "gate_seq"
 FACT_PROMPTS = "gate_prompts"
@@ -84,6 +96,10 @@ FACT_SIGNAL = "gate_signal"
 FACT_WOULD = "gate_would_pause"
 #: In shadow, the gate WOULD be paused now (it asks as a pause would).
 FACT_SHADOW = "gate_shadow_paused"
+#: When the gate last asked (its clock), and whether a peer agent's message
+#: arrived while paused (or in shadow) that no ask has covered yet.
+FACT_ASKED_AT = "gate_asked_at"
+FACT_PEER_WAITING = "gate_peer_waiting"
 
 MAIN = "main"
 #: The arguments that carry what a call WROTE (content, an edit, a patch).
@@ -216,10 +232,18 @@ def _one_line(text: Any, limit: int = COMMAND_CHARS) -> str:
     return " ".join(str(text).split())[:limit]
 
 
+def is_peer_message(row: Any) -> bool:
+    """A message another agent sent the session's main agent (`PEER_TOOL`): to
+    the gate, a prompt like the researcher's (in an agent-driven session the
+    work arrives this way)."""
+    return row["kind"] == "meta" and row["tool"] == PEER_TOOL and row["stream"] == MAIN
+
+
 def digest(rows: list[Any], *, limit: int = DIGEST_CHARS) -> str:
-    """The session as Jev reads it, oldest first: prompts, commands, files
-    written, and the tools used. Over `limit`, the oldest lines go -- all but
-    the researcher's first prompt, which says what the session is for."""
+    """The session as Jev reads it, oldest first: prompts, the messages other
+    agents sent it, commands, files written, and the tools used. Over `limit`,
+    the oldest lines go -- all but the researcher's first prompt (or, with none,
+    the first peer agent's message), which says what the session is for."""
     lines: list[str] = []
     tools: Counter = Counter()
     for row in rows:
@@ -229,6 +253,13 @@ def digest(rows: list[Any], *, limit: int = DIGEST_CHARS) -> str:
             text = " ".join((row["text"] or "").split())[:PROMPT_CHARS]
             if text:
                 lines.append(f"[researcher] {text}")
+            continue
+        if row["kind"] == "meta":
+            # Only another agent's message reaches here (`Store.digest_rows`); its
+            # sender (`command`) is no command the agent ran.
+            text = " ".join((row["text"] or "").split())[:PROMPT_CHARS] if is_peer_message(row) else ""
+            if text:
+                lines.append(f"[peer agent] {text}")
             continue
         tool = _one_line(row["tool"] or "", 80)
         if tool:
@@ -241,7 +272,8 @@ def digest(rows: list[Any], *, limit: int = DIGEST_CHARS) -> str:
             if path:
                 lines.append(f"[wrote] {path}")
     head = "tools used: " + ", ".join(f"{name} x{n}" for name, n in tools.most_common()) if tools else ""
-    first = next((i for i, line in enumerate(lines) if line.startswith("[researcher]")), None)
+    first = next((i for i, line in enumerate(lines) if line.startswith("[researcher]")),
+                 next((i for i, line in enumerate(lines) if line.startswith("[peer agent]")), None))
     kept: list[str] = []
     used = len(head) + 1
     for i in range(len(lines) - 1, -1, -1):
@@ -334,15 +366,19 @@ class Gate:
         prompts = int(self._fact(FACT_PROMPTS, 0))
         ended = int(self._fact(FACT_ENDED, 0))
         signal = self._fact(FACT_SIGNAL)
-        new_prompt = False
+        researcher = peer = False  # a new prompt of the researcher's / a peer agent's message
         rows = self.store.gate_rows(seq)
         for row in rows:
             seq = row["seq"]
-            if row["kind"] == "prompt" and row["stream"] == MAIN:
-                # A new prompt ends the turn before it, whether or not its end was logged.
+            from_peer = is_peer_message(row)
+            peer = peer or from_peer
+            if (row["kind"] == "prompt" and row["stream"] == MAIN) or (from_peer and not _input(row).get("mid_turn")):
+                # A new prompt -- the researcher's, or another agent's message to an
+                # idle agent -- ends the turn before it, whether or not its end was
+                # logged. One that arrived mid-turn (a helper's report) is part of it.
                 ended = max(ended, prompts)
                 prompts += 1
-                new_prompt = True
+                researcher = researcher or not from_peer
             elif row["kind"] == "turn_end" and row["stream"] == MAIN:
                 ended = max(ended, prompts)
             if signal is None:
@@ -368,7 +404,13 @@ class Gate:
             return False
         asked = int(self._fact(FACT_ASKED, 0))
         if paused or shadow:
-            due = new_prompt  # a pause (or, in shadow, what would be one) asks at every new prompt
+            # A pause (or, in shadow, what would be one) asks at every new prompt of
+            # the researcher's, and at a peer agent's message once PEER_ASK_GAP_S has
+            # passed since the last ask: one held till then asks with no new event.
+            waiting = peer or bool(self._fact(FACT_PEER_WAITING))
+            due = researcher or (waiting and self.clock() - float(self._fact(FACT_ASKED_AT, 0.0)) >= PEER_ASK_GAP_S)
+            if not due and peer and not self._fact(FACT_PEER_WAITING):
+                self._set(FACT_PEER_WAITING, True)
         else:
             due = asked < min(ended, ASK_TURNS)
         if not due:
@@ -379,6 +421,8 @@ class Gate:
         with self.store.tx():
             self.store.set_fact(FACT_ASKED, max(asked, min(ended, ASK_TURNS)))
             self.store.set_fact(FACT_ANSWERS, answers)
+            self.store.set_fact(FACT_ASKED_AT, self.clock())
+            self.store.set_fact(FACT_PEER_WAITING, None)
         self._line("asked", p_ml=answer.p_ml, act=answer.act, mode=answer.mode, prompts=prompts,
                    turns_ended=ended, digest_chars=len(text))
         lifts = answer.p_ml is None or answer.p_ml >= RESUME_AT

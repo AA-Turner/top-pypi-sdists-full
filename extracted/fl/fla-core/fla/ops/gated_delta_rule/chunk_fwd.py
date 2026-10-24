@@ -9,13 +9,13 @@ import torch
 import triton
 import triton.language as tl
 
-from fla.ops.backends import dispatch
+from fla.backends import dispatch
 from fla.ops.common.chunk_scaled_dot_kkt import chunk_scaled_dot_kkt_fwd
 from fla.ops.gated_delta_rule.wy_fast import recompute_w_u_fwd
 from fla.ops.utils import prepare_chunk_indices, solve_tril
 from fla.ops.utils.cache import fla_cache_autotune
 from fla.ops.utils.op import exp2
-from fla.utils import IS_TF32_SUPPORTED, autotune_cache_kwargs
+from fla.utils import IS_INTEL, IS_TF32_SUPPORTED, autotune_cache_kwargs
 
 if IS_TF32_SUPPORTED:
     SOLVE_TRIL_DOT_PRECISION = tl.constexpr('tf32')
@@ -67,12 +67,12 @@ def chunk_gated_delta_rule_fwd_kkt_solve_kernel(
     4. Block merge to get full (I+A)^{-1}
     5. Write result to A (output)
     """
-    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_bh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // HV, i_bh % HV
 
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -139,34 +139,34 @@ def chunk_gated_delta_rule_fwd_kkt_solve_kernel(
         p_k0 = k + (i_tc0 + o_i)[:, None] * (H*K) + o_k[None, :]
         b_k0 = tl.load(p_k0, mask=m_tc0[:, None] & (o_k[None, :] < K), other=0.0)
         # diagonal block 0
-        b_A00 += tl.dot(b_k0, tl.trans(b_k0))
+        b_A00 = tl.dot(b_k0, tl.trans(b_k0), b_A00)
 
         if i_tc1 < T:
             p_k1 = k + (i_tc1 + o_i)[:, None] * (H*K) + o_k[None, :]
             b_k1 = tl.load(p_k1, mask=m_tc1[:, None] & (o_k[None, :] < K), other=0.0)
             # diagonal block 1
-            b_A11 += tl.dot(b_k1, tl.trans(b_k1))
+            b_A11 = tl.dot(b_k1, tl.trans(b_k1), b_A11)
             # off-diagonal (1,0)
-            b_A10 += tl.dot(b_k1, tl.trans(b_k0))
+            b_A10 = tl.dot(b_k1, tl.trans(b_k0), b_A10)
 
             if i_tc2 < T:
                 p_k2 = k + (i_tc2 + o_i)[:, None] * (H*K) + o_k[None, :]
                 b_k2 = tl.load(p_k2, mask=m_tc2[:, None] & (o_k[None, :] < K), other=0.0)
                 # diagonal block 2
-                b_A22 += tl.dot(b_k2, tl.trans(b_k2))
+                b_A22 = tl.dot(b_k2, tl.trans(b_k2), b_A22)
                 # off-diagonal (2,0), (2,1)
-                b_A20 += tl.dot(b_k2, tl.trans(b_k0))
-                b_A21 += tl.dot(b_k2, tl.trans(b_k1))
+                b_A20 = tl.dot(b_k2, tl.trans(b_k0), b_A20)
+                b_A21 = tl.dot(b_k2, tl.trans(b_k1), b_A21)
 
                 if i_tc3 < T:
                     p_k3 = k + (i_tc3 + o_i)[:, None] * (H*K) + o_k[None, :]
                     b_k3 = tl.load(p_k3, mask=m_tc3[:, None] & (o_k[None, :] < K), other=0.0)
                     # diagonal block 3
-                    b_A33 += tl.dot(b_k3, tl.trans(b_k3))
+                    b_A33 = tl.dot(b_k3, tl.trans(b_k3), b_A33)
                     # off-diagonal (3,0), (3,1), (3,2)
-                    b_A30 += tl.dot(b_k3, tl.trans(b_k0))
-                    b_A31 += tl.dot(b_k3, tl.trans(b_k1))
-                    b_A32 += tl.dot(b_k3, tl.trans(b_k2))
+                    b_A30 = tl.dot(b_k3, tl.trans(b_k0), b_A30)
+                    b_A31 = tl.dot(b_k3, tl.trans(b_k1), b_A31)
+                    b_A32 = tl.dot(b_k3, tl.trans(b_k2), b_A32)
 
     ############################################################################
     # Step 2: apply gate and beta scaling
@@ -375,7 +375,10 @@ def chunk_gated_delta_rule_fwd_intra(
     if chunk_indices is None and cu_seqlens is not None:
         chunk_indices = prepare_chunk_indices(cu_seqlens, BT)
 
-    if BT == 64:
+    # The fused kernel keeps ten [BC, BC] fp32 accumulators live across the K loop.
+    # That fits NVIDIA's register file but spills on Intel GPUs, where the unfused
+    # two-kernel path measures 2.3-3.0x faster despite the extra HBM round-trip.
+    if BT == 64 and not IS_INTEL:
         # Step 1: fused kkt + solve_tril
         BC = 16
         NT = triton.cdiv(T, BT) if cu_seqlens is None else len(chunk_indices)
@@ -395,7 +398,7 @@ def chunk_gated_delta_rule_fwd_intra(
             BC=BC,
         )
     else:
-        # Step 1: mathematically equivalent unfused kkt + solve_tril for non-64 chunks
+        # Step 1: mathematically equivalent unfused kkt + solve_tril
         A = chunk_scaled_dot_kkt_fwd(
             k=k,
             g=g,

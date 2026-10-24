@@ -34,8 +34,9 @@ class DocumentLineage(BaseModel):
     source_object_id: Optional[StrictStr] = Field(default=None, description="Immediate source object, when the source was a bucket.")
     source_document_id: Optional[StrictStr] = Field(default=None, description="Immediate source document, when the source was a collection.")
     source_collection_id: Optional[StrictStr] = Field(default=None, description="Immediate source collection, when the source was one.")
-    lineage_chain: Optional[List[DocumentLineageStep]] = Field(default=None, description="ALWAYS EMPTY TODAY. The controller hardcodes it to [] pending reconstruction from lineage_path. Typed so the field has a shape, and described this way so a caller does not read an empty list as 'this document had no processing steps'. Use the root_* and source_* fields above, which are real.")
-    __properties: ClassVar[List[str]] = ["root_object_id", "root_bucket_id", "source_type", "source_object_id", "source_document_id", "source_collection_id", "lineage_chain"]
+    source_row: Optional[Dict[str, Any]] = Field(default=None, description="For a document imported from a database table: the source row it mirrors, as provider, schema, table and primary key (pk), with the origin of each vector it carries (model, dimensions, mode). Null for a document made from any other object.")
+    lineage_chain: Optional[List[DocumentLineageStep]] = Field(default=None, description="Every processing step from the root object to this document, in order: the first entry is the document made directly from the root object, the last is this document. Each step names its collection, extractor, document and time. When an upstream document no longer exists the chain starts at the step that names it, and nothing above that step is listed.")
+    __properties: ClassVar[List[str]] = ["root_object_id", "root_bucket_id", "source_type", "source_object_id", "source_document_id", "source_collection_id", "source_row", "lineage_chain"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -101,6 +102,7 @@ class DocumentLineage(BaseModel):
             "source_object_id": obj.get("source_object_id"),
             "source_document_id": obj.get("source_document_id"),
             "source_collection_id": obj.get("source_collection_id"),
+            "source_row": obj.get("source_row"),
             "lineage_chain": [DocumentLineageStep.from_dict(_item) for _item in obj["lineage_chain"]] if obj.get("lineage_chain") is not None else None
         })
         return _obj

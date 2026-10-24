@@ -5101,7 +5101,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 parser.get("ML", "use_yield_trend_as_feature", fallback="False").strip()
                 or "False"),
             ("Trend All feature",
-                str(parser.getboolean("ML", "use_trend_all_as_feature", fallback=True))),
+                str(parser.getboolean("ML", "use_trend_all_as_feature", fallback=False))),
             ("CI (estimate_ci)",
                 str(parser.getboolean("ML", "estimate_ci", fallback=False))),
             ("XAI (do_xai)",

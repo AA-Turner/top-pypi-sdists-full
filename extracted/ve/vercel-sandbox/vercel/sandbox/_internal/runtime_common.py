@@ -1,10 +1,12 @@
 """Execution-mode-neutral helpers for Sandbox runtime handles."""
 
 import copy
+import inspect
 import posixpath
 import signal as signal_module
 import weakref
-from collections.abc import Callable, Sequence
+from collections.abc import AsyncGenerator, Callable, Sequence
+from contextlib import aclosing
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import Enum, auto
@@ -32,6 +34,7 @@ from vercel.sandbox._internal.state import (
     SandboxState,
     SnapshotRetentionState,
     SnapshotState,
+    UpdateSandboxStep,
 )
 
 RuntimeSessionHandleT = TypeVar("RuntimeSessionHandleT", bound="RuntimeSessionHandleBase")
@@ -234,17 +237,77 @@ class _ProcessHandleState:
     def status(self) -> ProcessStatus:
         return ProcessStatus.RUNNING if self.returncode is None else ProcessStatus.EXITED
 
-    @property
-    def stdin(self) -> None:
-        return None
-
     def _apply_payload(self, payload: ProcessState) -> None:
         if payload.id != self._payload.id or payload.session_id != self._payload.session_id:
             raise SandboxResponseError(
                 "Sandbox process mutation response returned a different process identity",
                 data=payload,
             )
+        # An exited process never runs again, so a response that was in
+        # flight when the exit was recorded must not clear the return code.
+        if payload.returncode is None and self._payload.returncode is not None:
+            return
         self._payload = payload
+
+
+_ProcessHandleT = TypeVar("_ProcessHandleT", bound=_ProcessHandleState)
+
+
+class _ProcessStartHook(Generic[_ProcessHandleT]):
+    """Deliver a running process handle to a caller's ``on_start`` callback.
+
+    ``started`` is set before the callback runs, so a lifecycle error raised
+    from inside the callback can never replay a command that already started.
+    """
+
+    __slots__ = ("_callback", "_make_handle", "handle", "started")
+
+    def __init__(
+        self,
+        callback: Callable[[_ProcessHandleT], object],
+        make_handle: Callable[[ProcessState], _ProcessHandleT],
+    ) -> None:
+        self._callback = callback
+        self._make_handle = make_handle
+        self.handle: _ProcessHandleT | None = None
+        self.started = False
+
+    @classmethod
+    def create(
+        cls,
+        callback: Callable[[_ProcessHandleT], object] | None,
+        make_handle: Callable[[ProcessState], _ProcessHandleT],
+    ) -> "_ProcessStartHook[_ProcessHandleT] | None":
+        """Validate ``callback`` before any request is sent."""
+        if callback is None:
+            return None
+        if not callable(callback):
+            raise TypeError(f"on_start must be callable, not {type(callback).__name__}")
+        # An instance with ``async def __call__`` is only detectable through
+        # its type; the instance itself is not a coroutine function.
+        if inspect.iscoroutinefunction(callback) or inspect.iscoroutinefunction(
+            type(callback).__call__
+        ):
+            raise TypeError("on_start must be a synchronous callable, not a coroutine function")
+        return cls(callback, make_handle)
+
+    def __call__(self, payload: ProcessState) -> None:
+        self.started = True
+        self.handle = self._make_handle(payload)
+        result = self._callback(self.handle)
+        if inspect.isawaitable(result):
+            close = getattr(result, "close", None)
+            if callable(close):
+                close()
+            raise TypeError("on_start must be a synchronous callable; it returned an awaitable")
+
+    def can_replay(self) -> bool:
+        return not self.started
+
+    def complete(self, payload: ProcessState) -> None:
+        """Give the handle passed to the callback the process's final state."""
+        if self.handle is not None:
+            self.handle._apply_payload(payload)
 
 
 class SnapshotHandleBase:
@@ -319,6 +382,16 @@ class DriveHandleBase:
     @property
     def id(self) -> str:
         return self._payload.id
+
+    @property
+    def parent_drive_id(self) -> str | None:
+        """The source Drive ID, if this Drive is a fork."""
+        return self._payload.parent_drive_id
+
+    @property
+    def root_drive_id(self) -> str | None:
+        """The original Drive ID at the root of this fork."""
+        return self._payload.root_drive_id
 
     @property
     def name(self) -> str:
@@ -625,6 +698,30 @@ class SandboxHandleBase(Generic[RuntimeSessionHandleT]):
             _routes_attached=True,
             _current_session_attached=True,
         )
+
+    async def _apply_update_steps(self, steps: AsyncGenerator[UpdateSandboxStep, None]) -> None:
+        """Apply each step of a sandbox update as the service produces it."""
+        async with aclosing(steps):
+            async for step in steps:
+                match step:
+                    case SandboxRuntimeSessionState():
+                        self._apply_current_session_payload_if_current(step, step.id)
+                    case SandboxState():
+                        self._apply_payload(step)
+
+    def _apply_current_session_payload_if_current(
+        self, payload: SandboxRuntimeSessionState, target_id: str
+    ) -> RuntimeSessionHandleT:
+        """Ignore an operation reply superseded by a concurrent recovery."""
+        if target_id == self.current_session_id:
+            return self._apply_current_session_payload(payload)
+        session = self.current_session
+        if session is None:
+            raise SandboxResponseError(
+                "Sandbox current-session operation returned a different session identity",
+                data=payload,
+            )
+        return session
 
     def _apply_current_session_payload(
         self, payload: SandboxRuntimeSessionState

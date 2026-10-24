@@ -3,10 +3,10 @@ import { input } from "@bokehjs/core/dom";
 import { Enum } from "@bokehjs/core/kinds";
 import { InputWidget, InputWidgetView } from "@bokehjs/models/widgets/input_widget";
 import * as inputs from "@bokehjs/styles/widgets/inputs.css";
-import filedropper_css from "../styles/models/filedropper.css";
+import filedropper_css from "styles/models/filedropper.css";
+import { await_resources, define_external_resources, load_resources, render_resource_error, } from "./resources";
 export class UploadEvent extends ModelEvent {
     data;
-    static __name__ = "UploadEvent";
     constructor(data) {
         super();
         this.data = data;
@@ -20,7 +20,6 @@ export class UploadEvent extends ModelEvent {
 }
 export class DeleteEvent extends ModelEvent {
     data;
-    static __name__ = "DeleteEvent";
     constructor(data) {
         super();
         this.data = data;
@@ -156,7 +155,6 @@ const EXTENSION_TO_MIME_TYPE = {
     ".asc": "text/plain",
 };
 export class FileDropperView extends InputWidgetView {
-    static __name__ = "FileDropperView";
     _file_pond = null;
     _transfer_in_process = null;
     extensionsToMimeTypes(types) {
@@ -173,8 +171,15 @@ export class FileDropperView extends InputWidgetView {
             return type;
         });
     }
-    initialize() {
-        super.initialize();
+    // Registering the plugins has to wait for filepond itself, so this cannot
+    // happen in initialize the way it used to.
+    async lazy_initialize() {
+        await super.lazy_initialize();
+        const error = await await_resources(this.model);
+        if (error != null) {
+            render_resource_error(this, error, InputWidgetView.prototype.render);
+            return;
+        }
         const { previews } = this.model;
         if (previews.includes("image")) {
             window.FilePond.registerPlugin(window.FilePondPluginImagePreview);
@@ -267,7 +272,6 @@ export class FileDropperView extends InputWidgetView {
 }
 export const DropperLayout = Enum("integrated", "compact", "circle");
 export class FileDropper extends InputWidget {
-    static __name__ = "FileDropper";
     static __module__ = "panel.models.file_dropper";
     constructor(attrs) {
         super(attrs);
@@ -285,6 +289,11 @@ export class FileDropper extends InputWidget {
             layout: [Nullable(DropperLayout), null],
             previews: [List(Str), ["image", "pdf"]],
         }));
+        define_external_resources(this);
+    }
+    initialize() {
+        super.initialize();
+        load_resources(this);
     }
 }
 //# sourceMappingURL=file_dropper.js.map

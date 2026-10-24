@@ -127,6 +127,7 @@ pub mod query;
 pub mod queue_directive;
 mod reference_path;
 pub mod referenced_by;
+pub mod release_steward;
 pub mod repository_resolution;
 pub mod retryability;
 pub mod runner_capacity;
@@ -141,6 +142,7 @@ pub mod snippet_variables;
 pub mod source_language;
 pub mod status;
 mod store_lock;
+pub mod stranded_work;
 pub mod sudo;
 pub mod suffix;
 pub mod task_type;
@@ -422,11 +424,13 @@ pub use agent_session::{
 };
 pub use agent_session_manifest::{
     canonical_session_manifest_files, classify_session_manifest_files,
-    SessionManifestClassifyRequestWire, SessionManifestClassifyResponseWire,
-    SessionManifestContainerWire, SessionManifestError,
+    repair_session_manifest_entry, SessionManifestClassifyRequestWire,
+    SessionManifestClassifyResponseWire, SessionManifestContainerWire,
+    SessionManifestError, SessionManifestRepairResponseWire,
     SessionManifestSnapshotWire, SESSION_MANIFEST_CLASS_CURRENT,
     SESSION_MANIFEST_CLASS_INVALID, SESSION_MANIFEST_CLASS_SLIM,
-    SESSION_MANIFEST_CLASS_SUPPORTED_LEGACY,
+    SESSION_MANIFEST_CLASS_SUPPORTED_LEGACY, SESSION_MANIFEST_REPAIR_KEEP,
+    SESSION_MANIFEST_REPAIR_NORMALIZE_SLIM, SESSION_MANIFEST_REPAIR_SKIP,
     SESSION_MANIFEST_WIRE_SCHEMA_VERSION,
 };
 /// Legacy Rust alias retained for compatibility with older stats callers.
@@ -1589,8 +1593,9 @@ pub use status::{
 };
 pub use sudo::{
     authorize_sudo_settlement_json_value, classify_sudo_executor_liveness,
-    derive_sudo_risk_badges, sudo_attempt_from_json_value,
-    sudo_exec_started_from_json_value, sudo_ledger_from_json_value,
+    derive_sudo_risk_badges, fit_sudo_ledger_output,
+    sudo_attempt_from_json_value, sudo_exec_started_from_json_value,
+    sudo_fit_ledger_json_value, sudo_ledger_from_json_value,
     sudo_manifest_canonical_json_bytes, sudo_manifest_from_json_slice,
     sudo_manifest_from_json_value, sudo_manifest_json_sha256,
     sudo_manifest_sha256, sudo_validate_exec_started_json_value,

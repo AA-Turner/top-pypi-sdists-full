@@ -113,5 +113,8 @@ def test_the_declared_field_count_the_plan_rests_on():
     defect 39), twinned.
 
     115 since 2026-10-22: prompt_cache_marks (which cache marks a send writes, stamped per
-    send by the send boundary — config/cache_plan.py; never stored), twinned."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 115
+    send by the send boundary — config/cache_plan.py; never stored), twinned.
+
+    116 since 2026-10-22: hosted_tool_options (provider-run tool settings narrowed for one
+    call; config/unified_config.py), twinned."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 116

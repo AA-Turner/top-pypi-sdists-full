@@ -266,6 +266,7 @@ class GetResourceDashboardRequestTypeDef(TypedDict):
     applicationId: str
     resourceId: str
     resourceType: Literal["SESSION"]
+    accessSystemProfileLogs: NotRequired[bool]
 
 class GetSessionEndpointRequestTypeDef(TypedDict):
     applicationId: str

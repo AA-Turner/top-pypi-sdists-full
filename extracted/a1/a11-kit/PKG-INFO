@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a11-kit
-Version: 0.7.8
+Version: 0.7.9
 Summary: A streaming action runtime for AI agents, model serving, and multimodal APIs
 Keywords: agents,generative-ai,llm,model-serving,streaming
 Author-Email: Curiosity Stack <hello@curiositystack.dev>
@@ -37,6 +37,7 @@ Requires-Dist: openai>=2.0.0; extra == "openai"
 Provides-Extra: s2
 Requires-Dist: s2-sdk<1,>=0.10.0; extra == "s2"
 Provides-Extra: codex
+Requires-Dist: mcp>=2.1.1; extra == "codex"
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.6.0; extra == "ollama"
 Provides-Extra: vllm
@@ -52,6 +53,7 @@ Provides-Extra: llm
 Requires-Dist: anthropic>=0.120.0; extra == "llm"
 Requires-Dist: claude-agent-sdk>=0.2.140; extra == "llm"
 Requires-Dist: google-genai>=1.55.0; extra == "llm"
+Requires-Dist: mcp>=2.1.1; extra == "llm"
 Requires-Dist: ollama>=0.6.0; extra == "llm"
 Requires-Dist: openai>=2.0.0; extra == "llm"
 Description-Content-Type: text/markdown

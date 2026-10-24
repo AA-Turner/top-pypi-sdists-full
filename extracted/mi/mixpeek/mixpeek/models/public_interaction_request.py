@@ -32,7 +32,7 @@ class PublicInteractionRequest(BaseModel):
     document_id: StrictStr = Field(description="ID of the document that was interacted with (from search results)")
     interaction_type: Annotated[List[InteractionType], Field(min_length=1)] = Field(description="Type(s) of interaction that occurred")
     position: Annotated[int, Field(strict=True, ge=0)] = Field(description="Position in search results (0-indexed)")
-    execution_id: Optional[StrictStr] = Field(default=None, description="ID of the retriever execution that generated these results. HIGHLY RECOMMENDED for analytics.")
+    execution_id: Optional[StrictStr] = Field(default=None, description="REQUIRED. ID of the retriever execution that generated these results, as returned by the search. An interaction without it is refused (422).")
     query_snapshot: Optional[Dict[str, Any]] = Field(default=None, description="Snapshot of the query that generated these results. HIGHLY RECOMMENDED for training optimization.")
     document_score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Initial retrieval score of this document")
     result_set_size: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Total number of results shown")

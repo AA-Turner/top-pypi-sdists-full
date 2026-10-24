@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.manifest_parameter_spec import ManifestParameterSpec
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,7 +33,8 @@ class ValidateResult(BaseModel):
     missing_secrets: Optional[List[StrictStr]] = Field(default=None, description="Secret names referenced but not configured")
     errors: Optional[List[StrictStr]] = Field(default=None, description="Validation errors")
     warnings: Optional[List[StrictStr]] = Field(default=None, description="Validation warnings")
-    __properties: ClassVar[List[str]] = ["valid", "resources", "missing_secrets", "errors", "warnings"]
+    parameters: Optional[List[ManifestParameterSpec]] = Field(default=None, description="The parameters the manifest declares, returned whether or not values were supplied, so a form can collect them before apply")
+    __properties: ClassVar[List[str]] = ["valid", "resources", "missing_secrets", "errors", "warnings", "parameters"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +75,13 @@ class ValidateResult(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in parameters (list)
+        _items = []
+        if self.parameters:
+            for _item_parameters in self.parameters:
+                if _item_parameters:
+                    _items.append(_item_parameters.to_dict())
+            _dict['parameters'] = _items
         return _dict
 
     @classmethod
@@ -89,7 +98,8 @@ class ValidateResult(BaseModel):
             "resources": obj.get("resources"),
             "missing_secrets": obj.get("missing_secrets"),
             "errors": obj.get("errors"),
-            "warnings": obj.get("warnings")
+            "warnings": obj.get("warnings"),
+            "parameters": [ManifestParameterSpec.from_dict(_item) for _item in obj["parameters"]] if obj.get("parameters") is not None else None
         })
         return _obj
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aegra-cli
-Version: 0.10.8
+Version: 0.11.0
 Summary: Aegra CLI - Manage your self-hosted agent deployments
 Author-email: Muhammad Ibrahim <mibrahim37612@gmail.com>
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.12
-Requires-Dist: aegra-api~=0.10.0
+Requires-Dist: aegra-api~=0.11.0
 Requires-Dist: click>=8.1.7
 Requires-Dist: jinja2>=3.1
 Requires-Dist: python-dotenv>=1.2.2

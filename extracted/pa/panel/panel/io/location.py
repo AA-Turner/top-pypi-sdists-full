@@ -193,6 +193,7 @@ class Location(Syncable):
         if self._syncing:
             return
         query_params = self.query_params
+        raw_params = dict(urlparse.parse_qsl(self.search[1:]))
         for p, parameters, _, on_error in self._synced:
             mapping = {v: k for k, v in parameters.items()}
             mapped = {}
@@ -200,6 +201,10 @@ class Location(Syncable):
                 if k not in mapping:
                     continue
                 pname = mapping[k]
+                if isinstance(p.param[pname], param.String):
+                    # parse_query converts numeric, boolean and JSON-like
+                    # strings, but a String parameter takes the raw value
+                    v = raw_params[k]
                 try:
                     v = p.param[pname].deserialize(v)
                 except Exception:
@@ -276,9 +281,20 @@ class Location(Syncable):
           fails. The callback is passed a dictionary of parameter
           values, which could not be applied.
         """
+        explicit = bool(parameters)
         parameters = parameters or [p for p in parameterized.param if p != 'name']
         if not isinstance(parameters, dict):
             parameters = dict(zip(parameters, parameters))
+        if explicit:
+            constant = [
+                p for p in parameters
+                if p in parameterized.param and parameterized.param[p].constant
+            ]
+            if constant:
+                raise ValueError(
+                    f"Cannot sync constant parameter(s) {constant} of "
+                    f"{type(parameterized).__name__} with the URL."
+                )
         watcher = parameterized.param.watch(self._update_query, list(parameters))
         self._synced.append((parameterized, parameters, watcher, on_error))
         self._update_synced()

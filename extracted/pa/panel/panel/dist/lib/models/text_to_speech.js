@@ -14,7 +14,6 @@ function toVoicesList(voices) {
     return voicesList;
 }
 export class TextToSpeechView extends HTMLBoxView {
-    static __name__ = "TextToSpeechView";
     voices;
     _callback;
     initialize() {
@@ -113,7 +112,6 @@ export class TextToSpeechView extends HTMLBoxView {
     }
 }
 export class TextToSpeech extends HTMLBox {
-    static __name__ = "TextToSpeech";
     constructor(attrs) {
         super(attrs);
     }

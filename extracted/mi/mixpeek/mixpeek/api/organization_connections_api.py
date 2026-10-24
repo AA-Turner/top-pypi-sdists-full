@@ -49,7 +49,7 @@ class OrganizationConnectionsApi:
     @validate_call
     def create_storage_connection_organizations(
         self,
-        storage_connection_create_request: StorageConnectionCreateRequest,
+        storage_connection_create_request: Annotated[StorageConnectionCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class OrganizationConnectionsApi:
 
         Create a new storage provider connection.  Establishes a connection to an external storage provider (Google Drive, S3, etc.) for use in sync operations. Credentials are validated before saving unless test_before_save is False.  **Use Cases:** - Connect to team Google Drive for automated file ingestion - Link customer S3 buckets for batch processing - Set up storage connections for sync operations  **Security:** - Requires ADMIN permission - Credentials never appear in read responses; only the credential type is returned - Connection is tested before saving (unless test_before_save=False) - Audit log entry created for compliance  **Example:** ```bash curl -X POST \"http://localhost:8000/v1/organizations/connections\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{     \"name\": \"Marketing Drive\",     \"provider_type\": \"google_drive\",     \"provider_config\": {       \"credentials\": {...},       \"shared_drive_id\": \"0AH-Xabc123\"     }   }' ```
 
-        :param storage_connection_create_request: (required)
+        :param storage_connection_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type storage_connection_create_request: StorageConnectionCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -105,8 +105,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -122,7 +124,7 @@ class OrganizationConnectionsApi:
     @validate_call
     def create_storage_connection_organizations_with_http_info(
         self,
-        storage_connection_create_request: StorageConnectionCreateRequest,
+        storage_connection_create_request: Annotated[StorageConnectionCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -140,7 +142,7 @@ class OrganizationConnectionsApi:
 
         Create a new storage provider connection.  Establishes a connection to an external storage provider (Google Drive, S3, etc.) for use in sync operations. Credentials are validated before saving unless test_before_save is False.  **Use Cases:** - Connect to team Google Drive for automated file ingestion - Link customer S3 buckets for batch processing - Set up storage connections for sync operations  **Security:** - Requires ADMIN permission - Credentials never appear in read responses; only the credential type is returned - Connection is tested before saving (unless test_before_save=False) - Audit log entry created for compliance  **Example:** ```bash curl -X POST \"http://localhost:8000/v1/organizations/connections\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{     \"name\": \"Marketing Drive\",     \"provider_type\": \"google_drive\",     \"provider_config\": {       \"credentials\": {...},       \"shared_drive_id\": \"0AH-Xabc123\"     }   }' ```
 
-        :param storage_connection_create_request: (required)
+        :param storage_connection_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type storage_connection_create_request: StorageConnectionCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -178,8 +180,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -195,7 +199,7 @@ class OrganizationConnectionsApi:
     @validate_call
     def create_storage_connection_organizations_without_preload_content(
         self,
-        storage_connection_create_request: StorageConnectionCreateRequest,
+        storage_connection_create_request: Annotated[StorageConnectionCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -213,7 +217,7 @@ class OrganizationConnectionsApi:
 
         Create a new storage provider connection.  Establishes a connection to an external storage provider (Google Drive, S3, etc.) for use in sync operations. Credentials are validated before saving unless test_before_save is False.  **Use Cases:** - Connect to team Google Drive for automated file ingestion - Link customer S3 buckets for batch processing - Set up storage connections for sync operations  **Security:** - Requires ADMIN permission - Credentials never appear in read responses; only the credential type is returned - Connection is tested before saving (unless test_before_save=False) - Audit log entry created for compliance  **Example:** ```bash curl -X POST \"http://localhost:8000/v1/organizations/connections\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"Content-Type: application/json\" \\   -d '{     \"name\": \"Marketing Drive\",     \"provider_type\": \"google_drive\",     \"provider_config\": {       \"credentials\": {...},       \"shared_drive_id\": \"0AH-Xabc123\"     }   }' ```
 
-        :param storage_connection_create_request: (required)
+        :param storage_connection_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type storage_connection_create_request: StorageConnectionCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -251,8 +255,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -397,8 +403,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -470,8 +478,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -543,8 +553,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -676,8 +688,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -749,8 +763,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -822,8 +838,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -963,8 +981,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1044,8 +1064,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1125,8 +1147,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1272,8 +1296,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1349,8 +1375,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1426,8 +1454,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1516,7 +1546,7 @@ class OrganizationConnectionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_storage_connections_request: Optional[ListStorageConnectionsRequest] = None,
+        list_storage_connections_request: Annotated[Optional[ListStorageConnectionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1550,7 +1580,7 @@ class OrganizationConnectionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_storage_connections_request:
+        :param list_storage_connections_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_storage_connections_request: ListStorageConnectionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1596,8 +1626,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1621,7 +1653,7 @@ class OrganizationConnectionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_storage_connections_request: Optional[ListStorageConnectionsRequest] = None,
+        list_storage_connections_request: Annotated[Optional[ListStorageConnectionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1655,7 +1687,7 @@ class OrganizationConnectionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_storage_connections_request:
+        :param list_storage_connections_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_storage_connections_request: ListStorageConnectionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1701,8 +1733,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1726,7 +1760,7 @@ class OrganizationConnectionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_storage_connections_request: Optional[ListStorageConnectionsRequest] = None,
+        list_storage_connections_request: Annotated[Optional[ListStorageConnectionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1760,7 +1794,7 @@ class OrganizationConnectionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_storage_connections_request:
+        :param list_storage_connections_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_storage_connections_request: ListStorageConnectionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1806,8 +1840,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1992,8 +2028,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2065,8 +2103,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2138,8 +2178,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2216,7 +2258,7 @@ class OrganizationConnectionsApi:
     def update_storage_connection_organizations(
         self,
         connection_identifier: Annotated[StrictStr, Field(description="Connection identifier - either connection ID (conn_...) or name. The system will automatically resolve names to IDs.")],
-        storage_connection_update_request: StorageConnectionUpdateRequest,
+        storage_connection_update_request: Annotated[StorageConnectionUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2236,7 +2278,7 @@ class OrganizationConnectionsApi:
 
         :param connection_identifier: Connection identifier - either connection ID (conn_...) or name. The system will automatically resolve names to IDs. (required)
         :type connection_identifier: str
-        :param storage_connection_update_request: (required)
+        :param storage_connection_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type storage_connection_update_request: StorageConnectionUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2275,8 +2317,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2293,7 +2337,7 @@ class OrganizationConnectionsApi:
     def update_storage_connection_organizations_with_http_info(
         self,
         connection_identifier: Annotated[StrictStr, Field(description="Connection identifier - either connection ID (conn_...) or name. The system will automatically resolve names to IDs.")],
-        storage_connection_update_request: StorageConnectionUpdateRequest,
+        storage_connection_update_request: Annotated[StorageConnectionUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2313,7 +2357,7 @@ class OrganizationConnectionsApi:
 
         :param connection_identifier: Connection identifier - either connection ID (conn_...) or name. The system will automatically resolve names to IDs. (required)
         :type connection_identifier: str
-        :param storage_connection_update_request: (required)
+        :param storage_connection_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type storage_connection_update_request: StorageConnectionUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2352,8 +2396,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2370,7 +2416,7 @@ class OrganizationConnectionsApi:
     def update_storage_connection_organizations_without_preload_content(
         self,
         connection_identifier: Annotated[StrictStr, Field(description="Connection identifier - either connection ID (conn_...) or name. The system will automatically resolve names to IDs.")],
-        storage_connection_update_request: StorageConnectionUpdateRequest,
+        storage_connection_update_request: Annotated[StorageConnectionUpdateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2390,7 +2436,7 @@ class OrganizationConnectionsApi:
 
         :param connection_identifier: Connection identifier - either connection ID (conn_...) or name. The system will automatically resolve names to IDs. (required)
         :type connection_identifier: str
-        :param storage_connection_update_request: (required)
+        :param storage_connection_update_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type storage_connection_update_request: StorageConnectionUpdateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2429,8 +2475,10 @@ class OrganizationConnectionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

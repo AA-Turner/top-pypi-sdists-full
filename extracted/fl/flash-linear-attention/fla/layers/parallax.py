@@ -24,7 +24,7 @@ from fla.ops.parallax.decode import parallax_decode, parallax_decode_one_step
 from fla.ops.utils.index import prepare_lens_from_mask
 
 if TYPE_CHECKING:
-    from fla.models.utils import Cache
+    from fla.models.cache_utils import Cache
 
 logger = logging.get_logger(__name__)
 
@@ -81,6 +81,7 @@ class Parallax(nn.Module):
             self.num_kv_heads = self.num_heads
         else:
             self.num_kv_heads = num_kv_heads
+        assert self.num_heads % self.num_kv_heads == 0, "num_heads must be divisible by num_kv_heads"
         self.num_kv_groups = num_heads // self.num_kv_heads
         self.head_dim = self.hidden_size // self.num_heads
         self.kv_dim = self.num_kv_heads * self.head_dim
@@ -139,7 +140,7 @@ class Parallax(nn.Module):
         if past_key_values is not None:
             seqlen_offset = past_key_values.get_seq_length(self.layer_idx)
             max_seqlen = q_len + seqlen_offset
-            if attention_mask is not None:
+            if cu_seqlens is None and attention_mask is not None:
                 # account for left-padding when indexing rotary positions
                 seqlen_offset = seqlen_offset + prepare_lens_from_mask(attention_mask) - attention_mask.shape[-1]
                 max_seqlen = q_len + seqlen_offset.max().item()
@@ -150,24 +151,35 @@ class Parallax(nn.Module):
         r, _ = self.rotary(r, r, seqlen_offset=seqlen_offset, max_seqlen=max_seqlen, cu_seqlens=cu_seqlens)
 
         if past_key_values is not None:
-            # Decode / cached prefill. `r` is regenerated each step (like `q`), so only
-            # `(k, v)` are cached; the new queries attend to the full cached KV.
+            cache_has_content = past_key_values.get_seq_length(self.layer_idx) > 0
+            attn_state = (k.flatten(-2, -1), v.flatten(-2, -1))
+            cached_attn_state = past_key_values[self.layer_idx]['attn_state'] if cache_has_content else None
             k_cached, v_cached = past_key_values.update(
-                attn_state=(k.flatten(-2, -1), v.flatten(-2, -1)),
+                attn_state=attn_state,
                 layer_idx=self.layer_idx,
                 offset=q_len,
                 cache_kwargs=dict(window_size=self.window_size),
             )['attn_state']
-            k = rearrange(k_cached, '... (h d) -> ... h d', d=self.head_dim)
-            v = rearrange(v_cached, '... (h d) -> ... h d', d=self.head_dim)
-            # left-padding: the first `kv_len - valid_len` cached keys are padding.
-            cache_start = None
-            if attention_mask is not None:
-                cache_start = (k.shape[1] - attention_mask.sum(-1)).to(torch.int32)
-            # single-token step -> optimized vector decode; chunked prefill -> tile kernel
-            decode_fn = parallax_decode_one_step if q_len == 1 else parallax_decode
-            o = decode_fn(q, r, k, v, window_size=self.window_size, cache_start=cache_start)
-        elif attention_mask is not None:
+            if self.window_size is not None and q_len > 1 and attention_mask is None and cached_attn_state is not None:
+                k_cached, v_cached = cached_attn_state
+                k = torch.cat([rearrange(k_cached, '... (h d) -> ... h d', d=self.head_dim), k], dim=1)
+                v = torch.cat([rearrange(v_cached, '... (h d) -> ... h d', d=self.head_dim), v], dim=1)
+                k = k[:, -(self.window_size + q_len - 1):]
+                v = v[:, -(self.window_size + q_len - 1):]
+            elif cache_has_content:
+                k = rearrange(k_cached, '... (h d) -> ... h d', d=self.head_dim)
+                v = rearrange(v_cached, '... (h d) -> ... h d', d=self.head_dim)
+            if cache_has_content or cu_seqlens is None:
+                # left-padding: the first `kv_len - valid_len` cached keys are padding.
+                cache_start = None
+                if cu_seqlens is None and attention_mask is not None:
+                    cache_start = (k.shape[1] - attention_mask.sum(-1)).to(torch.int32)
+                # single-token step -> optimized vector decode; chunked prefill -> tile kernel
+                decode_fn = parallax_decode_one_step if q_len == 1 else parallax_decode
+                o = decode_fn(q, r, k, v, window_size=self.window_size, cache_start=cache_start)
+            else:
+                o = parallel_parallax(q, r, k, v, window_size=self.window_size, cu_seqlens=cu_seqlens)
+        elif cu_seqlens is None and attention_mask is not None:
             # Unpad to a single packed sequence (batch folded into the seq axis).
             q, (r, k, v), indices_q, cu_seqlens, _ = unpad_input(
                 q, (r, k, v), attention_mask, q_len, keepdim=True,

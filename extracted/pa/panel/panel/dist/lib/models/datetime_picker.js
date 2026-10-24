@@ -19,7 +19,6 @@ function _convert_date_list(value) {
     return result;
 }
 export class DatetimePickerView extends InputWidgetView {
-    static __name__ = "DatetimePickerView";
     _picker;
     connect_signals() {
         super.connect_signals();
@@ -193,7 +192,6 @@ export class DatetimePickerView extends InputWidgetView {
     }
 }
 export class DatetimePicker extends InputWidget {
-    static __name__ = "DatetimePicker";
     constructor(attrs) {
         super(attrs);
     }

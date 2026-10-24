@@ -26,9 +26,9 @@ from typing_extensions import Self
 
 class BulkSoftDeleteRequest(BaseModel):
     """
-    Request model for bulk soft-deleting objects by id (recoverable purge).
+    Request model for bulk soft-deleting objects by id.  Records are retained and flipped to a non-active lifecycle state. There is no self-service restore endpoint; clearing the marker is a support action.
     """ # noqa: E501
-    object_ids: Annotated[List[StrictStr], Field(min_length=1, max_length=5000)] = Field(description="Object IDs to soft-delete (max 5000 per request). Records are retained and flipped to a non-active lifecycle state so retrieval excludes them; reversible by clearing the marker.")
+    object_ids: Annotated[List[StrictStr], Field(min_length=1, max_length=5000)] = Field(description="Object IDs to soft-delete (max 5000 per request). Records are retained and flipped to a non-active lifecycle state so retrieval excludes them. There is no self-service restore endpoint: clearing the marker is a support action.")
     reason: Annotated[str, Field(strict=True, max_length=500)] = Field(description="Why these objects are being soft-deleted (audit trail).")
     lifecycle_state: Optional[StrictStr] = Field(default='disabled', description="Lifecycle state to flip to (default 'disabled').")
     source: Optional[StrictStr] = Field(default='bulk_purge', description="Marker source tag (default 'bulk_purge').")

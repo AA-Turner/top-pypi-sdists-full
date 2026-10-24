@@ -321,11 +321,12 @@ impl MultiFormatRecorder {
         };
 
         let ses_recorder = match (&file_writer, has_ses) {
-            (Some(writer), true) => Some(GuacamoleSesRecorder::with_sink(
-                writer.sink(SinkId::Ses),
-                config,
-                payload,
-            )?),
+            (Some(writer), true) => {
+                let mut recorder =
+                    GuacamoleSesRecorder::with_sink(writer.sink(SinkId::Ses), config, payload)?;
+                recorder.record_resize(terminal_width, terminal_height)?;
+                Some(recorder)
+            }
             _ => None,
         };
 
@@ -588,8 +589,12 @@ impl MultiFormatRecorder {
     }
 
     fn record_resize_inner(&mut self, cols: u16, rows: u16) -> Result<(), RecordingError> {
-        self.terminal_width = cols;
-        self.terminal_height = rows;
+        if (cols, rows) == (self.terminal_width, self.terminal_height) {
+            return Ok(());
+        }
+        if let Some(recorder) = &mut self.ses_recorder {
+            recorder.record_resize(cols, rows)?;
+        }
 
         let elapsed = self.start_time.elapsed().as_secs_f64();
 
@@ -608,6 +613,8 @@ impl MultiFormatRecorder {
                 log::warn!("ZMQ resize send failed (allow-unrecorded=true): {}", e);
             }
         }
+        self.terminal_width = cols;
+        self.terminal_height = rows;
 
         Ok(())
     }

@@ -62,7 +62,7 @@ class CollectionDocumentsApi:
     def aggregate_documents(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The unique identifier of the collection.")],
-        document_aggregation_request: DocumentAggregationRequest,
+        document_aggregation_request: Annotated[DocumentAggregationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -78,11 +78,11 @@ class CollectionDocumentsApi:
     ) -> DocumentAggregationResponse:
         """Aggregate Documents
 
-        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
+        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Counting documents that match a filter**: omit group_by and send only count     aggregations, for example     `{\"aggregations\": [{\"function\": \"count\", \"alias\": \"total\"}], \"filters\": {...}}`.     The response holds one row whose metrics carry the exact number of matching     documents (an empty `group`). This is the same count documents/list returns in     `pagination.total` when you send `\"include_total\": true`. Any other     aggregation needs at least one group_by field.      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Group values**: a group_by value comes back as a JSON number or boolean when the     namespace declares a payload index of type integer, float or bool on the field. Any     other field, including an undeclared numeric one, groups as strings.      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
-        :param document_aggregation_request: (required)
+        :param document_aggregation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type document_aggregation_request: DocumentAggregationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -121,8 +121,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -139,7 +141,7 @@ class CollectionDocumentsApi:
     def aggregate_documents_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The unique identifier of the collection.")],
-        document_aggregation_request: DocumentAggregationRequest,
+        document_aggregation_request: Annotated[DocumentAggregationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -155,11 +157,11 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentAggregationResponse]:
         """Aggregate Documents
 
-        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
+        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Counting documents that match a filter**: omit group_by and send only count     aggregations, for example     `{\"aggregations\": [{\"function\": \"count\", \"alias\": \"total\"}], \"filters\": {...}}`.     The response holds one row whose metrics carry the exact number of matching     documents (an empty `group`). This is the same count documents/list returns in     `pagination.total` when you send `\"include_total\": true`. Any other     aggregation needs at least one group_by field.      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Group values**: a group_by value comes back as a JSON number or boolean when the     namespace declares a payload index of type integer, float or bool on the field. Any     other field, including an undeclared numeric one, groups as strings.      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
-        :param document_aggregation_request: (required)
+        :param document_aggregation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type document_aggregation_request: DocumentAggregationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -198,8 +200,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -216,7 +220,7 @@ class CollectionDocumentsApi:
     def aggregate_documents_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The unique identifier of the collection.")],
-        document_aggregation_request: DocumentAggregationRequest,
+        document_aggregation_request: Annotated[DocumentAggregationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -232,11 +236,11 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Aggregate Documents
 
-        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
+        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Counting documents that match a filter**: omit group_by and send only count     aggregations, for example     `{\"aggregations\": [{\"function\": \"count\", \"alias\": \"total\"}], \"filters\": {...}}`.     The response holds one row whose metrics carry the exact number of matching     documents (an empty `group`). This is the same count documents/list returns in     `pagination.total` when you send `\"include_total\": true`. Any other     aggregation needs at least one group_by field.      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Group values**: a group_by value comes back as a JSON number or boolean when the     namespace declares a payload index of type integer, float or bool on the field. Any     other field, including an undeclared numeric one, groups as strings.      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
-        :param document_aggregation_request: (required)
+        :param document_aggregation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type document_aggregation_request: DocumentAggregationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -275,8 +279,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -370,7 +376,7 @@ class CollectionDocumentsApi:
     def batch_delete(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to delete documents from.")],
-        batch_delete_documents_request: BatchDeleteDocumentsRequest,
+        batch_delete_documents_request: Annotated[BatchDeleteDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -390,7 +396,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to delete documents from. (required)
         :type collection_identifier: str
-        :param batch_delete_documents_request: (required)
+        :param batch_delete_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_delete_documents_request: BatchDeleteDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -429,8 +435,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -447,7 +455,7 @@ class CollectionDocumentsApi:
     def batch_delete_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to delete documents from.")],
-        batch_delete_documents_request: BatchDeleteDocumentsRequest,
+        batch_delete_documents_request: Annotated[BatchDeleteDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -467,7 +475,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to delete documents from. (required)
         :type collection_identifier: str
-        :param batch_delete_documents_request: (required)
+        :param batch_delete_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_delete_documents_request: BatchDeleteDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -506,8 +514,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -524,7 +534,7 @@ class CollectionDocumentsApi:
     def batch_delete_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to delete documents from.")],
-        batch_delete_documents_request: BatchDeleteDocumentsRequest,
+        batch_delete_documents_request: Annotated[BatchDeleteDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -544,7 +554,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to delete documents from. (required)
         :type collection_identifier: str
-        :param batch_delete_documents_request: (required)
+        :param batch_delete_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_delete_documents_request: BatchDeleteDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -583,8 +593,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -678,7 +690,7 @@ class CollectionDocumentsApi:
     def batch_update(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to update documents in.")],
-        batch_update_documents_request: BatchUpdateDocumentsRequest,
+        batch_update_documents_request: Annotated[BatchUpdateDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -698,7 +710,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to update documents in. (required)
         :type collection_identifier: str
-        :param batch_update_documents_request: (required)
+        :param batch_update_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_update_documents_request: BatchUpdateDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -737,8 +749,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -755,7 +769,7 @@ class CollectionDocumentsApi:
     def batch_update_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to update documents in.")],
-        batch_update_documents_request: BatchUpdateDocumentsRequest,
+        batch_update_documents_request: Annotated[BatchUpdateDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -775,7 +789,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to update documents in. (required)
         :type collection_identifier: str
-        :param batch_update_documents_request: (required)
+        :param batch_update_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_update_documents_request: BatchUpdateDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -814,8 +828,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -832,7 +848,7 @@ class CollectionDocumentsApi:
     def batch_update_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to update documents in.")],
-        batch_update_documents_request: BatchUpdateDocumentsRequest,
+        batch_update_documents_request: Annotated[BatchUpdateDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -852,7 +868,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to update documents in. (required)
         :type collection_identifier: str
-        :param batch_update_documents_request: (required)
+        :param batch_update_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_update_documents_request: BatchUpdateDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -891,8 +907,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -986,7 +1004,7 @@ class CollectionDocumentsApi:
     def bulk_update(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to update documents in.")],
-        bulk_update_documents_request: BulkUpdateDocumentsRequest,
+        bulk_update_documents_request: Annotated[BulkUpdateDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1006,7 +1024,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to update documents in. (required)
         :type collection_identifier: str
-        :param bulk_update_documents_request: (required)
+        :param bulk_update_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_update_documents_request: BulkUpdateDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1045,8 +1063,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1063,7 +1083,7 @@ class CollectionDocumentsApi:
     def bulk_update_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to update documents in.")],
-        bulk_update_documents_request: BulkUpdateDocumentsRequest,
+        bulk_update_documents_request: Annotated[BulkUpdateDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1083,7 +1103,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to update documents in. (required)
         :type collection_identifier: str
-        :param bulk_update_documents_request: (required)
+        :param bulk_update_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_update_documents_request: BulkUpdateDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1122,8 +1142,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1140,7 +1162,7 @@ class CollectionDocumentsApi:
     def bulk_update_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection to update documents in.")],
-        bulk_update_documents_request: BulkUpdateDocumentsRequest,
+        bulk_update_documents_request: Annotated[BulkUpdateDocumentsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1160,7 +1182,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID of the collection to update documents in. (required)
         :type collection_identifier: str
-        :param bulk_update_documents_request: (required)
+        :param bulk_update_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_update_documents_request: BulkUpdateDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1199,8 +1221,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1349,8 +1373,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1422,8 +1448,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1495,8 +1523,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1573,8 +1603,8 @@ class CollectionDocumentsApi:
     @validate_call
     def create_document(
         self,
-        collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
-        document_create_request: DocumentCreateRequest,
+        collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection.")],
+        document_create_request: Annotated[DocumentCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1590,11 +1620,11 @@ class CollectionDocumentsApi:
     ) -> DocumentResponse:
         """Create a document.
 
-        Create a document by ID.
+        Create a document in a collection addressed by ID or name.
 
-        :param collection_identifier: The ID of the collection. (required)
+        :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
-        :param document_create_request: (required)
+        :param document_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type document_create_request: DocumentCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1633,8 +1663,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1650,8 +1682,8 @@ class CollectionDocumentsApi:
     @validate_call
     def create_document_with_http_info(
         self,
-        collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
-        document_create_request: DocumentCreateRequest,
+        collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection.")],
+        document_create_request: Annotated[DocumentCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1667,11 +1699,11 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentResponse]:
         """Create a document.
 
-        Create a document by ID.
+        Create a document in a collection addressed by ID or name.
 
-        :param collection_identifier: The ID of the collection. (required)
+        :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
-        :param document_create_request: (required)
+        :param document_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type document_create_request: DocumentCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1710,8 +1742,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1727,8 +1761,8 @@ class CollectionDocumentsApi:
     @validate_call
     def create_document_without_preload_content(
         self,
-        collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
-        document_create_request: DocumentCreateRequest,
+        collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection.")],
+        document_create_request: Annotated[DocumentCreateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1744,11 +1778,11 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Create a document.
 
-        Create a document by ID.
+        Create a document in a collection addressed by ID or name.
 
-        :param collection_identifier: The ID of the collection. (required)
+        :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
-        :param document_create_request: (required)
+        :param document_create_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type document_create_request: DocumentCreateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1787,8 +1821,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1941,8 +1977,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2018,8 +2056,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2095,8 +2135,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2177,7 +2219,7 @@ class CollectionDocumentsApi:
     def distinct_document_values(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The unique identifier of the collection.")],
-        distinct_values_request: DistinctValuesRequest,
+        distinct_values_request: Annotated[DistinctValuesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2193,11 +2235,11 @@ class CollectionDocumentsApi:
     ) -> DistinctValuesResponse:
         """Return distinct values for a single field.
 
-        Return the set of unique values for one document field across a collection, together with a per-value document count sorted desc. Thin wrapper over `/aggregate` for the common `SELECT DISTINCT <field>` case — use this when a UI needs a facet list (e.g. `brand_slug`) without loading every document. Null/missing values are excluded.
+        Return the set of unique values for one document field across a collection, together with a per-value document count sorted desc. Thin wrapper over `/aggregate` for the common `SELECT DISTINCT <field>` case — use this when a UI needs a facet list (e.g. `brand_slug`) without loading every document. Null/missing values are excluded. A value comes back as a JSON number or boolean when the namespace declares a payload index of type integer, float or bool on the field. Any other field, including an undeclared numeric one, facets as strings, so check the namespace's `payload_indexes` to know which you will get. When a storage shard times out or returns only part of its documents, the list can be short: `query_info.truncated` is then true and `query_info.warning` says what to do.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
-        :param distinct_values_request: (required)
+        :param distinct_values_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type distinct_values_request: DistinctValuesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2236,8 +2278,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2254,7 +2298,7 @@ class CollectionDocumentsApi:
     def distinct_document_values_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The unique identifier of the collection.")],
-        distinct_values_request: DistinctValuesRequest,
+        distinct_values_request: Annotated[DistinctValuesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2270,11 +2314,11 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DistinctValuesResponse]:
         """Return distinct values for a single field.
 
-        Return the set of unique values for one document field across a collection, together with a per-value document count sorted desc. Thin wrapper over `/aggregate` for the common `SELECT DISTINCT <field>` case — use this when a UI needs a facet list (e.g. `brand_slug`) without loading every document. Null/missing values are excluded.
+        Return the set of unique values for one document field across a collection, together with a per-value document count sorted desc. Thin wrapper over `/aggregate` for the common `SELECT DISTINCT <field>` case — use this when a UI needs a facet list (e.g. `brand_slug`) without loading every document. Null/missing values are excluded. A value comes back as a JSON number or boolean when the namespace declares a payload index of type integer, float or bool on the field. Any other field, including an undeclared numeric one, facets as strings, so check the namespace's `payload_indexes` to know which you will get. When a storage shard times out or returns only part of its documents, the list can be short: `query_info.truncated` is then true and `query_info.warning` says what to do.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
-        :param distinct_values_request: (required)
+        :param distinct_values_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type distinct_values_request: DistinctValuesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2313,8 +2357,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2331,7 +2377,7 @@ class CollectionDocumentsApi:
     def distinct_document_values_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The unique identifier of the collection.")],
-        distinct_values_request: DistinctValuesRequest,
+        distinct_values_request: Annotated[DistinctValuesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2347,11 +2393,11 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Return distinct values for a single field.
 
-        Return the set of unique values for one document field across a collection, together with a per-value document count sorted desc. Thin wrapper over `/aggregate` for the common `SELECT DISTINCT <field>` case — use this when a UI needs a facet list (e.g. `brand_slug`) without loading every document. Null/missing values are excluded.
+        Return the set of unique values for one document field across a collection, together with a per-value document count sorted desc. Thin wrapper over `/aggregate` for the common `SELECT DISTINCT <field>` case — use this when a UI needs a facet list (e.g. `brand_slug`) without loading every document. Null/missing values are excluded. A value comes back as a JSON number or boolean when the namespace declares a payload index of type integer, float or bool on the field. Any other field, including an undeclared numeric one, facets as strings, so check the namespace's `payload_indexes` to know which you will get. When a storage shard times out or returns only part of its documents, the list can be short: `query_info.truncated` is then true and `query_info.warning` says what to do.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
-        :param distinct_values_request: (required)
+        :param distinct_values_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type distinct_values_request: DistinctValuesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2390,8 +2436,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2544,8 +2592,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2621,8 +2671,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2698,8 +2750,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2855,8 +2909,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2948,8 +3004,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3041,8 +3099,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3202,8 +3262,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3279,8 +3341,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3356,8 +3420,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3497,8 +3563,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3574,8 +3642,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3651,8 +3721,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3792,8 +3864,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3869,8 +3943,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3946,8 +4022,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4041,7 +4119,7 @@ class CollectionDocumentsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_documents_request: Optional[ListDocumentsRequest] = None,
+        list_documents_request: Annotated[Optional[ListDocumentsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4087,7 +4165,7 @@ class CollectionDocumentsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_documents_request:
+        :param list_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_documents_request: ListDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4139,8 +4217,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4170,7 +4250,7 @@ class CollectionDocumentsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_documents_request: Optional[ListDocumentsRequest] = None,
+        list_documents_request: Annotated[Optional[ListDocumentsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4216,7 +4296,7 @@ class CollectionDocumentsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_documents_request:
+        :param list_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_documents_request: ListDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4268,8 +4348,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4299,7 +4381,7 @@ class CollectionDocumentsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_documents_request: Optional[ListDocumentsRequest] = None,
+        list_documents_request: Annotated[Optional[ListDocumentsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4345,7 +4427,7 @@ class CollectionDocumentsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_documents_request:
+        :param list_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_documents_request: ListDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4397,8 +4479,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4570,7 +4654,7 @@ class CollectionDocumentsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_documents_request: Optional[ListDocumentsRequest] = None,
+        list_documents_request: Annotated[Optional[ListDocumentsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4616,7 +4700,7 @@ class CollectionDocumentsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_documents_request:
+        :param list_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_documents_request: ListDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4668,8 +4752,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4699,7 +4785,7 @@ class CollectionDocumentsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_documents_request: Optional[ListDocumentsRequest] = None,
+        list_documents_request: Annotated[Optional[ListDocumentsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4745,7 +4831,7 @@ class CollectionDocumentsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_documents_request:
+        :param list_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_documents_request: ListDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4797,8 +4883,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4828,7 +4916,7 @@ class CollectionDocumentsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_documents_request: Optional[ListDocumentsRequest] = None,
+        list_documents_request: Annotated[Optional[ListDocumentsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4874,7 +4962,7 @@ class CollectionDocumentsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_documents_request:
+        :param list_documents_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_documents_request: ListDocumentsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4926,8 +5014,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5087,7 +5177,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document to patch.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5103,13 +5193,13 @@ class CollectionDocumentsApi:
     ) -> DocumentResponse:
         """Patch Document
 
-        Partially update a document by ID (PATCH operation).
+        Partially update a document by ID (PATCH operation).  In `metadata`, each key you send is set, keys you omit stay, and a key set to `null` is removed.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document to patch. (required)
         :type document_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5149,8 +5239,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5168,7 +5260,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document to patch.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5184,13 +5276,13 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentResponse]:
         """Patch Document
 
-        Partially update a document by ID (PATCH operation).
+        Partially update a document by ID (PATCH operation).  In `metadata`, each key you send is set, keys you omit stay, and a key set to `null` is removed.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document to patch. (required)
         :type document_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5230,8 +5322,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5249,7 +5343,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document to patch.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5265,13 +5359,13 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Patch Document
 
-        Partially update a document by ID (PATCH operation).
+        Partially update a document by ID (PATCH operation).  In `metadata`, each key you send is set, keys you omit stay, and a key set to `null` is removed.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document to patch. (required)
         :type document_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5311,8 +5405,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5410,7 +5506,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document to update.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5426,13 +5522,13 @@ class CollectionDocumentsApi:
     ) -> DocumentResponse:
         """Update Document
 
-        Update a document by ID.
+        Update a document by ID.  Fields you omit keep their stored values. In `metadata`, each key you send is set, keys you omit stay, and a key set to `null` is removed.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document to update. (required)
         :type document_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5472,8 +5568,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5491,7 +5589,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document to update.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5507,13 +5605,13 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentResponse]:
         """Update Document
 
-        Update a document by ID.
+        Update a document by ID.  Fields you omit keep their stored values. In `metadata`, each key you send is set, keys you omit stay, and a key set to `null` is removed.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document to update. (required)
         :type document_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5553,8 +5651,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5572,7 +5672,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document to update.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5588,13 +5688,13 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Update Document
 
-        Update a document by ID.
+        Update a document by ID.  Fields you omit keep their stored values. In `metadata`, each key you send is set, keys you omit stay, and a key set to `null` is removed.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document to update. (required)
         :type document_id: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5634,8 +5734,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5733,7 +5835,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document.")],
-        update_document_acl_request: UpdateDocumentACLRequest,
+        update_document_acl_request: Annotated[UpdateDocumentACLRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5749,13 +5851,13 @@ class CollectionDocumentsApi:
     ) -> DocumentResponse:
         """Update a document's access control list (ACL).
 
-        Update a document's ACL (access control list).  Only the document owner or an org-scoped key can modify ACL. User-scoped keys that are not the owner will receive a 403.
+        Update a document's ACL (access control list).  Only the document owner or an org-scoped key can modify ACL. User-scoped keys that are not the owner will receive a 403.  This route edits one document per call. To set ACLs on many documents (an import or a migration), send them with POST /v1/namespaces/{namespace_id}/documents/upsert and a per-document `acl`, which writes a whole batch in one call.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document. (required)
         :type document_id: str
-        :param update_document_acl_request: (required)
+        :param update_document_acl_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_document_acl_request: UpdateDocumentACLRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5795,8 +5897,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5814,7 +5918,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document.")],
-        update_document_acl_request: UpdateDocumentACLRequest,
+        update_document_acl_request: Annotated[UpdateDocumentACLRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5830,13 +5934,13 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentResponse]:
         """Update a document's access control list (ACL).
 
-        Update a document's ACL (access control list).  Only the document owner or an org-scoped key can modify ACL. User-scoped keys that are not the owner will receive a 403.
+        Update a document's ACL (access control list).  Only the document owner or an org-scoped key can modify ACL. User-scoped keys that are not the owner will receive a 403.  This route edits one document per call. To set ACLs on many documents (an import or a migration), send them with POST /v1/namespaces/{namespace_id}/documents/upsert and a per-document `acl`, which writes a whole batch in one call.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document. (required)
         :type document_id: str
-        :param update_document_acl_request: (required)
+        :param update_document_acl_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_document_acl_request: UpdateDocumentACLRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5876,8 +5980,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5895,7 +6001,7 @@ class CollectionDocumentsApi:
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID of the collection.")],
         document_id: Annotated[StrictStr, Field(description="The ID of the document.")],
-        update_document_acl_request: UpdateDocumentACLRequest,
+        update_document_acl_request: Annotated[UpdateDocumentACLRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5911,13 +6017,13 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Update a document's access control list (ACL).
 
-        Update a document's ACL (access control list).  Only the document owner or an org-scoped key can modify ACL. User-scoped keys that are not the owner will receive a 403.
+        Update a document's ACL (access control list).  Only the document owner or an org-scoped key can modify ACL. User-scoped keys that are not the owner will receive a 403.  This route edits one document per call. To set ACLs on many documents (an import or a migration), send them with POST /v1/namespaces/{namespace_id}/documents/upsert and a per-document `acl`, which writes a whole batch in one call.
 
         :param collection_identifier: The ID of the collection. (required)
         :type collection_identifier: str
         :param document_id: The ID of the document. (required)
         :type document_id: str
-        :param update_document_acl_request: (required)
+        :param update_document_acl_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_document_acl_request: UpdateDocumentACLRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5957,8 +6063,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6055,7 +6163,7 @@ class CollectionDocumentsApi:
     def validate_document_schema(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6075,7 +6183,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6114,8 +6222,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6132,7 +6242,7 @@ class CollectionDocumentsApi:
     def validate_document_schema_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6152,7 +6262,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6191,8 +6301,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6209,7 +6321,7 @@ class CollectionDocumentsApi:
     def validate_document_schema_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="The ID or name of the collection.")],
-        request_body: Dict[str, Any],
+        request_body: Annotated[Dict[str, Any], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6229,7 +6341,7 @@ class CollectionDocumentsApi:
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
-        :param request_body: (required)
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6268,8 +6380,10 @@ class CollectionDocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

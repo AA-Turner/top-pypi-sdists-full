@@ -29,32 +29,33 @@ class NativeTool:
     finding_exits: frozenset[int] = frozenset({1})
     executable: Path | None = None
     standalone_compose: bool = False
+    version_stderr: bool = False
 
 
 TOOLS: Final = MappingProxyType(
     {
         tool.name: tool
         for tool in (
-            NativeTool("helm", "4.3.0", ("version", "--short"), r"^v(?P<version>\d+\.\d+\.\d+)"),
+            NativeTool("helm", "4.3.1", ("version", "--short"), r"^v(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("kubeconform", "0.8.0", ("-v",), r"^v?(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("kube-linter", "0.8.3", ("version",), r"v?(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("shfmt", "3.14.1", ("--version",), r"^v(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("shellcheck", "0.11.0", ("--version",), r"^version:[ \t]*(?P<version>\d+\.\d+\.\d+)[ \t]*\r?$"),
             NativeTool("actionlint", "1.7.12", ("-version",), r"^(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("hadolint", "2.15.1", ("--version",), r"v?(?P<version>\d+\.\d+\.\d+)"),
-            NativeTool("jscpd", "5.4.1", ("--version",), r"^jscpd (?P<version>\d+\.\d+\.\d+)$", frozenset()),
-            NativeTool("knip", "6.41.0", ("--version",), r"^(?P<version>\d+\.\d+\.\d+)$", frozenset()),
-            NativeTool("terraform", "1.16.5", ("version",), r"Terraform v(?P<version>\d+\.\d+\.\d+)"),
+            NativeTool("jscpd", "5.4.2", ("--version",), r"^jscpd (?P<version>\d+\.\d+\.\d+)$", frozenset()),
+            NativeTool("knip", "6.42.1", ("--version",), r"^(?P<version>\d+\.\d+\.\d+)$", frozenset()),
+            NativeTool("terraform", "1.17.0", ("version",), r"Terraform v(?P<version>\d+\.\d+\.\d+)"),
             NativeTool(
                 "tflint",
-                "0.64.0",
+                "0.65.0",
                 ("--version", "--config", str(CONFIGS_DIR / "tflint.version.hcl")),
                 r"TFLint version (?P<version>\d+\.\d+\.\d+)",
                 frozenset({2}),
             ),
             NativeTool(
                 "docker",
-                "5.6.0",
+                "5.6.1",
                 ("compose", "version", "--format", "json"),
                 r'"version"\s*:\s*"v?(?P<version>\d+\.\d+\.\d+)"',
             ),
@@ -101,12 +102,20 @@ def checked_tool(
             message = "Only Compose accepts a consumer-specific exact semantic version"
             raise NativeToolError(message)
         tool = replace(tool, version=expected_version)
+    return _installed_tool(tool, root=root, runner=runner, managed=True)
+
+
+def checked_runtime_tool(tool: NativeTool, *, root: Path, runner: ProcessRunner = run_process) -> NativeTool:
+    return _installed_tool(tool, root=root, runner=runner, managed=False)
+
+
+def _installed_tool(tool: NativeTool, *, root: Path, runner: ProcessRunner, managed: bool) -> NativeTool:
     # Injected runners implement the native-tool protocol directly. Production
     # resolves an immutable absolute executable before attesting its version.
     if runner is not run_process:
         return _attest(tool, root=root, runner=runner)
-    adjacent = shutil.which(name, path=str(Path(sys.executable).parent))
-    candidates = dict.fromkeys((adjacent, shutil.which(name)))
+    adjacent = shutil.which(tool.name, path=str(Path(sys.executable).parent))
+    candidates = dict.fromkeys((adjacent, shutil.which(tool.name)))
     first_error: OSError | NativeToolError | None = None
     for candidate in candidates:
         if candidate is None:
@@ -117,6 +126,11 @@ def checked_tool(
         except (OSError, NativeToolError) as error:
             if first_error is None:
                 first_error = error
+    if not managed:
+        if first_error is not None:
+            raise first_error
+        message = f"{tool.name} is missing; run prepared validation in its matching installed runtime"
+        raise NativeToolMissingError(message)
     try:
         installed = _mise_tool(tool, root=root, runner=runner)
     except NativeToolMissingError:
@@ -128,7 +142,7 @@ def checked_tool(
 
 def _attest(tool: NativeTool, *, root: Path, runner: ProcessRunner) -> NativeTool:
     output = _version_output(_argv(tool, tool.version_args), root=root, runner=runner)
-    actual = _version(tool, output.stdout)
+    actual = _version(tool, output.stderr if tool.version_stderr else output.stdout)
     if output.returncode or actual != tool.version:
         msg = f"{tool.name} {actual} is installed; exact version {tool.version} is required"
         raise NativeToolError(msg)

@@ -45,138 +45,144 @@
 "4e90918c0a": /* index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
-    const Panel = tslib_1.__importStar(require("2fe1822b2b") /* ./models */);
+    const Panel = tslib_1.__importStar(require("36236053e8") /* ./models */);
     exports.Panel = Panel;
     const base_1 = require("@bokehjs/base");
     (0, base_1.register_models)(Panel);
 },
-"2fe1822b2b": /* models/index.js */ function _(require, module, exports, __esModule, __esExport) {
+"36236053e8": /* models/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.VizzuChart = exports.VideoStream = exports.Video = exports.VegaPlot = exports.TrendIndicator = exports.TooltipIcon = exports.ToggleIcon = void 0;
+    exports.VizzuChart = exports.VideoStream = exports.Video = exports.VegaPlot = exports.TrendIndicator = exports.TooltipIcon = exports.ToggleIcon = exports.TimePicker = exports.TextToSpeech = void 0;
     const tslib_1 = require("tslib");
-    var ace_1 = require("5fa2fb81b3") /* ./ace */;
+    var ace_1 = require("7b034b2ba5") /* ./ace */;
     __esExport("AcePlot", ace_1.AcePlot);
-    var anywidget_component_1 = require("1f663ffe94") /* ./anywidget_component */;
+    var anywidget_component_1 = require("f4bc4e23b4") /* ./anywidget_component */;
     __esExport("AnyWidgetComponent", anywidget_component_1.AnyWidgetComponent);
-    var audio_1 = require("fd59c985b3") /* ./audio */;
+    var audio_1 = require("fdf76c2b8b") /* ./audio */;
     __esExport("Audio", audio_1.Audio);
-    var browser_1 = require("5a16cc23e6") /* ./browser */;
+    var browser_1 = require("f25f215a58") /* ./browser */;
     __esExport("BrowserInfo", browser_1.BrowserInfo);
-    var button_1 = require("1db93211cd") /* ./button */;
+    var button_1 = require("29120fca73") /* ./button */;
     __esExport("Button", button_1.Button);
-    var button_icon_1 = require("1738ddeb3a") /* ./button_icon */;
+    var button_icon_1 = require("7e77f478cb") /* ./button_icon */;
     __esExport("ButtonIcon", button_icon_1.ButtonIcon);
-    var icon_1 = require("6c7fbea0ef") /* ./icon */;
+    var icon_1 = require("bf77ad153d") /* ./icon */;
     __esExport("ClickableIcon", icon_1.ClickableIcon);
-    var card_1 = require("31556103c8") /* ./card */;
+    var card_1 = require("a668a42a0f") /* ./card */;
     __esExport("Card", card_1.Card);
-    var checkbox_button_group_1 = require("51fbe9e2d0") /* ./checkbox_button_group */;
+    var checkbox_button_group_1 = require("138d8a2ed1") /* ./checkbox_button_group */;
     __esExport("CheckboxButtonGroup", checkbox_button_group_1.CheckboxButtonGroup);
-    var chatarea_input_1 = require("27a077673d") /* ./chatarea_input */;
+    var chatarea_input_1 = require("a9ce3554f5") /* ./chatarea_input */;
     __esExport("ChatAreaInput", chatarea_input_1.ChatAreaInput);
-    var column_1 = require("b273e5b2fb") /* ./column */;
+    var column_1 = require("3967d78fb5") /* ./column */;
     __esExport("Column", column_1.Column);
-    var comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
+    var comm_manager_1 = require("f8f420cdc3") /* ./comm_manager */;
     __esExport("CommManager", comm_manager_1.CommManager);
-    var customselect_1 = require("92bbd30bd1") /* ./customselect */;
+    var customselect_1 = require("519009caed") /* ./customselect */;
     __esExport("CustomSelect", customselect_1.CustomSelect);
-    var multiselect_1 = require("27b5580835") /* ./multiselect */;
+    var multiselect_1 = require("8653ba687c") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("e0501f9786") /* ./tabulator */;
+    var tabulator_1 = require("381057489b") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
-    var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
+    __esExport("TabulatorColumn", tabulator_1.TabulatorColumn);
+    var datetime_picker_1 = require("7408873be7") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
-    var datetime_slider_1 = require("c97cc0eade") /* ./datetime_slider */;
+    var datetime_slider_1 = require("47671196f6") /* ./datetime_slider */;
     __esExport("DatetimeSlider", datetime_slider_1.DatetimeSlider);
-    var deckgl_1 = require("d58ba73420") /* ./deckgl */;
+    var deckgl_1 = require("609f06c18b") /* ./deckgl */;
     __esExport("DeckGLPlot", deckgl_1.DeckGLPlot);
-    var discrete_player_1 = require("0dca2cd4f6") /* ./discrete_player */;
+    var discrete_player_1 = require("eee856b107") /* ./discrete_player */;
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
-    var echarts_1 = require("ec1ecef6a0") /* ./echarts */;
+    var echarts_1 = require("df5e7d36e5") /* ./echarts */;
     __esExport("ECharts", echarts_1.ECharts);
-    var feed_1 = require("44a7ecdf96") /* ./feed */;
+    var feed_1 = require("56255f9c11") /* ./feed */;
     __esExport("Feed", feed_1.Feed);
-    var file_download_1 = require("84a13dddfb") /* ./file_download */;
+    var file_download_1 = require("a7746def5a") /* ./file_download */;
     __esExport("FileDownload", file_download_1.FileDownload);
-    var file_dropper_1 = require("8531319d94") /* ./file_dropper */;
+    var file_dropper_1 = require("bff8eeed36") /* ./file_dropper */;
     __esExport("FileDropper", file_dropper_1.FileDropper);
-    var html_1 = require("4c04683fdc") /* ./html */;
+    var html_1 = require("9012c2f5ae") /* ./html */;
     __esExport("HTML", html_1.HTML);
-    var ipywidget_1 = require("8a8089cbf3") /* ./ipywidget */;
+    var ipywidget_1 = require("fd4c3f6bc4") /* ./ipywidget */;
     __esExport("IPyWidget", ipywidget_1.IPyWidget);
-    var json_1 = require("245cd3cfde") /* ./json */;
+    var json_1 = require("19285971d9") /* ./json */;
     __esExport("JSON", json_1.JSON);
-    var jsoneditor_1 = require("33e664043e") /* ./jsoneditor */;
+    var jsoneditor_1 = require("372d3e3a52") /* ./jsoneditor */;
     __esExport("JSONEditor", jsoneditor_1.JSONEditor);
-    var katex_1 = require("f672d71a9f") /* ./katex */;
+    var katex_1 = require("052b7b0298") /* ./katex */;
     __esExport("KaTeX", katex_1.KaTeX);
-    var location_1 = require("9012b81346") /* ./location */;
+    var location_1 = require("2116677c2d") /* ./location */;
     __esExport("Location", location_1.Location);
-    var mathjax_1 = require("d889a68424") /* ./mathjax */;
+    var mathjax_1 = require("07688254ed") /* ./mathjax */;
     __esExport("MathJax", mathjax_1.MathJax);
-    var modal_1 = require("9a342a6757") /* ./modal */;
+    var modal_1 = require("37ed29726e") /* ./modal */;
     __esExport("Modal", modal_1.Modal);
-    var pdf_1 = require("f87ad1873c") /* ./pdf */;
+    var pdf_1 = require("87a65d7fb5") /* ./pdf */;
     __esExport("PDF", pdf_1.PDF);
-    var perspective_1 = require("29a0b0da9a") /* ./perspective */;
+    var perspective_1 = require("7a00e4d590") /* ./perspective */;
     __esExport("Perspective", perspective_1.Perspective);
-    var player_1 = require("96e805ccb5") /* ./player */;
+    var player_1 = require("ed49986321") /* ./player */;
     __esExport("Player", player_1.Player);
-    var plotly_1 = require("59dbae0a77") /* ./plotly */;
+    var plotly_1 = require("39230f6818") /* ./plotly */;
     __esExport("PlotlyPlot", plotly_1.PlotlyPlot);
-    var progress_1 = require("54e5f3767b") /* ./progress */;
+    var progress_1 = require("443fb5cf42") /* ./progress */;
     __esExport("Progress", progress_1.Progress);
-    var quill_1 = require("a8f2a01dfe") /* ./quill */;
+    var quill_1 = require("3df70ba3b3") /* ./quill */;
     __esExport("QuillInput", quill_1.QuillInput);
-    var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
+    var radio_button_group_1 = require("08a22fed1a") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("a2b691ef16") /* ./react_component */;
+    var react_component_1 = require("e74ecd40bb") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
-    var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
+    var reactive_html_1 = require("61cc258c24") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("fb9db49f87") /* ./reactive_esm */;
+    var reactive_esm_1 = require("f3226cbf82") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
-    var singleselect_1 = require("4155401209") /* ./singleselect */;
+    var resources_1 = require("3ec7d872e2") /* ./resources */;
+    __esExport("resources", resources_1.resources);
+    var singleselect_1 = require("3766e0c917") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
-    var speech_to_text_1 = require("5ac2cab0ab") /* ./speech_to_text */;
+    var speech_to_text_1 = require("95fa78f501") /* ./speech_to_text */;
     __esExport("SpeechToText", speech_to_text_1.SpeechToText);
-    var state_1 = require("92822cb73a") /* ./state */;
+    var state_1 = require("188544eb0b") /* ./state */;
     __esExport("State", state_1.State);
-    var tabs_1 = require("fffb4344f7") /* ./tabs */;
+    var tabs_1 = require("3cba64cc82") /* ./tabs */;
     __esExport("Tabs", tabs_1.Tabs);
-    var terminal_1 = require("a961b5ae5e") /* ./terminal */;
+    var terminal_1 = require("4fecff5c68") /* ./terminal */;
     __esExport("Terminal", terminal_1.Terminal);
-    var textarea_input_1 = require("b7d595d74a") /* ./textarea_input */;
+    var textarea_input_1 = require("2f8fe6797e") /* ./textarea_input */;
     __esExport("TextAreaInput", textarea_input_1.TextAreaInput);
-    var text_input_1 = require("8be416b160") /* ./text_input */;
+    var text_input_1 = require("e9d16ed037") /* ./text_input */;
     __esExport("TextInput", text_input_1.TextInput);
-    var text_to_speech_1 = require("a04eb51988") /* ./text_to_speech */;
+    var text_to_speech_1 = require("1fb38b62cd") /* ./text_to_speech */;
     __esExport("TextToSpeech", text_to_speech_1.TextToSpeech);
-    var time_picker_1 = require("1afcab4e45") /* ./time_picker */;
+    var time_picker_1 = require("5e05e2d651") /* ./time_picker */;
     __esExport("TimePicker", time_picker_1.TimePicker);
-    var toggle_icon_1 = require("ad985f285e") /* ./toggle_icon */;
+    var toggle_icon_1 = require("49efbd99ad") /* ./toggle_icon */;
     __esExport("ToggleIcon", toggle_icon_1.ToggleIcon);
-    var tooltip_icon_1 = require("ae3a172647") /* ./tooltip_icon */;
+    var tooltip_icon_1 = require("aad04f1876") /* ./tooltip_icon */;
     __esExport("TooltipIcon", tooltip_icon_1.TooltipIcon);
-    var trend_1 = require("29d55a28a9") /* ./trend */;
+    var trend_1 = require("eb967020e9") /* ./trend */;
     __esExport("TrendIndicator", trend_1.TrendIndicator);
-    var vega_1 = require("22dbf7c070") /* ./vega */;
+    var vega_1 = require("03e8d20a08") /* ./vega */;
     __esExport("VegaPlot", vega_1.VegaPlot);
-    var video_1 = require("79dc37b888") /* ./video */;
+    var video_1 = require("e8830cc759") /* ./video */;
     __esExport("Video", video_1.Video);
-    var videostream_1 = require("f8afc4e661") /* ./videostream */;
+    var videostream_1 = require("73b5826147") /* ./videostream */;
     __esExport("VideoStream", videostream_1.VideoStream);
-    var vizzu_1 = require("1f7bc1f95b") /* ./vizzu */;
+    var vizzu_1 = require("e8cb25b7b8") /* ./vizzu */;
     __esExport("VizzuChart", vizzu_1.VizzuChart);
     tslib_1.__exportStar(require("c51f25e2a7") /* ./vtk */, exports);
 },
-"5fa2fb81b3": /* models/ace.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"7b034b2ba5": /* models/ace.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     class AcePlotView extends layout_1.HTMLBoxView {
+        _editor;
+        _langTools;
+        _modelist;
+        _container;
         connect_signals() {
             super.connect_signals();
             const { code, theme, language, filename, print_margin, annotations, soft_tabs, indent, readonly } = this.model.properties;
@@ -307,38 +313,35 @@
         }
     }
     exports.AcePlotView = AcePlotView;
-    AcePlotView.__name__ = "AcePlotView";
     class AcePlot extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.ace";
+        static {
+            this.prototype.default_view = AcePlotView;
+            this.define(({ Any, Bool, Int, List, Str, Nullable }) => ({
+                annotations: [List(Any), []],
+                code: [Str, ""],
+                code_input: [Str, ""],
+                filename: [Nullable(Str), null],
+                indent: [Int, 4],
+                language: [Str, ""],
+                on_keyup: [Bool, true],
+                print_margin: [Bool, false],
+                theme: [Str, "github_light_default"],
+                readonly: [Bool, false],
+                soft_tabs: [Bool, false],
+            }));
+            this.override({
+                height: 300,
+                width: 300,
+            });
+        }
     }
     exports.AcePlot = AcePlot;
-    _a = AcePlot;
-    AcePlot.__name__ = "AcePlot";
-    AcePlot.__module__ = "panel.models.ace";
-    (() => {
-        _a.prototype.default_view = AcePlotView;
-        _a.define(({ Any, Bool, Int, List, Str, Nullable }) => ({
-            annotations: [List(Any), []],
-            code: [Str, ""],
-            code_input: [Str, ""],
-            filename: [Nullable(Str), null],
-            indent: [Int, 4],
-            language: [Str, ""],
-            on_keyup: [Bool, true],
-            print_margin: [Bool, false],
-            theme: [Str, "github_light_default"],
-            readonly: [Bool, false],
-            soft_tabs: [Bool, false],
-        }));
-        _a.override({
-            height: 300,
-            width: 300,
-        });
-    })();
 },
-"84236c2552": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
+"00beb93e38": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.rerender_view = rerender_view;
     exports.set_size = set_size;
@@ -347,6 +350,7 @@
     const assert_1 = require("@bokehjs/core/util/assert");
     const widget_1 = require("@bokehjs/models/widgets/widget");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
     /**
      * Re-renders a view, including its layout.
      *
@@ -361,13 +365,19 @@
      * tile-based plots, a division by zero width puts NaN into the ranges with no
      * recovery path). Updating the layout first means `after_render` measures
      * elements where they will actually live.
+     *
+     * `layout=false` skips `compute_layout`, for callers that render several
+     * children in a row and lay out once afterwards: a child's `compute_layout`
+     * lays out its whole root, so rendering N children would cost N full passes.
      */
-    function rerender_view(view) {
+    function rerender_view(view, layout = true) {
         if (view instanceof layout_dom_1.LayoutDOMView) {
             view.render();
             view.update_layout();
             view.r_after_render();
-            view.compute_layout();
+            if (layout) {
+                view.compute_layout();
+            }
         }
         else if (view.rerender) {
             // Can be removed when Bokeh>3.7 (see https://github.com/holoviz/panel/pull/7815)
@@ -378,11 +388,40 @@
             view.r_after_render();
         }
     }
-    class PanelMarkupView extends widget_1.WidgetView {
-        constructor() {
-            super(...arguments);
-            this._stylesheets_watcher = null;
+    /**
+     * Tracks the `<link>` stylesheets of a view and calls `settled` once all of
+     * them have loaded *or* failed, or immediately if none are pending. Views
+     * reveal their content from that callback, so a stylesheet that never arrives
+     * must not hide them forever, while revealing earlier lays them out unstyled.
+     */
+    function watch_link_stylesheets(stylesheets, signal, settled) {
+        const state = new Map();
+        const all_settled = () => [...state.values()].every((v) => v);
+        for (const stylesheet of stylesheets) {
+            const style_el = stylesheet.el;
+            if (style_el instanceof HTMLLinkElement) {
+                // A link served from cache may already have loaded, and `load` does
+                // not fire again for it.
+                state.set(style_el.href, style_el.sheet != null);
+                const on_settled = () => {
+                    state.set(style_el.href, true);
+                    if (all_settled()) {
+                        settled();
+                    }
+                };
+                style_el.addEventListener("load", on_settled, { signal });
+                style_el.addEventListener("error", on_settled, { signal });
+            }
         }
+        if (all_settled()) {
+            settled();
+        }
+        return state;
+    }
+    class PanelMarkupView extends widget_1.WidgetView {
+        container;
+        _initialized_stylesheets;
+        _stylesheets_watcher = null;
         connect_signals() {
             super.connect_signals();
             const { width, height, min_height, max_height, margin, sizing_mode } = this.model.properties;
@@ -393,6 +432,10 @@
         }
         async lazy_initialize() {
             await super.lazy_initialize();
+            const error = await (0, resources_1.await_resources)(this.model);
+            if (error != null) {
+                (0, resources_1.render_resource_error)(this, error, PanelMarkupView.prototype.render);
+            }
             if (this.provider.status == "not_started" || this.provider.status == "loading") {
                 this.provider.ready.connect(() => {
                     if (this.contains_tex_string(this.model.text)) {
@@ -403,37 +446,22 @@
         }
         /**
          * Schedules `style_redraw` for when all applied stylesheets have settled.
-         *
-         * A stylesheet counts as settled once it has loaded *or* failed: views
-         * reveal their container from `style_redraw`, so a stylesheet that never
-         * arrives must not hide them forever. Listeners registered by a previous
-         * call are cancelled, since the elements they watch have been discarded.
+         * Listeners registered by a previous call are cancelled, since the
+         * elements they watch have been discarded.
          */
         watch_stylesheets() {
             this._stylesheets_watcher?.abort();
             const { signal } = this._stylesheets_watcher = new AbortController();
-            this._initialized_stylesheets = new Map();
-            for (const stylesheet of this._applied_stylesheets) {
-                // @ts-expect-error: 'el' is protected
-                const style_el = stylesheet.el;
-                if (style_el instanceof HTMLLinkElement) {
-                    // A link served from cache may already have loaded, and `load` does
-                    // not fire again for it, so seed from `sheet` instead of assuming
-                    // every stylesheet is still pending.
-                    this._initialized_stylesheets.set(style_el.href, style_el.sheet != null);
-                    const settled = () => {
-                        this._initialized_stylesheets.set(style_el.href, true);
-                        if ([...this._initialized_stylesheets.values()].every((v) => v)) {
-                            requestAnimationFrame(() => this.style_redraw());
-                        }
-                    };
-                    style_el.addEventListener("load", settled, { signal });
-                    style_el.addEventListener("error", settled, { signal });
+            let watching = false;
+            this._initialized_stylesheets = watch_link_stylesheets(this._applied_stylesheets, signal, () => {
+                if (watching) {
+                    requestAnimationFrame(() => this.style_redraw());
                 }
-            }
-            if ([...this._initialized_stylesheets.values()].every((v) => v)) {
-                this.style_redraw();
-            }
+                else {
+                    this.style_redraw();
+                }
+            });
+            watching = true;
         }
         /**
          * Bokeh recreates the stylesheet elements on every update, discarding the
@@ -466,7 +494,6 @@
         }
     }
     exports.PanelMarkupView = PanelMarkupView;
-    PanelMarkupView.__name__ = "PanelMarkupView";
     function set_size(el, model, adjust_margin = true) {
         let width_policy = model.width != null ? "fixed" : "fit";
         let height_policy = model.height != null ? "fixed" : "fit";
@@ -556,12 +583,21 @@
         }
     }
     class HTMLBoxView extends layout_dom_1.LayoutDOMView {
+        _initialized_stylesheets = new Map();
+        _stylesheets_watcher = null;
         connect_signals() {
             super.connect_signals();
             const { width, height, min_height, max_height, margin, sizing_mode } = this.model.properties;
             this.on_change([width, height, min_height, max_height, margin, sizing_mode], () => {
                 set_size(this.el, this.model);
             });
+        }
+        async lazy_initialize() {
+            await super.lazy_initialize();
+            const error = await (0, resources_1.await_resources)(this.model);
+            if (error != null) {
+                (0, resources_1.render_resource_error)(this, error, HTMLBoxView.prototype.render);
+            }
         }
         render() {
             super.render();
@@ -570,24 +606,32 @@
         rerender_(view = null) {
             rerender_view(view == null ? this : view);
         }
+        /**
+         * Schedules `style_redraw` for when all applied stylesheets have settled.
+         * Always deferred by a frame because subclasses arm the watcher before
+         * creating the content `style_redraw` operates on.
+         */
         watch_stylesheets() {
-            this._initialized_stylesheets = new Map();
-            for (const stylesheet of this._applied_stylesheets) {
-                // @ts-expect-error: 'el' is protected
-                const style_el = stylesheet.el;
-                if (style_el instanceof HTMLLinkElement) {
-                    this._initialized_stylesheets.set(style_el.href, false);
-                    style_el.addEventListener("load", () => {
-                        this._initialized_stylesheets.set(style_el.href, true);
-                        if ([...this._initialized_stylesheets.values()].every((v) => v)) {
-                            this.style_redraw();
-                        }
-                    });
-                }
+            this._stylesheets_watcher?.abort();
+            const { signal } = this._stylesheets_watcher = new AbortController();
+            this._initialized_stylesheets = watch_link_stylesheets(this._applied_stylesheets, signal, () => {
+                requestAnimationFrame(() => this.style_redraw());
+            });
+        }
+        get stylesheets_settled() {
+            return [...this._initialized_stylesheets.values()].every((v) => v);
+        }
+        /** Bokeh recreates the stylesheet elements on update, so re-arm the watcher. */
+        _update_stylesheets() {
+            super._update_stylesheets();
+            if (this._stylesheets_watcher != null) {
+                this.watch_stylesheets();
             }
-            // Unconditional: subclasses redraw (and reveal themselves) here even when
-            // the stylesheets never load, so this is their only guaranteed redraw.
-            requestAnimationFrame(() => this.style_redraw());
+        }
+        remove() {
+            this._stylesheets_watcher?.abort();
+            this._stylesheets_watcher = null;
+            super.remove();
         }
         style_redraw() { }
         get child_models() {
@@ -595,14 +639,732 @@
         }
     }
     exports.HTMLBoxView = HTMLBoxView;
-    HTMLBoxView.__name__ = "HTMLBoxView";
     class HTMLBox extends layout_dom_1.LayoutDOM {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            (0, resources_1.define_external_resources)(this);
+        }
+        /**
+         * Starts loading the component's external libraries.
+         *
+         * Every model in a document is initialized before the first view is built
+         * and `build_views` then builds them one at a time, so kicking the fetch
+         * off here is what keeps a page of ten components waiting for the slowest
+         * library rather than for all of them in sequence.
+         */
+        initialize() {
+            super.initialize();
+            (0, resources_1.load_resources)(this);
+        }
     }
     exports.HTMLBox = HTMLBox;
-    HTMLBox.__name__ = "HTMLBox";
+},
+"3ec7d872e2": /* models/resources.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    exports.cdn_url = cdn_url;
+    exports.resource_url = resource_url;
+    exports.define_external_resources = define_external_resources;
+    exports.load_resources = load_resources;
+    exports.await_resources = await_resources;
+    exports.render_resource_error = render_resource_error;
+    const tslib_1 = require("tslib");
+    /**
+     * Client-side registry for external component resources.
+     *
+     * Both the eager path (`pn.extension`, which renders its script and link
+     * tags into the page and then calls `declare`) and the lazy path (a model
+     * carrying an `external_resources` spec, which calls `ensure`) write to one
+     * registry, so a library is fetched at most once per page no matter how
+     * many components, documents or Panel versions ask for it.
+     *
+     * The registry is installed on `globalThis.__panel_resources__`, outside any
+     * version-namespaced object, so two Panel versions sharing a JupyterLab page
+     * share it as well. Its shape is therefore a cross-version contract: it
+     * carries a `v` field and must stay minimal and backwards compatible.
+     */
+    const stylesheets_1 = require("@bokehjs/models/dom/stylesheets");
+    const dom = tslib_1.__importStar(require("@bokehjs/core/dom"));
+    exports.REGISTRY_VERSION = 1;
+    exports.DEFAULT_TIMEOUT = 15000;
+    function url_key(url) {
+        try {
+            return new URL(resource_url(url), document.baseURI).href;
+        }
+        catch (e) {
+            return url;
+        }
+    }
+    /**
+     * Absolutizes a module url.
+     *
+     * `importShim` resolves anything that does not start with a scheme, `/`,
+     * `./` or `../` through the import map, so the relative urls Panel emits
+     * in `server` mode (`static/extensions/panel/bundled/...`) fail as
+     * unknown packages. Every url that reaches here comes from a resource
+     * spec or from a blob, never from an import map, so resolving it against
+     * the document is safe.
+     */
+    function module_url(url) {
+        url = resource_url(url);
+        return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : url_key(url);
+    }
+    function existing_urls(selector, attr) {
+        const urls = new Set();
+        for (const el of document.querySelectorAll(selector)) {
+            const url = el.getAttribute(attr);
+            if (url != null && url !== "") {
+                urls.add(url_key(url));
+            }
+        }
+        return urls;
+    }
+    const JUPYTER_ENDPOINT = "/panel-preview/";
+    /**
+     * Maps a Jupyter extension endpoint url to its CDN equivalent, using the
+     * map of endpoint paths to CDN urls the notebook bootstrap publishes
+     * (Panel's dist, every extension with a CDN and each BokehJS file). Null
+     * if the url is not served by the endpoint or has no CDN equivalent, e.g.
+     * in server/served-app contexts, where the bootstrap never runs.
+     */
+    function cdn_url(url) {
+        const global = globalThis;
+        let cdn_map = global.__panel_cdn_map__ ?? null;
+        if (cdn_map == null && typeof global.__panel_cdn_dist__ === "string") {
+            cdn_map = [["static/extensions/panel/", global.__panel_cdn_dist__]];
+        }
+        const index = url.indexOf(JUPYTER_ENDPOINT);
+        if (cdn_map == null || index === -1) {
+            return null;
+        }
+        const path = url.slice(index + JUPYTER_ENDPOINT.length);
+        for (const [prefix, cdn] of cdn_map) {
+            if (path.startsWith(prefix)) {
+                return cdn + path.slice(prefix.length);
+            }
+        }
+        return null;
+    }
+    /**
+     * Loads endpoint urls from the CDN where the endpoint cannot serve them:
+     * in an exported notebook, or once the bootstrap found the endpoint
+     * unreachable.
+     */
+    function resource_url(url) {
+        const global = globalThis;
+        if (global.__panel_live_notebook__ === false || global.__panel_endpoint_failed__ === true) {
+            return cdn_url(url) ?? url;
+        }
+        return url;
+    }
+    /**
+     * Rewrites a failed Jupyter-extension-endpoint url to its CDN equivalent,
+     * mirroring the eager bootstrap's fallback in autoload_panel_js.js. Only
+     * tried once per element.
+     */
+    function fallback_to_cdn(el, url) {
+        const fallback = cdn_url(url);
+        if (fallback == null || el.dataset.panelCdnFallback != null) {
+            return null;
+        }
+        el.dataset.panelCdnFallback = "";
+        return fallback;
+    }
+    function is_endpoint_url(url) {
+        return url.includes(`${JUPYTER_ENDPOINT}static/`);
+    }
+    function inject(el) {
+        return new Promise((resolve, reject) => {
+            const attempt = (element) => {
+                element.addEventListener("load", () => resolve(), { once: true });
+                element.addEventListener("error", () => {
+                    const url = element.src || element.href;
+                    const fallback = fallback_to_cdn(element, url);
+                    if (fallback != null) {
+                        element.remove();
+                        if (element instanceof HTMLLinkElement) {
+                            element.href = fallback;
+                        }
+                        else {
+                            element.src = fallback;
+                        }
+                        attempt(element);
+                        document.head.appendChild(element);
+                        return;
+                    }
+                    if (is_endpoint_url(url)) {
+                        const global = globalThis;
+                        global.__panel_jupyter_extension_error__?.();
+                    }
+                    reject(new Error(`Failed to load ${url}`));
+                }, { once: true });
+            };
+            attempt(el);
+            document.head.appendChild(el);
+        });
+    }
+    /**
+     * Hides RequireJS from the scripts the registry loads while they execute.
+     *
+     * On a page with RequireJS (the classic notebook, VS Code) a UMD bundle
+     * finds `define.amd` and registers an anonymous AMD module instead of
+     * assigning the global the components read, and RequireJS attributes that
+     * anonymous define() to whichever script it loads next. Hiding `define`
+     * itself for as long as the scripts load would also hide it from whatever
+     * RequireJS loads in the meantime, so instead `define.amd` reads as
+     * undefined only while Panel's own code is running: a classic script is
+     * recognized by a marker attribute, a module script, which has no
+     * `document.currentScript`, by the directory it was loaded from.
+     */
+    const NO_AMD_ATTR = "data-panel-no-amd";
+    function install_amd_guard() {
+        const global = globalThis;
+        const define = global.define;
+        if (typeof define !== "function" || define.amd == null || define.__panel_no_amd__ === true) {
+            return;
+        }
+        const dirs = global.__panel_no_amd_dirs__ ??= [];
+        const hidden = () => {
+            const script = document.currentScript;
+            if (script != null) {
+                return script.hasAttribute(NO_AMD_ATTR);
+            }
+            const stack = new Error().stack ?? "";
+            return dirs.some((dir) => stack.includes(dir));
+        };
+        let amd = define.amd;
+        try {
+            Object.defineProperty(define, "amd", {
+                configurable: true,
+                enumerable: true,
+                get: () => hidden() ? undefined : amd,
+                set: (value) => { amd = value; },
+            });
+            Object.defineProperty(define, "__panel_no_amd__", { value: true });
+        }
+        catch (e) {
+            console.warn(`Panel: could not hide RequireJS from component libraries: ${e}`);
+        }
+    }
+    function hide_amd(el) {
+        el.setAttribute(NO_AMD_ATTR, "");
+        install_amd_guard();
+    }
+    function hide_amd_module(url) {
+        const dirs = globalThis.__panel_no_amd_dirs__ ??= [];
+        const dir = url_key(url).split("?")[0].replace(/[^/]*$/, "");
+        // panel.js itself lives in a dist root, and must never match.
+        if (!/\/(dist|static\/extensions\/panel)\/$/.test(dir) && !dirs.includes(dir)) {
+            dirs.push(dir);
+        }
+        install_amd_guard();
+    }
+    /**
+     * Injects a classic script tag.
+     *
+     * `async = false` on a dynamically inserted script keeps execution in
+     * insertion order while still fetching in parallel, which is what the
+     * eager path relies on for order-significant libraries (echarts before
+     * echarts-gl, vega before vega-lite before vega-embed, ...).
+     */
+    function inject_script(url) {
+        const el = document.createElement("script");
+        el.async = false;
+        el.src = resource_url(url);
+        hide_amd(el);
+        return inject(el);
+    }
+    /**
+     * Injects a native module script, optionally exposing its export as a global.
+     *
+     * Deliberately native rather than `importShim`: es-module-shims runs in
+     * shim mode, where it fetches module sources and re-serves them as blobs,
+     * and a library that resolves a sibling asset against `import.meta.url`
+     * (perspective and its wasm, for one) cannot survive that. The eager path
+     * emitted plain `<script type="module">` tags for the same reason, so this
+     * keeps both paths on the same loader. `async = false` keeps execution in
+     * insertion order.
+     *
+     * The wrapper for an export is served from a blob, which only moves the
+     * *wrapper's* `import.meta.url`; the imported module keeps its own. The url
+     * has to be absolute for that reason: resolving Panel's relative
+     * `server` mode urls against a `blob:` base does not reach the server.
+     */
+    function inject_module(url, name) {
+        const el = document.createElement("script");
+        el.type = "module";
+        el.async = false;
+        hide_amd_module(url);
+        if (name == null) {
+            el.src = resource_url(url);
+            return inject(el);
+        }
+        url = module_url(url);
+        const code = `import * as ns from ${JSON.stringify(url)}\nglobalThis[${JSON.stringify(name)}] = ns.default ?? ns\n`;
+        el.src = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+        return inject(el).finally(() => URL.revokeObjectURL(el.src));
+    }
+    function inject_link(url) {
+        const el = document.createElement("link");
+        el.rel = "stylesheet";
+        el.type = "text/css";
+        el.href = resource_url(url);
+        return inject(el);
+    }
+    /**
+     * Resolves once the web component a library ships actually exists.
+     *
+     * Neither a script tag on the page nor a `declare` from the eager path
+     * means the library is done: one that ships web components may register
+     * them well after its own script has executed (perspective-viewer defines
+     * itself once its wasm resolves, and perspective's client refuses to start
+     * a worker before then). Where a probe names an element, that element is
+     * the completion signal.
+     */
+    function element_defined(lib) {
+        const name = lib.probe?.custom_element;
+        if (name == null || customElements.get(name) != null) {
+            return Promise.resolve();
+        }
+        return customElements.whenDefined(name).then(() => undefined);
+    }
+    function with_timeout(promise, ms) {
+        if (!(ms > 0)) {
+            return promise;
+        }
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms waiting for external resources`)), ms);
+            promise.then((value) => { clearTimeout(timer); resolve(value); }, (error) => { clearTimeout(timer); reject(error); });
+        });
+    }
+    class ResourceRegistry {
+        v = exports.REGISTRY_VERSION;
+        /** lib name -> promise resolving once the library is usable */
+        libs = new Map();
+        /** absolute url -> promise resolving once the url has loaded */
+        urls = new Map();
+        /** module url -> promise resolving to the module namespace */
+        modules = new Map();
+        /** lib name -> last seen spec, for `libs` entries given by name only */
+        specs = new Map();
+        /** export name -> resolved module handle */
+        exports = new Map();
+        _shim = null;
+        /**
+         * Records resources that are already on the page, without fetching.
+         *
+         * Called by the eager path so that "pn.extension already handled it"
+         * is a fact rather than an inference. It is the only thing that can
+         * get this right for `inline` resources, where the libraries were
+         * inlined and there are no urls to compare against.
+         */
+        declare(declared) {
+            const { libs, css } = Array.isArray(declared) ? { libs: declared, css: [] } : declared;
+            for (const lib of libs ?? []) {
+                if (lib == null || lib.name == null) {
+                    continue;
+                }
+                this.specs.set(lib.name, lib);
+                this.libs.set(lib.name, element_defined(lib));
+                for (const url of lib.js ?? []) {
+                    this.urls.set(url_key(url), Promise.resolve());
+                }
+                for (const { url } of lib.modules ?? []) {
+                    this.urls.set(url_key(url), Promise.resolve());
+                }
+            }
+            for (const url of css ?? []) {
+                this.urls.set(url_key(url), Promise.resolve());
+            }
+        }
+        /**
+         * Records that a loader outside the registry (RequireJS, in the classic
+         * notebook) is already fetching these libraries. Unlike `declare`, this
+         * does not mark them ready immediately: `await_resources` waits on
+         * `ready` instead, so a view doesn't read an unassigned global.
+         */
+        claim(declared, ready) {
+            for (const lib of declared.libs ?? []) {
+                if (lib == null || lib.name == null) {
+                    continue;
+                }
+                this.specs.set(lib.name, lib);
+                this.libs.set(lib.name, ready.then(() => {
+                    if (this.loaded(lib)) {
+                        return element_defined(lib);
+                    }
+                    // The other loader failed or gave up, so load what is missing here.
+                    const urls = [...(lib.js ?? []), ...(lib.modules ?? []).map((module) => module.url)];
+                    for (const url of urls) {
+                        if (this.urls.get(url_key(url)) === ready) {
+                            this.urls.delete(url_key(url));
+                        }
+                    }
+                    const elements = lib.probe?.custom_element != null ? [lib.probe.custom_element] : [];
+                    return this._load(lib.js ?? [], lib.modules ?? [], elements);
+                }));
+                for (const url of lib.js ?? []) {
+                    this.urls.set(url_key(url), ready);
+                }
+                for (const { url } of lib.modules ?? []) {
+                    this.urls.set(url_key(url), ready);
+                }
+            }
+        }
+        /**
+         * Whether a library is already available without loading anything.
+         *
+         * Probes are hints derived from `__js_skip__` and are known to be wrong
+         * in places, which is tolerable: the url checks below are what make
+         * this correct, a wrong probe only costs a redundant script tag for an
+         * already cached file.
+         */
+        loaded(lib, scripts) {
+            // The modules of a library are loaded separately, e.g. by the notebook,
+            // so its probe can pass before every module assigned its global.
+            const exported = (lib.modules ?? []).every(({ export: name }) => name == null || globalThis[name] != null);
+            if (!exported) {
+                return false;
+            }
+            const { probe } = lib;
+            if (probe != null) {
+                if (probe.global != null) {
+                    // A `<div id="deck">` puts an element on `window.deck`, so an
+                    // HTMLElement is not evidence that the library loaded.
+                    const value = globalThis[probe.global];
+                    if (value != null && !(value instanceof HTMLElement)) {
+                        return true;
+                    }
+                }
+                if (probe.custom_element != null && customElements.get(probe.custom_element) != null) {
+                    return true;
+                }
+            }
+            const urls = [...(lib.js ?? []), ...(lib.modules ?? []).map((m) => m.url)];
+            if (urls.length === 0) {
+                return true;
+            }
+            return urls.every((url) => {
+                const key = url_key(url);
+                return this.urls.has(key) || (scripts != null && scripts.has(key));
+            });
+        }
+        /**
+         * Loads everything a resource spec declares, skipping what is present.
+         */
+        async ensure(spec) {
+            if (spec == null) {
+                return;
+            }
+            const scripts = existing_urls("script[src]", "src");
+            const waits = [];
+            const js = [];
+            const modules = [];
+            const claimed = [];
+            const elements = [];
+            for (let lib of spec.libs ?? []) {
+                if (typeof lib === "string") {
+                    const known = this.specs.get(lib);
+                    if (known == null) {
+                        continue;
+                    }
+                    lib = known;
+                }
+                if (!this.specs.has(lib.name)) {
+                    this.specs.set(lib.name, lib);
+                }
+                const pending = this.libs.get(lib.name);
+                if (pending != null) {
+                    waits.push(pending);
+                    continue;
+                }
+                if (this.loaded(lib, scripts)) {
+                    const ready = element_defined(lib);
+                    this.libs.set(lib.name, ready);
+                    waits.push(ready);
+                    continue;
+                }
+                claimed.push(lib.name);
+                js.push(...(lib.js ?? []));
+                modules.push(...(lib.modules ?? []));
+                if (lib.probe?.custom_element != null) {
+                    elements.push(lib.probe.custom_element);
+                }
+            }
+            if (spec.css != null && spec.css.length > 0) {
+                waits.push(this.ensure_css(spec.css));
+            }
+            if (js.length > 0 || modules.length > 0) {
+                const loading = this._load(js, modules, elements);
+                for (const name of claimed) {
+                    this.libs.set(name, loading);
+                }
+                loading.catch(() => {
+                    // Drop the entry so a later view can retry.
+                    for (const name of claimed) {
+                        if (this.libs.get(name) === loading) {
+                            this.libs.delete(name);
+                        }
+                    }
+                });
+                waits.push(loading);
+            }
+            await Promise.all(waits);
+        }
+        /**
+         * Injects stylesheets, matching what pn.extension puts in the head.
+         *
+         * A stylesheet that never arrives must not keep a component from
+         * rendering, so failures are reported and then ignored.
+         */
+        ensure_css(urls) {
+            const links = existing_urls("link[rel~='stylesheet']", "href");
+            const promises = urls.map((url) => {
+                const key = url_key(url);
+                let promise = this.urls.get(key);
+                if (promise == null) {
+                    promise = links.has(key) ? Promise.resolve() : inject_link(url);
+                    this.urls.set(key, promise);
+                }
+                return promise.catch((error) => {
+                    this.urls.delete(key);
+                    console.warn(`Panel: could not load stylesheet ${url}: ${error.message}`);
+                });
+            });
+            return Promise.all(promises).then(() => undefined);
+        }
+        /**
+         * Ensures es-module-shims is available, in shim mode.
+         *
+         * Shim mode cannot be enabled after es-module-shims has loaded, so the
+         * options marker has to be written before the script is injected. Shim
+         * mode is what makes `importShim.addImportMap` available, which the ESM
+         * component machinery depends on.
+         */
+        ensure_shim(url) {
+            if (typeof globalThis.importShim === "function") {
+                return Promise.resolve();
+            }
+            if (this._shim != null) {
+                return this._shim;
+            }
+            if (url == null) {
+                return Promise.reject(new Error("No es-module-shims url available"));
+            }
+            if (document.querySelector("script[type='esms-options']") == null) {
+                const options = document.createElement("script");
+                options.type = "esms-options";
+                options.textContent = JSON.stringify({ shimMode: true });
+                document.head.appendChild(options);
+            }
+            const key = url_key(url);
+            const scripts = existing_urls("script[src]", "src");
+            const promise = scripts.has(key) ? Promise.resolve() : inject_script(url);
+            this.urls.set(key, promise);
+            this._shim = promise.catch((e) => {
+                this._shim = null;
+                throw e;
+            });
+            return this._shim;
+        }
+        /**
+         * Imports an ES module through es-module-shims, memoized by url.
+         */
+        import_module(url, shim) {
+            url = module_url(url);
+            if (url.startsWith("blob:")) {
+                // Blob urls are single use, so memoizing them only grows the map.
+                return this.ensure_shim(shim).then(() => globalThis.importShim(url));
+            }
+            let module = this.modules.get(url);
+            if (module == null) {
+                const fallback = cdn_url(url);
+                module = this.ensure_shim(shim).then(() => globalThis.importShim(url));
+                if (fallback != null && fallback !== url) {
+                    module = module.catch(() => globalThis.importShim(fallback));
+                }
+                this.modules.set(url, module);
+                module.catch(() => this.modules.delete(url));
+            }
+            return module;
+        }
+        add_import_map(map) {
+            try {
+                globalThis.importShim.addImportMap({ ...map });
+            }
+            catch (e) {
+                console.warn(`Failed to add import map: ${e}`);
+            }
+        }
+        async _load(js, modules, elements = []) {
+            if (js.length > 0) {
+                await this._load_scripts(js);
+            }
+            if (modules.length > 0) {
+                await this._load_modules(modules);
+            }
+            if (elements.length > 0) {
+                // A library that ships web components may register them after its
+                // module has finished executing (perspective-viewer defines itself
+                // once its own wasm resolves), and a component that renders before
+                // then gets an inert element. The load is only complete once the
+                // element the probe names actually exists.
+                await Promise.all(elements.map((name) => customElements.whenDefined(name)));
+            }
+        }
+        _load_scripts(urls) {
+            const scripts = existing_urls("script[src]", "src");
+            const promises = urls.map((url) => {
+                const key = url_key(url);
+                let promise = this.urls.get(key);
+                if (promise == null) {
+                    promise = scripts.has(key) ? Promise.resolve() : inject_script(url);
+                    this.urls.set(key, promise);
+                    promise.catch(() => this.urls.delete(key));
+                }
+                return promise;
+            });
+            return Promise.all(promises).then(() => undefined);
+        }
+        _load_modules(modules) {
+            const scripts = existing_urls("script[src]", "src");
+            const promises = modules.map(({ url, export: name }) => {
+                const key = url_key(url);
+                let promise = this.urls.get(key);
+                if (promise == null) {
+                    promise = scripts.has(key) ? Promise.resolve() : inject_module(url, name);
+                    this.urls.set(key, promise);
+                    promise.catch(() => this.urls.delete(key));
+                }
+                return promise;
+            });
+            return Promise.all(promises).then(() => {
+                // The wrapper assigned the global, matching the module shims
+                // js_resources.html renders, which components read as
+                // `(window as any).<name>`.
+                for (const { export: name } of modules) {
+                    if (name != null && this.exports.get(name) == null) {
+                        const handle = globalThis[name];
+                        if (handle != null) {
+                            this.exports.set(name, handle);
+                        }
+                    }
+                }
+            });
+        }
+    }
+    exports.ResourceRegistry = ResourceRegistry;
+    function install() {
+        const global = globalThis;
+        const existing = global.__panel_resources__;
+        let registry;
+        if (existing != null &&
+            typeof existing.ensure === "function" &&
+            typeof existing.declare === "function") {
+            registry = existing;
+        }
+        else {
+            registry = new ResourceRegistry();
+            global.__panel_resources__ = registry;
+        }
+        // The templates emit their declare() call inline, which may run before
+        // panel.js itself has executed, in which case it queues here instead.
+        const queued = global.__panel_resources_declared__;
+        if (Array.isArray(queued)) {
+            global.__panel_resources_declared__ = [];
+            for (const declared of queued) {
+                // A queued entry carrying `ready` is a claim: some other loader, i.e.
+                // the notebook's RequireJS, is fetching those libraries already.
+                const ready = declared?.ready;
+                if (ready != null && typeof ready.then === "function") {
+                    registry.claim(declared, ready);
+                }
+                else {
+                    registry.declare(declared);
+                }
+            }
+        }
+        return registry;
+    }
+    exports.resources = install();
+    /**
+     * Bokeh property declaration for models that carry a resource spec.
+     *
+     * The resource bearing models do not share a single base (`HTMLBox`
+     * covers most of them, but `KaTeX` derives from `Markup`, `FileDropper`
+     * from `InputWidget` and so on) and TypeScript has no multiple
+     * inheritance, so the declaration is applied per class instead.
+     */
+    function define_external_resources(cls) {
+        cls.define(({ Any, Nullable }) => ({
+            external_resources: [Nullable(Any), null],
+        }));
+    }
+    const _pending = new WeakMap();
+    /**
+     * Starts loading a model's resources.
+     *
+     * Called from the model's `initialize`, which runs for every model in a
+     * document before the first view is built. `build_views` constructs views
+     * sequentially, so starting here is what keeps the total wait at roughly
+     * the slowest library rather than the sum of all of them.
+     */
+    function load_resources(model) {
+        const spec = model.external_resources;
+        if (spec == null || _pending.has(model)) {
+            return;
+        }
+        const timeout = spec.timeout ?? exports.DEFAULT_TIMEOUT;
+        _pending.set(model, with_timeout(exports.resources.ensure(spec), timeout).then(() => null, (error) => {
+            console.error(`Panel: could not load external resources: ${error.message}`);
+            return error;
+        }));
+    }
+    /**
+     * Awaits a model's resources, resolving to the error if loading failed.
+     *
+     * Never rejects: an exception out of `lazy_initialize` aborts the whole
+     * `build_views` walk and would take unrelated components down with it.
+     */
+    function await_resources(model) {
+        load_resources(model);
+        return _pending.get(model) ?? Promise.resolve(null);
+    }
+    /**
+     * Element rendered in place of a component whose resources never arrived.
+     */
+    function resource_error_el(error) {
+        const el = document.createElement("div");
+        el.className = "pn-resource-error";
+        el.style.cssText = "color: red; font-family: monospace; white-space: pre-wrap; padding: 0.5em;";
+        el.textContent = `Could not load the resources this component requires:\n${error.message}`;
+        return el;
+    }
+    /**
+     * Replaces a view's rendering with an error state.
+     *
+     * `base` (the view baseclass' own render) still runs, so the element keeps
+     * its sizing and stylesheets, but the subclass render is skipped entirely.
+     * That is the point: its code reads globals the library that failed to load
+     * never defined, and letting it throw out of `render` takes the surrounding
+     * layout down with it. Installing the override on the instance is what makes
+     * it win over the subclass method on the prototype chain.
+     */
+    function render_resource_error(view, error, base) {
+        view.render = () => {
+            base.call(view);
+            view.shadow_el.appendChild(resource_error_el(error));
+        };
+    }
+    // Component stylesheets are Bokeh models whose urls never pass through the
+    // registry, so exported notebooks have to rewrite them where Bokeh turns
+    // them into a stylesheet.
+    const underlying = stylesheets_1.ImportedStyleSheet.prototype.underlying;
+    stylesheets_1.ImportedStyleSheet.prototype.underlying = function () {
+        const url = resource_url(this.url);
+        return url === this.url ? underlying.call(this) : new dom.ImportedStyleSheet(url);
+    };
 },
 "aa07eb54cc": /* models/util.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -822,10 +1584,9 @@
         return visit(input);
     }
 },
-"1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"f4bc4e23b4": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const reactive_esm_1 = require("fb9db49f87") /* ./reactive_esm */;
+    const reactive_esm_1 = require("f3226cbf82") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -914,7 +1675,6 @@
             }
         }
     }
-    AnyWidgetModelAdapter.__name__ = "AnyWidgetModelAdapter";
     class AnyWidgetAdapter extends AnyWidgetModelAdapter {
         constructor(view) {
             super(view.model);
@@ -937,8 +1697,20 @@
             }
         }
     }
-    AnyWidgetAdapter.__name__ = "AnyWidgetAdapter";
+    function render_anywidget(view) {
+        if (view.is_destroyed) {
+            return;
+        }
+        const out = Promise.resolve(view.render_fn({
+            view, model: view.adapter, data: view.model.data, el: view.container,
+        }) || null);
+        view.destroyer = out;
+        out.then(() => view.after_rendered());
+    }
+    const ANYWIDGET_RENDER_MODULE = Promise.resolve({ default: { render: render_anywidget } });
     class AnyWidgetComponentView extends reactive_esm_1.ReactiveESMView {
+        adapter;
+        destroyer;
         initialize() {
             super.initialize();
             this.adapter = new AnyWidgetAdapter(this);
@@ -955,42 +1727,26 @@
         }
     }
     exports.AnyWidgetComponentView = AnyWidgetComponentView;
-    AnyWidgetComponentView.__name__ = "AnyWidgetComponentView";
     class AnyWidgetComponent extends reactive_esm_1.ReactiveESM {
+        sucrase_transforms = ["typescript", "jsx"];
         constructor(attrs) {
             super(attrs);
-            this.sucrase_transforms = ["typescript", "jsx"];
         }
-        _render_code() {
-            return `
-function render(id) {
-  const view = Bokeh.index.find_one_by_id(id)
-  if (!view) { return }
-
-  const out = Promise.resolve(view.render_fn({
-    view, model: view.adapter, data: view.model.data, el: view.container
-  }) || null)
-  view.destroyer = out
-  out.then(() => view.after_rendered())
-}
-
-export default {render}`;
+        _render_module() {
+            return ANYWIDGET_RENDER_MODULE;
         }
         _run_initializer(initialize) {
             const props = { model: new AnyWidgetModelAdapter(this) };
             initialize(props);
         }
+        static __module__ = "panel.models.esm";
+        static {
+            this.prototype.default_view = AnyWidgetComponentView;
+        }
     }
     exports.AnyWidgetComponent = AnyWidgetComponent;
-    _a = AnyWidgetComponent;
-    AnyWidgetComponent.__name__ = "AnyWidgetComponent";
-    AnyWidgetComponent.__module__ = "panel.models.esm";
-    (() => {
-        _a.prototype.default_view = AnyWidgetComponentView;
-    })();
 },
-"fb9db49f87": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b, _c;
+"f3226cbf82": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.model_getter = model_getter;
     exports.model_setter = model_setter;
@@ -1015,13 +1771,33 @@ export default {render}`;
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const types_1 = require("@bokehjs/core/util/types");
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
-    const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const html_1 = require("4c04683fdc") /* ./html */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
+    const html_1 = require("9012c2f5ae") /* ./html */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
     const util_1 = require("aa07eb54cc") /* ./util */;
-    const esm_css_1 = tslib_1.__importDefault(require("727a14f76b") /* ../styles/models/esm.css */);
+    const esm_css_1 = tslib_1.__importDefault(require("727a14f76b") /* styles/models/esm.css */);
+    // Deliberately module local rather than on the shared resource registry:
+    // its keys are logical (class name plus source length), so two Panel
+    // versions on one page must not be able to satisfy each other from it.
     const MODULE_CACHE = new Map();
+    // Transpiled source by model type and module cache key, so instances of one
+    // component class do not each run sucrase over the same source.
+    const COMPILE_CACHE = new Map();
+    // Interns ESM sources so cache keys stay short and cannot collide, unlike
+    // keys derived from the source length.
+    const SOURCE_IDS = new Map();
+    const DECLARED_IMPORTMAPS = new Set();
+    function source_id(source) {
+        let id = SOURCE_IDS.get(source);
+        if (id === undefined) {
+            id = SOURCE_IDS.size;
+            SOURCE_IDS.set(source, id);
+        }
+        return id;
+    }
     class DataEvent extends bokeh_events_1.ModelEvent {
+        data;
         constructor(data) {
             super();
             this.data = data;
@@ -1029,31 +1805,48 @@ export default {render}`;
         get event_values() {
             return { model: this.origin, data: this.data };
         }
+        static {
+            this.prototype.event_name = "data_event";
+        }
     }
     exports.DataEvent = DataEvent;
-    _a = DataEvent;
-    DataEvent.__name__ = "DataEvent";
-    (() => {
-        _a.prototype.event_name = "data_event";
-    })();
-    let ESMEvent = (_b = class ESMEvent extends DataEvent {
+    let ESMEvent = ESMEvent_1 = class ESMEvent extends DataEvent {
         static from_values(values) {
             const { model, data } = values;
             const event = new ESMEvent_1(data);
             event.origin = model;
             return event;
         }
-    },
-        (() => {
-            ESMEvent_1 = _b;
-        })(),
-        _b.__name__ = "ESMEvent",
-        _b);
+    };
     exports.ESMEvent = ESMEvent;
     exports.ESMEvent = ESMEvent = ESMEvent_1 = __decorate([
         (0, bokeh_events_1.server_event)("esm_event")
     ], ESMEvent);
+    const PROXY_METHODS = new Set(["get_child", "send_msg", "send_event", "off", "on"]);
     function model_getter(target, name) {
+        const model = target.model;
+        if (PROXY_METHODS.has(name)) {
+            // Cached so the methods are stable across accesses, e.g. as hook
+            // dependencies, instead of a new closure per property read.
+            let method = target._proxy_methods.get(name);
+            if (method === undefined) {
+                method = proxy_method(target, name);
+                target._proxy_methods.set(name, method);
+            }
+            return method;
+        }
+        else if (Reflect.has(model.data, name)) {
+            if (name in model.data.attributes && !target.accessed_properties.includes(name)) {
+                target.accessed_properties.push(name);
+            }
+            return Reflect.get(model.data, name);
+        }
+        else if (Reflect.has(model, name)) {
+            return Reflect.get(model, name);
+        }
+        return undefined;
+    }
+    function proxy_method(target, name) {
         const model = target.model;
         if (name === "get_child") {
             return (child) => {
@@ -1140,16 +1933,7 @@ export default {render}`;
                 }
             };
         }
-        else if (Reflect.has(model.data, name)) {
-            if (name in model.data.attributes && !target.accessed_properties.includes(name)) {
-                target.accessed_properties.push(name);
-            }
-            return Reflect.get(model.data, name);
-        }
-        else if (Reflect.has(model, name)) {
-            return Reflect.get(model, name);
-        }
-        return undefined;
+        throw new Error(`unknown proxy method '${name}'`);
     }
     function model_setter(target, name, value) {
         const model = target.model;
@@ -1178,27 +1962,54 @@ export default {render}`;
         }
         return false;
     }
-    class ReactiveESMView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this.accessed_properties = [];
-            this.accessed_children = [];
-            this.compiled_module = null;
-            this._child_rendered = new Map();
-            this._event_handlers = [];
-            this._lifecycle_handlers = new Map([
-                ["update_layout", []],
-                ["after_layout", []],
-                ["after_render", []],
-                ["resize", []],
-                ["remove", []],
-                ["mounted", []],
-            ]);
-            this._rendered = false;
-            this._stale_children = false;
-            this._mounted = new Map();
-            this._update_children_chain = Promise.resolve();
+    function render_esm_view(view) {
+        if (view.is_destroyed) {
+            return;
         }
+        const output = view.render_fn({
+            view, model: view.model_proxy, data: view.model.data, el: view.container,
+        });
+        Promise.resolve(output).then((out) => {
+            if (out instanceof Element) {
+                view.container.replaceChildren(out);
+            }
+            view.after_rendered();
+        });
+    }
+    // Resolved values of render module promises, so a view whose module has
+    // already loaded can render synchronously instead of a microtask later.
+    const RESOLVED_MODULES = new WeakMap();
+    function track_module(module) {
+        module.then((value) => RESOLVED_MODULES.set(module, value), () => { });
+        return module;
+    }
+    const ESM_RENDER_MODULE = track_module(Promise.resolve({ default: { render: render_esm_view } }));
+    const PENDING_FINISHED = new Set();
+    class ReactiveESMView extends layout_1.HTMLBoxView {
+        container;
+        accessed_properties = [];
+        accessed_children = [];
+        compiled_module = null;
+        model_proxy;
+        _child_callbacks;
+        _child_rendered = new Map();
+        _event_handlers = [];
+        _lifecycle_handlers = new Map([
+            ["update_layout", []],
+            ["after_layout", []],
+            ["after_render", []],
+            ["resize", []],
+            ["remove", []],
+            ["mounted", []],
+        ]);
+        _module_cache;
+        _rendered = false;
+        _stale_children = false;
+        _mounted = new Map();
+        _update_children_chain = Promise.resolve();
+        _layout_pending = false;
+        _proxy_methods = new Map();
+        _last_size = null;
         initialize() {
             super.initialize();
             this._module_cache = MODULE_CACHE;
@@ -1217,7 +2028,7 @@ export default {render}`;
             stylesheets.push(esm_css_1.default);
             if (this.model.css_bundle) {
                 if (this.model.bundle === "url") {
-                    stylesheets.push(new dom_2.ImportedStyleSheet(this.model.css_bundle));
+                    stylesheets.push(new dom_2.ImportedStyleSheet((0, resources_1.resource_url)(this.model.css_bundle)));
                 }
                 else {
                     stylesheets.push(this.model.css_bundle);
@@ -1239,21 +2050,18 @@ export default {render}`;
             for (const cp of child_props) {
                 this.connect(cp.change, () => this.update_children());
             }
-            this.on_change([], () => {
-                if (this.model.render_policy !== "manual") {
-                    this.render_esm();
-                }
-            });
-            this.model.on_event(ESMEvent, (event) => {
-                for (const cb of this._event_handlers) {
-                    cb(event.data);
-                }
-            });
+            this.model._event_views.add(this);
         }
         disconnect_signals() {
             super.disconnect_signals();
             this._child_callbacks = new Map();
+            this.model._event_views.delete(this);
             this.model.disconnect_watchers(this);
+        }
+        _dispatch_event(data) {
+            for (const cb of this._event_handlers) {
+                cb(data);
+            }
         }
         _on_mounted() { }
         /**
@@ -1299,7 +2107,10 @@ export default {render}`;
             if (!(0, types_1.isArray)(children)) {
                 children = [children];
             }
-            if (children.every((model) => this._mounted.get(child)?.has(model.id))) {
+            const mounted = this._mounted.get(child);
+            // The size check skips the full scan while children are still mounting,
+            // which would otherwise make mounting a list quadratic in its length.
+            if (mounted.size >= children.length && children.every((model) => mounted.has(model.id))) {
                 this._on_mounted();
                 for (const cb of this._lifecycle_handlers.get("mounted") || []) {
                     cb(child);
@@ -1382,7 +2193,39 @@ export default {render}`;
         get is_managed() {
             return this.parent instanceof layout_dom_1.LayoutDOMView && !(this.parent instanceof ReactiveESMView);
         }
+        /**
+         * Renders a child without laying it out and schedules a single layout pass
+         * instead. Children mount one at a time (e.g. once per React
+         * `componentDidMount`), and a child's `compute_layout` lays out, and so
+         * measures, the whole tree; doing that per child is quadratic in the
+         * number of children.
+         */
+        render_child(view) {
+            (0, layout_1.rerender_view)(view, false);
+            this.schedule_layout();
+        }
+        /**
+         * Lays out once all synchronous work queued in the current task (such as
+         * a React commit mounting every child) has run. A pass that happens in the
+         * meantime, e.g. `_on_mounted`'s, makes the scheduled one a no-op.
+         */
+        schedule_layout() {
+            if (this._layout_pending) {
+                return;
+            }
+            this._layout_pending = true;
+            queueMicrotask(() => {
+                if (!this._layout_pending || this.is_destroyed) {
+                    return;
+                }
+                this.compute_layout();
+                // `finish()` may already have run and found the layout missing, and
+                // nothing else re-checks once it exists.
+                this.notify_finished();
+            });
+        }
         compute_layout() {
+            this._layout_pending = false;
             if (this.is_managed) {
                 super.compute_layout();
                 return;
@@ -1411,6 +2254,17 @@ export default {render}`;
             })();
             // Override private property
             this._is_displayed = displayed;
+            // `after_resize` lays out the whole root whenever this reports a change.
+            // Reporting only actual size changes lets the first sibling's root pass,
+            // which visits every view, absorb the resize callbacks of all the others;
+            // always reporting one made initial render quadratic in sibling count.
+            const width = displayed ? this.el.offsetWidth : 0;
+            const height = displayed ? this.el.offsetHeight : 0;
+            const last = this._last_size;
+            if (last != null && last[0] === width && last[1] === height) {
+                return false;
+            }
+            this._last_size = [width, height];
             return true;
         }
         after_rendered() {
@@ -1437,7 +2291,10 @@ export default {render}`;
                 (this._lifecycle_handlers.get(lf) || []).splice(0);
             }
             this.model.disconnect_watchers(this);
-            const render_promise = this.model.render_module.then((mod) => mod.default.render(this.model.id));
+            // The view is passed rather than looked up by id: `Bokeh.index` lookups
+            // walk every view on the page and pick the first view of a model that
+            // is displayed more than once.
+            const render_promise = this.model.render_module.then((mod) => mod.default.render(this));
             this._await_ready(render_promise);
         }
         render_children() {
@@ -1452,7 +2309,7 @@ export default {render}`;
                     const parent = view.el.parentNode;
                     if (parent) {
                         this._child_rendered.set(view, false);
-                        this.rerender_(view);
+                        this.render_child(view);
                         this._child_rendered.set(view, true);
                     }
                 }
@@ -1468,19 +2325,45 @@ export default {render}`;
                 return false;
             }
             for (const child_view of this.child_views) {
-                if (!child_view.has_finished() && this._child_rendered.has(child_view)) {
+                if (this._child_rendered.has(child_view) && !child_view.has_finished()) {
                     return false;
                 }
             }
             return true;
+        }
+        /**
+         * Each notification makes the root walk the whole tree in `has_finished`,
+         * and every component and child reports finishing separately, so loading
+         * N components would walk the tree N times. Notifications issued in the
+         * same task are coalesced into one per root.
+         */
+        notify_finished() {
+            if (this.is_root) {
+                super.notify_finished();
+                return;
+            }
+            const root = this.root;
+            if (PENDING_FINISHED.has(root)) {
+                return;
+            }
+            PENDING_FINISHED.add(root);
+            queueMicrotask(() => {
+                PENDING_FINISHED.delete(root);
+                if (!root.is_destroyed) {
+                    root.notify_finished();
+                }
+            });
         }
         invalidate_layout() {
             if (this.is_managed) {
                 super.invalidate_layout();
                 return;
             }
+            // Deferred so that the children of one parent, which each invalidate on
+            // render, do not interleave DOM writes with the measurements of their
+            // own layout passes, forcing a reflow per child.
             this.update_layout();
-            this.compute_layout();
+            this.schedule_layout();
         }
         remove() {
             super.remove();
@@ -1507,17 +2390,21 @@ export default {render}`;
                 }
             }
         }
-        _lookup_child(child_view) {
+        /**
+         * Maps each child model to the name of the children property holding it,
+         * built once per update pass rather than searched per child view.
+         */
+        _child_names() {
+            const names = new Map();
             for (const child of this.model.children) {
-                let models = this.model.data[child];
-                models = (0, types_1.isArray)(models) ? models : [models];
-                for (const model of models) {
-                    if (model === child_view.model) {
-                        return child;
+                const models = this.model.data[child];
+                for (const model of (0, types_1.isArray)(models) ? models : [models]) {
+                    if (model != null && !names.has(model)) {
+                        names.set(model, child);
                     }
                 }
             }
-            return null;
+            return names;
         }
         /**
          * A children property can trigger more than one update pass for the same
@@ -1535,6 +2422,30 @@ export default {render}`;
             this._update_children_chain = run.then(() => undefined, () => undefined);
             return run;
         }
+        /**
+         * Groups newly created child views by the children property they belong to.
+         */
+        _group_new_views(created) {
+            const names = this._child_names();
+            const new_views = new Map();
+            for (const child_view of this.child_views) {
+                if (!created.has(child_view)) {
+                    continue;
+                }
+                const child = names.get(child_view.model);
+                if (child == null) {
+                    continue;
+                }
+                const views = new_views.get(child);
+                if (views == null) {
+                    new_views.set(child, [child_view]);
+                }
+                else {
+                    views.push(child_view);
+                }
+            }
+            return new_views;
+        }
         async _update_children_pass() {
             const created_children = new Set(await this.build_child_views());
             const all_views = this.child_views;
@@ -1543,24 +2454,10 @@ export default {render}`;
                     child_view.el.remove();
                 }
             }
-            const new_views = new Map();
-            for (const child_view of this.child_views) {
-                if (!created_children.has(child_view)) {
-                    continue;
-                }
-                const child = this._lookup_child(child_view);
-                if (!child) {
-                    continue;
-                }
-                if (new_views.has(child)) {
-                    new_views.get(child).push(child_view);
-                }
-                else {
-                    new_views.set(child, [child_view]);
-                }
-            }
+            const new_views = this._group_new_views(created_children);
+            const current = new Set(all_views);
             for (const view of this._child_rendered.keys()) {
-                if (!all_views.includes(view)) {
+                if (!current.has(view)) {
                     this._child_rendered.delete(view);
                 }
             }
@@ -1600,19 +2497,21 @@ export default {render}`;
         }
     }
     exports.ReactiveESMView = ReactiveESMView;
-    ReactiveESMView.__name__ = "ReactiveESMView";
     exports.RenderPolicy = (0, kinds_1.Enum)("manual", "children");
     class ReactiveESM extends layout_1.HTMLBox {
+        compiled = null;
+        compiled_module = null;
+        compile_error = null;
+        model_proxy;
+        render_module = null;
+        sucrase_transforms = ["typescript"];
+        _destroyer = null;
+        // Keyed by the watched path; `orig` is the callback the caller passed,
+        // `cb` the wrapper actually connected to `signal`.
+        _esm_watchers = new Map();
+        _event_views = new Set();
         constructor(attrs) {
             super(attrs);
-            this.compiled = null;
-            this.compiled_module = null;
-            this.compile_error = null;
-            this.render_module = null;
-            this.sucrase_transforms = ["typescript"];
-            this._destroyer = null;
-            this._esm_watchers = {};
-            this._event_callbacks = new Map();
         }
         initialize() {
             super.initialize();
@@ -1626,176 +2525,158 @@ export default {render}`;
             super.connect_signals();
             this.connect(this.properties.esm.change, () => this.recompile());
             this.connect(this.properties.importmap.change, () => this.recompile());
+            // Registered once per model: `on_event` cannot be undone, so views
+            // subscribe through `_event_views` instead.
+            this.on_event(ESMEvent, (event) => {
+                for (const view of this._event_views) {
+                    view._dispatch_event(event.data);
+                }
+            });
         }
-        watch(view, prop, cb, force = false) {
-            const propPath = prop.split(".");
+        /**
+         * Resolves a possibly dotted property path to the property's change
+         * signal and the model owning it, falling back to the component model's
+         * own properties.
+         */
+        _resolve_watch(prop) {
+            const path = prop.split(".");
             let target = this.data;
-            let resolvedProp = null;
-            for (let i = 0; i < propPath.length - 1; i++) {
-                if (target && target.properties && propPath[i] in target.properties) {
-                    target = target[propPath[i]];
+            for (let i = 0; i < path.length - 1; i++) {
+                if (target != null && target.properties != null && path[i] in target.properties) {
+                    target = target[path[i]];
                 }
                 else {
-                    // Break if any level of the path is invalid
                     target = null;
                     break;
                 }
             }
-            if (target && target.properties && propPath[propPath.length - 1] in target.properties) {
-                resolvedProp = propPath[propPath.length - 1];
-            }
-            // Handle reset of param.Event properties
-            if (!force && target === this.data && resolvedProp && this.events.includes(resolvedProp)) {
-                const orig_cb = cb;
-                cb = () => {
-                    if (resolvedProp && this.data[resolvedProp]) {
-                        orig_cb();
-                        this.data.setv({ [resolvedProp]: false });
-                    }
-                };
-                this._event_callbacks.set(orig_cb, cb);
-            }
-            // Attach watcher if property is found
-            if (resolvedProp && target) {
-                if (this.children.includes(resolvedProp)) {
-                    const orig_cb = cb;
-                    cb = async () => {
-                        if (view) {
-                            view._stale_children = true;
-                        }
-                        if (view && view._stale_children) {
-                            await new Promise(resolve => {
-                                const check = () => {
-                                    if (!view._stale_children) {
-                                        resolve(undefined);
-                                    }
-                                    else {
-                                        setTimeout(check, 10);
-                                    }
-                                };
-                                check();
-                            });
-                        }
-                        if (view && this.render_policy === "manual") {
-                            let resolve_ready;
-                            view.root._await_ready(new Promise((r) => { resolve_ready = r; }));
-                            orig_cb();
-                            view.render_children();
-                            view._update_children();
-                            view.invalidate_layout();
-                            // Collect ready promises from all newly rendered descendants
-                            const collect_ready = (v) => {
-                                const promises = [v.ready];
-                                for (const child of v.child_views || []) {
-                                    promises.push(...collect_ready(child));
-                                }
-                                return promises;
-                            };
-                            const all_ready = [];
-                            for (const child_view of view.child_views) {
-                                all_ready.push(...collect_ready(child_view));
-                            }
-                            if (all_ready.length > 0) {
-                                Promise.all(all_ready).then(() => resolve_ready());
-                            }
-                            else {
-                                resolve_ready();
-                            }
-                        }
-                        else {
-                            orig_cb();
-                        }
-                    };
-                }
-                target.property(resolvedProp).change.connect(cb);
+            const name = path[path.length - 1];
+            if (target != null && target.properties != null && name in target.properties) {
+                return { target, name, signal: target.property(name).change };
             }
             else if (prop in this.properties) {
-                this.property(prop).change.connect(cb);
+                return { target: this, name: prop, signal: this.property(prop).change };
             }
-            if (prop in this._esm_watchers) {
-                this._esm_watchers[prop].push([view, cb]);
+            return null;
+        }
+        watch(view, prop, cb, force = false) {
+            const resolved = this._resolve_watch(prop);
+            if (resolved == null) {
+                return;
+            }
+            const { target, name, signal } = resolved;
+            const orig = cb;
+            // Handle reset of param.Event properties
+            if (!force && target === this.data && this.events.includes(name)) {
+                const event_cb = cb;
+                cb = () => {
+                    if (this.data[name]) {
+                        event_cb();
+                        this.data.setv({ [name]: false });
+                    }
+                };
+            }
+            if (target === this.data && this.children.includes(name)) {
+                const children_cb = cb;
+                cb = async () => {
+                    if (view == null) {
+                        children_cb();
+                        return;
+                    }
+                    view._stale_children = true;
+                    // The view connected `update_children` to this signal before any
+                    // watcher, so the pass handling this change is already queued.
+                    await view._update_children_chain;
+                    if (this.render_policy !== "manual") {
+                        children_cb();
+                        return;
+                    }
+                    let resolve_ready;
+                    view.root._await_ready(new Promise((r) => { resolve_ready = r; }));
+                    children_cb();
+                    view.render_children();
+                    view._update_children();
+                    view.invalidate_layout();
+                    const collect_ready = (v) => {
+                        const promises = [v.ready];
+                        for (const child of v.child_views || []) {
+                            promises.push(...collect_ready(child));
+                        }
+                        return promises;
+                    };
+                    const all_ready = [];
+                    for (const child_view of view.child_views) {
+                        all_ready.push(...collect_ready(child_view));
+                    }
+                    if (all_ready.length > 0) {
+                        Promise.all(all_ready).then(() => resolve_ready());
+                    }
+                    else {
+                        resolve_ready();
+                    }
+                };
+            }
+            signal.connect(cb);
+            const watchers = this._esm_watchers.get(prop);
+            const watcher = { view, orig, cb, signal };
+            if (watchers == null) {
+                this._esm_watchers.set(prop, [watcher]);
             }
             else {
-                this._esm_watchers[prop] = [[view, cb]];
+                watchers.push(watcher);
             }
         }
         unwatch(view, prop, cb) {
-            if (!(prop in this._esm_watchers)) {
+            const watchers = this._esm_watchers.get(prop);
+            if (watchers == null) {
                 return false;
             }
-            // Filter out the specific callback for this view
+            let disconnected = false;
             const remaining = [];
-            for (const [wview, wcb] of this._esm_watchers[prop]) {
-                if (wview !== view || wcb !== cb) {
-                    remaining.push([wview, wcb]);
-                }
-            }
-            // Update or delete watcher list
-            if (remaining.length > 0) {
-                this._esm_watchers[prop] = remaining;
-            }
-            else {
-                delete this._esm_watchers[prop];
-            }
-            // Resolve nested properties
-            const propPath = prop.split(".");
-            let target = this.data;
-            let resolvedProp = null;
-            for (let i = 0; i < propPath.length - 1; i++) {
-                if (target && target.properties && propPath[i] in target.properties) {
-                    target = target[propPath[i]];
+            for (const watcher of watchers) {
+                if (watcher.view === view && watcher.orig === cb) {
+                    disconnected = watcher.signal.disconnect(watcher.cb) || disconnected;
                 }
                 else {
-                    // Stop if the path does not exist
-                    target = null;
-                    break;
+                    remaining.push(watcher);
                 }
             }
-            if (target && target.properties && propPath[propPath.length - 1] in target.properties) {
-                resolvedProp = propPath[propPath.length - 1];
+            if (remaining.length > 0) {
+                this._esm_watchers.set(prop, remaining);
             }
-            if (this._event_callbacks.has(cb)) {
-                cb = this._event_callbacks.get(cb);
-                this._event_callbacks.delete(cb);
+            else {
+                this._esm_watchers.delete(prop);
             }
-            // Detach watcher if property is found
-            if (resolvedProp && target) {
-                return target.property(resolvedProp).change.disconnect(cb);
-            }
-            else if (prop in this.properties) {
-                return this.property(prop).change.disconnect(cb);
-            }
-            return false;
+            return disconnected;
         }
         disconnect_watchers(view) {
-            for (const p in this._esm_watchers) {
-                const prop = this.data.properties[p];
+            for (const [prop, watchers] of this._esm_watchers) {
                 const remaining = [];
-                for (const [wview, cb] of this._esm_watchers[p]) {
-                    if (wview === view) {
-                        prop?.change.disconnect(cb);
+                for (const watcher of watchers) {
+                    if (watcher.view === view) {
+                        watcher.signal.disconnect(watcher.cb);
                     }
                     else {
-                        remaining.push([wview, cb]);
+                        remaining.push(watcher);
                     }
                 }
                 if (remaining.length > 0) {
-                    this._esm_watchers[p] = remaining;
+                    this._esm_watchers.set(prop, remaining);
                 }
                 else {
-                    delete this._esm_watchers[p];
+                    this._esm_watchers.delete(prop);
                 }
             }
         }
-        _declare_importmap() {
+        async _declare_importmap() {
+            await resources_1.resources.ensure_shim(this.external_resources?.shim);
             if (this.importmap) {
-                const importMap = { ...this.importmap };
-                try {
-                    // @ts-ignore
-                    importShim.addImportMap(importMap);
-                }
-                catch (e) {
-                    console.warn(`Failed to add import map: ${e}`);
+                // Every instance of a component class carries the same map, and
+                // es-module-shims re-resolves the whole map on each addition.
+                const key = JSON.stringify(this.importmap);
+                if (!DECLARED_IMPORTMAPS.has(key)) {
+                    DECLARED_IMPORTMAPS.add(key);
+                    resources_1.resources.add_import_map(this.importmap);
                 }
             }
         }
@@ -1813,41 +2694,31 @@ export default {render}`;
             if (this.compile_error) {
                 return;
             }
-            else if (MODULE_CACHE.has(this._render_cache_key)) {
-                this.render_module = MODULE_CACHE.get(this._render_cache_key);
-            }
-            else {
-                const code = this._render_code();
-                const render_url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
-                // @ts-ignore
-                this.render_module = importShim(render_url);
-                MODULE_CACHE.set(this._render_cache_key, this.render_module);
-            }
+            this.render_module = this._render_module();
         }
-        _render_code() {
-            return `
-function render(id) {
-  const view = Bokeh.index.find_one_by_id(id)
-  if (view == null) {
-    return null
-  }
-
-  const output = view.render_fn({
-    view: view, model: view.model_proxy, data: view.model.data, el: view.container
-  })
-
-  Promise.resolve(output).then((out) => {
-    if (out instanceof Element) {
-      view.container.replaceChildren(out)
-    }
-    view.after_rendered()
-  })
-}
-
-export default {render}`;
+        /**
+         * The module whose `default.render(view)` renders a view of this model.
+         */
+        _render_module() {
+            return ESM_RENDER_MODULE;
         }
-        get _render_cache_key() {
-            return "reactive_esm";
+        _cached_module(key, load) {
+            let module = MODULE_CACHE.get(key);
+            if (module == null) {
+                module = track_module(load());
+                MODULE_CACHE.set(key, module);
+            }
+            return module;
+        }
+        get resolved_render_module() {
+            return this.render_module == null ? null : RESOLVED_MODULES.get(this.render_module) ?? null;
+        }
+        _import_source(code) {
+            const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+            const module = resources_1.resources.import_module(url, this.external_resources?.shim);
+            // Fetched by the time the import settles, and otherwise held until unload.
+            module.finally(() => URL.revokeObjectURL(url)).catch(() => { });
+            return module;
         }
         compile() {
             if (this.bundle != null) {
@@ -1877,36 +2748,53 @@ export default {render}`;
             }
             return compiled;
         }
+        get _module_cache_key() {
+            if (this.bundle === "url") {
+                return this.esm;
+            }
+            return this.bundle || `${this.class_name}-${source_id(this.esm)}`;
+        }
         async recompile() {
             this.compile_error = null;
-            const compiled = this.compile();
-            if (compiled === null) {
-                this.compiled_module = Promise.resolve(null);
-                return;
-            }
-            this.compiled = compiled;
-            this._declare_importmap();
-            let esm_module;
             const use_cache = (!this.dev || this.bundle);
-            const cache_key = (this.bundle === "url") ? this.esm : (this.bundle || `${this.class_name}-${this.esm.length}`);
+            // Not computed in dev mode, where every edit would be interned.
+            const cache_key = use_cache ? this._module_cache_key : "";
+            const compile_key = `${this.type}:${cache_key}`;
+            let source = use_cache ? COMPILE_CACHE.get(compile_key) ?? null : null;
+            if (source === null) {
+                source = this.compile();
+                if (source === null) {
+                    this.compiled_module = Promise.resolve(null);
+                    return;
+                }
+                if (use_cache) {
+                    COMPILE_CACHE.set(compile_key, source);
+                }
+            }
+            const compiled = source;
+            this.compiled = compiled;
+            // Awaiting the import map here would leave compiled_module holding the
+            // previous module for a tick, and a view handling the same esm change
+            // awaits that property, so it has to be replaced synchronously.
+            const declared = this._declare_importmap();
+            let esm_module;
             let resolve;
             if (use_cache && MODULE_CACHE.has(cache_key)) {
-                esm_module = Promise.resolve(MODULE_CACHE.get(cache_key));
+                const cached = MODULE_CACHE.get(cache_key);
+                esm_module = declared.then(() => cached);
             }
             else {
                 if (use_cache) {
                     MODULE_CACHE.set(cache_key, new Promise((res) => { resolve = res; }));
                 }
-                let url;
                 if (this.bundle === "url") {
-                    url = this.esm;
+                    esm_module = declared.then(() => resources_1.resources.import_module(this.esm, this.external_resources?.shim));
                 }
                 else {
-                    url = URL.createObjectURL(new Blob([this.compiled], { type: "text/javascript" }));
+                    esm_module = declared.then(() => this._import_source(compiled));
                 }
-                esm_module = window.importShim(url);
             }
-            this.compiled_module = esm_module.then((mod) => {
+            this.compiled_module = (esm_module).then((mod) => {
                 if (resolve) {
                     resolve(mod);
                 }
@@ -1941,27 +2829,25 @@ export default {render}`;
                 }
             });
         }
+        static __module__ = "panel.models.esm";
+        static {
+            this.prototype.default_view = ReactiveESMView;
+            this.define(({ Any, Array, Bool, Nullable, Str }) => ({
+                _defs: [Array(Any), []],
+                css_bundle: [Nullable(Str), null],
+                bundle: [Nullable(Str), null],
+                children: [Array(Str), []],
+                class_name: [Str, ""],
+                data: [Any],
+                dev: [Bool, false],
+                esm: [Str, ""],
+                events: [Array(Str), []],
+                importmap: [Any, {}],
+                render_policy: [exports.RenderPolicy, "children"],
+            }));
+        }
     }
     exports.ReactiveESM = ReactiveESM;
-    _c = ReactiveESM;
-    ReactiveESM.__name__ = "ReactiveESM";
-    ReactiveESM.__module__ = "panel.models.esm";
-    (() => {
-        _c.prototype.default_view = ReactiveESMView;
-        _c.define(({ Any, Array, Bool, Nullable, Str }) => ({
-            _defs: [Array(Any), []],
-            css_bundle: [Nullable(Str), null],
-            bundle: [Nullable(Str), null],
-            children: [Array(Str), []],
-            class_name: [Str, ""],
-            data: [Any],
-            dev: [Bool, false],
-            esm: [Str, ""],
-            events: [Array(Str), []],
-            importmap: [Any, {}],
-            render_policy: [exports.RenderPolicy, "children"],
-        }));
-    })();
 },
 "28a8b14fda": /* sucrase/dist/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -17939,7 +18825,7 @@ ${namesToRegister
         }
     }
 },
-"a572dba9cd": /* models/event-to-object.js */ function _(require, module, exports, __esModule, __esExport) {
+"e5a0036205": /* models/event-to-object.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.serializeEvent = serializeEvent;
     /*
@@ -18142,7 +19028,6 @@ ${namesToRegister
             };
         }
     }
-    EventTransformCategories.__name__ = "EventTransformCategories";
     const eventTypeCategories = {
         clipboard: ["copy", "cut", "paste"],
         composition: ["compositionend", "compositionstart", "compositionupdate"],
@@ -18195,9 +19080,11 @@ ${namesToRegister
         });
     });
 },
-"4c04683fdc": /* models/html.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b, _c;
+"9012c2f5ae": /* models/html.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
+    exports.escape_html = escape_html;
+    exports.unescape_html = unescape_html;
+    exports.split_blocks = split_blocks;
     exports.html_decode = html_decode;
     exports.run_scripts = run_scripts;
     const tslib_1 = require("tslib");
@@ -18213,12 +19100,12 @@ ${namesToRegister
     };
     var HTMLStreamEvent_1;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
+    const signaling_1 = require("@bokehjs/core/signaling");
     const object_1 = require("@bokehjs/core/util/object");
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("84236c2552") /* ./layout */;
-    const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const util_1 = require("aa07eb54cc") /* ./util */;
-    const html_css_1 = tslib_1.__importDefault(require("9b8139e439") /* ../styles/models/html.css */);
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
+    const html_css_1 = tslib_1.__importDefault(require("9b8139e439") /* styles/models/html.css */);
     const COPY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"/></svg>`;
     const CHECK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-check"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10"/></svg>`;
     function searchAllDOMs(node, selector) {
@@ -18234,34 +19121,182 @@ ${namesToRegister
         }
         return found;
     }
-    let HTMLStreamEvent = (_a = class HTMLStreamEvent extends bokeh_events_1.ModelEvent {
-        constructor(model, patch, start) {
+    /**
+     * Replaces the characters between `start` and `end` of the unescaped
+     * text with the escaped `patch`, producing `version` of the text.
+     */
+    let HTMLStreamEvent = HTMLStreamEvent_1 = class HTMLStreamEvent extends bokeh_events_1.ModelEvent {
+        model;
+        patch;
+        start;
+        end;
+        version;
+        constructor(model, patch, start, end = null, version = null) {
             super();
             this.model = model;
             this.patch = patch;
             this.start = start;
+            this.end = end;
+            this.version = version;
             this.patch = patch;
             this.start = start;
+            this.end = end;
+            this.version = version;
             this.origin = model;
         }
         get event_values() {
-            return { model: this.origin, patch: this.patch, start: this.start };
+            return { model: this.origin, patch: this.patch, start: this.start, end: this.end, version: this.version };
         }
         static from_values(values) {
-            const { model, patch, start } = values;
-            return new HTMLStreamEvent_1(model, patch, start);
+            const { model, patch, start, end, version } = values;
+            return new HTMLStreamEvent_1(model, patch, start, end, version);
         }
-    },
-        (() => {
-            HTMLStreamEvent_1 = _a;
-        })(),
-        _a.__name__ = "HTMLStreamEvent",
-        _a);
+    };
     exports.HTMLStreamEvent = HTMLStreamEvent;
     exports.HTMLStreamEvent = HTMLStreamEvent = HTMLStreamEvent_1 = __decorate([
         (0, bokeh_events_1.server_event)("html_stream")
     ], HTMLStreamEvent);
+    const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#x27;" };
+    const UNESCAPES = Object.fromEntries(Object.entries(ESCAPES).map(([k, v]) => [v, k]));
+    // Exact inverses of Python's html.escape, unlike html_decode, which
+    // parses arbitrary entities and normalizes newlines.
+    function escape_html(text) {
+        return text.replace(/[&<>"']/g, (c) => ESCAPES[c]);
+    }
+    function unescape_html(text) {
+        return text.replace(/&(?:amp|lt|gt|quot|#x27);/g, (e) => UNESCAPES[e]);
+    }
+    const VOID_TAGS = new Set([
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+        "meta", "param", "source", "track", "wbr",
+    ]);
+    const RAW_TEXT_TAGS = new Set([
+        "script", "style", "textarea", "title", "xmp", "iframe", "noembed",
+        "noframes", "noscript", "plaintext",
+    ]);
+    const TAG_NAME = /[a-zA-Z][^\s/>]*/y;
+    function find_tag_end(html, pos) {
+        let quote = null;
+        let prev = "";
+        for (let i = pos; i < html.length; i++) {
+            const c = html[i];
+            if (quote != null) {
+                if (c === quote) {
+                    quote = null;
+                }
+            }
+            else if ((c === "\"" || c === "'") && prev === "=") {
+                quote = c;
+            }
+            else if (c === ">") {
+                return i + 1;
+            }
+            if (c.trim() !== "") {
+                prev = c;
+            }
+        }
+        return -1;
+    }
+    /**
+     * Splits HTML into top-level blocks, i.e. ranges ending where all
+     * opened elements are closed again, starting the scan at `from`. HTML
+     * that never closes an element (or ends mid-tag) yields one block for
+     * the remainder, so malformed input degrades to a full re-render.
+     */
+    function split_blocks(html, from = 0) {
+        const blocks = [];
+        const stack = [];
+        let foreign = 0;
+        let start = from;
+        let i = from;
+        const boundary = () => {
+            if (stack.length === 0) {
+                blocks.push([start, i]);
+                start = i;
+            }
+        };
+        while (true) {
+            const lt = html.indexOf("<", i);
+            if (lt === -1) {
+                break;
+            }
+            i = lt;
+            const next = html[i + 1];
+            if (next === "!" || next === "?") {
+                const comment = html.startsWith("<!--", i);
+                const close = comment ? html.indexOf("-->", i + 4) : html.indexOf(">", i + 2);
+                if (close === -1) {
+                    break;
+                }
+                i = close + (comment ? 3 : 1);
+                boundary();
+                continue;
+            }
+            const closing = next === "/";
+            TAG_NAME.lastIndex = i + (closing ? 2 : 1);
+            const match = TAG_NAME.exec(html);
+            if (match == null) {
+                i += 1;
+                continue;
+            }
+            const name = match[0].toLowerCase();
+            const end = find_tag_end(html, TAG_NAME.lastIndex);
+            if (end === -1) {
+                break;
+            }
+            i = end;
+            if (closing) {
+                const index = stack.lastIndexOf(name);
+                if (index !== -1) {
+                    for (const tag of stack.splice(index)) {
+                        if (tag === "svg" || tag === "math") {
+                            foreign--;
+                        }
+                    }
+                    boundary();
+                }
+            }
+            else if (VOID_TAGS.has(name) || (foreign > 0 && html[end - 2] === "/")) {
+                boundary();
+            }
+            else if (foreign === 0 && RAW_TEXT_TAGS.has(name)) {
+                const close_tag = new RegExp(`</${name}[\\s/>]`, "ig");
+                close_tag.lastIndex = i;
+                const close = close_tag.exec(html);
+                const close_end = close == null ? -1 : html.indexOf(">", close.index);
+                if (close_end === -1) {
+                    break;
+                }
+                i = close_end + 1;
+                boundary();
+            }
+            else {
+                stack.push(name);
+                if (name === "svg" || name === "math") {
+                    foreign++;
+                }
+            }
+        }
+        if (start < html.length) {
+            blocks.push([start, html.length]);
+        }
+        return blocks;
+    }
+    function select_all(nodes, selector) {
+        const found = [];
+        for (const node of nodes) {
+            if (node instanceof Element) {
+                if (node.matches(selector)) {
+                    found.push(node);
+                }
+                found.push(...node.querySelectorAll(selector));
+            }
+        }
+        return found;
+    }
     class DOMEvent extends bokeh_events_1.ModelEvent {
+        node;
+        data;
         constructor(node, data) {
             super();
             this.node = node;
@@ -18270,19 +19305,20 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, node: this.node, data: this.data };
         }
+        static {
+            this.prototype.event_name = "dom_event";
+        }
     }
     exports.DOMEvent = DOMEvent;
-    _b = DOMEvent;
-    DOMEvent.__name__ = "DOMEvent";
-    (() => {
-        _b.prototype.event_name = "dom_event";
-    })();
     function html_decode(input) {
         const doc = new DOMParser().parseFromString(input, "text/html");
         return doc.documentElement.textContent;
     }
     function run_scripts(node) {
-        for (const old_script of node.querySelectorAll("script")) {
+        replace_scripts(node.querySelectorAll("script"));
+    }
+    function replace_scripts(scripts) {
+        for (const old_script of scripts) {
             const new_script = document.createElement("script");
             for (const attr of old_script.attributes) {
                 new_script.setAttribute(attr.name, attr.value);
@@ -18295,16 +19331,19 @@ ${namesToRegister
         }
     }
     class HTMLView extends layout_1.PanelMarkupView {
-        constructor() {
-            super(...arguments);
-            this._buffer = null;
-            this._event_listeners = new Map();
-        }
+        // DOM nodes rendered from each top-level block of the streamed text,
+        // or null if the container was rendered as a whole.
+        _blocks = null;
+        // Lowest offset of the text modified since the last DOM update
+        _dirty = null;
+        _frame = null;
+        _event_listeners = new Map();
         connect_signals() {
             super.connect_signals();
             const { text, visible, events } = this.model.properties;
             this.on_change(text, () => {
-                this._buffer = null;
+                this.model.reset_stream();
+                this._dirty = null;
                 const html = this.process_tex();
                 this.set_html(html);
             });
@@ -18317,32 +19356,98 @@ ${namesToRegister
                 this._remove_event_listeners();
                 this._setup_event_listeners();
             });
-            const set_text = (0, util_1.throttle)(() => {
-                const text = this._buffer;
-                this._buffer = null;
-                this.model.setv({ text }, { silent: true });
-                const html = this.process_tex();
-                this.set_html(html);
-            }, 10);
-            this.model.on_event(HTMLStreamEvent, (event) => {
-                const beginning = this._buffer == null ? this.model.text : this._buffer;
-                this._buffer = beginning.slice(0, event.start) + event.patch;
-                set_text();
+            this.model.on_event(HTMLStreamEvent, (event) => this.model.apply_stream(event));
+            this.connect(this.model.streamed, (start) => {
+                this._dirty = Math.min(this._dirty ?? start, start);
+                if (this._frame == null) {
+                    this._frame = requestAnimationFrame(() => this._flush_stream());
+                }
             });
+        }
+        remove() {
+            if (this._frame != null) {
+                cancelAnimationFrame(this._frame);
+                this._frame = null;
+            }
+            super.remove();
         }
         stylesheets() {
             return [...super.stylesheets(), html_css_1.default];
+        }
+        _flush_stream() {
+            this._frame = null;
+            const dirty = this._dirty;
+            this._dirty = null;
+            if (dirty == null || this.container == null) {
+                return;
+            }
+            const html = this.model.stream_text;
+            if (!this.model.disable_math && this.contains_tex(html)) {
+                this.set_html(this.process_tex());
+            }
+            else {
+                this._update_blocks(html, dirty);
+            }
+        }
+        /**
+         * Re-renders only the top-level blocks at or after the first
+         * modified offset, keeping the DOM (and any text selection) of the
+         * preceding blocks intact.
+         */
+        _update_blocks(html, dirty) {
+            let blocks = this._blocks;
+            let keep = 0;
+            if (blocks == null) {
+                this.container.replaceChildren();
+                blocks = [];
+            }
+            else {
+                // The last block may still be growing even if it ends before dirty
+                while (keep < blocks.length - 1 && blocks[keep].end <= dirty) {
+                    keep++;
+                }
+                for (const block of blocks.splice(keep)) {
+                    for (const node of block.nodes) {
+                        node.remove();
+                    }
+                }
+            }
+            const from = keep > 0 ? blocks[keep - 1].end : 0;
+            const fragment = document.createDocumentFragment();
+            const parser = document.createElement("div");
+            const added = [];
+            for (const [start, end] of split_blocks(html, from)) {
+                parser.innerHTML = html.slice(start, end);
+                const nodes = [...parser.childNodes];
+                fragment.append(...nodes);
+                added.push(...nodes);
+                blocks.push({ end, nodes });
+            }
+            this.container.append(fragment);
+            this._blocks = blocks;
+            if (this.model.run_scripts) {
+                replace_scripts(select_all(added, "script"));
+            }
+            if (Object.keys(this.model.events).length !== 0) {
+                this._remove_event_listeners();
+                this._setup_event_listeners();
+            }
+            this._decorate(added);
         }
         set_html(html) {
             if (html === null || this.container == null) {
                 return;
             }
+            this._blocks = null;
             this.container.innerHTML = html;
             if (this.model.run_scripts) {
                 run_scripts(this.container);
             }
             this._setup_event_listeners();
-            for (const codeblock of this.container.querySelectorAll(".codehilite")) {
+            this._decorate([this.container]);
+        }
+        _decorate(nodes) {
+            for (const codeblock of select_all(nodes, ".codehilite")) {
                 const copy_button = document.createElement("button");
                 const pre = codeblock.children[0];
                 copy_button.className = "copybtn";
@@ -18358,7 +19463,7 @@ ${namesToRegister
                 });
                 codeblock.insertBefore(copy_button, pre);
             }
-            for (const anchor of this.container.querySelectorAll("a")) {
+            for (const anchor of select_all(nodes, "a")) {
                 const link = anchor.getAttribute("href");
                 if (link && link.startsWith("#")) {
                     anchor.addEventListener("click", () => {
@@ -18452,23 +19557,62 @@ ${namesToRegister
         }
     }
     exports.HTMLView = HTMLView;
-    HTMLView.__name__ = "HTMLView";
     class HTML extends markup_1.Markup {
+        // Unescaped text maintained from stream events and the events that
+        // arrived ahead of the next version. Views share the model, so events
+        // are applied here, once and in order, rather than by each view.
+        _stream_text = null;
+        _stream_queue = new Map();
+        // Emits the lowest offset of the text modified by a stream event
+        streamed = new signaling_1.Signal(this, "streamed");
         constructor(attrs) {
             super(attrs);
         }
+        get stream_text() {
+            return this._stream_text ??= unescape_html(this.text);
+        }
+        apply_stream(event) {
+            if (event.version == null) {
+                this._apply_stream(event);
+                return;
+            }
+            if (event.version <= this.stream_version) {
+                return;
+            }
+            // Messages written to the socket via different paths on the
+            // server may arrive out of order.
+            this._stream_queue.set(event.version, event);
+            let next;
+            while ((next = this._stream_queue.get(this.stream_version + 1)) != null) {
+                this._stream_queue.delete(next.version);
+                this._apply_stream(next);
+            }
+        }
+        _apply_stream(event) {
+            const text = this.stream_text;
+            const end = event.end ?? text.length;
+            this._stream_text = text.slice(0, event.start) + unescape_html(event.patch) + text.slice(end);
+            const attrs = { text: escape_html(this._stream_text) };
+            if (event.version != null) {
+                attrs.stream_version = event.version;
+            }
+            this.setv(attrs, { silent: true });
+            this.streamed.emit(event.start);
+        }
+        reset_stream() {
+            this._stream_text = null;
+        }
+        static __module__ = "panel.models.markup";
+        static {
+            this.prototype.default_view = HTMLView;
+            this.define(({ Bool, Int, Str, List, Dict }) => ({
+                events: [Dict(List(Str)), {}],
+                run_scripts: [Bool, true],
+                stream_version: [Int, 0],
+            }));
+        }
     }
     exports.HTML = HTML;
-    _c = HTML;
-    HTML.__name__ = "HTML";
-    HTML.__module__ = "panel.models.markup";
-    (() => {
-        _c.prototype.default_view = HTMLView;
-        _c.define(({ Bool, Str, List, Dict }) => ({
-            events: [Dict(List(Str)), {}],
-            run_scripts: [Bool, true],
-        }));
-    })();
 },
 "9b8139e439": /* styles/models/html.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -18478,11 +19622,15 @@ ${namesToRegister
     __esModule();
     exports.default = `.error-wrapper,.child-wrapper{display:contents;}.error{padding:0.75rem 1.25rem;border:1px solid transparent;border-radius:0.25rem;color:var(--danger-text-color);background-color:var(--danger-bg-subtle);border-color:var(--danger-border-subtle);}.error .msg{font-weight:bold;}.error pre.highlight{backdrop-filter:brightness(0.8);font-weight:900;}`;
 },
-"fd59c985b3": /* models/audio.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"fdf76c2b8b": /* models/audio.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class AudioView extends layout_1.HTMLBoxView {
+        audioEl;
+        dialogEl;
+        _blocked;
+        _time;
+        _setting;
         initialize() {
             super.initialize();
             this._blocked = false;
@@ -18585,32 +19733,28 @@ ${namesToRegister
         }
     }
     exports.AudioView = AudioView;
-    AudioView.__name__ = "AudioView";
     class Audio extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = AudioView;
+            this.define(({ Any, Bool, Float, Nullable }) => ({
+                loop: [Bool, false],
+                paused: [Bool, true],
+                muted: [Bool, false],
+                autoplay: [Bool, false],
+                time: [Float, 0],
+                throttle: [Float, 250],
+                value: [Any, ""],
+                volume: [Nullable(Float), null],
+            }));
+        }
     }
     exports.Audio = Audio;
-    _a = Audio;
-    Audio.__name__ = "Audio";
-    Audio.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = AudioView;
-        _a.define(({ Any, Bool, Float, Nullable }) => ({
-            loop: [Bool, false],
-            paused: [Bool, true],
-            muted: [Bool, false],
-            autoplay: [Bool, false],
-            time: [Float, 0],
-            throttle: [Float, 250],
-            value: [Any, ""],
-            volume: [Nullable(Float), null],
-        }));
-    })();
 },
-"5a16cc23e6": /* models/browser.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"f25f215a58": /* models/browser.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const view_1 = require("@bokehjs/core/view");
     const model_1 = require("@bokehjs/model");
@@ -18650,36 +19794,33 @@ ${namesToRegister
         }
     }
     exports.BrowserInfoView = BrowserInfoView;
-    BrowserInfoView.__name__ = "BrowserInfoView";
     class BrowserInfo extends model_1.Model {
+        static __module__ = "panel.models.browser";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = BrowserInfoView;
+            this.define(({ Bool, Nullable, Float, Str }) => ({
+                dark_mode: [Nullable(Bool), null],
+                device_pixel_ratio: [Nullable(Float), null],
+                language: [Nullable(Str), null],
+                timezone: [Nullable(Str), null],
+                timezone_offset: [Nullable(Float), null],
+                webdriver: [Nullable(Bool), null],
+                webgl: [Nullable(Bool), null],
+            }));
+        }
     }
     exports.BrowserInfo = BrowserInfo;
-    _a = BrowserInfo;
-    BrowserInfo.__name__ = "BrowserInfo";
-    BrowserInfo.__module__ = "panel.models.browser";
-    (() => {
-        _a.prototype.default_view = BrowserInfoView;
-        _a.define(({ Bool, Nullable, Float, Str }) => ({
-            dark_mode: [Nullable(Bool), null],
-            device_pixel_ratio: [Nullable(Float), null],
-            language: [Nullable(Str), null],
-            timezone: [Nullable(Str), null],
-            timezone_offset: [Nullable(Float), null],
-            webdriver: [Nullable(Bool), null],
-            webgl: [Nullable(Bool), null],
-        }));
-    })();
 },
-"1db93211cd": /* models/button.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"29120fca73": /* models/button.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tooltip_1 = require("@bokehjs/models/ui/tooltip");
     const build_views_1 = require("@bokehjs/core/build_views");
     const button_1 = require("@bokehjs/models/widgets/button");
     class ButtonView extends button_1.ButtonView {
+        tooltip;
         *children() {
             yield* super.children();
             if (this.tooltip != null) {
@@ -18729,29 +19870,26 @@ ${namesToRegister
         }
     }
     exports.ButtonView = ButtonView;
-    ButtonView.__name__ = "ButtonView";
     class Button extends button_1.Button {
+        static __module__ = "panel.models.widgets";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = ButtonView;
+            this.define(({ Nullable, Ref, Float }) => ({
+                tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
+                tooltip_delay: [Float, 500],
+            }));
+        }
     }
     exports.Button = Button;
-    _a = Button;
-    Button.__name__ = "Button";
-    Button.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = ButtonView;
-        _a.define(({ Nullable, Ref, Float }) => ({
-            tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
-            tooltip_delay: [Float, 500],
-        }));
-    })();
 },
-"1738ddeb3a": /* models/button_icon.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"7e77f478cb": /* models/button_icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const icon_1 = require("6c7fbea0ef") /* ./icon */;
+    const icon_1 = require("bf77ad153d") /* ./icon */;
     class ButtonIconView extends icon_1.ClickableIconView {
+        _click_listener;
         *controls() { }
         update_cursor() {
             this.icon_view.el.style.cursor = this.model.disabled ? "default" : "pointer";
@@ -18773,25 +19911,21 @@ ${namesToRegister
         }
     }
     exports.ButtonIconView = ButtonIconView;
-    ButtonIconView.__name__ = "ButtonIconView";
     class ButtonIcon extends icon_1.ClickableIcon {
+        static __module__ = "panel.models.icon";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = ButtonIconView;
+            this.define(({ Int }) => ({
+                toggle_duration: [Int, 75],
+            }));
+        }
     }
     exports.ButtonIcon = ButtonIcon;
-    _a = ButtonIcon;
-    ButtonIcon.__name__ = "ButtonIcon";
-    ButtonIcon.__module__ = "panel.models.icon";
-    (() => {
-        _a.prototype.default_view = ButtonIconView;
-        _a.define(({ Int }) => ({
-            toggle_duration: [Int, 75],
-        }));
-    })();
 },
-"6c7fbea0ef": /* models/icon.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"bf77ad153d": /* models/icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tooltip_1 = require("@bokehjs/models/ui/tooltip");
     const tabler_icon_1 = require("@bokehjs/models/ui/icons/tabler_icon");
@@ -18801,6 +19935,11 @@ ${namesToRegister
     const build_views_1 = require("@bokehjs/core/build_views");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     class ClickableIconView extends control_1.ControlView {
+        icon_view;
+        label_el;
+        was_svg_icon;
+        row_div;
+        tooltip;
         *controls() { }
         remove() {
             this.tooltip?.remove();
@@ -18939,42 +20078,40 @@ ${namesToRegister
         }
     }
     exports.ClickableIconView = ClickableIconView;
-    ClickableIconView.__name__ = "ClickableIconView";
     class ClickableIcon extends control_1.Control {
+        static __module__ = "panel.models.icon";
         constructor(attrs) {
             super(attrs);
+        }
+        static {
+            this.prototype.default_view = ClickableIconView;
+            this.define(({ Nullable, Ref, Float, Str, Bool }) => ({
+                active_icon: [Str, ""],
+                icon: [Str, "heart"],
+                size: [Nullable(Str), null],
+                value: [Bool, false],
+                title: [Str, ""],
+                tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
+                tooltip_delay: [Float, 500],
+            }));
         }
         on_click(callback) {
             this.on_event(bokeh_events_1.ButtonClick, callback);
         }
     }
     exports.ClickableIcon = ClickableIcon;
-    _a = ClickableIcon;
-    ClickableIcon.__name__ = "ClickableIcon";
-    ClickableIcon.__module__ = "panel.models.icon";
-    (() => {
-        _a.prototype.default_view = ClickableIconView;
-        _a.define(({ Nullable, Ref, Float, Str, Bool }) => ({
-            active_icon: [Str, ""],
-            icon: [Str, "heart"],
-            size: [Nullable(Str), null],
-            value: [Bool, false],
-            title: [Str, ""],
-            tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
-            tooltip_delay: [Float, 500],
-        }));
-    })();
 },
-"31556103c8": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"a668a42a0f": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const DOM = tslib_1.__importStar(require("@bokehjs/core/dom"));
     const grid_1 = require("@bokehjs/core/layout/grid");
     const alignments_1 = require("@bokehjs/models/layouts/alignments");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
-    const column_1 = require("b273e5b2fb") /* ./column */;
-    const card_css_1 = tslib_1.__importDefault(require("6342ac8e26") /* ../styles/models/card.css */);
+    const markup_1 = require("@bokehjs/models/widgets/markup");
+    const widget_1 = require("@bokehjs/models/widgets/widget");
+    const column_1 = require("3967d78fb5") /* ./column */;
+    const card_css_1 = tslib_1.__importDefault(require("6342ac8e26") /* styles/models/card.css */);
     const CHEVRON_RIGHT = `
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-right"><path stroke="none" d="M0 0h12v12H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
 `;
@@ -18982,13 +20119,12 @@ ${namesToRegister
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-down"><path stroke="none" d="M0 0h12v12H0z" fill="none"/><path d="M6 9l6 6l6 -6" /></svg>
 `;
     class CardView extends column_1.ColumnView {
-        constructor() {
-            super(...arguments);
-            this.visible_child_views = new Map();
-            this._updating_child_visibility = new Set();
-            this._child_visible_callbacks = new Map();
-            this.collapsed_style = new DOM.InlineStyleSheet();
-        }
+        button_el;
+        header_el;
+        visible_child_views = new Map();
+        _updating_child_visibility = new Set();
+        _child_visible_callbacks = new Map();
+        collapsed_style = new DOM.InlineStyleSheet();
         connect_signals() {
             super.connect_signals();
             const { active_header_background, collapsed, header_background, header_color, hide_header } = this.model.properties;
@@ -19161,11 +20297,22 @@ ${namesToRegister
             }
         }
         _toggle_button(e) {
-            const is_panel_widget = (el) => el instanceof HTMLInputElement || (el instanceof HTMLElement &&
-                Array.from(el.classList).some((c) => c.startsWith("bk-panel-models-widgets-")));
+            const widget_els = new Set();
+            const collect = (view) => {
+                // A Markup widget is the header text, e.g. the title of an Accordion.
+                if (view.model instanceof widget_1.Widget && !(view.model instanceof markup_1.Markup)) {
+                    widget_els.add(view.el);
+                }
+                for (const child of view.child_views ?? []) {
+                    collect(child);
+                }
+            };
+            collect(this.child_views[0]);
+            const is_widget = (el) => el instanceof HTMLInputElement || (el instanceof HTMLElement && (widget_els.has(el) ||
+                Array.from(el.classList).some((c) => c.startsWith("bk-panel-models-widgets-"))));
             for (const el of e.composedPath()) {
-                // If the click came from any Panel widget in the header, don't toggle.
-                if (is_panel_widget(el)) {
+                // A click on a widget in the header operates the widget, not the card.
+                if (is_widget(el)) {
                     return;
                 }
             }
@@ -19202,7 +20349,8 @@ ${namesToRegister
             }
             this._updating_child_visibility.add(child_view);
             try {
-                child_view.model.visible = visible;
+                // Collapsing is client side state, syncing it echoes stale values back.
+                child_view.model.setv({ visible }, { sync: false });
             }
             finally {
                 this._updating_child_visibility.delete(child_view);
@@ -19246,34 +20394,30 @@ ${namesToRegister
         }
     }
     exports.CardView = CardView;
-    CardView.__name__ = "CardView";
     class Card extends column_1.Column {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.layout";
+        static {
+            this.prototype.default_view = CardView;
+            this.define(({ List, Bool, Nullable, Str }) => ({
+                active_header_background: [Nullable(Str), null],
+                button_css_classes: [List(Str), []],
+                collapsed: [Bool, true],
+                collapsible: [Bool, true],
+                header_background: [Nullable(Str), null],
+                header_color: [Nullable(Str), null],
+                header_css_classes: [List(Str), []],
+                header_tag: [Str, "div"],
+                hide_header: [Bool, false],
+                tag: [Str, "div"],
+            }));
+        }
     }
     exports.Card = Card;
-    _a = Card;
-    Card.__name__ = "Card";
-    Card.__module__ = "panel.models.layout";
-    (() => {
-        _a.prototype.default_view = CardView;
-        _a.define(({ List, Bool, Nullable, Str }) => ({
-            active_header_background: [Nullable(Str), null],
-            button_css_classes: [List(Str), []],
-            collapsed: [Bool, true],
-            collapsible: [Bool, true],
-            header_background: [Nullable(Str), null],
-            header_color: [Nullable(Str), null],
-            header_css_classes: [List(Str), []],
-            header_tag: [Str, "div"],
-            hide_header: [Bool, false],
-            tag: [Str, "div"],
-        }));
-    })();
 },
-"b273e5b2fb": /* models/column.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b, _c;
+"3967d78fb5": /* models/column.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -19291,14 +20435,14 @@ ${namesToRegister
     const column_1 = require("@bokehjs/models/layouts/column");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     class ScrollButtonClick extends bokeh_events_1.ModelEvent {
+        static {
+            this.prototype.event_name = "scroll_button_click";
+        }
     }
     exports.ScrollButtonClick = ScrollButtonClick;
-    _a = ScrollButtonClick;
-    ScrollButtonClick.__name__ = "ScrollButtonClick";
-    (() => {
-        _a.prototype.event_name = "scroll_button_click";
-    })();
-    let ScrollToEvent = (_b = class ScrollToEvent extends bokeh_events_1.ModelEvent {
+    let ScrollToEvent = ScrollToEvent_1 = class ScrollToEvent extends bokeh_events_1.ModelEvent {
+        model;
+        index;
         constructor(model, index) {
             super();
             this.model = model;
@@ -19313,21 +20457,21 @@ ${namesToRegister
             const { model, index } = values;
             return new ScrollToEvent_1(model, index);
         }
-    },
-        (() => {
-            ScrollToEvent_1 = _b;
-        })(),
-        _b.__name__ = "ScrollToEvent",
-        _b);
+    };
     exports.ScrollToEvent = ScrollToEvent;
     exports.ScrollToEvent = ScrollToEvent = ScrollToEvent_1 = __decorate([
         (0, bokeh_events_1.server_event)("scroll_to")
     ], ScrollToEvent);
+    const SCROLL_CLASSES = [
+        "scroll", "scroll-horizontal", "scroll-vertical",
+        "scrollable", "scrollable-horizontal", "scrollable-vertical",
+    ];
     class ColumnView extends column_1.ColumnView {
-        constructor() {
-            super(...arguments);
-            this._updating = false;
-        }
+        _updating = false;
+        _stylesheet_listener = false;
+        _initial_scroll_pending = false;
+        _auto_scroll_pending = false;
+        scroll_down_button_el;
         connect_signals() {
             super.connect_signals();
             const { children, scroll_position, scroll_button_threshold } = this.model.properties;
@@ -19335,6 +20479,11 @@ ${namesToRegister
             this.on_change(scroll_position, () => this.scroll_to_position());
             this.on_change(scroll_button_threshold, () => this.toggle_scroll_button());
             this.model.on_event(ScrollToEvent, (event) => this.scroll_to_index(event.index));
+        }
+        // The css classes of the scroll options (`_SCROLL_MAPPING`), not any class
+        // that happens to start with "scroll".
+        get is_scroll_container() {
+            return this.model.css_classes.some((cls) => SCROLL_CLASSES.includes(cls));
         }
         get distance_from_latest() {
             return this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight;
@@ -19367,6 +20516,9 @@ ${namesToRegister
             }
             requestAnimationFrame(() => {
                 this.el.scrollTo({ top: this.model.scroll_position, behavior: "instant" });
+                if (this.is_scroll_container && getComputedStyle(this.el).overflowY === "visible") {
+                    this._initial_scroll_pending = true;
+                }
             });
         }
         scroll_to_latest(scroll_limit = null) {
@@ -19377,19 +20529,19 @@ ${namesToRegister
                 }
             }
             requestAnimationFrame(() => {
-                this.model.scroll_position = Math.round(this.el.scrollHeight);
+                const latest = Math.round(this.el.scrollHeight);
+                // A scroll_position that did not change emits no event to scroll on
+                this.el.scrollTo({ top: latest, behavior: "instant" });
+                this.model.scroll_position = latest;
             });
         }
         trigger_auto_scroll() {
             const limit = this.model.auto_scroll_limit;
             if (limit == 0) {
+                this._auto_scroll_pending = false;
                 return;
             }
-            const within_limit = this.distance_from_latest <= limit;
-            if (!within_limit) {
-                return;
-            }
-            this.scroll_to_latest();
+            this._auto_scroll_pending = this.distance_from_latest <= limit;
         }
         record_scroll_position() {
             this._updating = true;
@@ -19428,6 +20580,24 @@ ${namesToRegister
                 this.scroll_to_latest();
                 this.model.trigger_event(new ScrollButtonClick());
             });
+            if (!this._stylesheet_listener) {
+                this._stylesheet_listener = true;
+                // Scrolling is a no-op until the stylesheets making it scrollable load.
+                this.shadow_el.addEventListener("load", (event) => {
+                    if (event.target instanceof HTMLLinkElement && this._initial_scroll_pending) {
+                        this._apply_initial_scroll();
+                    }
+                }, true);
+            }
+        }
+        _apply_initial_scroll() {
+            if (this.model.scroll_position) {
+                this.scroll_to_position();
+            }
+            if (this.model.view_latest) {
+                this.scroll_to_latest();
+            }
+            this._initial_scroll_pending = this.is_scroll_container && getComputedStyle(this.el).overflowY === "visible";
         }
         async update_children() {
             const created = await this.build_child_views();
@@ -19468,56 +20638,54 @@ ${namesToRegister
             this.r_after_render();
             this._update_children();
             this.invalidate_layout();
+            if (this._auto_scroll_pending) {
+                this._auto_scroll_pending = false;
+                // A new child may only get its final size a frame later.
+                requestAnimationFrame(() => this.scroll_to_latest());
+            }
         }
         after_render() {
             super.after_render();
+            this._initial_scroll_pending = true;
             requestAnimationFrame(() => {
-                if (this.model.scroll_position) {
-                    this.scroll_to_position();
-                }
-                if (this.model.view_latest) {
-                    this.scroll_to_latest();
-                }
+                this._apply_initial_scroll();
                 this.toggle_scroll_button();
             });
         }
     }
     exports.ColumnView = ColumnView;
-    ColumnView.__name__ = "ColumnView";
     class Column extends column_1.Column {
         constructor(attrs) {
             super(attrs);
+        }
+        static __module__ = "panel.models.layout";
+        static {
+            this.prototype.default_view = ColumnView;
+            this.define(({ Int, Bool, Nullable }) => ({
+                auto_scroll_limit: [Int, 0],
+                scroll_button_threshold: [Int, 0],
+                scroll_index: [Nullable(Int), null],
+                scroll_position: [Int, 0],
+                view_latest: [Bool, false],
+            }));
         }
         on_click(callback) {
             this.on_event(ScrollButtonClick, callback);
         }
     }
     exports.Column = Column;
-    _c = Column;
-    Column.__name__ = "Column";
-    Column.__module__ = "panel.models.layout";
-    (() => {
-        _c.prototype.default_view = ColumnView;
-        _c.define(({ Int, Bool, Nullable }) => ({
-            auto_scroll_limit: [Int, 0],
-            scroll_button_threshold: [Int, 0],
-            scroll_index: [Nullable(Int), null],
-            scroll_position: [Int, 0],
-            view_latest: [Bool, false],
-        }));
-    })();
 },
 "6342ac8e26": /* styles/models/card.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `:host(.card){border-radius:0.25rem;box-shadow:rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;outline:1px solid rgba(0, 0, 0, 0.125);}:host(.accordion){box-shadow:rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;outline:1px solid rgba(0, 0, 0, 0.125);width:100%;}.card-header{align-items:center;background-color:rgba(0, 0, 0, 0.03);border:unset;border-radius:0.25rem;display:inline-flex;justify-content:start;outline:unset;position:sticky;width:100%;margin-right:0.5em;padding-inline:0.5em;cursor:pointer;}.card-header:hover{box-shadow:0 0 3px rgba(0, 0, 0, 0.3);}.card-header:not(:hover){box-shadow:0 0 3px rgba(0, 0, 0, 0);}.accordion-header{align-items:center;background-color:rgba(0, 0, 0, 0.03);border:unset;outline:1px solid;border-radius:0;display:flex;justify-content:start;position:sticky;width:100%;cursor:pointer;}.card-button{background-color:transparent;margin-left:0em;margin-right:0.25em;height:12px;width:12px;}.card-header-row{position:relative !important;}.card-title{align-items:center;font-size:1.4em;font-weight:bold;overflow-wrap:break-word;}.card-header-row > .bk{overflow-wrap:break-word;text-align:center;}`;
 },
-"51fbe9e2d0": /* models/checkbox_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"138d8a2ed1": /* models/checkbox_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tooltip_1 = require("@bokehjs/models/ui/tooltip");
     const build_views_1 = require("@bokehjs/core/build_views");
     const checkbox_button_group_1 = require("@bokehjs/models/widgets/checkbox_button_group");
     class CheckboxButtonGroupView extends checkbox_button_group_1.CheckboxButtonGroupView {
+        tooltip;
         *children() {
             yield* super.children();
             if (this.tooltip != null) {
@@ -19567,30 +20735,27 @@ ${namesToRegister
         }
     }
     exports.CheckboxButtonGroupView = CheckboxButtonGroupView;
-    CheckboxButtonGroupView.__name__ = "CheckboxButtonGroupView";
     class CheckboxButtonGroup extends checkbox_button_group_1.CheckboxButtonGroup {
+        static __module__ = "panel.models.widgets";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = CheckboxButtonGroupView;
+            this.define(({ Nullable, Ref, Float }) => ({
+                tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
+                tooltip_delay: [Float, 500],
+            }));
+        }
     }
     exports.CheckboxButtonGroup = CheckboxButtonGroup;
-    _a = CheckboxButtonGroup;
-    CheckboxButtonGroup.__name__ = "CheckboxButtonGroup";
-    CheckboxButtonGroup.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = CheckboxButtonGroupView;
-        _a.define(({ Nullable, Ref, Float }) => ({
-            tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
-            tooltip_delay: [Float, 500],
-        }));
-    })();
 },
-"27a077673d": /* models/chatarea_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"a9ce3554f5": /* models/chatarea_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const textarea_input_1 = require("b7d595d74a") /* ./textarea_input */;
+    const textarea_input_1 = require("2f8fe6797e") /* ./textarea_input */;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     class ChatMessageEvent extends bokeh_events_1.ModelEvent {
+        value;
         constructor(value) {
             super();
             this.value = value;
@@ -19598,13 +20763,11 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, value: this.value };
         }
+        static {
+            this.prototype.event_name = "chat_message_event";
+        }
     }
     exports.ChatMessageEvent = ChatMessageEvent;
-    _a = ChatMessageEvent;
-    ChatMessageEvent.__name__ = "ChatMessageEvent";
-    (() => {
-        _a.prototype.event_name = "chat_message_event";
-    })();
     class ChatAreaInputView extends textarea_input_1.TextAreaInputView {
         connect_signals() {
             super.connect_signals();
@@ -19631,28 +20794,25 @@ ${namesToRegister
         }
     }
     exports.ChatAreaInputView = ChatAreaInputView;
-    ChatAreaInputView.__name__ = "ChatAreaInputView";
     class ChatAreaInput extends textarea_input_1.TextAreaInput {
+        declare;
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.chatarea_input";
+        static {
+            this.prototype.default_view = ChatAreaInputView;
+            this.define(({ Bool }) => {
+                return {
+                    disabled_enter: [Bool, false],
+                    enter_sends: [Bool, true],
+                };
+            });
+        }
     }
     exports.ChatAreaInput = ChatAreaInput;
-    _b = ChatAreaInput;
-    ChatAreaInput.__name__ = "ChatAreaInput";
-    ChatAreaInput.__module__ = "panel.models.chatarea_input";
-    (() => {
-        _b.prototype.default_view = ChatAreaInputView;
-        _b.define(({ Bool }) => {
-            return {
-                disabled_enter: [Bool, false],
-                enter_sends: [Bool, true],
-            };
-        });
-    })();
 },
-"b7d595d74a": /* models/textarea_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"2f8fe6797e": /* models/textarea_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const textarea_input_1 = require("@bokehjs/models/widgets/textarea_input");
     class TextAreaInputView extends textarea_input_1.TextAreaInputView {
@@ -19680,26 +20840,22 @@ ${namesToRegister
         }
     }
     exports.TextAreaInputView = TextAreaInputView;
-    TextAreaInputView.__name__ = "TextAreaInputView";
     class TextAreaInput extends textarea_input_1.TextAreaInput {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = TextAreaInputView;
+            this.define(({ Bool, Int, Nullable }) => ({
+                auto_grow: [Bool, false],
+                max_rows: [Nullable(Int), null],
+            }));
+        }
     }
     exports.TextAreaInput = TextAreaInput;
-    _a = TextAreaInput;
-    TextAreaInput.__name__ = "TextAreaInput";
-    TextAreaInput.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = TextAreaInputView;
-        _a.define(({ Bool, Int, Nullable }) => ({
-            auto_grow: [Bool, false],
-            max_rows: [Nullable(Int), null],
-        }));
-    })();
 },
-"1bec1b1fcc": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"f8f420cdc3": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const document_1 = require("@bokehjs/document");
     const view_1 = require("@bokehjs/core/view");
@@ -19715,11 +20871,16 @@ ${namesToRegister
     class CommManagerView extends view_1.View {
     }
     exports.CommManagerView = CommManagerView;
-    CommManagerView.__name__ = "CommManagerView";
     class CommManager extends model_1.Model {
+        ns;
+        _receiver;
+        _client_comm;
+        _event_buffer;
+        _timeout;
+        _blocked;
+        _reconnect;
         constructor(attrs) {
             super(attrs);
-            this._document_listener = (event) => this._document_changed(event);
         }
         initialize() {
             super.initialize();
@@ -19759,6 +20920,7 @@ ${namesToRegister
                 }
             }
         }
+        _document_listener = (event) => this._document_changed(event);
         _doc_attached() {
             super._doc_attached();
             if (this.document != null) {
@@ -19891,24 +21053,21 @@ ${namesToRegister
                 }
             }
         }
+        static __module__ = "panel.models.comm_manager";
+        static {
+            this.prototype.default_view = CommManagerView;
+            this.define(({ Int, Str, Nullable }) => ({
+                plot_id: [Nullable(Str), null],
+                comm_id: [Nullable(Str), null],
+                client_comm_id: [Nullable(Str), null],
+                timeout: [Int, 5000],
+                debounce: [Int, 50],
+            }));
+        }
     }
     exports.CommManager = CommManager;
-    _a = CommManager;
-    CommManager.__name__ = "CommManager";
-    CommManager.__module__ = "panel.models.comm_manager";
-    (() => {
-        _a.prototype.default_view = CommManagerView;
-        _a.define(({ Int, Str, Nullable }) => ({
-            plot_id: [Nullable(Str), null],
-            comm_id: [Nullable(Str), null],
-            client_comm_id: [Nullable(Str), null],
-            timeout: [Int, 5000],
-            debounce: [Int, 50],
-        }));
-    })();
 },
-"92bbd30bd1": /* models/customselect.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"519009caed": /* models/customselect.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const select_1 = require("@bokehjs/models/widgets/select");
     class CustomSelectView extends select_1.SelectView {
@@ -19940,31 +21099,28 @@ ${namesToRegister
         }
     }
     exports.CustomSelectView = CustomSelectView;
-    CustomSelectView.__name__ = "CustomSelectView";
     class CustomSelect extends select_1.Select {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = CustomSelectView;
+            this.define(({ List, Str }) => {
+                return {
+                    disabled_options: [List(Str), []],
+                };
+            });
+        }
     }
     exports.CustomSelect = CustomSelect;
-    _a = CustomSelect;
-    CustomSelect.__name__ = "CustomSelect";
-    CustomSelect.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = CustomSelectView;
-        _a.define(({ List, Str }) => {
-            return {
-                disabled_options: [List(Str), []],
-            };
-        });
-    })();
 },
-"27b5580835": /* models/multiselect.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"8653ba687c": /* models/multiselect.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const multiselect_1 = require("@bokehjs/models/widgets/multiselect");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     class DoubleClickEvent extends bokeh_events_1.ModelEvent {
+        option;
         constructor(option) {
             super();
             this.option = option;
@@ -19972,13 +21128,11 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, option: this.option };
         }
+        static {
+            this.prototype.event_name = "dblclick_event";
+        }
     }
     exports.DoubleClickEvent = DoubleClickEvent;
-    _a = DoubleClickEvent;
-    DoubleClickEvent.__name__ = "DoubleClickEvent";
-    (() => {
-        _a.prototype.event_name = "dblclick_event";
-    })();
     class CustomMultiSelectView extends multiselect_1.MultiSelectView {
         render() {
             super.render();
@@ -19992,22 +21146,18 @@ ${namesToRegister
         }
     }
     exports.CustomMultiSelectView = CustomMultiSelectView;
-    CustomMultiSelectView.__name__ = "CustomMultiSelectView";
     class CustomMultiSelect extends multiselect_1.MultiSelect {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = CustomMultiSelectView;
+        }
     }
     exports.CustomMultiSelect = CustomMultiSelect;
-    _b = CustomMultiSelect;
-    CustomMultiSelect.__name__ = "CustomMultiSelect";
-    CustomMultiSelect.__module__ = "panel.models.widgets";
-    (() => {
-        _b.prototype.default_view = CustomMultiSelectView;
-    })();
 },
-"e0501f9786": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b, _c, _d;
+"381057489b": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
@@ -20017,32 +21167,38 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_2 = require("@bokehjs/core/dom");
     const kinds_1 = require("@bokehjs/core/kinds");
+    const model_1 = require("@bokehjs/model");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
-    const tables_1 = require("@bokehjs/models/widgets/tables");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
+    const cell_formatters_1 = require("254387d0dc") /* ./cell_formatters */;
+    const comm_manager_1 = require("f8f420cdc3") /* ./comm_manager */;
     const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
-    const tabulator_css_1 = tslib_1.__importDefault(require("3d732ff91f") /* ../styles/models/tabulator.css */);
+    const tabulator_css_1 = tslib_1.__importDefault(require("b0fdc4e99b") /* styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
-        constructor(column, row, pre) {
+        column;
+        row;
+        value;
+        old;
+        constructor(column, row, value, old) {
             super();
             this.column = column;
             this.row = row;
-            this.pre = pre;
+            this.value = value;
+            this.old = old;
         }
         get event_values() {
-            return { model: this.origin, column: this.column, row: this.row, pre: this.pre };
+            return { model: this.origin, column: this.column, row: this.row, value: this.value, old: this.old };
+        }
+        static {
+            this.prototype.event_name = "table-edit";
         }
     }
     exports.TableEditEvent = TableEditEvent;
-    _a = TableEditEvent;
-    TableEditEvent.__name__ = "TableEditEvent";
-    (() => {
-        _a.prototype.event_name = "table-edit";
-    })();
     class CellClickEvent extends bokeh_events_1.ModelEvent {
+        column;
+        row;
         constructor(column, row) {
             super();
             this.column = column;
@@ -20051,14 +21207,15 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, column: this.column, row: this.row };
         }
+        static {
+            this.prototype.event_name = "cell-click";
+        }
     }
     exports.CellClickEvent = CellClickEvent;
-    _b = CellClickEvent;
-    CellClickEvent.__name__ = "CellClickEvent";
-    (() => {
-        _b.prototype.event_name = "cell-click";
-    })();
     class SelectionEvent extends bokeh_events_1.ModelEvent {
+        indices;
+        selected;
+        flush;
         constructor(indices, selected, flush = false) {
             super();
             this.indices = indices;
@@ -20068,13 +21225,11 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, indices: this.indices, selected: this.selected, flush: this.flush };
         }
+        static {
+            this.prototype.event_name = "selection-change";
+        }
     }
     exports.SelectionEvent = SelectionEvent;
-    _c = SelectionEvent;
-    SelectionEvent.__name__ = "SelectionEvent";
-    (() => {
-        _c.prototype.event_name = "selection-change";
-    })();
     function find_group(key, value, records) {
         for (const record of records) {
             if (record[key] == value) {
@@ -20319,6 +21474,44 @@ ${namesToRegister
         });
         return input;
     };
+    function is_spec(obj) {
+        return !(obj instanceof model_1.Model);
+    }
+    // Maps Bokeh CellEditor specs onto native Tabulator editors
+    function apply_editor_spec(tab_column, editor) {
+        switch (editor.type) {
+            case "StringEditor":
+                if (editor.completions.length > 0) {
+                    tab_column.editor = "list";
+                    tab_column.editorParams = { values: editor.completions, autocomplete: true, listOnEmpty: true };
+                }
+                else {
+                    tab_column.editor = "input";
+                }
+                break;
+            case "TextEditor":
+                tab_column.editor = "textarea";
+                break;
+            case "IntEditor":
+            case "NumberEditor":
+                tab_column.editor = "number";
+                tab_column.editorParams = { step: editor.step };
+                tab_column.validator = editor.type === "IntEditor" ? "integer" : "numeric";
+                break;
+            case "CheckboxEditor":
+                tab_column.editor = "tickCross";
+                break;
+            case "DateEditor":
+                tab_column.editor = dateEditor;
+                break;
+            case "SelectEditor":
+                tab_column.editor = "list";
+                tab_column.editorParams = { values: editor.options };
+                break;
+            default:
+                tab_column.editor = "input";
+        }
+    }
     const nestedEditor = function (cell, editorParams) {
         //cell - the cell component for the editable cell
         const row = cell.getRow().getData();
@@ -20356,45 +21549,50 @@ ${namesToRegister
     }
     /** Ignore Tabulator redraw after `after_resize` when `this.el` client size changes by at most this many pixels per axis. */
     const EL_CLIENT_RESIZE_EPSILON_PX = 3;
+    /**
+     * Upper bound on waiting for `root.ready`. A view removed before its pending work
+     * settles, e.g. a figure replaced before its scheduled paint, leaves the root's
+     * ready chain pending forever, which would otherwise block every later redraw.
+     */
+    const ROOT_READY_TIMEOUT_MS = 250;
     class DataTabulatorView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this.columns = new Map();
-            this.container = null;
-            this._tabulator_cell_updating = false;
-            this._updating_page = false;
-            this._updating_expanded = false;
-            this._updating_sort = false;
-            this._updating_page_size = false;
-            this._selection_updating = false;
-            this._selection_pending = true;
-            this._last_selected_row = null;
-            this._lastVerticalScrollbarTopPosition = 0;
-            this._lastHorizontalScrollbarLeftPosition = 0;
-            this._applied_styles = false;
-            this._building = false;
-            this._redrawing = false;
-            /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
-            this._resize_pending = false;
-            this._resize_flush = null;
-            this._restore_scroll = false;
-            this._updating_scroll = false;
-            this._is_scrolling = false;
-            this._automatic_page_size = false;
-            this._last_after_resize_el_width = null;
-            this._last_after_resize_el_height = null;
-        }
+        tabulator;
+        columns = new Map();
+        container = null;
+        _tabulator_cell_updating = false;
+        _pending_old_values = new Map();
+        _updating_page = false;
+        _updating_expanded = false;
+        _updating_sort = false;
+        _updating_page_size = false;
+        _selection_updating = false;
+        _selection_pending = true;
+        _last_selected_row = null;
+        _initializing;
+        _lastVerticalScrollbarTopPosition = 0;
+        _lastHorizontalScrollbarLeftPosition = 0;
+        _applied_styles = false;
+        _building = false;
+        _pending_data = false;
+        _redrawing = false;
+        /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
+        _resize_pending = false;
+        _resize_flush = null;
+        _restore_scroll = false;
+        _updating_scroll = false;
+        _pending_scroll_restores = 0;
+        _restored_scroll = { top: NaN, left: NaN };
+        _is_scrolling = false;
+        _automatic_page_size = false;
+        _last_after_resize_el_width = null;
+        _last_after_resize_el_height = null;
+        _fonts_loaded = null;
         connect_signals() {
             super.connect_signals();
             const { configuration, layout, columns, groupby, visible, download, children, expanded, cell_styles, hidden_columns, page_size, page, max_page, frozen_rows, movable_columns, sorters, theme_classes, } = this.model.properties;
             this.on_change([configuration, layout, groupby, movable_columns], (0, debounce_1.debounce)(() => {
                 this.invalidate_render();
             }, 20, false));
-            this.on_change(visible, () => {
-                if (this.model.visible) {
-                    this.tabulator.element.style.visibility = "visible";
-                }
-            });
             this.on_change(columns, () => {
                 this.tabulator.setColumns(this.getColumns());
                 this.setHidden();
@@ -20436,6 +21634,7 @@ ${namesToRegister
             });
             this.on_change(cell_styles, () => {
                 if (this._applied_styles) {
+                    this.record_scroll();
                     this._updating_scroll = true;
                     this.tabulator.redraw(true);
                     this._updating_scroll = false;
@@ -20464,6 +21663,8 @@ ${namesToRegister
                 }
                 this._restore_scroll = "horizontal";
                 this._selection_updating = true;
+                // The scroll event of a scroll just before may not have been handled yet.
+                this.record_scroll();
                 this._updating_scroll = true;
                 void this.setData().then(() => {
                     this._selection_updating = false;
@@ -20474,6 +21675,7 @@ ${namesToRegister
             this.connect(this.model.source.streaming, () => this.addData());
             this.connect(this.model.source.patching, () => {
                 const inds = this.model.source.selected.indices;
+                this.record_scroll();
                 this._updating_scroll = true;
                 this.updateOrAddData();
                 this._updating_scroll = false;
@@ -20581,7 +21783,10 @@ ${namesToRegister
                 if (!this._resize_pending) {
                     return;
                 }
-                await this.root.ready;
+                await Promise.race([
+                    this.root.ready,
+                    new Promise((resolve) => setTimeout(resolve, ROOT_READY_TIMEOUT_MS)),
+                ]);
                 // `remove()` can clear `_resize_pending` while awaiting `root.ready`.
                 /* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleared asynchronously in `remove()` */
                 if (!this._resize_pending) {
@@ -20592,7 +21797,7 @@ ${namesToRegister
                     this.container === null ||
                     this.is_drawing ||
                     this._has_active_editor() ||
-                    ![...this._initialized_stylesheets.values()].every(v => v)) {
+                    !this.stylesheets_settled) {
                     await (0, defer_1.defer)();
                     continue;
                 }
@@ -20627,7 +21832,11 @@ ${namesToRegister
                 return false;
             }
             // Tabulator marks the edited cell with `tabulator-editing` while an editor is active.
-            return this.container.querySelector(".tabulator-editing") !== null;
+            // A header filter list is a popup outside the cell, which a redraw would close.
+            // A popup left behind hidden must not hold the redraw back forever.
+            const filter_lists = [...this.shadow_el.querySelectorAll(".tabulator-edit-list")];
+            return (this.container.querySelector(".tabulator-editing") !== null ||
+                filter_lists.some((el) => el instanceof HTMLElement && el.offsetParent !== null));
         }
         stylesheets() {
             return [...super.stylesheets(), tabulator_css_1.default];
@@ -20639,6 +21848,7 @@ ${namesToRegister
             }
         }
         remove() {
+            this.unwatch_fonts();
             this._resize_pending = false;
             this._last_after_resize_el_width = null;
             this._last_after_resize_el_height = null;
@@ -20661,15 +21871,43 @@ ${namesToRegister
             const configuration = this.getConfiguration();
             this.tabulator = new Tabulator(el, configuration);
             this.watch_stylesheets();
+            this.watch_fonts();
             this.init_callbacks();
         }
+        /**
+         * Column widths are measured from the rendered text, so a web font that
+         * finishes loading after the table was built leaves them too narrow.
+         */
+        watch_fonts() {
+            this.unwatch_fonts();
+            this._fonts_loaded = () => this._request_resize_redraw();
+            document.fonts.addEventListener("loadingdone", this._fonts_loaded);
+        }
+        unwatch_fonts() {
+            if (this._fonts_loaded !== null) {
+                document.fonts.removeEventListener("loadingdone", this._fonts_loaded);
+                this._fonts_loaded = null;
+            }
+        }
         style_redraw() {
-            if (this.model.visible) {
-                this.tabulator.element.style.visibility = "visible";
+            if (this.tabulator == null) {
+                return;
             }
             if (!this._initializing && !this._building) {
                 this.redraw();
             }
+            this.setVisibility();
+        }
+        /**
+         * The table stays hidden until it is built and its stylesheets have settled,
+         * otherwise its unstyled, unmeasured layout flashes before the final one.
+         */
+        setVisibility() {
+            if (this.tabulator == null) {
+                return;
+            }
+            const ready = !this._building && this.stylesheets_settled;
+            this.tabulator.element.style.visibility = this.model.visible && ready ? "visible" : "hidden";
         }
         tableInit() {
             this._building = true;
@@ -20765,16 +22003,28 @@ ${namesToRegister
                 this.tabulator.setPage(this.model.page);
             }
             this._initializing = this._building = false;
+            this.setVisibility();
+            if (this._pending_data) {
+                void this.setData().then(() => this.postUpdate());
+            }
             this._request_resize_redraw();
         }
         recompute_page_size() {
             if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size) || this._initializing || !this.tabulator) {
                 return;
             }
-            this._automatic_page_size = true;
-            const responsive = this.model.sizing_mode && (this.model.sizing_mode.includes("height") || this.model.sizing_mode.includes("both"));
             const holder = this.shadow_el.querySelector(".tabulator-tableholder");
             const table = this.shadow_el.querySelector(".tabulator-table");
+            if (this.model.page_size != null &&
+                this.model.page >= this.model.max_page &&
+                table != null &&
+                table.children.length < this.model.page_size) {
+                // Partial page: holder has shrunk to fit it, so its height doesn't
+                // reflect full-page capacity. See https://github.com/holoviz/panel/issues/8737
+                return;
+            }
+            this._automatic_page_size = true;
+            const responsive = this.model.sizing_mode && (this.model.sizing_mode.includes("height") || this.model.sizing_mode.includes("both"));
             if (table != null && holder != null) {
                 const table_height = holder.clientHeight;
                 let height = 0;
@@ -21089,27 +22339,7 @@ ${namesToRegister
                     tab_column.width = column.width;
                 }
                 if (tab_column.formatter == null && column.formatter != null) {
-                    const formatter = column.formatter;
-                    const ftype = formatter.type;
-                    if (ftype === "BooleanFormatter") {
-                        tab_column.formatter = "tickCross";
-                    }
-                    else {
-                        tab_column.formatter = (cell) => {
-                            const row = cell.getRow();
-                            const formatted = column.formatter.doFormat(cell.getRow(), cell, cell.getValue(), null, row.getData());
-                            if (column.formatter.type === "HTMLTemplateFormatter") {
-                                return formatted;
-                            }
-                            const node = (0, dom_2.div)();
-                            node.innerHTML = formatted;
-                            const child = node.children[0];
-                            if (child.innerHTML === "function(){return c.convert(arguments)}") { // If the formatter fails
-                                return "";
-                            }
-                            return child;
-                        };
-                    }
+                    tab_column.formatter = this._get_formatter(column.formatter);
                 }
                 if (tab_column.sorter == "timestamp") {
                     tab_column.sorter = timestampSorter;
@@ -21118,7 +22348,7 @@ ${namesToRegister
                     tab_column.sorter = "string";
                 }
                 const editor = column.editor;
-                const ctype = editor.type;
+                const has_editor = editor != null && (is_spec(editor) ? editor.type !== "CellEditor" : editor.default_view != null);
                 if (tab_column.editor != null) {
                     if (tab_column.editor === "date") {
                         tab_column.editor = dateEditor;
@@ -21133,53 +22363,24 @@ ${namesToRegister
                         tab_column.editor = "list";
                     }
                 }
-                else if (ctype === "StringEditor") {
-                    if (editor.completions.length > 0) {
-                        tab_column.editor = "list";
-                        tab_column.editorParams = { values: editor.completions, autocomplete: true, listOnEmpty: true };
-                    }
-                    else {
-                        tab_column.editor = "input";
-                    }
-                }
-                else if (ctype === "TextEditor") {
-                    tab_column.editor = "textarea";
-                }
-                else if (ctype === "IntEditor" || ctype === "NumberEditor") {
-                    tab_column.editor = "number";
-                    tab_column.editorParams = { step: editor.step };
-                    if (ctype === "IntEditor") {
-                        tab_column.validator = "integer";
-                    }
-                    else {
-                        tab_column.validator = "numeric";
-                    }
-                }
-                else if (ctype === "CheckboxEditor") {
-                    tab_column.editor = "tickCross";
-                }
-                else if (ctype === "DateEditor") {
-                    tab_column.editor = dateEditor;
-                }
-                else if (ctype === "SelectEditor") {
-                    tab_column.editor = "list";
-                    tab_column.editorParams = { values: editor.options };
-                }
-                else if (editor != null && editor.default_view != null) {
+                else if (has_editor && !is_spec(editor)) {
                     tab_column.editor = (cell, onRendered, success, cancel) => {
                         this.renderEditor(column, cell, onRendered, success, cancel);
                     };
                 }
+                else if (has_editor) {
+                    apply_editor_spec(tab_column, editor);
+                }
                 tab_column.visible = (tab_column.visible != false && !this.model.hidden_columns.includes(column.field));
                 const originalEditable = tab_column.editable;
                 if ((0, types_1.isFunction)(originalEditable)) {
-                    tab_column.editable = (cell) => (this.model.editable && (editor.default_view != null) && originalEditable(cell));
+                    tab_column.editable = (cell) => (this.model.editable && has_editor && originalEditable(cell));
                 }
                 else if ((0, types_1.isBoolean)(originalEditable)) {
-                    tab_column.editable = () => (this.model.editable && (editor.default_view != null) && originalEditable);
+                    tab_column.editable = () => (this.model.editable && has_editor && originalEditable);
                 }
                 else {
-                    tab_column.editable = () => (this.model.editable && (editor.default_view != null));
+                    tab_column.editable = () => (this.model.editable && has_editor);
                 }
                 if (tab_column.headerFilter) {
                     if ((0, types_1.isBoolean)(tab_column.headerFilter) && (0, types_1.isString)(tab_column.editor)) {
@@ -21219,9 +22420,28 @@ ${namesToRegister
             if (this.model.container_popup && (this.model.layout !== "fit_data_stretch")) {
                 // We insert an empty last column to ensure select editor is rendered in correct position
                 // see: https://github.com/holoviz/panel/issues/7295
-                columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });
+                columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", headerSort: false });
             }
             return columns;
+        }
+        _get_formatter(formatter) {
+            if (!is_spec(formatter)) {
+                // Custom Bokeh CellFormatter model compiled as an extension
+                return (cell) => {
+                    const row = cell.getRow();
+                    const node = (0, dom_2.div)();
+                    node.innerHTML = formatter.doFormat(row, cell, cell.getValue(), null, row.getData());
+                    return node.children[0];
+                };
+            }
+            else if (formatter.type === "BooleanFormatter") {
+                return "tickCross";
+            }
+            const format = (0, cell_formatters_1.cell_formatter)(formatter);
+            if (format == null) {
+                return undefined;
+            }
+            return (cell) => format(cell.getValue(), cell.getRow().getData());
         }
         renderEditor(column, cell, onRendered, success, cancel) {
             const editor = column.editor;
@@ -21250,8 +22470,11 @@ ${namesToRegister
         // Update table
         setData() {
             if (this._initializing || this._building || !this.tabulator.initialized) {
+                // The table keeps the data it was built with, so apply this once it is
+                this._pending_data = true;
                 return Promise.resolve(undefined);
             }
+            this._pending_data = false;
             const data = this.getData();
             if (this.model.pagination != null) {
                 return this.tabulator.rowManager.setData(data, true, false);
@@ -21280,12 +22503,10 @@ ${namesToRegister
         postUpdate() {
             this.setSelection();
             this.setStyles();
-            if (this._restore_scroll) {
-                const vertical = this._restore_scroll === "horizontal" ? false : true;
-                const horizontal = this._restore_scroll === "vertical" ? false : true;
-                this.restore_scroll(horizontal, vertical);
-                this._restore_scroll = false;
-            }
+            // Tabulator also redraws by itself, e.g. when resized, resetting the scroll.
+            const restore = this._restore_scroll || "horizontal";
+            this.restore_scroll(restore !== "vertical", restore !== "horizontal");
+            this._restore_scroll = false;
         }
         updateOrAddData() {
             // To avoid double updating the tabulator data
@@ -21306,12 +22527,6 @@ ${namesToRegister
             for (const row of this.model.frozen_rows) {
                 this.tabulator.getRow(row).freeze();
             }
-        }
-        setVisibility() {
-            if (this.tabulator == null) {
-                return;
-            }
-            this.tabulator.element.style.visibility = this.model.visible ? "visible" : "hidden";
         }
         updatePage(pageno) {
             if (this.model.pagination === "local" && this.model.page !== pageno && !this._updating_page) {
@@ -21428,26 +22643,59 @@ ${namesToRegister
             if (!(horizontal || vertical)) {
                 return;
             }
-            const opts = { behavior: "instant" };
-            if (vertical) {
-                opts.top = this._lastVerticalScrollbarTopPosition;
-            }
-            if (horizontal) {
-                opts.left = this._lastHorizontalScrollbarLeftPosition;
-            }
-            requestAnimationFrame(() => {
-                this._updating_scroll = true;
-                this.tabulator.rowManager.element.scrollTo(opts);
-                this._updating_scroll = false;
-            });
+            this._pending_scroll_restores += 1;
+            const apply = (attempts) => {
+                requestAnimationFrame(() => {
+                    const el = this.tabulator?.rowManager?.element;
+                    if (el == null) {
+                        this._pending_scroll_restores -= 1;
+                        return;
+                    }
+                    // Read when applied, so a scroll the user made meanwhile is kept.
+                    const opts = { behavior: "instant" };
+                    if (vertical) {
+                        opts.top = this._lastVerticalScrollbarTopPosition;
+                    }
+                    if (horizontal) {
+                        opts.left = this._lastHorizontalScrollbarLeftPosition;
+                    }
+                    this._updating_scroll = true;
+                    el.scrollTo(opts);
+                    this._updating_scroll = false;
+                    if (vertical) {
+                        this._restored_scroll.top = el.scrollTop;
+                    }
+                    if (horizontal) {
+                        this._restored_scroll.left = el.scrollLeft;
+                    }
+                    // Rows still rendering clamp the position; offsets are fractional when zoomed.
+                    const restored = ((opts.top == null || Math.abs(el.scrollTop - opts.top) < 1) &&
+                        (opts.left == null || Math.abs(el.scrollLeft - opts.left) < 1));
+                    if (!restored && attempts > 0) {
+                        apply(attempts - 1);
+                        return;
+                    }
+                    this._pending_scroll_restores -= 1;
+                });
+            };
+            apply(10);
         }
         // Update model
         record_scroll() {
             if (this._updating_scroll) {
                 return;
             }
-            this._lastVerticalScrollbarTopPosition = this.tabulator.rowManager.element.scrollTop;
-            this._lastHorizontalScrollbarLeftPosition = this.tabulator.rowManager.element.scrollLeft;
+            const { scrollTop, scrollLeft } = this.tabulator.rowManager.element;
+            // Scroll events arrive after _updating_scroll is cleared, so while restoring
+            // ignore the reset to the start and the clamped position.
+            const pending = this._pending_scroll_restores > 0;
+            const restored = this._restored_scroll;
+            if (!pending || (scrollTop !== 0 && scrollTop !== restored.top)) {
+                this._lastVerticalScrollbarTopPosition = scrollTop;
+            }
+            if (!pending || (scrollLeft !== 0 && scrollLeft !== restored.left)) {
+                this._lastHorizontalScrollbarLeftPosition = scrollLeft;
+            }
         }
         rowClicked(e, row) {
             if (this._selection_updating ||
@@ -21550,13 +22798,24 @@ ${namesToRegister
             const column_def = this.columns.get(field);
             const index = cell.getData()._index;
             const value = cell._cell.value;
+            const key = `${field}:${index}`;
             if (column_def.validator === "numeric" && value === "") {
+                // setValue below re-triggers cellEdited recursively for the actual
+                // (NaN) edit. By then cell._cell.oldValue has already been overwritten
+                // with this now-discarded "" attempt, so the true pre-edit value is
+                // stashed here and picked back up on that recursive call.
+                this._pending_old_values.set(key, cell._cell.oldValue);
                 cell.setValue(NaN, true);
                 return;
             }
+            let old_value = cell._cell.oldValue;
+            if (this._pending_old_values.has(key)) {
+                old_value = this._pending_old_values.get(key);
+                this._pending_old_values.delete(key);
+            }
+            this.model.trigger_event(new TableEditEvent(field, index, value, old_value));
             this._tabulator_cell_updating = true;
             comm_manager_1.comm_settings.debounce = false;
-            this.model.trigger_event(new TableEditEvent(field, index, true));
             try {
                 this.model.source.patch({ [field]: [[index, value]] });
             }
@@ -21564,57 +22823,69 @@ ${namesToRegister
                 comm_manager_1.comm_settings.debounce = true;
                 this._tabulator_cell_updating = false;
             }
-            this.model.trigger_event(new TableEditEvent(field, index, false));
             this.tabulator.scrollToRow(index, "top", false);
         }
     }
     exports.DataTabulatorView = DataTabulatorView;
-    DataTabulatorView.__name__ = "DataTabulatorView";
     exports.TableLayout = (0, kinds_1.Enum)("fit_data", "fit_data_fill", "fit_data_stretch", "fit_data_table", "fit_columns");
+    class TabulatorColumn extends model_1.Model {
+        constructor(attrs) {
+            super(attrs);
+        }
+        static __module__ = "panel.models.tabulator";
+        static {
+            this.define(({ Any, Float, Nullable, Str }) => ({
+                field: [Str],
+                title: [Nullable(Str), null],
+                width: [Float, 300],
+                formatter: [Nullable(Any), null],
+                editor: [Nullable(Any), null],
+            }));
+        }
+    }
+    exports.TabulatorColumn = TabulatorColumn;
     // The Bokeh .ts model corresponding to the Bokeh .py model
     class DataTabulator extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.tabulator";
+        static {
+            this.prototype.default_view = DataTabulatorView;
+            this.define(({ Any, List, Bool, Nullable, Float, Ref, Str }) => ({
+                aggregators: [Any, {}],
+                buttons: [Any, {}],
+                children: [Any, new Map()],
+                configuration: [Any, {}],
+                columns: [List(Ref(TabulatorColumn)), []],
+                download: [Bool, false],
+                editable: [Bool, true],
+                embed_content: [Bool, false],
+                expanded: [List(Float), []],
+                filename: [Str, "table.csv"],
+                filters: [List(Any), []],
+                follow: [Bool, true],
+                frozen_rows: [List(Float), []],
+                groupby: [List(Str), []],
+                hidden_columns: [List(Str), []],
+                indexes: [List(Str), []],
+                layout: [exports.TableLayout, "fit_data"],
+                max_page: [Float, 0],
+                movable_columns: [Bool, false],
+                pagination: [Nullable(Str), null],
+                page: [Float, 0],
+                page_size: [Nullable(Float), null],
+                select_mode: [Any, true],
+                selectable_rows: [Nullable(List(Float)), null],
+                source: [Ref(column_data_source_1.ColumnDataSource)],
+                sorters: [List(Any), []],
+                cell_styles: [Any, {}],
+                theme_classes: [List(Str), []],
+                container_popup: [Bool, true],
+            }));
+        }
     }
     exports.DataTabulator = DataTabulator;
-    _d = DataTabulator;
-    DataTabulator.__name__ = "DataTabulator";
-    DataTabulator.__module__ = "panel.models.tabulator";
-    (() => {
-        _d.prototype.default_view = DataTabulatorView;
-        _d.define(({ Any, List, Bool, Nullable, Float, Ref, Str }) => ({
-            aggregators: [Any, {}],
-            buttons: [Any, {}],
-            children: [Any, new Map()],
-            configuration: [Any, {}],
-            columns: [List(Ref(tables_1.TableColumn)), []],
-            download: [Bool, false],
-            editable: [Bool, true],
-            embed_content: [Bool, false],
-            expanded: [List(Float), []],
-            filename: [Str, "table.csv"],
-            filters: [List(Any), []],
-            follow: [Bool, true],
-            frozen_rows: [List(Float), []],
-            groupby: [List(Str), []],
-            hidden_columns: [List(Str), []],
-            indexes: [List(Str), []],
-            layout: [exports.TableLayout, "fit_data"],
-            max_page: [Float, 0],
-            movable_columns: [Bool, false],
-            pagination: [Nullable(Str), null],
-            page: [Float, 0],
-            page_size: [Nullable(Float), null],
-            select_mode: [Any, true],
-            selectable_rows: [Nullable(List(Float)), null],
-            source: [Ref(column_data_source_1.ColumnDataSource)],
-            sorters: [List(Any), []],
-            cell_styles: [Any, {}],
-            theme_classes: [List(Str), []],
-            container_popup: [Bool, true],
-        }));
-    })();
 },
 "99a25e6992": /* debounce/index.js */ function _(require, module, exports, __esModule, __esExport) {
     /**
@@ -21683,6 +22954,391 @@ ${namesToRegister
     debounce.debounce = debounce;
     module.exports = debounce;
 },
+"254387d0dc": /* models/cell_formatters.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    exports.cell_formatter = cell_formatter;
+    // Port of the Bokeh CellFormatter models (bokehjs/src/lib/models/widgets/tables/cell_formatters.ts)
+    // operating on plain specs, so that Tabulator does not depend on the bokeh-tables bundle.
+    const dom_1 = require("@bokehjs/core/dom");
+    const color_1 = require("@bokehjs/core/util/color");
+    const string_1 = require("@bokehjs/core/util/string");
+    const templating_1 = require("@bokehjs/core/util/templating");
+    const types_1 = require("@bokehjs/core/util/types");
+    const numeral_tick_formatter_1 = require("@bokehjs/models/formatters/numeral_tick_formatter");
+    const color_mapper_1 = require("@bokehjs/models/mappers/color_mapper");
+    const underscore_template_1 = require("05c45c2a50") /* underscore.template */;
+    function resolve(spec, data) {
+        if (spec == null) {
+            return null;
+        }
+        else if ("value" in spec) {
+            return spec.value;
+        }
+        else if ("field" in spec) {
+            return data[spec.field];
+        }
+        return null;
+    }
+    function resolve_color(spec, data) {
+        if (spec == null) {
+            return null;
+        }
+        else if ("value" in spec) {
+            return spec.value == null ? null : (0, color_1.color2css)(spec.value);
+        }
+        else if ("field" in spec) {
+            const value = data[spec.field];
+            if (spec.transform instanceof color_mapper_1.ColorMapper) {
+                const [r, g, b, a] = spec.transform.rgba_mapper.v_compute([value]);
+                return (0, color_1.rgba2css)([r, g, b, a]);
+            }
+            return (0, color_1.color2css)(value);
+        }
+        return null;
+    }
+    function string_format(spec, { value, data }) {
+        if (Number.isNaN(value)) {
+            value = spec.nan_format;
+        }
+        else if (value == null) {
+            value = spec.null_format;
+        }
+        const text = (0, dom_1.div)(value == null ? "" : `${value}`);
+        switch (resolve(spec.font_style, data)) {
+            case "italic":
+                text.style.fontStyle = "italic";
+                break;
+            case "bold":
+                text.style.fontWeight = "bold";
+                break;
+            case "bold italic":
+                text.style.fontStyle = "italic";
+                text.style.fontWeight = "bold";
+                break;
+        }
+        const text_align = resolve(spec.text_align, data);
+        if (text_align != null) {
+            text.style.textAlign = text_align;
+        }
+        const color = resolve_color(spec.text_color, data);
+        if (color != null) {
+            text.style.color = color;
+        }
+        const background_color = resolve_color(spec.background_color, data);
+        if (background_color != null) {
+            text.style.backgroundColor = background_color;
+        }
+        return text;
+    }
+    function scientific_value(spec, value) {
+        const need_sci = Math.abs(value) <= 10.0 ** spec.power_limit_low || Math.abs(value) >= 10.0 ** spec.power_limit_high;
+        // toExponential does not handle precision values < 0 correctly
+        const precision = Math.max(spec.precision, 1);
+        if (Number.isNaN(value)) {
+            return spec.nan_format;
+        }
+        else if (value == null) {
+            return spec.null_format;
+        }
+        else if (value == 0) {
+            return (0, string_1.to_fixed)(value, 1);
+        }
+        else if (need_sci) {
+            return value.toExponential(precision);
+        }
+        return (0, string_1.to_fixed)(value, precision);
+    }
+    function date_format(format) {
+        // using definitions provided here: https://api.jqueryui.com/datepicker/
+        // except not implementing TICKS
+        switch (format) {
+            case "ATOM":
+            case "W3C":
+            case "RFC-3339":
+            case "ISO-8601":
+                return "%Y-%m-%d";
+            case "COOKIE":
+                return "%a, %d %b %Y";
+            case "RFC-850":
+                return "%A, %d-%b-%y";
+            case "RFC-1123":
+            case "RFC-2822":
+                return "%a, %e %b %Y";
+            case "RSS":
+            case "RFC-822":
+            case "RFC-1036":
+                return "%a, %e %b %y";
+            case "TIMESTAMP":
+                return "@";
+            default:
+                return format;
+        }
+    }
+    function date_value(spec, value) {
+        function parse(date) {
+            /* Parse bare dates as UTC. */
+            const has_tz = /Z$|[+-]\d\d((:?)\d\d)?$/.test(date); // ISO 8601 TZ designation or offset
+            const iso_date = has_tz ? date : `${date}Z`;
+            return new Date(iso_date).getTime();
+        }
+        let epoch;
+        if (value == null || (0, types_1.isNumber)(value)) {
+            epoch = value;
+        }
+        else if ((0, types_1.isString)(value)) {
+            const num = Number(value);
+            epoch = isNaN(num) ? parse(value) : num;
+        }
+        else if (value instanceof Date) {
+            epoch = value.valueOf();
+        }
+        else {
+            epoch = Number(value);
+        }
+        const NaT = -9223372036854776.0;
+        if (Number.isNaN(epoch) || epoch == NaT) {
+            return spec.nan_format;
+        }
+        else if (value == null) {
+            return spec.null_format;
+        }
+        return (0, templating_1.datetime)(epoch, date_format(spec.format));
+    }
+    function cell_formatter(spec) {
+        switch (spec.type) {
+            case "StringFormatter":
+                return (value, data) => string_format(spec, { value, data });
+            case "ScientificFormatter":
+                return (value, data) => string_format(spec, { value: scientific_value(spec, value), data });
+            case "NumberFormatter": {
+                const numeral = new numeral_tick_formatter_1.NumeralTickFormatter({ format: spec.format, language: spec.language, rounding: spec.rounding });
+                return (value, data) => {
+                    if (!Number.isNaN(value) && value != null) {
+                        value = numeral.doFormat([value], { loc: 0 })[0];
+                    }
+                    return string_format(spec, { value, data });
+                };
+            }
+            case "DateFormatter":
+                return (value, data) => string_format(spec, { value: date_value(spec, value), data });
+            case "BooleanFormatter":
+                return (value) => value ? (0, dom_1.i)({ class: spec.icon }).outerHTML : "";
+            case "HTMLTemplateFormatter": {
+                const template = underscore_template_1._.template(spec.template);
+                return (value, data) => value == null ? "" : template({ ...data, value });
+            }
+        }
+        return null;
+    }
+},
+"05c45c2a50": /* underscore.template/lib/index.js */ function _(require, module, exports, __esModule, __esExport) {
+    var _ = require("355ad72c2e") /* ./underscore.template */;
+    var UnderscoreTemplate = _.template;
+    function Template(text, data, settings) {
+        return UnderscoreTemplate(text, data, settings);
+    }
+    Template._ = _;
+    module.exports = Template;
+    // If we're in the browser,
+    // define it if we're using AMD, otherwise leak a global.
+    if (typeof define === 'function' && define.amd) {
+        define(function () {
+            return Template;
+        });
+    }
+    else if (typeof window !== 'undefined' || typeof navigator !== 'undefined') {
+        window.UnderscoreTemplate = Template;
+    }
+},
+"355ad72c2e": /* underscore.template/lib/underscore.template.js */ function _(require, module, exports, __esModule, __esExport) {
+    //     Underscore.js 1.5.2
+    //     http://underscorejs.org
+    //     (c) 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+    //     Underscore may be freely distributed under the MIT license.
+    // Establish the object that gets returned to break out of a loop iteration.
+    var breaker = {};
+    // Save bytes in the minified (but not gzipped) version:
+    var ArrayProto = Array.prototype, ObjProto = Object.prototype;
+    // Create quick reference variables for speed access to core prototypes.
+    var slice = ArrayProto.slice, toString = ObjProto.toString, hasOwnProperty = ObjProto.hasOwnProperty;
+    // All **ECMAScript 5** native function implementations that we hope to use
+    // are declared here.
+    var nativeForEach = ArrayProto.forEach, nativeKeys = Object.keys, nativeIsArray = Array.isArray;
+    // Create a safe reference to the Underscore object for use below.
+    var _ = function () { };
+    // Collection Functions
+    // --------------------
+    // The cornerstone, an `each` implementation, aka `forEach`.
+    // Handles objects with the built-in `forEach`, arrays, and raw objects.
+    // Delegates to **ECMAScript 5**'s native `forEach` if available.
+    var each = _.each = _.forEach = function (obj, iterator, context) {
+        if (obj == null)
+            return;
+        if (nativeForEach && obj.forEach === nativeForEach) {
+            obj.forEach(iterator, context);
+        }
+        else if (obj.length === +obj.length) {
+            for (var i = 0, length = obj.length; i < length; i++) {
+                if (iterator.call(context, obj[i], i, obj) === breaker)
+                    return;
+            }
+        }
+        else {
+            var keys = _.keys(obj);
+            for (var i = 0, length = keys.length; i < length; i++) {
+                if (iterator.call(context, obj[keys[i]], keys[i], obj) === breaker)
+                    return;
+            }
+        }
+    };
+    // Object Functions
+    // ----------------
+    // Retrieve the names of an object's properties.
+    // Delegates to **ECMAScript 5**'s native `Object.keys`
+    _.keys = nativeKeys || function (obj) {
+        if (obj !== Object(obj))
+            throw new TypeError('Invalid object');
+        var keys = [];
+        for (var key in obj)
+            if (_.has(obj, key))
+                keys.push(key);
+        return keys;
+    };
+    // Fill in a given object with default properties.
+    _.defaults = function (obj) {
+        each(slice.call(arguments, 1), function (source) {
+            if (source) {
+                for (var prop in source) {
+                    if (obj[prop] === void 0)
+                        obj[prop] = source[prop];
+                }
+            }
+        });
+        return obj;
+    };
+    // Is a given value an array?
+    // Delegates to ECMA5's native Array.isArray
+    _.isArray = nativeIsArray || function (obj) {
+        return toString.call(obj) === '[object Array]';
+    };
+    // Shortcut function for checking if an object has a given property directly
+    // on itself (in other words, not on a prototype).
+    _.has = function (obj, path) {
+        if (!_.isArray(path)) {
+            return obj != null && hasOwnProperty.call(obj, path);
+        }
+        var length = path.length;
+        for (var i = 0; i < length; i++) {
+            var key = path[i];
+            if (obj == null || !hasOwnProperty.call(obj, key)) {
+                return false;
+            }
+            obj = obj[key];
+        }
+        return !!length;
+    };
+    // List of HTML entities for escaping.
+    var entityMap = {
+        escape: {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#x27;'
+        }
+    };
+    // Regexes containing the keys and values listed immediately above.
+    var entityRegexes = {
+        escape: new RegExp('[' + _.keys(entityMap.escape).join('') + ']', 'g')
+    };
+    // Functions for escaping and unescaping strings to/from HTML interpolation.
+    _.each(['escape'], function (method) {
+        _[method] = function (string) {
+            if (string == null)
+                return '';
+            return ('' + string).replace(entityRegexes[method], function (match) {
+                return entityMap[method][match];
+            });
+        };
+    });
+    // By default, Underscore uses ERB-style template delimiters, change the
+    // following template settings to use alternative delimiters.
+    _.templateSettings = {
+        evaluate: /<%([\s\S]+?)%>/g,
+        interpolate: /<%=([\s\S]+?)%>/g,
+        escape: /<%-([\s\S]+?)%>/g
+    };
+    // When customizing `templateSettings`, if you don't want to define an
+    // interpolation, evaluation or escaping regex, we need one that is
+    // guaranteed not to match.
+    var noMatch = /(.)^/;
+    // Certain characters need to be escaped so that they can be put into a
+    // string literal.
+    var escapes = {
+        "'": "'",
+        '\\': '\\',
+        '\r': 'r',
+        '\n': 'n',
+        '\t': 't',
+        '\u2028': 'u2028',
+        '\u2029': 'u2029'
+    };
+    var escaper = /\\|'|\r|\n|\t|\u2028|\u2029/g;
+    // JavaScript micro-templating, similar to John Resig's implementation.
+    // Underscore templating handles arbitrary delimiters, preserves whitespace,
+    // and correctly escapes quotes within interpolated code.
+    _.template = function (text, data, settings) {
+        var render;
+        settings = _.defaults({}, settings, _.templateSettings);
+        // Combine delimiters into one regular expression via alternation.
+        var matcher = new RegExp([
+            (settings.escape || noMatch).source,
+            (settings.interpolate || noMatch).source,
+            (settings.evaluate || noMatch).source
+        ].join('|') + '|$', 'g');
+        // Compile the template source, escaping string literals appropriately.
+        var index = 0;
+        var source = "__p+='";
+        text.replace(matcher, function (match, escape, interpolate, evaluate, offset) {
+            source += text.slice(index, offset)
+                .replace(escaper, function (match) { return '\\' + escapes[match]; });
+            if (escape) {
+                source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
+            }
+            if (interpolate) {
+                source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
+            }
+            if (evaluate) {
+                source += "';\n" + evaluate + "\n__p+='";
+            }
+            index = offset + match.length;
+            return match;
+        });
+        source += "';\n";
+        // If a variable is not specified, place data values in local scope.
+        if (!settings.variable)
+            source = 'with(obj||{}){\n' + source + '}\n';
+        source = "var __t,__p='',__j=Array.prototype.join," +
+            "print=function(){__p+=__j.call(arguments,'');};\n" +
+            source + "return __p;\n";
+        try {
+            render = new Function(settings.variable || 'obj', '_', source);
+        }
+        catch (e) {
+            e.source = source;
+            throw e;
+        }
+        if (data)
+            return render(data, _);
+        var template = function (data) {
+            return render.call(this, data, _);
+        };
+        // Provide the compiled function source as a convenience for precompilation.
+        template.source = 'function(' + (settings.variable || 'obj') + '){\n' + source + '}';
+        return template;
+    };
+    module.exports = _;
+},
 "be689f0377": /* models/data.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.transform_cds_to_records = transform_cds_to_records;
@@ -21731,13 +23387,12 @@ ${namesToRegister
         return records;
     }
 },
-"3d732ff91f": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"b0fdc4e99b": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.panel_models_markup_HTML = "bk-panel-models-markup-HTML";
-    exports.default = `.pnx-tabulator.tabulator{overflow:visible;}.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{min-width:0px !important;width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:100% !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
+    exports.default = `:host(.pn-loading){min-width:40px;min-height:40px;}.pnx-tabulator.tabulator{overflow:visible;}.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{min-width:0px !important;width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:100% !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
 },
-"100965d6f3": /* models/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"7408873be7": /* models/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const flatpickr_1 = tslib_1.__importDefault(require("1156ddcec2") /* flatpickr */);
@@ -21761,6 +23416,7 @@ ${namesToRegister
         return result;
     }
     class DatetimePickerView extends input_widget_1.InputWidgetView {
+        _picker;
         connect_signals() {
             super.connect_signals();
             const { value, min_date, max_date, disabled_dates, enabled_dates, inline, enable_time, enable_seconds, military_time, date_format, mode, } = this.model.properties;
@@ -21933,38 +23589,35 @@ ${namesToRegister
         }
     }
     exports.DatetimePickerView = DatetimePickerView;
-    DatetimePickerView.__name__ = "DatetimePickerView";
     class DatetimePicker extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.datetime_picker";
+        static {
+            this.prototype.default_view = DatetimePickerView;
+            this.define(({ Bool, Str, List, Tuple, Or, Nullable }) => {
+                const DateStr = Str;
+                const DatesList = List(Or(DateStr, Tuple(DateStr, DateStr)));
+                return {
+                    allow_input: [Bool, false],
+                    value: [Nullable(Str), null],
+                    min_date: [Nullable(Str), null],
+                    max_date: [Nullable(Str), null],
+                    disabled_dates: [Nullable(DatesList), null],
+                    enabled_dates: [Nullable(DatesList), null],
+                    position: [enums_1.CalendarPosition, "auto"],
+                    inline: [Bool, false],
+                    enable_time: [Bool, true],
+                    enable_seconds: [Bool, true],
+                    military_time: [Bool, true],
+                    date_format: [Str, "Y-m-d H:i:S"],
+                    mode: [Str, "single"],
+                };
+            });
+        }
     }
     exports.DatetimePicker = DatetimePicker;
-    _a = DatetimePicker;
-    DatetimePicker.__name__ = "DatetimePicker";
-    DatetimePicker.__module__ = "panel.models.datetime_picker";
-    (() => {
-        _a.prototype.default_view = DatetimePickerView;
-        _a.define(({ Bool, Str, List, Tuple, Or, Nullable }) => {
-            const DateStr = Str;
-            const DatesList = List(Or(DateStr, Tuple(DateStr, DateStr)));
-            return {
-                allow_input: [Bool, false],
-                value: [Nullable(Str), null],
-                min_date: [Nullable(Str), null],
-                max_date: [Nullable(Str), null],
-                disabled_dates: [Nullable(DatesList), null],
-                enabled_dates: [Nullable(DatesList), null],
-                position: [enums_1.CalendarPosition, "auto"],
-                inline: [Bool, false],
-                enable_time: [Bool, true],
-                enable_seconds: [Bool, true],
-                military_time: [Bool, true],
-                date_format: [Str, "Y-m-d H:i:S"],
-                mode: [Str, "single"],
-            };
-        });
-    })();
 },
 "1156ddcec2": /* flatpickr/dist/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -24609,8 +26262,7 @@ ${namesToRegister
         };
     }
 },
-"c97cc0eade": /* models/datetime_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"47671196f6": /* models/datetime_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     // adapted from bokeh
     // https://github.com/bokeh/bokeh/blob/branch-3.7/bokehjs/src/lib/models/widgets/sliders/date_slider.ts
@@ -24618,11 +26270,8 @@ ${namesToRegister
     const numerical_slider_1 = require("@bokehjs/models/widgets/sliders/numerical_slider");
     const types_1 = require("@bokehjs/core/util/types");
     class DatetimeSliderView extends numerical_slider_1.NumericalSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "tap";
-            this.connected = [true, false];
-        }
+        behaviour = "tap";
+        connected = [true, false];
         _calc_to() {
             const spec = super._calc_to();
             spec.step *= 1000; // step size is in seconds
@@ -24638,26 +26287,22 @@ ${namesToRegister
         }
     }
     exports.DatetimeSliderView = DatetimeSliderView;
-    DatetimeSliderView.__name__ = "DatetimeSliderView";
     class DatetimeSlider extends numerical_slider_1.NumericalSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.datetime_slider";
+        static {
+            this.prototype.default_view = DatetimeSliderView;
+            this.override({
+                step: 60,
+                format: "%d %b %Y %H:%M:%S",
+            });
+        }
     }
     exports.DatetimeSlider = DatetimeSlider;
-    _a = DatetimeSlider;
-    DatetimeSlider.__name__ = "DatetimeSlider";
-    DatetimeSlider.__module__ = "panel.models.datetime_slider";
-    (() => {
-        _a.prototype.default_view = DatetimeSliderView;
-        _a.override({
-            step: 60,
-            format: "%d %b %Y %H:%M:%S",
-        });
-    })();
 },
-"d58ba73420": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"609f06c18b": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
@@ -24665,8 +26310,9 @@ ${namesToRegister
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
     const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const lumagl_1 = require("16d69e2b49") /* ./lumagl */;
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
     const tooltips_1 = require("f8f8ea4284") /* ./tooltips */;
     function extractClasses() {
         // Get classes for registration from standalone deck.gl
@@ -24693,9 +26339,23 @@ ${namesToRegister
         return functionDict;
     }
     class DeckGLPlotView extends layout_dom_1.LayoutDOMView {
-        constructor() {
-            super(...arguments);
-            this._initialized = false;
+        jsonConverter;
+        deckGL;
+        _connected;
+        _map;
+        _layer_map;
+        _view_cb;
+        _initialized = false;
+        async lazy_initialize() {
+            await super.lazy_initialize();
+            const error = await (0, resources_1.await_resources)(this.model);
+            if (error != null) {
+                (0, resources_1.render_resource_error)(this, error, layout_dom_1.LayoutDOMView.prototype.render);
+            }
+            else if (this.jsonConverter == null) {
+                // Loaded on demand, deck.gl only arrives after initialize() ran.
+                this._init_converter();
+            }
         }
         connect_signals() {
             super.connect_signals();
@@ -24729,7 +26389,10 @@ ${namesToRegister
             super.initialize();
             const view_timeout = this.model.throttle.view || 200;
             this._view_cb = (0, debounce_1.debounce)((event) => this._on_viewState_event(event), view_timeout, false);
-            if (window.deck.JSONConverter) {
+            this._init_converter();
+        }
+        _init_converter() {
+            if (window.deck?.JSONConverter) {
                 const { CSVLoader, Tiles3DLoader } = window.loaders;
                 window.loaders.registerLoaders([Tiles3DLoader, CSVLoader]);
                 const jsonConverterConfiguration = {
@@ -24869,7 +26532,7 @@ ${namesToRegister
                 this.jsonConverter.mergeConfiguration(configuration);
                 const props = this.jsonConverter.convert(jsonInput);
                 const getTooltip = (0, tooltips_1.makeTooltip)(tooltip, props.layers);
-                if (props.mapStyle === null) {
+                if (props.mapStyle == null) {
                     props.map = null;
                 }
                 else if (props.mapStyle.includes("carto")) {
@@ -24947,36 +26610,38 @@ ${namesToRegister
         }
     }
     exports.DeckGLPlotView = DeckGLPlotView;
-    DeckGLPlotView.__name__ = "DeckGLPlotView";
     class DeckGLPlot extends layout_dom_1.LayoutDOM {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.deckgl";
+        static {
+            this.prototype.default_view = DeckGLPlotView;
+            this.define(({ Any, List, Str, Ref }) => ({
+                data: [Any, {}],
+                data_sources: [List(Ref(column_data_source_1.ColumnDataSource)), []],
+                clickState: [Any, {}],
+                hoverState: [Any, {}],
+                initialViewState: [Any, {}],
+                layers: [List(Any), []],
+                mapbox_api_key: [Str, ""],
+                throttle: [Any, {}],
+                tooltip: [Any, true],
+                configuration: [Str, ""],
+                viewState: [Any, {}],
+            }));
+            this.override({
+                height: 400,
+                width: 600,
+            });
+            (0, resources_1.define_external_resources)(this);
+        }
+        initialize() {
+            super.initialize();
+            (0, resources_1.load_resources)(this);
+        }
     }
     exports.DeckGLPlot = DeckGLPlot;
-    _a = DeckGLPlot;
-    DeckGLPlot.__name__ = "DeckGLPlot";
-    DeckGLPlot.__module__ = "panel.models.deckgl";
-    (() => {
-        _a.prototype.default_view = DeckGLPlotView;
-        _a.define(({ Any, List, Str, Ref }) => ({
-            data: [Any],
-            data_sources: [List(Ref(column_data_source_1.ColumnDataSource)), []],
-            clickState: [Any, {}],
-            hoverState: [Any, {}],
-            initialViewState: [Any, {}],
-            layers: [List(Any), []],
-            mapbox_api_key: [Str, ""],
-            throttle: [Any, {}],
-            tooltip: [Any, true],
-            configuration: [Str, ""],
-            viewState: [Any, {}],
-        }));
-        _a.override({
-            height: 400,
-            width: 600,
-        });
-    })();
 },
 "16d69e2b49": /* models/lumagl.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -26095,10 +27760,9 @@ ${namesToRegister
         return getTooltipDefault;
     }
 },
-"0dca2cd4f6": /* models/discrete_player.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"eee856b107": /* models/discrete_player.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const player_1 = require("96e805ccb5") /* ./player */;
+    const player_1 = require("ed49986321") /* ./player */;
     const dom_1 = require("@bokehjs/core/dom");
     const pretty_1 = require("@bokehjs/core/util/pretty");
     class DiscretePlayerView extends player_1.PlayerView {
@@ -26111,26 +27775,22 @@ ${namesToRegister
         }
     }
     exports.DiscretePlayerView = DiscretePlayerView;
-    DiscretePlayerView.__name__ = "DiscretePlayerView";
     class DiscretePlayer extends player_1.Player {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = DiscretePlayerView;
+            this.define(({ List, Any }) => ({
+                options: [List(Any), []],
+            }));
+            this.override({ width: 400 });
+        }
     }
     exports.DiscretePlayer = DiscretePlayer;
-    _a = DiscretePlayer;
-    DiscretePlayer.__name__ = "DiscretePlayer";
-    DiscretePlayer.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = DiscretePlayerView;
-        _a.define(({ List, Any }) => ({
-            options: [List(Any), []],
-        }));
-        _a.override({ width: 400 });
-    })();
 },
-"96e805ccb5": /* models/player.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"ed49986321": /* models/player.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const kinds_1 = require("@bokehjs/core/kinds");
     const dom_1 = require("@bokehjs/core/dom");
@@ -26154,10 +27814,25 @@ ${namesToRegister
         btn_list.forEach((btn) => btn.style.borderStyle = "outset");
     }
     class PlayerView extends widget_1.WidgetView {
-        constructor() {
-            super(...arguments);
-            this._changing = false;
-        }
+        buttonEl;
+        titleEl;
+        groupEl;
+        sliderEl;
+        loop_state;
+        timer;
+        _toggle_reverse;
+        _toogle_pause;
+        _toggle_play;
+        _changing = false;
+        slower;
+        first;
+        previous;
+        reverse;
+        pause;
+        play;
+        next;
+        last;
+        faster;
         connect_signals() {
             super.connect_signals();
             const { title, value_align, direction, value, loop_policy, disabled, show_loop_controls, show_value, scale_buttons, visible_buttons, visible_loop_options } = this.model.properties;
@@ -26595,48 +28270,44 @@ ${namesToRegister
         }
     }
     exports.PlayerView = PlayerView;
-    PlayerView.__name__ = "PlayerView";
     exports.LoopPolicy = (0, kinds_1.Enum)("once", "loop", "reflect");
     class Player extends widget_1.Widget {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = PlayerView;
+            this.define(({ Bool, Int, Float, List, Str }) => ({
+                direction: [Int, 0],
+                interval: [Int, 500],
+                start: [Int, 0],
+                end: [Int, 10],
+                step: [Int, 1],
+                loop_policy: [exports.LoopPolicy, "once"],
+                title: [Str, ""],
+                value: [Int, 0],
+                value_align: [Str, "start"],
+                value_throttled: [Int, 0],
+                preview_duration: [Int, 1500],
+                show_loop_controls: [Bool, true],
+                show_value: [Bool, true],
+                button_scale: [Float, 1],
+                scale_buttons: [Float, 1],
+                visible_buttons: [List(Str), ["slower", "first", "previous", "reverse", "pause", "play", "next", "last", "faster"]],
+                visible_loop_options: [List(Str), ["once", "loop", "reflect"]],
+            }));
+            this.override({ width: 400 });
+        }
     }
     exports.Player = Player;
-    _a = Player;
-    Player.__name__ = "Player";
-    Player.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = PlayerView;
-        _a.define(({ Bool, Int, Float, List, Str }) => ({
-            direction: [Int, 0],
-            interval: [Int, 500],
-            start: [Int, 0],
-            end: [Int, 10],
-            step: [Int, 1],
-            loop_policy: [exports.LoopPolicy, "once"],
-            title: [Str, ""],
-            value: [Int, 0],
-            value_align: [Str, "start"],
-            value_throttled: [Int, 0],
-            preview_duration: [Int, 1500],
-            show_loop_controls: [Bool, true],
-            show_value: [Bool, true],
-            button_scale: [Float, 1],
-            scale_buttons: [Float, 1],
-            visible_buttons: [List(Str), ["slower", "first", "previous", "reverse", "pause", "play", "next", "last", "faster"]],
-            visible_loop_options: [List(Str), ["once", "loop", "reflect"]],
-        }));
-        _a.override({ width: 400 });
-    })();
 },
-"ec1ecef6a0": /* models/echarts.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"df5e7d36e5": /* models/echarts.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
-    const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const mouse_events = [
         "click", "dblclick", "mousedown", "mousemove", "mouseup", "mouseover", "mouseout",
@@ -26651,6 +28322,9 @@ ${namesToRegister
     ];
     const all_events = mouse_events.concat(events);
     class EChartsEvent extends bokeh_events_1.ModelEvent {
+        type;
+        data;
+        query;
         constructor(type, data, query) {
             super();
             this.type = type;
@@ -26660,21 +28334,15 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, type: this.type, data: this.data, query: this.query };
         }
+        static {
+            this.prototype.event_name = "echarts_event";
+        }
     }
     exports.EChartsEvent = EChartsEvent;
-    _a = EChartsEvent;
-    EChartsEvent.__name__ = "EChartsEvent";
-    (() => {
-        _a.prototype.event_name = "echarts_event";
-    })();
     class EChartsView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this._callbacks = [];
-            this._loading_interval = null;
-            this._loading_timeout = null;
-            this._loading_el = null;
-        }
+        container;
+        _chart;
+        _callbacks = [];
         connect_signals() {
             super.connect_signals();
             const { width, height, renderer, theme, event_config, js_events, data } = this.model.properties;
@@ -26697,87 +28365,18 @@ ${namesToRegister
                     // dispose may fail if echarts was never fully initialized
                 }
             }
-            this._clear_loading_timer();
             super.render();
             this.container = (0, dom_1.div)({ style: { height: "100%", width: "100%" } });
             this.shadow_el.append(this.container);
-            if (window.echarts == null) {
-                this._show_loading();
-                this._await_echarts();
-                return;
-            }
             this._init_chart();
         }
-        _show_loading() {
-            this._loading_el = (0, dom_1.div)({
-                style: {
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "100%",
-                    width: "100%",
-                    color: "#888",
-                    fontSize: "14px",
-                },
-            });
-            this._loading_el.textContent = "Loading ECharts...";
-            this.container.append(this._loading_el);
-        }
-        _hide_loading() {
-            if (this._loading_el != null) {
-                this._loading_el.remove();
-                this._loading_el = null;
-            }
-        }
-        _await_echarts() {
-            // Try script onload listener first (event-driven, not polling)
-            const script = document.querySelector("script[src*='echarts']");
-            if (script != null) {
-                const onLoad = () => {
-                    script.removeEventListener("load", onLoad);
-                    this._clear_loading_timer();
-                    this._hide_loading();
-                    this._init_chart();
-                };
-                script.addEventListener("load", onLoad);
-            }
-            // Polling fallback in case script tag isn't found or onload doesn't fire
-            this._loading_interval = setInterval(() => {
-                if (window.echarts != null) {
-                    this._clear_loading_timer();
-                    this._hide_loading();
-                    this._init_chart();
-                }
-            }, 50);
-            this._loading_timeout = setTimeout(() => {
-                this._clear_loading_timer();
-                this._hide_loading();
-                console.warn("ECharts library failed to load. Ensure you call pn.extension('echarts') " +
-                    "before using Gauge or ECharts components.");
-            }, 10000);
-        }
-        _clear_loading_timer() {
-            if (this._loading_interval != null) {
-                clearInterval(this._loading_interval);
-                this._loading_interval = null;
-            }
-            if (this._loading_timeout != null) {
-                clearTimeout(this._loading_timeout);
-                this._loading_timeout = null;
-            }
-        }
         _init_chart() {
-            if (window.echarts == null) {
-                return;
-            }
-            this._hide_loading();
             const config = { width: this.model.width, height: this.model.height, renderer: this.model.renderer };
             this._chart = window.echarts.init(this.container, this.model.theme, config);
             this._plot();
             this._subscribe();
         }
         remove() {
-            this._clear_loading_timer();
             super.remove();
             if (this._chart != null) {
                 try {
@@ -26795,7 +28394,7 @@ ${namesToRegister
             }
         }
         _plot() {
-            if (window.echarts == null || this._chart == null) {
+            if (this._chart == null) {
                 return;
             }
             const data = (0, util_1.transformJsPlaceholders)(this.model.data);
@@ -26807,7 +28406,7 @@ ${namesToRegister
             }
         }
         _subscribe() {
-            if (window.echarts == null || this._chart == null) {
+            if (this._chart == null) {
                 return;
             }
             for (const [event_type, callback] of this._callbacks) {
@@ -26858,30 +28457,26 @@ ${namesToRegister
         }
     }
     exports.EChartsView = EChartsView;
-    EChartsView.__name__ = "EChartsView";
     class ECharts extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.echarts";
+        static {
+            this.prototype.default_view = EChartsView;
+            this.define(({ Any, Str }) => ({
+                data: [Any, {}],
+                options: [Any, {}],
+                event_config: [Any, {}],
+                js_events: [Any, {}],
+                theme: [Str, "default"],
+                renderer: [Str, "canvas"],
+            }));
+        }
     }
     exports.ECharts = ECharts;
-    _b = ECharts;
-    ECharts.__name__ = "ECharts";
-    ECharts.__module__ = "panel.models.echarts";
-    (() => {
-        _b.prototype.default_view = EChartsView;
-        _b.define(({ Any, Str }) => ({
-            data: [Any, {}],
-            options: [Any, {}],
-            event_config: [Any, {}],
-            js_events: [Any, {}],
-            theme: [Str, "default"],
-            renderer: [Str, "canvas"],
-        }));
-    })();
 },
-"44a7ecdf96": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"56255f9c11": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -26894,11 +28489,14 @@ ${namesToRegister
         return c > 3 && r && Object.defineProperty(target, key, r), r;
     };
     var ScrollLatestEvent_1;
-    const column_1 = require("b273e5b2fb") /* ./column */;
+    const column_1 = require("3967d78fb5") /* ./column */;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const build_views_1 = require("@bokehjs/core/build_views");
     const column_2 = require("@bokehjs/models/layouts/column");
-    let ScrollLatestEvent = (_a = class ScrollLatestEvent extends bokeh_events_1.ModelEvent {
+    let ScrollLatestEvent = ScrollLatestEvent_1 = class ScrollLatestEvent extends bokeh_events_1.ModelEvent {
+        model;
+        rerender;
+        scroll_limit;
         constructor(model, rerender, scroll_limit) {
             super();
             this.model = model;
@@ -26915,35 +28513,39 @@ ${namesToRegister
             const { model, rerender, scroll_limit } = values;
             return new ScrollLatestEvent_1(model, rerender, scroll_limit);
         }
-    },
-        (() => {
-            ScrollLatestEvent_1 = _a;
-        })(),
-        _a.__name__ = "ScrollLatestEvent",
-        _a);
+    };
     exports.ScrollLatestEvent = ScrollLatestEvent;
     exports.ScrollLatestEvent = ScrollLatestEvent = ScrollLatestEvent_1 = __decorate([
         (0, bokeh_events_1.server_event)("scroll_latest_event")
     ], ScrollLatestEvent);
     class FeedView extends column_1.ColumnView {
-        constructor() {
-            super(...arguments);
-            this._rendered = false;
-            this._reference = null;
-            this._reference_view = null;
-        }
+        _intersection_observer;
+        _visibility_pending = false;
+        _visibility_listener = false;
+        _latest_pending = false;
+        _last_visible;
+        _rendered = false;
+        _sync;
+        _reference = null;
+        _reference_view = null;
+        _children_update = null;
+        _latest_scroll_pending = false;
+        _latest_last = null;
         initialize() {
             super.initialize();
             this._sync = true;
-            // The Feed only clips its children when it is a scroll container, whose css
-            // classes (see _SCROLL_MAPPING) all start with "scroll". Otherwise it grows
-            // to fit its content and an ancestor (e.g. the page) scrolls, so visibility
-            // must be measured against the viewport; rooting on this.el would treat
-            // every rendered child - including the load_buffer - as visible and expand
-            // visible_range until all objects load (#8661).
-            const is_scroll_container = this.model.css_classes.some((cls) => cls.startsWith("scroll"));
+            // A Feed that does not clip lets an ancestor scroll, and rooting on it
+            // would report every child visible until all objects load (#8661).
+            const is_scroll_container = this.is_scroll_container;
             const root = is_scroll_container ? this.el : null;
             this._intersection_observer = new IntersectionObserver((entries) => {
+                // Until its stylesheets load the Feed does not clip, so all children intersect.
+                // Before the initial scroll to the latest child the top children are
+                // visible; reporting them makes the server load the wrong range.
+                if (this._latest_pending || (is_scroll_container && getComputedStyle(this.el).overflowY === "visible")) {
+                    this._visibility_pending = true;
+                    return;
+                }
                 const visible = [...this.model.visible_children];
                 const nodes = this.node_map;
                 for (const entry of entries) {
@@ -26975,11 +28577,24 @@ ${namesToRegister
         }
         connect_signals() {
             super.connect_signals();
-            this.model.on_event(ScrollLatestEvent, (event) => {
-                this.scroll_to_latest(event.scroll_limit);
+            this.model.on_event(ScrollLatestEvent, async (event) => {
                 if (event.rerender) {
                     this._rendered = false;
                 }
+                const limit = event.scroll_limit;
+                if (limit != null && this.distance_from_latest > limit) {
+                    return;
+                }
+                if (event.rerender) {
+                    // The children it rerendered may not have arrived yet
+                    this._latest_scroll_pending = true;
+                    this._latest_last = null;
+                }
+                // Until the scroll lands, the children at the old position report as
+                // visible and make the server load that range again.
+                this._latest_pending = this.is_scroll_container;
+                await this._children_update;
+                this._scroll_to_latest_children();
             });
         }
         get node_map() {
@@ -26990,6 +28605,39 @@ ${namesToRegister
             return nodes;
         }
         async update_children() {
+            const at_latest = this.distance_from_latest <= 1;
+            const update = this._rebuild_children();
+            this._children_update = update;
+            try {
+                await update;
+            }
+            finally {
+                if (this._children_update === update) {
+                    this._children_update = null;
+                }
+            }
+            if (this._latest_scroll_pending) {
+                // The server may still answer with another window
+                const last = this.child_views.at(-1)?.model.id ?? null;
+                this._latest_scroll_pending = last !== this._latest_last;
+                this._latest_last = last;
+                this._scroll_to_latest_children();
+            }
+            else if (at_latest && this.distance_from_latest > 1) {
+                // A rebuild can grow the children below a Feed at its latest one
+                this.scroll_to_latest();
+            }
+        }
+        _scroll_to_latest_children() {
+            // A Feed that cannot scroll yet reports nothing, so leave the retry to
+            // scroll_position rather than holding the visibility.
+            if (!this._latest_pending || !this._land_latest_scroll()) {
+                this._latest_pending = false;
+                this._reobserve_children();
+                this.scroll_to_latest();
+            }
+        }
+        async _rebuild_children() {
             const last = this._last_visible;
             const scroll_top = this.el.scrollTop;
             this._reference_view = last;
@@ -27045,11 +28693,16 @@ ${namesToRegister
             this.invalidate_layout();
             this._sync = true;
             // Ensure we adjust the scroll position in case we prepended items
-            if (is_prepended) {
+            // The reference child may have been removed, its offset is then meaningless.
+            const reference = this._reference_view;
+            const reference_top = this._reference || 0;
+            if (is_prepended && reference != null && this.child_views.includes(reference)) {
                 requestAnimationFrame(() => {
-                    const after_offset = this._reference_view?.el.offsetTop || 0;
-                    const offset = (after_offset - (this._reference || 0));
-                    this.el.scrollTo({ top: scroll_top + offset, behavior: "smooth" });
+                    const offset = reference.el.offsetTop - reference_top;
+                    // A scroll to where it already is would cancel one in progress.
+                    if (offset !== 0) {
+                        this.el.scrollTo({ top: scroll_top + offset, behavior: "smooth" });
+                    }
                 });
             }
         }
@@ -27076,17 +28729,56 @@ ${namesToRegister
         }
         render() {
             this._rendered = false;
+            this._latest_pending = this.model.view_latest && this.is_scroll_container;
             super.render();
+            if (!this._visibility_listener) {
+                this._visibility_listener = true;
+                this.shadow_el.addEventListener("load", (event) => {
+                    if (!(event.target instanceof HTMLLinkElement)) {
+                        return;
+                    }
+                    if (this._latest_pending) {
+                        this._land_latest_scroll();
+                    }
+                    else {
+                        this._reobserve_children();
+                    }
+                }, true);
+            }
+        }
+        _reobserve_children() {
+            if (!this._visibility_pending || getComputedStyle(this.el).overflowY === "visible") {
+                return;
+            }
+            this._visibility_pending = false;
+            // An observed child is only reported again once its intersection changes.
+            for (const view of this.child_views) {
+                this._intersection_observer.unobserve(view.el);
+                this._intersection_observer.observe(view.el);
+            }
         }
         trigger_auto_scroll() { }
+        _land_latest_scroll() {
+            // Scroll now rather than frames later via scroll_position, so the
+            // children are measured at the latest position.
+            this.el.scrollTo({ top: this.el.scrollHeight, behavior: "instant" });
+            // Until its stylesheets load the scroll is a no-op, so keep waiting.
+            if (getComputedStyle(this.el).overflowY === "visible") {
+                return false;
+            }
+            this._latest_pending = false;
+            this._reobserve_children();
+            return true;
+        }
         after_render() {
             column_2.ColumnView.prototype.after_render.call(this);
             requestAnimationFrame(() => {
-                if (this.model.scroll_position) {
-                    this.scroll_to_position();
-                }
                 if (this.model.view_latest && !this._rendered) {
+                    this._land_latest_scroll();
                     this.scroll_to_latest();
+                }
+                else if (this.model.scroll_position) {
+                    this.scroll_to_position();
                 }
                 this.toggle_scroll_button();
                 this._rendered = true;
@@ -27094,25 +28786,21 @@ ${namesToRegister
         }
     }
     exports.FeedView = FeedView;
-    FeedView.__name__ = "FeedView";
     class Feed extends column_1.Column {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.feed";
+        static {
+            this.prototype.default_view = FeedView;
+            this.define(({ List, Str }) => ({
+                visible_children: [List(Str), []],
+            }));
+        }
     }
     exports.Feed = Feed;
-    _b = Feed;
-    Feed.__name__ = "Feed";
-    Feed.__module__ = "panel.models.feed";
-    (() => {
-        _b.prototype.default_view = FeedView;
-        _b.define(({ List, Str }) => ({
-            visible_children: [List(Str), []],
-        }));
-    })();
 },
-"84a13dddfb": /* models/file_download.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"a7746def5a": /* models/file_download.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const build_views_1 = require("@bokehjs/core/build_views");
@@ -27137,12 +28825,14 @@ ${namesToRegister
         return bb;
     }
     class FileDownloadView extends input_widget_1.InputWidgetView {
-        constructor() {
-            super(...arguments);
-            this._downloadable = false;
-            this._prev_href = "";
-            this._prev_download = "";
-        }
+        icon_view;
+        anchor_el;
+        button_el;
+        label_el;
+        _downloadable = false;
+        _click_listener;
+        _prev_href = "";
+        _prev_download = "";
         *children() {
             yield* super.children();
             if (this.icon_view != null) {
@@ -27298,36 +28988,32 @@ ${namesToRegister
         }
     }
     exports.FileDownloadView = FileDownloadView;
-    FileDownloadView.__name__ = "FileDownloadView";
     class FileDownload extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = FileDownloadView;
+            this.define(({ Bool, Int, Nullable, Ref, Str }) => ({
+                auto: [Bool, false],
+                clicks: [Int, 0],
+                data: [Nullable(Str), null],
+                embed: [Bool, false],
+                icon: [Nullable(Ref(icon_1.Icon)), null],
+                label: [Str, "Download"],
+                filename: [Nullable(Str), null],
+                button_type: [enums_1.ButtonType, "default"], // TODO (bev)
+                _transfers: [Int, 0],
+            }));
+            this.override({
+                title: "",
+            });
+        }
     }
     exports.FileDownload = FileDownload;
-    _a = FileDownload;
-    FileDownload.__name__ = "FileDownload";
-    FileDownload.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = FileDownloadView;
-        _a.define(({ Bool, Int, Nullable, Ref, Str }) => ({
-            auto: [Bool, false],
-            clicks: [Int, 0],
-            data: [Nullable(Str), null],
-            embed: [Bool, false],
-            icon: [Nullable(Ref(icon_1.Icon)), null],
-            label: [Str, "Download"],
-            filename: [Nullable(Str), null],
-            button_type: [enums_1.ButtonType, "default"], // TODO (bev)
-            _transfers: [Int, 0],
-        }));
-        _a.override({
-            title: "",
-        });
-    })();
 },
-"8531319d94": /* models/file_dropper.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b, _c;
+"bff8eeed36": /* models/file_dropper.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
@@ -27335,23 +29021,24 @@ ${namesToRegister
     const kinds_1 = require("@bokehjs/core/kinds");
     const input_widget_1 = require("@bokehjs/models/widgets/input_widget");
     const inputs = tslib_1.__importStar(require("@bokehjs/styles/widgets/inputs.css"));
-    const filedropper_css_1 = tslib_1.__importDefault(require("c03dd3c931") /* ../styles/models/filedropper.css */);
+    const filedropper_css_1 = tslib_1.__importDefault(require("c03dd3c931") /* styles/models/filedropper.css */);
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
     class UploadEvent extends bokeh_events_1.ModelEvent {
+        data;
         constructor(data) {
             super();
             this.data = data;
         }
         get event_values() {
             return { model: this.origin, data: this.data };
+        }
+        static {
+            this.prototype.event_name = "upload_event";
         }
     }
     exports.UploadEvent = UploadEvent;
-    _a = UploadEvent;
-    UploadEvent.__name__ = "UploadEvent";
-    (() => {
-        _a.prototype.event_name = "upload_event";
-    })();
     class DeleteEvent extends bokeh_events_1.ModelEvent {
+        data;
         constructor(data) {
             super();
             this.data = data;
@@ -27359,13 +29046,11 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, data: this.data };
         }
+        static {
+            this.prototype.event_name = "delete_event";
+        }
     }
     exports.DeleteEvent = DeleteEvent;
-    _b = DeleteEvent;
-    DeleteEvent.__name__ = "DeleteEvent";
-    (() => {
-        _b.prototype.event_name = "delete_event";
-    })();
     // Mapping of file extensions to browser-reported MIME types
     // as it's not yet supported by filepond, see:
     // https://github.com/pqina/filepond-plugin-file-validate-type/issues/13
@@ -27490,11 +29175,8 @@ ${namesToRegister
         ".asc": "text/plain",
     };
     class FileDropperView extends input_widget_1.InputWidgetView {
-        constructor() {
-            super(...arguments);
-            this._file_pond = null;
-            this._transfer_in_process = null;
-        }
+        _file_pond = null;
+        _transfer_in_process = null;
         extensionsToMimeTypes(types) {
             return types.map(type => {
                 // MIME types, including wildcards like "image/*"
@@ -27509,8 +29191,15 @@ ${namesToRegister
                 return type;
             });
         }
-        initialize() {
-            super.initialize();
+        // Registering the plugins has to wait for filepond itself, so this cannot
+        // happen in initialize the way it used to.
+        async lazy_initialize() {
+            await super.lazy_initialize();
+            const error = await (0, resources_1.await_resources)(this.model);
+            if (error != null) {
+                (0, resources_1.render_resource_error)(this, error, input_widget_1.InputWidgetView.prototype.render);
+                return;
+            }
             const { previews } = this.model;
             if (previews.includes("image")) {
                 window.FilePond.registerPlugin(window.FilePondPluginImagePreview);
@@ -27602,44 +29291,48 @@ ${namesToRegister
         }
     }
     exports.FileDropperView = FileDropperView;
-    FileDropperView.__name__ = "FileDropperView";
     exports.DropperLayout = (0, kinds_1.Enum)("integrated", "compact", "circle");
     class FileDropper extends input_widget_1.InputWidget {
+        static __module__ = "panel.models.file_dropper";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = FileDropperView;
+            this.define(({ Any, List, Bool, Int, Nullable, Str }) => ({
+                accepted_filetypes: [List(Str), []],
+                chunk_size: [Int, 10000000],
+                max_file_size: [Nullable(Str), null],
+                max_files: [Nullable(Int), null],
+                max_total_file_size: [Nullable(Str), null],
+                mime_type: [Any, {}],
+                multiple: [Bool, true],
+                layout: [Nullable(exports.DropperLayout), null],
+                previews: [List(Str), ["image", "pdf"]],
+            }));
+            (0, resources_1.define_external_resources)(this);
+        }
+        initialize() {
+            super.initialize();
+            (0, resources_1.load_resources)(this);
+        }
     }
     exports.FileDropper = FileDropper;
-    _c = FileDropper;
-    FileDropper.__name__ = "FileDropper";
-    FileDropper.__module__ = "panel.models.file_dropper";
-    (() => {
-        _c.prototype.default_view = FileDropperView;
-        _c.define(({ Any, List, Bool, Int, Nullable, Str }) => ({
-            accepted_filetypes: [List(Str), []],
-            chunk_size: [Int, 10000000],
-            max_file_size: [Nullable(Str), null],
-            max_files: [Nullable(Int), null],
-            max_total_file_size: [Nullable(Str), null],
-            mime_type: [Any, {}],
-            multiple: [Bool, true],
-            layout: [Nullable(exports.DropperLayout), null],
-            previews: [List(Str), ["image", "pdf"]],
-        }));
-    })();
 },
 "c03dd3c931": /* styles/models/filedropper.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.input = "bk-input";
     exports.default = `.bk-input.filepond--root{background-color:var(--panel-surface-color, #f1f1f1);border:unset;}.bk-input.filepond--root .filepond--drop-label{color:var(--panel-on-surface-color, #000);background-color:var(--panel-surface-color, #f1f1f1);}`;
 },
-"8a8089cbf3": /* models/ipywidget.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"fd4c3f6bc4": /* models/ipywidget.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const Jupyter = window.Jupyter;
     class IPyWidgetView extends layout_1.HTMLBoxView {
+        ipyview;
+        ipychildren;
+        manager;
         initialize() {
             super.initialize();
             let manager;
@@ -27702,31 +29395,27 @@ ${namesToRegister
         }
     }
     exports.IPyWidgetView = IPyWidgetView;
-    IPyWidgetView.__name__ = "IPyWidgetView";
     class IPyWidget extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.ipywidget";
+        static {
+            this.prototype.default_view = IPyWidgetView;
+            this.define(({ Any }) => ({
+                bundle: [Any, {}],
+            }));
+        }
     }
     exports.IPyWidget = IPyWidget;
-    _a = IPyWidget;
-    IPyWidget.__name__ = "IPyWidget";
-    IPyWidget.__module__ = "panel.models.ipywidget";
-    (() => {
-        _a.prototype.default_view = IPyWidgetView;
-        _a.define(({ Any }) => ({
-            bundle: [Any, {}],
-        }));
-    })();
 },
-"245cd3cfde": /* models/json.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"19285971d9": /* models/json.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const kinds_1 = require("@bokehjs/core/kinds");
     const markup_1 = require("@bokehjs/models/widgets/markup");
     const json_formatter_js_1 = tslib_1.__importDefault(require("ec9d1ffc2e") /* json-formatter-js */);
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class JSONView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -27759,26 +29448,23 @@ ${namesToRegister
         }
     }
     exports.JSONView = JSONView;
-    JSONView.__name__ = "JSONView";
     exports.JSONTheme = (0, kinds_1.Enum)("dark", "light");
     class JSON extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.markup";
+        static {
+            this.prototype.default_view = JSONView;
+            this.define(({ List, Bool, Int, Nullable, Str }) => ({
+                css: [List(Str), []],
+                depth: [Nullable(Int), 1],
+                hover_preview: [Bool, false],
+                theme: [exports.JSONTheme, "dark"],
+            }));
+        }
     }
     exports.JSON = JSON;
-    _a = JSON;
-    JSON.__name__ = "JSON";
-    JSON.__module__ = "panel.models.markup";
-    (() => {
-        _a.prototype.default_view = JSONView;
-        _a.define(({ List, Bool, Int, Nullable, Str }) => ({
-            css: [List(Str), []],
-            depth: [Nullable(Int), 1],
-            hover_preview: [Bool, false],
-            theme: [exports.JSONTheme, "dark"],
-        }));
-    })();
 },
 "ec9d1ffc2e": /* json-formatter-js/dist/json-formatter.mjs */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -27878,15 +29564,15 @@ ${namesToRegister
     }();
     exports.default = d;
 },
-"33e664043e": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"372d3e3a52": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("84236c2552") /* ./layout */;
-    const jsoneditor_css_1 = tslib_1.__importDefault(require("317a12d360") /* ../styles/models/jsoneditor.css */);
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const jsoneditor_css_1 = tslib_1.__importDefault(require("317a12d360") /* styles/models/jsoneditor.css */);
     class JSONEditEvent extends bokeh_events_1.ModelEvent {
+        data;
         constructor(data) {
             super();
             this.data = data;
@@ -27894,14 +29580,14 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, data: this.data };
         }
+        static {
+            this.prototype.event_name = "json_edit";
+        }
     }
     exports.JSONEditEvent = JSONEditEvent;
-    _a = JSONEditEvent;
-    JSONEditEvent.__name__ = "JSONEditEvent";
-    (() => {
-        _a.prototype.event_name = "json_edit";
-    })();
     class JSONEditorView extends layout_1.HTMLBoxView {
+        editor;
+        _menu_context;
         connect_signals() {
             super.connect_signals();
             const { data, disabled, templates, menu, mode, search, schema } = this.model.properties;
@@ -27963,39 +29649,36 @@ ${namesToRegister
         }
     }
     exports.JSONEditorView = JSONEditorView;
-    JSONEditorView.__name__ = "JSONEditorView";
     class JSONEditor extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.jsoneditor";
+        static {
+            this.prototype.default_view = JSONEditorView;
+            this.define(({ Any, List, Bool, Str }) => ({
+                css: [List(Str), []],
+                data: [Any, {}],
+                mode: [Str, "tree"],
+                menu: [Bool, true],
+                search: [Bool, true],
+                selection: [List(Any), []],
+                schema: [Any, null],
+                templates: [List(Any), []],
+            }));
+        }
     }
     exports.JSONEditor = JSONEditor;
-    _b = JSONEditor;
-    JSONEditor.__name__ = "JSONEditor";
-    JSONEditor.__module__ = "panel.models.jsoneditor";
-    (() => {
-        _b.prototype.default_view = JSONEditorView;
-        _b.define(({ Any, List, Bool, Str }) => ({
-            css: [List(Str), []],
-            data: [Any, {}],
-            mode: [Str, "tree"],
-            menu: [Bool, true],
-            search: [Bool, true],
-            selection: [List(Any), []],
-            schema: [Any, null],
-            templates: [List(Any), []],
-        }));
-    })();
 },
 "317a12d360": /* styles/models/jsoneditor.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `div.jsoneditor,div.jsoneditor-menu{border-color:var(--panel-border-color, #3883fa);}div.jsoneditor-menu{background-color:var(--panel-primary-color, #3883fa);color:var(--panel-on-primary-color, #ffffff);}div.jsoneditor-tree,div.jsoneditor textarea.jsoneditor-text{background-color:var(--panel-background-color, #ffffff);color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor-field,div.jsoneditor-value{color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor-value.jsoneditor-string{color:var(--success-text-color, #006000);}div.jsoneditor-value.jsoneditor-number{color:var(--danger-text-color, #ee422e);}div.jsoneditor-value.jsoneditor-boolean{color:var(--warning-text-color, #ff8c00);}div.jsoneditor-value.jsoneditor-null{color:var(--info-text-color, #004ed0);}div.jsoneditor-value.jsoneditor-url,a.jsoneditor-value.jsoneditor-url{color:var(--success-text-color, #006000);}div.jsoneditor-value.jsoneditor-invalid{color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor-readonly{color:var(--secondary-text-color, #acacac);}div.jsoneditor td.jsoneditor-separator{color:var(--secondary-text-color, #808080);}div.jsoneditor-field.jsoneditor-empty::after,div.jsoneditor-value.jsoneditor-empty::after{color:var(--panel-border-color, #d3d3d3);}div.jsoneditor-empty{border-color:var(--panel-border-color, #d3d3d3);}table.jsoneditor-search div.jsoneditor-frame{background:var(--panel-surface-color, #f3f3f3);}table.jsoneditor-search input{color:var(--panel-on-surface-color, #1a1d21);}tr.jsoneditor-highlight,tr.jsoneditor-selected{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-field[contenteditable="true"]:focus,div.jsoneditor-field[contenteditable="true"]:hover,div.jsoneditor-value[contenteditable="true"]:focus,div.jsoneditor-value[contenteditable="true"]:hover,div.jsoneditor-field.jsoneditor-highlight,div.jsoneditor-value.jsoneditor-highlight{background-color:var(--panel-surface-color, #f3f3f3);border-color:var(--panel-border-color, #e0e0e0);}div.jsoneditor-field.jsoneditor-highlight-active,div.jsoneditor-field.jsoneditor-highlight-active:focus,div.jsoneditor-field.jsoneditor-highlight-active:hover,div.jsoneditor-value.jsoneditor-highlight-active,div.jsoneditor-value.jsoneditor-highlight-active:focus,div.jsoneditor-value.jsoneditor-highlight-active:hover{background-color:var(--panel-surface-color, #f3f3f3);border-color:var(--panel-border-color, #e0e0e0);}div.jsoneditor-tree button:focus{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-navigation-bar{background-color:var(--panel-surface-color, #f3f3f3);color:var(--panel-on-surface-color, #1a1d21);}div.jsoneditor-treepath.show-all{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-treepath .jsoneditor-treepath-show-all-btn{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-statusbar{background-color:var(--panel-surface-color, #f3f3f3);color:var(--panel-on-surface-color, #1a1d21);}div.jsoneditor-contextmenu .jsoneditor-menu{background:var(--panel-background-color, #ffffff);border-color:var(--panel-border-color, #d3d3d3);}div.jsoneditor-contextmenu .jsoneditor-separator{border-top-color:var(--panel-border-color, #e5e5e5);}div.jsoneditor-contextmenu .jsoneditor-menu li button{color:var(--panel-on-background-color, #1a1a1a);background-color:var(--panel-background-color, #ffffff);}div.jsoneditor-contextmenu .jsoneditor-menu li button:hover,div.jsoneditor-contextmenu .jsoneditor-menu li button:focus{color:var(--panel-on-surface-color, #1a1d21);background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-contextmenu .jsoneditor-menu li button.jsoneditor-selected,div.jsoneditor-contextmenu .jsoneditor-menu li button.jsoneditor-selected:hover,div.jsoneditor-contextmenu .jsoneditor-menu li button.jsoneditor-selected:focus{color:var(--panel-on-primary-color, #ffffff);background-color:var(--panel-primary-color, #3883fa);}div.jsoneditor-popover{background-color:var(--panel-surface-color, #4c4c4c);color:var(--panel-on-surface-color, #ffffff);}div.jsoneditor-popover.jsoneditor-above::before{border-top-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor-popover.jsoneditor-below::before{border-bottom-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor-popover.jsoneditor-left::before{border-left-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor-popover.jsoneditor-right::before{border-right-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor .jsoneditor-text-errors{border-top-color:var(--panel-border-color, #ffc700);}div.jsoneditor .jsoneditor-text-errors tr{background-color:var(--panel-surface-color, #ffffab);}div.jsoneditor .jsoneditor-additional-errors{color:var(--secondary-text-color, #808080);background-color:var(--panel-surface-color, #ebebeb);}div.jsoneditor .autocomplete.dropdown{background:var(--panel-background-color, #ffffff);border-color:var(--panel-border-color, #d3d3d3);}div.jsoneditor .autocomplete.dropdown .item{color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor .autocomplete.dropdown .item.hover{background-color:var(--panel-surface-color, #ebebeb);}div.jsoneditor .autocomplete.hint{color:var(--secondary-text-color, #a1a1a1);}div.jsoneditor-tree div.jsoneditor-show-more{background-color:var(--panel-surface-color, #e5e5e5);}div.jsoneditor-tree div.jsoneditor-show-more a{color:var(--secondary-text-color, #808080);}div.jsoneditor-modal{color:var(--panel-on-background-color, #4d4d4d);}div.jsoneditor-modal .pico-modal-header{background:var(--panel-primary-color, #3883fa);color:var(--panel-on-primary-color, #ffffff);}div.jsoneditor-modal .pico-close{color:var(--panel-on-primary-color, #ffffff);}div.jsoneditor-modal select,div.jsoneditor-modal textarea,div.jsoneditor-modal input,div.jsoneditor-modal input[type="text"],div.jsoneditor-modal input[type="text"]:focus,div.jsoneditor-modal #query{background:var(--panel-background-color, #ffffff);border:1px solid var(--panel-border-color, #d3d3d3);color:var(--panel-on-background-color, #4d4d4d);}div.jsoneditor-modal input[disabled]{background:var(--panel-surface-color, #d3d3d3);color:var(--secondary-text-color, #808080);}div.jsoneditor-modal .jsoneditor-transform-preview{background:var(--panel-surface-color, #f5f5f5);color:var(--panel-on-surface-color, #1a1d21);}div.jsoneditor-modal table td,div.jsoneditor-modal table th{color:var(--panel-on-background-color, #4d4d4d);}div.jsoneditor-modal input[type="button"],div.jsoneditor-modal input[type="submit"]{background:var(--panel-surface-color, #f5f5f5);color:var(--panel-on-surface-color, #1a1d21);}`;
 },
-"f672d71a9f": /* models/katex.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"052b7b0298": /* models/katex.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
     class KaTeXView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -28019,32 +29702,31 @@ ${namesToRegister
         }
     }
     exports.KaTeXView = KaTeXView;
-    KaTeXView.__name__ = "KaTeXView";
     class KaTeX extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.katex";
+        static {
+            this.prototype.default_view = KaTeXView;
+            (0, resources_1.define_external_resources)(this);
+        }
+        initialize() {
+            super.initialize();
+            (0, resources_1.load_resources)(this);
+        }
     }
     exports.KaTeX = KaTeX;
-    _a = KaTeX;
-    KaTeX.__name__ = "KaTeX";
-    KaTeX.__module__ = "panel.models.katex";
-    (() => {
-        _a.prototype.default_view = KaTeXView;
-    })();
 },
-"9012b81346": /* models/location.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"2116677c2d": /* models/location.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const view_1 = require("@bokehjs/core/view");
     const model_1 = require("@bokehjs/model");
     class LocationView extends view_1.View {
-        constructor() {
-            super(...arguments);
-            this._idle_ready = false;
-            this._pending_url = null;
-            this._idle_connected = false;
-        }
+        _hash_listener;
+        _idle_ready = false;
+        _pending_url = null;
+        _idle_connected = false;
         initialize() {
             super.initialize();
             this.model.pathname = window.location.pathname;
@@ -28124,35 +29806,31 @@ ${namesToRegister
         }
     }
     exports.LocationView = LocationView;
-    LocationView.__name__ = "LocationView";
     class Location extends model_1.Model {
+        static __module__ = "panel.models.location";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = LocationView;
+            this.define(({ Bool, Str }) => ({
+                href: [Str, ""],
+                hostname: [Str, ""],
+                pathname: [Str, ""],
+                protocol: [Str, ""],
+                port: [Str, ""],
+                search: [Str, ""],
+                hash: [Str, ""],
+                reload: [Bool, false],
+            }));
+        }
     }
     exports.Location = Location;
-    _a = Location;
-    Location.__name__ = "Location";
-    Location.__module__ = "panel.models.location";
-    (() => {
-        _a.prototype.default_view = LocationView;
-        _a.define(({ Bool, Str }) => ({
-            href: [Str, ""],
-            hostname: [Str, ""],
-            pathname: [Str, ""],
-            protocol: [Str, ""],
-            port: [Str, ""],
-            search: [Str, ""],
-            hash: [Str, ""],
-            reload: [Bool, false],
-        }));
-    })();
 },
-"d889a68424": /* models/mathjax.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"07688254ed": /* models/mathjax.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class MathJaxView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -28177,22 +29855,18 @@ ${namesToRegister
         }
     }
     exports.MathJaxView = MathJaxView;
-    MathJaxView.__name__ = "MathJaxView";
     class MathJax extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.mathjax";
+        static {
+            this.prototype.default_view = MathJaxView;
+        }
     }
     exports.MathJax = MathJax;
-    _a = MathJax;
-    MathJax.__name__ = "MathJax";
-    MathJax.__module__ = "panel.models.mathjax";
-    (() => {
-        _a.prototype.default_view = MathJaxView;
-    })();
 },
-"9a342a6757": /* models/modal.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"37ed29726e": /* models/modal.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -28211,8 +29885,11 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
     const types_1 = require("@bokehjs/core/util/types");
-    const modal_css_1 = tslib_1.__importDefault(require("be4b4352c6") /* ../styles/models/modal.css */);
-    let ModalDialogEvent = (_a = class ModalDialogEvent extends bokeh_events_1.ModelEvent {
+    const modal_css_1 = tslib_1.__importDefault(require("be4b4352c6") /* styles/models/modal.css */);
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    let ModalDialogEvent = ModalDialogEvent_1 = class ModalDialogEvent extends bokeh_events_1.ModelEvent {
+        model;
+        open;
         constructor(model, open) {
             super();
             this.model = model;
@@ -28227,17 +29904,22 @@ ${namesToRegister
             const { open, model } = values;
             return new ModalDialogEvent_1(model, open);
         }
-    },
-        (() => {
-            ModalDialogEvent_1 = _a;
-        })(),
-        _a.__name__ = "ModalDialogEvent",
-        _a);
+    };
     exports.ModalDialogEvent = ModalDialogEvent;
     exports.ModalDialogEvent = ModalDialogEvent = ModalDialogEvent_1 = __decorate([
         (0, bokeh_events_1.server_event)("modal-dialog-event")
     ], ModalDialogEvent);
     class ModalView extends column_1.ColumnView {
+        modal;
+        close_button;
+        content;
+        async lazy_initialize() {
+            await super.lazy_initialize();
+            const error = await (0, resources_1.await_resources)(this.model);
+            if (error != null) {
+                (0, resources_1.render_resource_error)(this, error, ui_element_1.UIElementView.prototype.render);
+            }
+        }
         connect_signals() {
             super.connect_signals();
             const { show_close_button } = this.model.properties;
@@ -28331,36 +30013,37 @@ ${namesToRegister
         }
     }
     exports.ModalView = ModalView;
-    ModalView.__name__ = "ModalView";
     class Modal extends column_1.Column {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.modal";
+        static {
+            this.prototype.default_view = ModalView;
+            this.define(({ Bool }) => ({
+                open: [Bool, false],
+                show_close_button: [Bool, true],
+                background_close: [Bool, true],
+            }));
+            (0, resources_1.define_external_resources)(this);
+        }
+        initialize() {
+            super.initialize();
+            (0, resources_1.load_resources)(this);
+        }
     }
     exports.Modal = Modal;
-    _b = Modal;
-    Modal.__name__ = "Modal";
-    Modal.__module__ = "panel.models.modal";
-    (() => {
-        _b.prototype.default_view = ModalView;
-        _b.define(({ Bool }) => ({
-            open: [Bool, false],
-            show_close_button: [Bool, true],
-            background_close: [Bool, true],
-        }));
-    })();
 },
 "be4b4352c6": /* styles/models/modal.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.panel_models_modal_Modal = "bk-panel-models-modal-Modal";
     exports.default = `:host(.bk-panel-models-modal-Modal){width:0;height:0;}.dialog-container,.dialog-overlay{position:fixed;top:0;right:0;bottom:0;left:0;}.dialog-container{z-index:100002;display:flex;}.dialog-overlay{z-index:100001;background-color:rgba(43, 46, 56, 0.9);}.dialog-content{margin:auto;z-index:100002;position:relative;background-color:white;border-radius:2px;padding:10px;padding-bottom:20px;}@keyframes fade-in{from{opacity:0;}}@keyframes slide-up{from{transform:translateY(10%);}}.dialog-overlay{animation:fade-in 200ms both;}.dialog-content{animation:fade-in 400ms 200ms both, slide-up 400ms 200ms both;}@media (prefers-reduced-motion: reduce){.dialog-overlay,.dialog-content{animation:none;}}.pnx-dialog-close{position:absolute;top:0;right:0;border:0;padding:0;background-color:transparent;font-size:1.5em;width:1.5em;height:1.5em;text-align:center;cursor:pointer;transition:0.15s;border-radius:50%;z-index:100003;}.pnx-dialog-close:hover{background-color:rgba(50, 50, 0, 0.15);}.lm-Widget.p-Widget.lm-TabBar.p-TabBar.lm-DockPanel-tabBar.jp-Activity{z-index:-1;}`;
 },
-"f87ad1873c": /* models/pdf.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"87a65d7fb5": /* models/pdf.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("84236c2552") /* ./layout */;
-    const html_1 = require("4c04683fdc") /* ./html */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const html_1 = require("9012c2f5ae") /* ./html */;
     class PDFView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -28398,33 +30081,29 @@ ${namesToRegister
         }
     }
     exports.PDFView = PDFView;
-    PDFView.__name__ = "PDFView";
     class PDF extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.markup";
+        static {
+            this.prototype.default_view = PDFView;
+            this.define(({ Int, Bool }) => ({
+                embed: [Bool, false],
+                start_page: [Int, 1],
+            }));
+        }
     }
     exports.PDF = PDF;
-    _a = PDF;
-    PDF.__name__ = "PDF";
-    PDF.__module__ = "panel.models.markup";
-    (() => {
-        _a.prototype.default_view = PDFView;
-        _a.define(({ Int, Bool }) => ({
-            embed: [Bool, false],
-            start_page: [Int, 1],
-        }));
-    })();
 },
-"29a0b0da9a": /* models/perspective.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"7a00e4d590": /* models/perspective.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
-    const layout_1 = require("84236c2552") /* ./layout */;
-    const perspective_css_1 = tslib_1.__importDefault(require("2e2913ea54") /* ../styles/models/perspective.css */);
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const perspective_css_1 = tslib_1.__importDefault(require("2e2913ea54") /* styles/models/perspective.css */);
     const THEMES = {
         "pro-dark": "Pro Dark",
         pro: "Pro Light",
@@ -28458,6 +30137,9 @@ ${namesToRegister
     const PLUGINS_REVERSE = objectFlip(PLUGINS);
     const THEMES_REVERSE = objectFlip(THEMES);
     class PerspectiveClickEvent extends bokeh_events_1.ModelEvent {
+        config;
+        column_names;
+        row;
         constructor(config, column_names, row) {
             super();
             this.config = config;
@@ -28467,23 +30149,21 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, config: this.config, column_names: this.column_names, row: this.row };
         }
+        static {
+            this.prototype.event_name = "perspective-click";
+        }
     }
     exports.PerspectiveClickEvent = PerspectiveClickEvent;
-    _a = PerspectiveClickEvent;
-    PerspectiveClickEvent.__name__ = "PerspectiveClickEvent";
-    (() => {
-        _a.prototype.event_name = "perspective-click";
-    })();
     class PerspectiveView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this._updating = false;
-            this._config_listener = null;
-            this._current_config = null;
-            this._current_plugin = null;
-            this._loaded = false;
-            this._plugin_configs = new Map();
-        }
+        perspective_element;
+        table;
+        worker;
+        _updating = false;
+        _config_listener = null;
+        _current_config = null;
+        _current_plugin = null;
+        _loaded = false;
+        _plugin_configs = new Map();
         connect_signals() {
             super.connect_signals();
             this.connect(this.model.source.properties.data.change, () => this.setData());
@@ -28572,65 +30252,49 @@ ${namesToRegister
             this._current_plugin = this.model.plugin;
             (0, layout_1.set_size)(container, this.model);
             this.shadow_el.appendChild(container);
-            new Promise((resolve, reject) => {
-                const start = Date.now();
-                const timeout = 5000;
-                const interval = 100;
-                const check = () => {
-                    if (window.perspective_viewer !== undefined) {
-                        resolve(null);
-                    }
-                    else if (Date.now() - start > timeout) {
-                        reject(new Error("Timed out waiting for window.perspective_viewer"));
-                    }
-                    else {
-                        setTimeout(check, interval);
-                    }
-                };
-                check();
-            }).then(() => {
-                window.perspective.worker().then((worker) => {
-                    this.worker = worker;
-                    worker.table(this.model.schema).then((table) => {
-                        this.table = table;
-                        this.table.update(this.data);
-                        container.innerHTML = "<perspective-viewer style='height:100%; width:100%;'></perspective-viewer>";
-                        this.perspective_element = container.children[0];
-                        const themesArray = Object.values(THEMES);
-                        const filteredThemes = themesArray.filter(t => t !== this.model.theme);
-                        const orderedThemes = [this.model.theme, ...filteredThemes];
-                        this.perspective_element.resetThemes(orderedThemes).catch(() => { });
-                        this.perspective_element.load(this.table);
-                        const plugin_config = {
-                            ...this.model.plugin_config,
-                            editable: this.model.editable,
-                            selectable: this.model.selectable,
-                        };
-                        this.perspective_element.restore({
-                            aggregates: this.model.aggregates,
-                            columns: this.model.columns,
-                            columns_config: this.model.columns_config,
-                            expressions: this.model.expressions,
-                            filter: this.model.filters,
-                            split_by: this.model.split_by,
-                            group_by: this.model.group_by,
-                            plugin: PLUGINS[this.model.plugin],
-                            plugin_config,
-                            settings: this.model.settings,
-                            sort: this.model.sort,
-                            theme: THEMES[this.model.theme],
-                            title: this.model.title,
-                        }).catch(() => { });
-                        this.perspective_element.save().then((config) => {
-                            this._current_config = config;
-                        });
-                        this._config_listener = () => this.sync_config();
-                        this.perspective_element.addEventListener("perspective-config-update", this._config_listener);
-                        this.perspective_element.addEventListener("perspective-click", (event) => {
-                            this.model.trigger_event(new PerspectiveClickEvent(event.detail.config, event.detail.column_names, event.detail.row));
-                        });
-                        this._loaded = true;
+            // The resource registry has already resolved perspective by the time the
+            // view renders, so there is nothing left to wait for here.
+            window.perspective.worker().then((worker) => {
+                this.worker = worker;
+                worker.table(this.model.schema).then((table) => {
+                    this.table = table;
+                    this.table.update(this.data);
+                    container.innerHTML = "<perspective-viewer style='height:100%; width:100%;'></perspective-viewer>";
+                    this.perspective_element = container.children[0];
+                    const themesArray = Object.values(THEMES);
+                    const filteredThemes = themesArray.filter(t => t !== this.model.theme);
+                    const orderedThemes = [this.model.theme, ...filteredThemes];
+                    this.perspective_element.resetThemes(orderedThemes).catch(() => { });
+                    this.perspective_element.load(this.table);
+                    const plugin_config = {
+                        ...this.model.plugin_config,
+                        editable: this.model.editable,
+                        selectable: this.model.selectable,
+                    };
+                    this.perspective_element.restore({
+                        aggregates: this.model.aggregates,
+                        columns: this.model.columns,
+                        columns_config: this.model.columns_config,
+                        expressions: this.model.expressions,
+                        filter: this.model.filters,
+                        split_by: this.model.split_by,
+                        group_by: this.model.group_by,
+                        plugin: PLUGINS[this.model.plugin],
+                        plugin_config,
+                        settings: this.model.settings,
+                        sort: this.model.sort,
+                        theme: THEMES[this.model.theme],
+                        title: this.model.title,
+                    }).catch(() => { });
+                    this.perspective_element.save().then((config) => {
+                        this._current_config = config;
                     });
+                    this._config_listener = () => this.sync_config();
+                    this.perspective_element.addEventListener("perspective-config-update", this._config_listener);
+                    this.perspective_element.addEventListener("perspective-click", (event) => {
+                        this.model.trigger_event(new PerspectiveClickEvent(event.detail.config, event.detail.column_names, event.detail.row));
+                    });
+                    this._loaded = true;
                 });
             });
         }
@@ -28710,38 +30374,35 @@ ${namesToRegister
         }
     }
     exports.PerspectiveView = PerspectiveView;
-    PerspectiveView.__name__ = "PerspectiveView";
     class Perspective extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.perspective";
+        static {
+            this.prototype.default_view = PerspectiveView;
+            this.define(({ Any, List, Bool, Ref, Nullable, Str }) => ({
+                aggregates: [Any, {}],
+                columns: [List(Nullable(Str)), []],
+                columns_config: [Any, {}],
+                expressions: [Any, {}],
+                split_by: [Nullable(List(Str)), null],
+                editable: [Bool, true],
+                filters: [Nullable(List(Any)), null],
+                group_by: [Nullable(List(Str)), null],
+                plugin: [Str],
+                plugin_config: [Any, {}],
+                selectable: [Bool, true],
+                settings: [Bool, true],
+                schema: [Any, {}],
+                sort: [Nullable(List(List(Str))), null],
+                source: [Ref(column_data_source_1.ColumnDataSource)],
+                theme: [Str, "pro"],
+                title: [Nullable(Str), null],
+            }));
+        }
     }
     exports.Perspective = Perspective;
-    _b = Perspective;
-    Perspective.__name__ = "Perspective";
-    Perspective.__module__ = "panel.models.perspective";
-    (() => {
-        _b.prototype.default_view = PerspectiveView;
-        _b.define(({ Any, List, Bool, Ref, Nullable, Str }) => ({
-            aggregates: [Any, {}],
-            columns: [List(Nullable(Str)), []],
-            columns_config: [Any, {}],
-            expressions: [Any, {}],
-            split_by: [Nullable(List(Str)), null],
-            editable: [Bool, true],
-            filters: [Nullable(List(Any)), null],
-            group_by: [Nullable(List(Str)), null],
-            plugin: [Str],
-            plugin_config: [Any, {}],
-            selectable: [Bool, true],
-            settings: [Bool, true],
-            schema: [Any, {}],
-            sort: [Nullable(List(List(Str))), null],
-            source: [Ref(column_data_source_1.ColumnDataSource)],
-            theme: [Str, "pro"],
-            title: [Nullable(Str), null],
-        }));
-    })();
 },
 "2e2913ea54": /* styles/models/perspective.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -28749,8 +30410,7 @@ ${namesToRegister
     .psp-header-group-corner
   ){box-shadow:1px 0px var(--inactive--color, #eaedef), 0px 10px 0 -9px var(--inactive--color, #eaedef);}.psp-header-leaf.psp-header-border{box-shadow:5px -4px 0px -4px var(--inactive--color, #eaedef);}tr:only-child th{box-shadow:none !important;}regular-table tbody tr:hover th.psp-tree-leaf:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover th.psp-tree-label:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover td:not(.psp-row-selected):not(.psp-row-subselected){border-color:var(--rt-hover--border-color, #c5c9d080) !important;background-color:transparent;box-shadow:0px 1px 0px var(--rt-hover--border-color, #c5c9d080), 0px 3px 0px rgba(0, 0, 0, 0.05), 0px 5px 0px rgba(0, 0, 0, 0.01);}regular-table tbody tr:hover + tr th.psp-tree-leaf:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover + tr th.psp-tree-label:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover + tr td:not(.psp-row-selected):not(.psp-row-subselected){border-top-color:transparent;}regular-table tbody tr th:first-child:not(:empty),regular-table tbody tr th:first-child:empty + th:not(:empty),regular-table tbody tr th:first-child:empty ~ th:empty + th:not(:empty),regular-table tbody tr td:first-child{border-left-width:1px;border-left-color:transparent;}regular-table tbody tr th:last-child,regular-table tbody tr td:last-child{border-right-width:1px;border-right-color:transparent;}regular-table tbody tr:hover{color:#161616;}regular-table tbody tr:hover th:first-child:not(:empty),regular-table tbody tr:hover th:first-child:empty + th:not(:empty),regular-table tbody tr:hover th:first-child:empty ~ th:empty + th:not(:empty),regular-table tbody tr:hover td:first-child{border-left-color:var(--rt-hover--border-color, #c5c9d080) !important;}regular-table tbody tr:hover th:last-child,regular-table tbody tr:hover td:last-child{border-right-color:var(--rt-hover--border-color, #c5c9d080) !important;}perspective-viewer[settings] regular-table .psp-header-leaf{height:36px;vertical-align:top;padding-top:2px;}perspective-viewer[settings] regular-table .psp-header-leaf:not(.psp-header-corner):before{font-family:var(--button--font-family, inherit);content:var(--column-style-open-button--content, var(--config-button-icon--content, '\u1f527'));position:absolute;width:calc(100% - 8px);left:5px;bottom:0px;color:var(--inactive--color, #b4b7be);}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-enabled:not(.psp-header-corner):before{color:inherit;cursor:pointer;}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-open:not(.psp-header-corner){pointer-events:none;}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-open:not(.psp-header-corner):before{content:var(--column-style-close-button--content, 'X');}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-enabled:hover:before{color:#338dcd;}perspective-viewer[settings] regular-table .psp-header-leaf .rt-column-resize{height:18px;}.psp-row-selected,:hover .psp-row-selected,:hover th.psp-tree-leaf.psp-row-selected,:hover th.psp-tree-label.psp-row-selected{color:white !important;background-color:#ea7319 !important;border-color:#ea7319 !important;}.psp-row-selected.psp-tree-label:not(:hover):before{color:white;}.psp-row-subselected,:hover .psp-row-subselected,:hover th.psp-tree-leaf.psp-row-subselected,:hover th.psp-tree-label.psp-row-subselected{background:rgba(234, 115, 25, 0.2) !important;}.psp-error{color:red;}td:focus{outline:#666;outline-style:dotted;outline-width:1px;}perspective-viewer.dragging regular-table{pointer-events:none;}.psp-header-border:last-child{border-right-width:0px;}.psp-header-sort-desc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-desc--content, '\u2193');}.psp-header-sort-asc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-asc--content, '\u2191');}.psp-header-sort-col-desc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-col-desc--content, '\u2190');}.psp-header-sort-col-asc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-col-asc--content, '\u2192');}tbody th:last-of-type{border-right:1px solid #eaedef;overflow:hidden;text-overflow:ellipsis;}tbody th:empty{background-image:linear-gradient(to right, transparent 9px, #eee 10px, transparent 11px);background-repeat:no-repeat;min-width:20px;max-width:20px;pointer-events:none;}.psp-tree-label{max-width:0px;min-width:0px;}.psp-tree-label:before{color:#ccc;font-family:var(--button--font-family, inherit);padding-right:11px;vertical-align:-1px;}.psp-tree-label-expand:before{content:var(--tree-label-expand--content, '+');}.psp-tree-label-collapse:before{content:var(--tree-label-collapse--content, '-');}.psp-tree-label:hover:before{color:#338dcd;text-shadow:0px 0px 5px #338dcd;}regular-table thead tr:last-child th{border-bottom-width:1px;border-bottom-color:var(--inactive--color, #eaedef);}.psp-tree-leaf{padding-left:24px;}.psp-align-right{text-align:right;}.psp-align-left{text-align:left;}.psp-positive:not(:focus){color:var(--rt-pos-cell--color, #338dcd);}.psp-negative:not(:focus){color:var(--rt-neg-cell--color, #ff5942);}regular-table table tbody td{min-width:52px !important;}.psp-is-width-override .rt-column-resize,.rt-column-resize:hover{border:1px dashed #999;border-bottom-width:0px;border-left-width:0px;}.psp-bool-type{font-family:var(--button--font-family, 'Material Icons');}.boolean-editable{cursor:pointer;}regular-table table{user-select:none;color:#161616;border-collapse:separate;}regular-table table th{font-weight:400;}regular-table table td,regular-table table th{border-color:#eaedef;height:23px;}regular-table table .psp-header-group{text-overflow:ellipsis;}regular-table table .psp-header-leaf{border-bottom-width:0px;}regular-table table td,regular-table table th.psp-tree-label,regular-table table th.psp-tree-label,regular-table table th.psp-tree-leaf,regular-table table tbody tr:first-child th{border-style:solid;border-width:0px;border-top-width:1px;}regular-table table tbody th:empty{background-position:0px -10px;}@keyframes pulse_pos{0%{background-color:var(--pulse--background-color-start, rgba(0, 128, 255, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(0, 128, 255, 0));}}@keyframes pulse_pos2{0%{background-color:var(--pulse--background-color-start, rgba(0, 128, 255, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(0, 128, 255, 0));}}@keyframes pulse_neg{0%{background-color:var(--pulse--background-color-start, rgba(255, 25, 0, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(255, 25, 0, 0));}}@keyframes pulse_neg2{0%{background-color:var(--pulse--background-color-start, rgba(255, 25, 0, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(255, 25, 0, 0));}}`;
 },
-"59dbae0a77": /* models/plotly.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"39230f6818": /* models/plotly.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
@@ -28760,9 +30420,9 @@ ${namesToRegister
     const eq_1 = require("@bokehjs/core/util/eq");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
-    const plotly_css_1 = tslib_1.__importDefault(require("3d56c75186") /* ../styles/models/plotly.css */);
+    const plotly_css_1 = tslib_1.__importDefault(require("3d56c75186") /* styles/models/plotly.css */);
     const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
     function isRecord(value) {
         return typeof value === "object" && value !== null;
@@ -28781,6 +30441,7 @@ ${namesToRegister
         return isRecord(current) ? current : null;
     }
     class PlotlyEvent extends bokeh_events_1.ModelEvent {
+        data;
         constructor(data) {
             super();
             this.data = data;
@@ -28788,13 +30449,11 @@ ${namesToRegister
         get event_values() {
             return { model: this.origin, data: this.data };
         }
+        static {
+            this.prototype.event_name = "plotly_event";
+        }
     }
     exports.PlotlyEvent = PlotlyEvent;
-    _a = PlotlyEvent;
-    PlotlyEvent.__name__ = "PlotlyEvent";
-    (() => {
-        _a.prototype.event_name = "plotly_event";
-    })();
     const filterEventData = (gd, eventData, event) => {
         // Ported from dash-core-components/src/components/Graph.react.js
         const filteredEventData = Array.isArray(eventData) ? [] : {};
@@ -28903,18 +30562,19 @@ ${namesToRegister
         return !display || display === "none";
     };
     class PlotlyPlotView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this._settingViewport = false;
-            this._plotInitialized = false;
-            this._rendered = false;
-            this._reacting = false;
+        _setViewport;
+        _settingViewport = false;
+        _plotInitialized = false;
+        _rendered = false;
+        _reacting = false;
+        _relayouting = false;
+        _hoverdata = null;
+        container;
+        _watched_sources;
+        _end_relayouting = (0, debounce_1.debounce)(() => {
             this._relayouting = false;
-            this._hoverdata = null;
-            this._end_relayouting = (0, debounce_1.debounce)(() => {
-                this._relayouting = false;
-            }, 2000, false);
-        }
+        }, 2000, false);
+        _throttled_resize;
         initialize() {
             super.initialize();
             this._throttled_resize = (0, util_1.throttle)(() => this.resize_layout(), 25);
@@ -29080,12 +30740,18 @@ ${namesToRegister
             });
             //  - plotly_unhover
             this.container.on("plotly_unhover", () => {
-                // Override hoverdata to ensure click event has context
-                this.container._hoverdata = this._hoverdata;
                 this.model.trigger_event(new PlotlyEvent({ type: "hover", data: null }));
+                // Plotly already stored the new point when moving straight to it
+                if (this.container._hoverdata != null) {
+                    return;
+                }
+                // Override hoverdata to ensure click event has context
+                const hoverdata = this.container._hoverdata = this._hoverdata;
                 setTimeout(() => {
                     // Remove hoverdata once events have been processed
-                    delete this.container._hoverdata;
+                    if (this.container._hoverdata === hoverdata) {
+                        delete this.container._hoverdata;
+                    }
                 }, 0);
             });
         }
@@ -29204,45 +30870,42 @@ ${namesToRegister
         }
     }
     exports.PlotlyPlotView = PlotlyPlotView;
-    PlotlyPlotView.__name__ = "PlotlyPlotView";
     class PlotlyPlot extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.plotly";
+        static {
+            this.prototype.default_view = PlotlyPlotView;
+            this.define(({ List, Any, Nullable, Float, Ref, Str }) => ({
+                data: [List(Any), []],
+                layout: [Any, {}],
+                config: [Any, {}],
+                frames: [Nullable(List(Any)), null],
+                data_sources: [List(Ref(column_data_source_1.ColumnDataSource)), []],
+                relayout: [Nullable(Any), {}],
+                restyle: [Nullable(Any), {}],
+                relayout_data: [Any, {}],
+                restyle_data: [List(Any), []],
+                viewport: [Any, {}],
+                viewport_update_policy: [Str, "mouseup"],
+                viewport_update_throttle: [Float, 200],
+                _render_count: [Float, 0],
+            }));
+        }
     }
     exports.PlotlyPlot = PlotlyPlot;
-    _b = PlotlyPlot;
-    PlotlyPlot.__name__ = "PlotlyPlot";
-    PlotlyPlot.__module__ = "panel.models.plotly";
-    (() => {
-        _b.prototype.default_view = PlotlyPlotView;
-        _b.define(({ List, Any, Nullable, Float, Ref, Str }) => ({
-            data: [List(Any), []],
-            layout: [Any, {}],
-            config: [Any, {}],
-            frames: [Nullable(List(Any)), null],
-            data_sources: [List(Ref(column_data_source_1.ColumnDataSource)), []],
-            relayout: [Nullable(Any), {}],
-            restyle: [Nullable(Any), {}],
-            relayout_data: [Any, {}],
-            restyle_data: [List(Any), []],
-            viewport: [Any, {}],
-            viewport_update_policy: [Str, "mouseup"],
-            viewport_update_throttle: [Float, 200],
-            _render_count: [Float, 0],
-        }));
-    })();
 },
 "3d56c75186": /* styles/models/plotly.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `.js-plotly-plot .plotly,.js-plotly-plot .plotly div{direction:ltr;font-family:'Open Sans', verdana, arial, sans-serif;margin:0;padding:0;}.js-plotly-plot .plotly input,.js-plotly-plot .plotly button{font-family:'Open Sans', verdana, arial, sans-serif;}.js-plotly-plot .plotly input:focus,.js-plotly-plot .plotly button:focus{outline:none;}.js-plotly-plot .plotly a{text-decoration:none;}.js-plotly-plot .plotly a:hover{text-decoration:none;}.js-plotly-plot .plotly .crisp{shape-rendering:crispEdges;}.js-plotly-plot .plotly .user-select-none{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none;}.js-plotly-plot .plotly svg{overflow:hidden;}.js-plotly-plot .plotly svg a{fill:#447adb;}.js-plotly-plot .plotly svg a:hover{fill:#3c6dc5;}.js-plotly-plot .plotly .main-svg{position:absolute;top:0;left:0;pointer-events:none;}.js-plotly-plot .plotly .main-svg .draglayer{pointer-events:all;}.js-plotly-plot .plotly .cursor-default{cursor:default;}.js-plotly-plot .plotly .cursor-pointer{cursor:pointer;}.js-plotly-plot .plotly .cursor-crosshair{cursor:crosshair;}.js-plotly-plot .plotly .cursor-move{cursor:move;}.js-plotly-plot .plotly .cursor-col-resize{cursor:col-resize;}.js-plotly-plot .plotly .cursor-row-resize{cursor:row-resize;}.js-plotly-plot .plotly .cursor-ns-resize{cursor:ns-resize;}.js-plotly-plot .plotly .cursor-ew-resize{cursor:ew-resize;}.js-plotly-plot .plotly .cursor-sw-resize{cursor:sw-resize;}.js-plotly-plot .plotly .cursor-s-resize{cursor:s-resize;}.js-plotly-plot .plotly .cursor-se-resize{cursor:se-resize;}.js-plotly-plot .plotly .cursor-w-resize{cursor:w-resize;}.js-plotly-plot .plotly .cursor-e-resize{cursor:e-resize;}.js-plotly-plot .plotly .cursor-nw-resize{cursor:nw-resize;}.js-plotly-plot .plotly .cursor-n-resize{cursor:n-resize;}.js-plotly-plot .plotly .cursor-ne-resize{cursor:ne-resize;}.js-plotly-plot .plotly .cursor-grab{cursor:-webkit-grab;cursor:grab;}.js-plotly-plot .plotly .modebar{position:absolute;top:2px;right:2px;}.js-plotly-plot .plotly .ease-bg{-webkit-transition:background-color 0.3s ease 0s;-moz-transition:background-color 0.3s ease 0s;-ms-transition:background-color 0.3s ease 0s;-o-transition:background-color 0.3s ease 0s;transition:background-color 0.3s ease 0s;}.js-plotly-plot .plotly .modebar--hover > :not(.watermark){opacity:0;-webkit-transition:opacity 0.3s ease 0s;-moz-transition:opacity 0.3s ease 0s;-ms-transition:opacity 0.3s ease 0s;-o-transition:opacity 0.3s ease 0s;transition:opacity 0.3s ease 0s;}.js-plotly-plot .plotly:hover .modebar--hover .modebar-group{opacity:1;}.js-plotly-plot .plotly .modebar-group{float:left;display:inline-block;box-sizing:border-box;padding-left:8px;position:relative;vertical-align:middle;white-space:nowrap;}.js-plotly-plot .plotly .modebar-btn{fill:var(--plotly-icon-color);background-color:unset;border:none;position:relative;font-size:16px;padding:3px 4px;height:22px;cursor:pointer;line-height:normal;box-sizing:border-box;}.js-plotly-plot .plotly .modebar-btn.active{fill:var(--plotly-active-icon-color);}.js-plotly-plot .plotly .modebar-btn svg{position:relative;top:2px;}.js-plotly-plot .plotly .modebar.vertical{display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-end;max-height:100%;}.js-plotly-plot .plotly .modebar.vertical svg{top:-1px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group{display:block;float:none;padding-left:0px;padding-bottom:8px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group .modebar-btn{display:block;text-align:center;}.js-plotly-plot .plotly [data-title]{}.js-plotly-plot .plotly [data-title]:before,.js-plotly-plot .plotly [data-title]:after{position:absolute;-webkit-transform:translate3d(0, 0, 0);-moz-transform:translate3d(0, 0, 0);-ms-transform:translate3d(0, 0, 0);-o-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);display:none;opacity:0;z-index:1001;pointer-events:none;top:110%;right:50%;}.js-plotly-plot .plotly [data-title]:hover:before,.js-plotly-plot .plotly [data-title]:hover:after{display:block;opacity:1;}.js-plotly-plot .plotly [data-title]:before{content:'';position:absolute;background:transparent;border:6px solid transparent;z-index:1002;margin-top:-12px;border-bottom-color:#69738a;margin-right:-6px;}.js-plotly-plot .plotly [data-title]:after{content:attr(data-title);background:#69738a;color:white;padding:8px 10px;font-size:12px;line-height:12px;white-space:nowrap;margin-right:-18px;border-radius:2px;}.js-plotly-plot .plotly .vertical [data-title]:before,.js-plotly-plot .plotly .vertical [data-title]:after{top:0%;right:200%;}.js-plotly-plot .plotly .vertical [data-title]:before{border:6px solid transparent;border-left-color:#69738a;margin-top:8px;margin-right:-30px;}.plotly-notifier{font-family:'Open Sans', verdana, arial, sans-serif;position:fixed;top:50px;right:20px;z-index:10000;font-size:10pt;max-width:180px;}.plotly-notifier p{margin:0;}.plotly-notifier .notifier-note{min-width:180px;max-width:250px;border:1px solid #fff;z-index:3000;margin:0;background-color:#8c97af;background-color:rgba(140, 151, 175, 0.9);color:#fff;padding:10px;overflow-wrap:break-word;word-wrap:break-word;-ms-hyphens:auto;-webkit-hyphens:auto;hyphens:auto;}.plotly-notifier .notifier-close{color:#fff;opacity:0.8;float:right;padding:0 5px;background:none;border:none;font-size:20px;font-weight:bold;line-height:20px;}.plotly-notifier .notifier-close:hover{color:#444;text-decoration:none;cursor:pointer;}`;
 },
-"54e5f3767b": /* models/progress.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"443fb5cf42": /* models/progress.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class ProgressView extends layout_1.HTMLBoxView {
+        progressEl;
         connect_signals() {
             super.connect_signals();
             const { width, height, height_policy, width_policy, sizing_mode, active, bar_color, css_classes, value, max, } = this.model.properties;
@@ -29299,33 +30962,34 @@ ${namesToRegister
         }
     }
     exports.ProgressView = ProgressView;
-    ProgressView.__name__ = "ProgressView";
     class Progress extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = ProgressView;
+            this.define(({ Any, List, Bool, Float, Str }) => ({
+                active: [Bool, true],
+                bar_color: [Str, "primary"],
+                css: [List(Str), []],
+                max: [Float, 100],
+                value: [Any, null],
+            }));
+        }
     }
     exports.Progress = Progress;
-    _a = Progress;
-    Progress.__name__ = "Progress";
-    Progress.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = ProgressView;
-        _a.define(({ Any, List, Bool, Float, Str }) => ({
-            active: [Bool, true],
-            bar_color: [Str, "primary"],
-            css: [List(Str), []],
-            max: [Float, 100],
-            value: [Any, null],
-        }));
-    })();
 },
-"a8f2a01dfe": /* models/quill.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"3df70ba3b3": /* models/quill.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class QuillInputView extends layout_1.HTMLBoxView {
+        container;
+        _editor;
+        _editing;
+        _toolbar;
+        quill;
         connect_signals() {
             super.connect_signals();
             const { disabled, visible, text, mode, toolbar, placeholder } = this.model.properties;
@@ -29542,39 +31206,36 @@ ${namesToRegister
         }
     }
     exports.QuillInputView = QuillInputView;
-    QuillInputView.__name__ = "QuillInputView";
     class QuillInput extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.quill";
+        static {
+            this.prototype.default_view = QuillInputView;
+            this.define(({ Any, Bool, Dict, Str }) => ({
+                mode: [Str, "toolbar"],
+                on_keyup: [Bool, true],
+                placeholder: [Str, ""],
+                selection: [Dict(Any), {}],
+                text: [Str, ""],
+                text_input: [Str, ""],
+                toolbar: [Any, null],
+            }));
+            this.override({
+                height: 300,
+            });
+        }
     }
     exports.QuillInput = QuillInput;
-    _a = QuillInput;
-    QuillInput.__name__ = "QuillInput";
-    QuillInput.__module__ = "panel.models.quill";
-    (() => {
-        _a.prototype.default_view = QuillInputView;
-        _a.define(({ Any, Bool, Dict, Str }) => ({
-            mode: [Str, "toolbar"],
-            on_keyup: [Bool, true],
-            placeholder: [Str, ""],
-            selection: [Dict(Any), {}],
-            text: [Str, ""],
-            text_input: [Str, ""],
-            toolbar: [Any, null],
-        }));
-        _a.override({
-            height: 300,
-        });
-    })();
 },
-"25e2d7c208": /* models/radio_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"08a22fed1a": /* models/radio_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tooltip_1 = require("@bokehjs/models/ui/tooltip");
     const build_views_1 = require("@bokehjs/core/build_views");
     const radio_button_group_1 = require("@bokehjs/models/widgets/radio_button_group");
     class RadioButtonGroupView extends radio_button_group_1.RadioButtonGroupView {
+        tooltip;
         *children() {
             yield* super.children();
             if (this.tooltip != null) {
@@ -29624,34 +31285,33 @@ ${namesToRegister
         }
     }
     exports.RadioButtonGroupView = RadioButtonGroupView;
-    RadioButtonGroupView.__name__ = "RadioButtonGroupView";
     class RadioButtonGroup extends radio_button_group_1.RadioButtonGroup {
+        static __module__ = "panel.models.widgets";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = RadioButtonGroupView;
+            this.define(({ Nullable, Ref, Float }) => ({
+                tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
+                tooltip_delay: [Float, 500],
+            }));
+        }
     }
     exports.RadioButtonGroup = RadioButtonGroup;
-    _a = RadioButtonGroup;
-    RadioButtonGroup.__name__ = "RadioButtonGroup";
-    RadioButtonGroup.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = RadioButtonGroupView;
-        _a.define(({ Nullable, Ref, Float }) => ({
-            tooltip: [Nullable(Ref(tooltip_1.Tooltip)), null],
-            tooltip_delay: [Float, 500],
-        }));
-    })();
 },
-"a2b691ef16": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"e74ecd40bb": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
+    const view_1 = require("@bokehjs/core/view");
     const dom_1 = require("@bokehjs/core/dom");
     const array_1 = require("@bokehjs/core/util/array");
     const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("fb9db49f87") /* ./reactive_esm */;
+    const reactive_esm_1 = require("f3226cbf82") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
+        persistent;
+        host_id;
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
             this.persistent = persistent;
@@ -29671,7 +31331,6 @@ ${namesToRegister
         }
     }
     exports.HostedStyleSheet = HostedStyleSheet;
-    HostedStyleSheet.__name__ = "HostedStyleSheet";
     async function _build_view(view_cls, model, options) {
         (0, assert_1.assert)(view_cls != null, "model doesn't implement a view");
         const view = new view_cls({ ...options, model });
@@ -29706,16 +31365,14 @@ ${namesToRegister
         };
     }
     class ReactComponentView extends reactive_esm_1.ReactiveESMView {
-        constructor() {
-            super(...arguments);
-            this.model_getter = reactive_esm_1.model_getter;
-            this.model_setter = reactive_esm_1.model_setter;
-            this.react_root = null;
-            this.mounted = false;
-            this._force_update_callbacks = [];
-            this._mounted_resolve = null;
-            this._scheduled_removals = [];
-        }
+        model_getter = reactive_esm_1.model_getter;
+        model_setter = reactive_esm_1.model_setter;
+        react_root = null;
+        mounted = false;
+        _force_update_callbacks = [];
+        _mounted_resolve = null;
+        _scheduled_removals = [];
+        _dom_sentinel = null;
         initialize() {
             super.initialize();
             if (!this.use_shadow_dom) {
@@ -29732,15 +31389,6 @@ ${namesToRegister
                 return;
             }
             this._rendered = false;
-            if (this.model.usesMui) {
-                if (this.model.root_node) {
-                    this.style_cache = document.head;
-                }
-                else {
-                    this.style_cache = document.createElement("head");
-                    this.shadow_el.insertBefore(this.style_cache, this.container);
-                }
-            }
             this.accessed_properties = [];
             for (const lf of this._lifecycle_handlers.keys()) {
                 (this._lifecycle_handlers.get(lf) || []).splice(0);
@@ -29756,12 +31404,21 @@ ${namesToRegister
                     this._resolve_mounted();
                     return;
                 }
-                this.react_root = mod.default.render(this.model.id);
+                this.react_root = Promise.resolve(mod.default.render(this));
             }).catch((e) => {
                 this._resolve_mounted();
                 throw e;
             });
             this._await_ready(mounted_promise);
+        }
+        setup_style_cache() {
+            if (this.model.root_node) {
+                this.style_cache = document.head;
+            }
+            else {
+                this.style_cache = document.createElement("head");
+                this.shadow_el.insertBefore(this.style_cache, this.container);
+            }
         }
         render_error(error) {
             // A component that errored will never mount and so never settles its
@@ -29795,12 +31452,18 @@ ${namesToRegister
             // A view removed before it mounted still owes a resolution to the promise
             // handed to `_await_ready`, otherwise the root never reaches idle.
             this._resolve_mounted();
-            if (this.react_root && this.use_shadow_dom) {
+            if (this.use_shadow_dom) {
                 super.remove();
-                this.react_root.then((root) => root && root.unmount());
+                this.react_root?.then((root) => root?.unmount?.());
                 this.flush_scheduled_removals();
             }
-            else {
+            else if (!this.is_destroyed) {
+                // The el of a view nested in its parent's React tree is a container
+                // owned by that tree, so DOMView.remove must not detach it; React does
+                // on unmount. View.remove still disconnects signals, watchers and the
+                // event dispatch, and removes the child views.
+                this._resize_observer.disconnect();
+                view_1.View.prototype.remove.call(this);
                 this._applied_stylesheets.forEach((stylesheet) => stylesheet.uninstall());
                 for (const cb of (this._lifecycle_handlers.get("remove") || [])) {
                     cb();
@@ -29861,7 +31524,7 @@ ${namesToRegister
         }
         render() {
             if (this.react_root) {
-                this.react_root.then((root) => root.unmount());
+                this.react_root.then((root) => root?.unmount?.());
             }
             this._force_update_callbacks = [];
             this.mounted = false;
@@ -29879,9 +31542,30 @@ ${namesToRegister
                 this._apply_visible();
             }
             super.r_after_render();
-            if (this.use_shadow_dom) {
+            if (this.use_shadow_dom && this._dom_reinserted()) {
                 this.force_update();
+                this._mark_dom();
             }
+        }
+        /**
+         * Re-inserting a node recreates the style sheets in its shadow root from
+         * their text, dropping rules added through the CSSOM, which is how emotion
+         * injects styles. A sentinel holding one CSSOM rule detects exactly that,
+         * so that the parent re-rendering, which walks every child, only forces an
+         * update (and a rebuild of the emotion cache) on the children it moved.
+         */
+        _dom_reinserted() {
+            const sheet = this._dom_sentinel?.sheet;
+            return sheet == null || sheet.cssRules.length === 0;
+        }
+        _mark_dom() {
+            let sentinel = this._dom_sentinel;
+            if (sentinel == null || sentinel.parentNode !== this.shadow_el) {
+                sentinel = document.createElement("style");
+                this.shadow_el.append(sentinel);
+                this._dom_sentinel = sentinel;
+            }
+            sentinel.sheet?.insertRule(":host {}");
         }
         _update_layout() {
             super._update_layout();
@@ -29912,22 +31596,7 @@ ${namesToRegister
         }
         async _update_children_pass() {
             const created_children = new Set(await this.build_child_views());
-            const new_views = new Map();
-            for (const child_view of this.child_views) {
-                if (!created_children.has(child_view)) {
-                    continue;
-                }
-                const child = this._lookup_child(child_view);
-                if (!child) {
-                    continue;
-                }
-                if (new_views.has(child)) {
-                    new_views.get(child).push(child_view);
-                }
-                else {
-                    new_views.set(child, [child_view]);
-                }
-            }
+            const new_views = this._group_new_views(created_children);
             for (const child of this.model.children) {
                 const callbacks = this._child_callbacks.get(child) || [];
                 const new_children = new_views.get(child) || [];
@@ -29992,11 +31661,437 @@ ${namesToRegister
         }
     }
     exports.ReactComponentView = ReactComponentView;
-    ReactComponentView.__name__ = "ReactComponentView";
+    const REACT_PACKAGES = ["react", "react-dom/client", "@emotion/cache", "@emotion/react"];
+    function react_libs_code(mui) {
+        if (mui) {
+            return `
+import * as React from "react"
+import { createRoot } from "react-dom/client"
+import createCache from "@emotion/cache"
+import { CacheProvider } from "@emotion/react"
+export default {React, createRoot, createCache, CacheProvider}`;
+        }
+        return `
+import * as React from "react"
+import { createRoot } from "react-dom/client"
+export default {React, createRoot}`;
+    }
+    // Keyed by React so each React instance (one per bundle) gets its own
+    // classes, defined once rather than per render: a component type that is new
+    // on every render makes React remount the subtree and drop its state.
+    const REACT_WRAPPERS = new WeakMap();
+    // A Component element is keyed by its view, so a view that replaces another
+    // in the same slot remounts instead of inheriting the old view's hook state.
+    const VIEW_KEYS = new WeakMap();
+    let view_key_counter = 0;
+    function view_key(view) {
+        let key = VIEW_KEYS.get(view);
+        if (key === undefined) {
+            key = view_key_counter++;
+            VIEW_KEYS.set(view, key);
+        }
+        return key;
+    }
+    // One emotion key for every component: class names only have to be unique
+    // within a shadow root, and a shared key makes the compiled CSS of a style
+    // identical across components, so it can be compiled once and replayed.
+    const EMOTION_KEY = "pnl";
+    // Compiled rules by selector and style hash, per emotion instance.
+    const EMOTION_RULES = new WeakMap();
+    /**
+     * Wraps an emotion cache so that each style is compiled by stylis once per
+     * page and its rules replayed into the other components' sheets. Each
+     * component still gets its own rules in its own shadow root, so the cascade
+     * is unchanged.
+     */
+    function share_emotion_rules(cache, createCache) {
+        let compiled = EMOTION_RULES.get(createCache);
+        if (compiled == null) {
+            compiled = new Map();
+            EMOTION_RULES.set(createCache, compiled);
+        }
+        const rules_cache = compiled;
+        const insert = cache.insert;
+        cache.insert = (selector, serialized, sheet, should_cache) => {
+            const key = `${selector}\u0000${serialized.name}`;
+            const rules = rules_cache.get(key);
+            if (rules == null) {
+                const recorded = [];
+                insert(selector, serialized, { insert: (rule) => { recorded.push(rule); sheet.insert(rule); } }, should_cache);
+                rules_cache.set(key, recorded);
+                return;
+            }
+            for (const rule of rules) {
+                sheet.insert(rule);
+            }
+            if (should_cache) {
+                cache.inserted[serialized.name] = true;
+            }
+        };
+        return cache;
+    }
+    function react_wrappers(libs) {
+        const cached = REACT_WRAPPERS.get(libs.React);
+        if (cached != null) {
+            return cached;
+        }
+        const { React } = libs;
+        class Child extends React.PureComponent {
+            render_callback = null;
+            containerRef = React.createRef();
+            constructor(props) {
+                super(props);
+                this.state = { rendered: null };
+                // Registers the child as tracked but not yet rendered. React's render
+                // phase has to stay free of side effects, since a render may be
+                // discarded without ever committing, so the flag is only ever flipped
+                // here and from getSnapshotBeforeUpdate.
+                this._mark_stale();
+            }
+            _mark_stale() {
+                const view = this.view;
+                if (view) {
+                    this.props.parent._child_rendered.set(view, false);
+                }
+            }
+            updateElement() {
+                const el = this.view?.el;
+                if (el && this.containerRef.current && !this.containerRef.current.contains(el)) {
+                    this.containerRef.current.innerHTML = "";
+                    this.containerRef.current.appendChild(el);
+                }
+            }
+            get view() {
+                const model = this.props.model ?? this.props.parent.model.data[this.props.name];
+                return this.props.parent.get_child_view(model);
+            }
+            get element() {
+                const view = this.view;
+                return view == null ? null : view.el;
+            }
+            get use_shadow_dom() {
+                return this.view?.model.use_shadow_dom || (this.view?.react_root === undefined);
+            }
+            _render_nested(view, flush) {
+                view.patch_container(this.containerRef.current);
+                const apply = (mod) => {
+                    if (view.is_destroyed) {
+                        return;
+                    }
+                    if (flush) {
+                        this.props.parent.flush_scheduled_removals();
+                    }
+                    this.setState({ rendered: mod.default.render(view) }, () => {
+                        if (view.is_destroyed) {
+                            return;
+                        }
+                        this.props.parent.notify_mount(this.props.name, view.model.id);
+                        view.r_after_render();
+                        view.after_rendered();
+                    });
+                };
+                // Rendering synchronously once the module is loaded lets a nested tree
+                // mount in one commit instead of one commit per level.
+                const mod = view.model.resolved_render_module;
+                if (mod != null) {
+                    apply(mod);
+                }
+                else {
+                    view.model.render_module.then(apply);
+                }
+            }
+            componentDidMount() {
+                const view = this.view;
+                this.render_callback = (new_views) => {
+                    const view = this.view;
+                    if (!view || !new_views.includes(view)) {
+                        return;
+                    }
+                    this.updateElement();
+                    if (this.use_shadow_dom) {
+                        this.props.parent.flush_scheduled_removals();
+                        this.props.parent.render_child(view);
+                        this.props.parent._child_rendered.set(view, true);
+                    }
+                    else {
+                        this._render_nested(view, true);
+                    }
+                };
+                this.props.parent.on_child_render(this.props.name, this.render_callback);
+                if (view == null) {
+                    return;
+                }
+                this.props.parent.flush_scheduled_removals();
+                if (this.use_shadow_dom) {
+                    this.updateElement();
+                    this.props.parent.render_child(view);
+                    this.props.parent._child_rendered.set(view, true);
+                    this.props.parent.notify_mount(this.props.name, view.model.id);
+                }
+                else {
+                    this._render_nested(view, false);
+                }
+            }
+            componentWillUnmount() {
+                if (this.render_callback) {
+                    this.props.parent.remove_on_child_render(this.props.name, this.render_callback);
+                }
+                // The mount bookkeeping lives on the parent, and the view may already be
+                // gone by the time React unmounts us, so fall back to the model id prop.
+                const id = this.view?.model.id ?? this.props.id;
+                if (id != null) {
+                    this.props.parent.notify_mount(this.props.name, id, true);
+                }
+            }
+            getSnapshotBeforeUpdate() {
+                // Commit-phase equivalent of the constructor's registration: the view
+                // this Child renders may have been swapped out, so the incoming one is
+                // registered as stale here rather than during render.
+                this._mark_stale();
+                return null;
+            }
+            componentDidUpdate() {
+                if (this.use_shadow_dom) {
+                    this.updateElement();
+                }
+            }
+            render() {
+                const class_name = this.use_shadow_dom ? "child-wrapper" : css_class_name(this.view.model.class_name);
+                return React.createElement("div", { id: this.view?.model.id, className: class_name, ref: this.containerRef }, this.state.rendered);
+            }
+        }
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false };
+            }
+            static getDerivedStateFromError() {
+                return { hasError: true };
+            }
+            componentDidCatch(error) {
+                this.props.view.render_error(error);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return React.createElement("div");
+                }
+                return React.createElement("div", { className: "error-wrapper" }, this.props.children);
+            }
+        }
+        const wrappers = {
+            Child,
+            ErrorBoundary,
+            Component: define_component(React, ErrorBoundary, null, null),
+            emotion_components: new WeakMap(),
+        };
+        REACT_WRAPPERS.set(React, wrappers);
+        return wrappers;
+    }
+    /**
+     * Returns the Component type for the libs. Non-bundled components with and
+     * without MUI share one React instance from the same import map URL but load
+     * different libs, so emotion is chosen by the libs rather than by React.
+     */
+    function component_type(libs) {
+        const wrappers = react_wrappers(libs);
+        const { createCache, CacheProvider } = libs;
+        if (!uses_emotion(libs)) {
+            return wrappers.Component;
+        }
+        let Component = wrappers.emotion_components.get(createCache);
+        if (Component == null) {
+            Component = define_component(libs.React, wrappers.ErrorBoundary, createCache, CacheProvider);
+            wrappers.emotion_components.set(createCache, Component);
+        }
+        return Component;
+    }
+    function define_component(React, ErrorBoundary, createCache, CacheProvider) {
+        return class Component extends React.Component {
+            constructor(props) {
+                super(props);
+                this._init_cache();
+            }
+            _init_cache() {
+                const { view } = this.props;
+                if (createCache != null && view.use_shadow_dom) {
+                    view.mui_cache = share_emotion_rules(createCache({
+                        key: EMOTION_KEY,
+                        prepend: true,
+                        container: view.style_cache,
+                    }), createCache);
+                }
+            }
+            componentDidMount() {
+                const { view } = this.props;
+                if (!view.use_shadow_dom) {
+                    return;
+                }
+                view.on_force_update(() => {
+                    this._init_cache();
+                    this.forceUpdate();
+                });
+                view.after_rendered();
+            }
+            render() {
+                const { view } = this.props;
+                let rendered = React.createElement(view.render_fn, this.props);
+                if (view.model.dev) {
+                    rendered = React.createElement(ErrorBoundary, { view }, rendered);
+                }
+                if (CacheProvider != null && rendered && (view.parent?.react_root === undefined || view.model.use_shadow_dom)) {
+                    rendered = React.createElement(CacheProvider, { value: view.mui_cache }, rendered);
+                }
+                return rendered;
+            }
+        };
+    }
+    function css_class_name(class_name) {
+        return class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+    }
+    function react_model_proxy(view, libs, Child) {
+        const { React } = libs;
+        const react_proxy = new Proxy(view, {
+            get(target, name) {
+                if (name === "useMount") {
+                    return (callback) => React.useEffect(() => {
+                        target.model_proxy.on("lifecycle:mounted", callback);
+                        return () => target.model_proxy.off("lifecycle:mounted", callback);
+                    }, []);
+                }
+                else if (name === "useState") {
+                    return (prop) => {
+                        const path = prop.split(".");
+                        let model = target.model.data;
+                        for (let i = 0; i < path.length - 1; i++) {
+                            if (model && model.properties && path[i] in model.properties) {
+                                model = model[path[i]];
+                            }
+                            else {
+                                model = null;
+                                break;
+                            }
+                        }
+                        const attr = path[path.length - 1];
+                        if (model == null || model.attributes == null || !(attr in model.attributes)) {
+                            throw ReferenceError(`Could not resolve ${prop} on ${target.model.class_name}`);
+                        }
+                        const [value, setValue] = React.useState(model.attributes[attr]);
+                        React.useEffect(() => {
+                            const cb = () => {
+                                if (target.model.events.includes(attr)) {
+                                    model.attributes[attr] && (setValue((v) => v + 1) || model.setv({ [attr]: false }));
+                                }
+                                else {
+                                    setValue(model.attributes[attr]);
+                                }
+                            };
+                            react_proxy.on(prop, cb, true);
+                            return () => react_proxy.off(prop, cb);
+                        }, []);
+                        const initialized = React.useRef(false);
+                        React.useEffect(() => {
+                            if (!target.model.events.includes(attr) && initialized.current) {
+                                model.setv({ [attr]: value });
+                            }
+                            else {
+                                initialized.current = true;
+                            }
+                        }, [value]);
+                        return [value, setValue];
+                    };
+                }
+                else if (name === "get_child") {
+                    return (child) => {
+                        const data_model = target.model.data;
+                        const value = data_model.attributes[child];
+                        if (!(0, types_1.isArray)(value)) {
+                            return React.createElement(Child, { parent: target, name: child });
+                        }
+                        const [children_state, set_children] = React.useState(() => value.map((model) => React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id, model })));
+                        React.useEffect(() => {
+                            // Compares against the latest state, not the closure's initial
+                            // one, and catches lists that only shrank.
+                            const cb = () => {
+                                const current_models = data_model.attributes[child];
+                                set_children((previous) => {
+                                    if (previous.length === current_models.length &&
+                                        current_models.every((model, i) => model.id === previous[i].props.id)) {
+                                        return previous;
+                                    }
+                                    return current_models.map((model) => (React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id, model })));
+                                });
+                            };
+                            target.on_child_render(child, cb);
+                            return () => target.remove_on_child_render(child, cb);
+                        }, []);
+                        return children_state;
+                    };
+                }
+                return (0, reactive_esm_1.model_getter)(target, name);
+            },
+            set: reactive_esm_1.model_setter,
+        });
+        return react_proxy;
+    }
+    /**
+     * Renders a view into a new React root, or, for a view nested in a parent
+     * React tree without its own shadow root, returns the element for the parent
+     * to render.
+     */
+    /**
+     * Whether components rendered with these libs need an emotion cache. Libs
+     * only include emotion if the component uses MUI: a bundle only exports it
+     * if it was compiled with MUI, and is sent without an import map to tell,
+     * while the libs of other components are chosen by `usesMui`.
+     */
+    function uses_emotion(libs) {
+        return libs.createCache != null && libs.CacheProvider != null;
+    }
+    function render_react(view, libs) {
+        if (view.is_destroyed) {
+            return null;
+        }
+        if (uses_emotion(libs) && view.container != null) {
+            view.setup_style_cache();
+        }
+        const { React, createRoot } = libs;
+        const { Child } = react_wrappers(libs);
+        const Component = component_type(libs);
+        const props = { view, model: react_model_proxy(view, libs, Child), data: view.model.data, el: view.container };
+        const rendered = React.createElement(Component, { ...props, key: view_key(view) });
+        if (!view.model.use_shadow_dom && (view.parent?.react_root !== undefined)) {
+            return rendered;
+        }
+        let container;
+        if (view.model.root_node) {
+            container = document.querySelector(view.model.root_node);
+            if (container == null) {
+                container = document.createElement("div");
+                container.id = view.model.root_node.replace("#", "");
+                document.body.append(container);
+            }
+        }
+        else if (view.container == null) {
+            view._resolve_mounted();
+            return null;
+        }
+        else {
+            container = view.container;
+        }
+        const root = createRoot(container);
+        try {
+            root.render(rendered);
+        }
+        catch (e) {
+            view._resolve_mounted();
+            view.render_error(e);
+        }
+        return root;
+    }
     class ReactComponent extends reactive_esm_1.ReactiveESM {
+        sucrase_transforms = ["typescript", "jsx"];
         constructor(attrs) {
             super(attrs);
-            this.sucrase_transforms = ["typescript", "jsx"];
         }
         get usesMui() {
             if (this.importmap?.imports) {
@@ -30004,355 +32099,28 @@ ${namesToRegister
             }
             return false;
         }
-        _render_code() {
-            let [import_code, bundle_code] = ["", ""];
-            const cache_key = (this.bundle === "url") ? this.esm : (this.bundle || `${this.class_name}-${this.esm.length}`);
+        get _render_cache_key() {
             if (this.bundle) {
-                bundle_code = `
-  const ns = await view._module_cache.get("${cache_key}")
-  const {React, createRoot} = ns.default`;
+                return `react-${this.usesMui}-${this._module_cache_key}`;
             }
-            else {
-                import_code = `
-import * as React from "react"
-import { createRoot } from "react-dom/client"`;
-            }
-            let init_code = "";
-            let render_code = "";
-            if (this.usesMui) {
+            // Non-bundled components share one render module per set of React
+            // packages, which the import map decides.
+            const imports = this.importmap?.imports ?? {};
+            const packages = REACT_PACKAGES.map((name) => imports[name] ?? "").join("|");
+            return `react-${this.usesMui}-${packages}`;
+        }
+        _render_module() {
+            return this._cached_module(this._render_cache_key, async () => {
+                let libs;
                 if (this.bundle) {
-                    bundle_code = `
-  const ns = await view._module_cache.get("${cache_key}")
-  const {CacheProvider, React, createCache, createRoot} = ns.default`;
+                    const ns = await this._cached_module(this._module_cache_key, () => Promise.resolve(null));
+                    libs = ns.default;
                 }
                 else {
-                    import_code = `
-${import_code}
-import createCache from "@emotion/cache"
-import { CacheProvider } from "@emotion/react"`;
+                    libs = (await this._import_source(react_libs_code(this.usesMui))).default;
                 }
-                init_code = `
-  if (view.use_shadow_dom) {
-    const css_key = id.replace("-", "").replace(/\d/g, (digit) => String.fromCharCode(digit.charCodeAt(0) + 49)).toLowerCase()
-    view.mui_cache = createCache({
-      key: 'css-'+css_key,
-      prepend: true,
-      container: view.style_cache,
-    })
-  }`;
-                render_code = `
-  if (rendered && ((view.parent?.react_root === undefined) || view.model.use_shadow_dom)) {
-    rendered = React.createElement(CacheProvider, {value: view.mui_cache}, rendered)
-  }`;
-            }
-            return `
-${import_code}
-
-async function render(id) {
-  const view = Bokeh.index.find_one_by_id(id)
-  if (view == null) {
-    return null
-  }
-
-  ${bundle_code}
-
-  class Child extends React.PureComponent {
-
-    state = {rendered: null}
-
-    constructor(props) {
-      super(props)
-      this.render_callback = null
-      this.containerRef = React.createRef()
-      // Registers the child as tracked but not yet rendered. React's render
-      // phase has to stay free of side effects, since a render may be
-      // discarded without ever committing, so the flag is only ever flipped
-      // here and from getSnapshotBeforeUpdate.
-      this._mark_stale()
-    }
-
-    _mark_stale() {
-      const view = this.view
-      if (view) {
-        this.props.parent._child_rendered.set(view, false)
-      }
-    }
-
-    updateElement() {
-      const childView = this.view
-      const el = childView?.el
-      if (el && this.containerRef.current && !this.containerRef.current.contains(el)) {
-        this.containerRef.current.innerHTML = ""
-        this.containerRef.current.appendChild(el)
-      }
-    }
-
-    get view() {
-      const child = this.props.parent.model.data[this.props.name]
-      const model = this.props.id == null ? child : child.find(item => item.id === this.props.id)
-      return this.props.parent.get_child_view(model)
-    }
-
-    get element() {
-      const view = this.view
-      return view == null ? null : view.el
-    }
-
-    get use_shadow_dom() {
-      return this.view?.model.use_shadow_dom || (this.view?.react_root === undefined)
-    }
-
-    componentDidMount() {
-      const view = this.view
-      this.render_callback = (new_views) => {
-        const view = this.view
-        if (!view || !new_views.includes(view)) {
-          return
-        }
-        this.updateElement()
-        if (this.use_shadow_dom) {
-          this.props.parent.flush_scheduled_removals()
-          this.props.parent.rerender_(view)
-          this.props.parent._child_rendered.set(view, true)
-        } else {
-          view.patch_container(this.containerRef.current)
-          view.model.render_module.then(async (mod) => {
-            this.props.parent.flush_scheduled_removals()
-            this.setState(
-              {rendered: await mod.default.render(view.model.id)},
-              () => {
-                this.props.parent.notify_mount(this.props.name, view.model.id)
-                this.view.r_after_render()
-                this.view.after_rendered()
-              }
-            )
-          })
-        }
-      }
-      this.props.parent.on_child_render(this.props.name, this.render_callback)
-      if (view == null) { return }
-      this.props.parent.flush_scheduled_removals()
-      if (this.use_shadow_dom) {
-        this.updateElement()
-        this.props.parent.rerender_(view)
-        this.props.parent._child_rendered.set(view, true)
-        this.props.parent.notify_mount(this.props.name, view.model.id)
-      } else {
-        view.patch_container(this.containerRef.current)
-        view.model.render_module.then(async (mod) => {
-          this.setState(
-            {rendered: await mod.default.render(view.model.id)},
-            () => {
-              this.props.parent.notify_mount(this.props.name, view.model.id)
-              this.view.r_after_render()
-              this.view.after_rendered()
-            }
-          )
-        })
-      }
-    }
-
-    componentWillUnmount() {
-      if (this.render_callback) {
-        this.props.parent.remove_on_child_render(this.props.name, this.render_callback)
-      }
-      // The mount bookkeeping lives on the parent, and the view may already be
-      // gone by the time React unmounts us, so fall back to the model id prop.
-      const id = this.view?.model.id ?? this.props.id
-      if (id != null) {
-        this.props.parent.notify_mount(this.props.name, id, true)
-      }
-    }
-
-    getSnapshotBeforeUpdate() {
-      // Commit-phase equivalent of the constructor's registration: the view
-      // this Child renders may have been swapped out, so the incoming one is
-      // registered as stale here rather than during render.
-      this._mark_stale()
-      return null
-    }
-
-    componentDidUpdate() {
-      if (this.use_shadow_dom) {
-        this.updateElement()
-      }
-    }
-
-    render() {
-      const child = this.state.rendered
-      const class_name = (this.use_shadow_dom ?
-        "child-wrapper" : this.view.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()
-      )
-      return React.createElement('div', {id: this.view?.model.id, className: class_name, ref: this.containerRef}, child)
-    }
-  }
-
-  function react_getter(target, name) {
-    if (name === "useMount") {
-      return (callback) => React.useEffect(() => {
-        target.model_proxy.on('lifecycle:mounted', callback)
-        return () => target.model_proxy.off('lifecycle:mounted', callback)
-      }, [])
-    } if (name == "useState") {
-      return (prop) => {
-        const data_model = target.model.data
-        const propPath = prop.split(".")
-        let targetModel = data_model
-        let resolvedProp = null
-
-        for (let i = 0; i < propPath.length - 1; i++) {
-          if (targetModel && targetModel.properties && propPath[i] in targetModel.properties) {
-            targetModel = targetModel[propPath[i]]
-          } else {
-            // Stop if any part of the path is missing
-            targetModel = null
-            break
-          }
-        }
-        if (targetModel && targetModel.attributes && propPath[propPath.length - 1] in targetModel.attributes) {
-          resolvedProp = propPath[propPath.length - 1]
-        }
-        if (resolvedProp && targetModel) {
-          const [value, setValue] = React.useState(targetModel.attributes[resolvedProp])
-
-          React.useEffect(() => {
-            const cb = () => {
-              if (target.model.events.includes(resolvedProp)) {
-                targetModel.attributes[resolvedProp] && (setValue((v) => v+1) || targetModel.setv({[resolvedProp]: false}))
-              } else {
-                setValue(targetModel.attributes[resolvedProp])
-              }
-            }
-            react_proxy.on(prop, cb, true)
-            return () => react_proxy.off(prop, cb)
-          }, [])
-
-          let initialized = React.useRef(false)
-          React.useEffect(() => {
-            if (!target.model.events.includes(resolvedProp) && initialized.current) {
-              targetModel.setv({ [resolvedProp]: value })
-            } else { initialized.current = true }
-          }, [value])
-
-          return [value, setValue]
-        }
-        throw ReferenceError("Could not resolve " + prop + " on " + target.model.class_name)
-      }
-    } else if (name === "get_child") {
-      return (child) => {
-        const data_model = target.model.data
-        const value = data_model.attributes[child]
-        if (Array.isArray(value)) {
-          const [children_state, set_children] = React.useState(value.map((model) =>
-            React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id })
-          ))
-          React.useEffect(() => {
-            target.on_child_render(child, () => {
-              const current_models = data_model.attributes[child]
-              const previous_models = children_state.map(child => child.props.id)
-              if (current_models.some((model, i) => model.id !== previous_models[i])) {
-                set_children(current_models.map((model, i) => (
-                  React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id })
-                )))
-              }
-            })
-          }, [])
-          return children_state
-        } else {
-          return React.createElement(Child, {parent: target, name: child})
-        }
-      }
-    }
-    return target.model_getter(target, name)
-  }
-
-  const react_proxy = new Proxy(view, {
-    get: react_getter,
-    set: view.model_setter
-  })
-
-  class ErrorBoundary extends React.Component {
-    constructor(props) {
-      super(props)
-      // initialize the error state
-      this.state = { hasError: false }
-    }
-
-    // if an error happened, set the state to true
-    static getDerivedStateFromError(error) {
-      return { hasError: true }
-    }
-
-    componentDidCatch(error) {
-      this.props.view.render_error(error)
-    }
-
-    render() {
-      if (this.state.hasError) {
-        return React.createElement('div')
-      }
-      return React.createElement('div', {className: "error-wrapper"}, this.props.children)
-    }
-  }
-
-  class Component extends React.Component {
-
-    constructor(props) {
-      super(props)
-      ${init_code}
-    }
-
-    componentDidMount() {
-      if (!this.props.view.use_shadow_dom) { return }
-      this.props.view.on_force_update(() => {
-        ${init_code}
-        this.forceUpdate()
-      })
-      this.props.view.after_rendered()
-    }
-
-    render() {
-      let rendered = React.createElement(this.props.view.render_fn, this.props)
-      if (this.props.view.model.dev) {
-        rendered = React.createElement(ErrorBoundary, {view}, rendered)
-      }
-      ${render_code}
-      return rendered
-    }
-  }
-
-  const props = {view, model: react_proxy, data: view.model.data, el: view.container}
-  const rendered = React.createElement(Component, props)
-  if (!view.model.use_shadow_dom && (view.parent?.react_root !== undefined)) {
-    return rendered
-  }
-  if (rendered) {
-    let container
-    if (view.model.root_node) {
-      container = document.querySelector(view.model.root_node)
-      if (container == null) {
-        container = document.createElement("div")
-        container.id = view.model.root_node.replace("#", "")
-        document.body.append(container)
-      }
-    } else if (view.container == null) {
-      view._resolve_mounted()
-      return null
-    } else {
-      container = view.container
-    }
-    const root = createRoot(container)
-    try {
-      root.render(rendered)
-    } catch(e) {
-      view._resolve_mounted()
-      view.render_error(e)
-    }
-    return root
-  }
-}
-
-export default {render}`;
+                return { default: { render: (view) => render_react(view, libs) } };
+            });
         }
         compile() {
             const compiled = super.compile();
@@ -30367,28 +32135,21 @@ import * as React from "react"
 
 ${compiled}`;
         }
-        get _render_cache_key() {
-            const cache_key = (this.bundle === "url") ? this.esm : (this.bundle || `${this.class_name}-${this.esm.length}`);
-            return `react-${this.usesMui}-${cache_key}`;
+        static __module__ = "panel.models.esm";
+        static {
+            this.prototype.default_view = ReactComponentView;
+            this.define(({ Bool, Nullable, Str }) => ({
+                root_node: [Nullable(Str), null],
+                use_shadow_dom: [Bool, true],
+            }));
+            this.override({
+                render_policy: "manual",
+            });
         }
     }
     exports.ReactComponent = ReactComponent;
-    _a = ReactComponent;
-    ReactComponent.__name__ = "ReactComponent";
-    ReactComponent.__module__ = "panel.models.esm";
-    (() => {
-        _a.prototype.default_view = ReactComponentView;
-        _a.define(({ Bool, Nullable, Str }) => ({
-            root_node: [Nullable(Str), null],
-            use_shadow_dom: [Bool, true],
-        }));
-        _a.override({
-            render_policy: "manual",
-        });
-    })();
 },
-"d5752cda5a": /* models/reactive_html.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"61cc258c24": /* models/reactive_html.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const preact_1 = require("ed32986312") /* preact */;
     const hooks_1 = require("691acbd345") /* preact/hooks */;
@@ -30401,9 +32162,9 @@ ${compiled}`;
     const model_1 = require("@bokehjs/model");
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
     const data_1 = require("be689f0377") /* ./data */;
-    const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const html_1 = require("4c04683fdc") /* ./html */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
+    const html_1 = require("9012c2f5ae") /* ./html */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     function serialize_attrs(attrs) {
         const serialized = {};
@@ -30476,14 +32237,13 @@ ${compiled}`;
         return el;
     }
     class ReactiveHTMLView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this._changing = false;
-            this._event_listeners = new Map();
-            this._mutation_observers = [];
-            this._script_fns = new Map();
-            this._state = {};
-        }
+        html;
+        container;
+        _changing = false;
+        _event_listeners = new Map();
+        _mutation_observers = [];
+        _script_fns = new Map();
+        _state = {};
         initialize() {
             super.initialize();
             this.html = (0, html_1.html_decode)(this.model.html) ?? this.model.html;
@@ -30894,31 +32654,28 @@ ${compiled}`;
         }
     }
     exports.ReactiveHTMLView = ReactiveHTMLView;
-    ReactiveHTMLView.__name__ = "ReactiveHTMLView";
     class ReactiveHTML extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.reactive_html";
+        static {
+            this.prototype.default_view = ReactiveHTMLView;
+            this.define(({ Bool, Str, List, Dict, Tuple, Or, Ref }) => ({
+                attrs: [Dict(List(Tuple(Str, List(Str), Str))), {}],
+                callbacks: [Dict(List(Tuple(Str, Str))), {}],
+                children: [Dict(Or(List(Or(Ref(ui_element_1.UIElement), Str)), Str)), {}],
+                data: [Ref(model_1.Model)],
+                event_params: [List(Str), []],
+                events: [Dict(Dict(Bool)), {}],
+                html: [Str, ""],
+                looped: [List(Str), []],
+                nodes: [List(Str), []],
+                scripts: [Dict(List(Str)), {}],
+            }));
+        }
     }
     exports.ReactiveHTML = ReactiveHTML;
-    _a = ReactiveHTML;
-    ReactiveHTML.__name__ = "ReactiveHTML";
-    ReactiveHTML.__module__ = "panel.models.reactive_html";
-    (() => {
-        _a.prototype.default_view = ReactiveHTMLView;
-        _a.define(({ Bool, Str, List, Dict, Tuple, Or, Ref }) => ({
-            attrs: [Dict(List(Tuple(Str, List(Str), Str))), {}],
-            callbacks: [Dict(List(Tuple(Str, Str))), {}],
-            children: [Dict(Or(List(Or(Ref(ui_element_1.UIElement), Str)), Str)), {}],
-            data: [Ref(model_1.Model)],
-            event_params: [List(Str), []],
-            events: [Dict(Dict(Bool)), {}],
-            html: [Str, ""],
-            looped: [List(Str), []],
-            nodes: [List(Str), []],
-            scripts: [Dict(List(Str)), {}],
-        }));
-    })();
 },
 "ed32986312": /* preact/dist/preact.module.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -31352,8 +33109,7 @@ ${compiled}`;
         }(s)), r), arguments, [])).length > 1 ? r : r[0];
     }
 },
-"4155401209": /* models/singleselect.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"3766e0c917": /* models/singleselect.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
@@ -31438,30 +33194,26 @@ ${compiled}`;
         }
     }
     exports.SingleSelectView = SingleSelectView;
-    SingleSelectView.__name__ = "SingleSelectView";
     class SingleSelect extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = SingleSelectView;
+            this.define(({ Any, List, Int, Nullable, Str }) => ({
+                disabled_options: [List(Str), []],
+                options: [List(Any), []],
+                size: [Int, 4], // 4 is the HTML default
+                value: [Nullable(Str), null],
+            }));
+        }
     }
     exports.SingleSelect = SingleSelect;
-    _a = SingleSelect;
-    SingleSelect.__name__ = "SingleSelect";
-    SingleSelect.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = SingleSelectView;
-        _a.define(({ Any, List, Int, Nullable, Str }) => ({
-            disabled_options: [List(Str), []],
-            options: [List(Any), []],
-            size: [Int, 4], // 4 is the HTML default
-            value: [Nullable(Str), null],
-        }));
-    })();
 },
-"5ac2cab0ab": /* models/speech_to_text.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"95fa78f501": /* models/speech_to_text.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const iconStarted = `<svg xmlns="http://www.w3.org/2000/svg" height="22px" style="vertical-align: middle;" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
   <path fill-rule="evenodd" d="M10 8V3a2 2 0 1 0-4 0v5a2 2 0 1 0 4 0zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
@@ -31517,6 +33269,8 @@ ${compiled}`;
         return results;
     }
     class SpeechToTextView extends layout_1.HTMLBoxView {
+        recognition;
+        buttonEl;
         initialize() {
             super.initialize();
             this.recognition = new webkitSpeechRecognition();
@@ -31621,42 +33375,38 @@ ${compiled}`;
         }
     }
     exports.SpeechToTextView = SpeechToTextView;
-    SpeechToTextView.__name__ = "SpeechToTextView";
     class SpeechToText extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.speech_to_text";
+        static {
+            this.prototype.default_view = SpeechToTextView;
+            this.define(({ Any, List, Bool, Float, Str }) => ({
+                start: [Bool, false],
+                stop: [Bool, false],
+                abort: [Bool, false],
+                grammars: [List(Any), []],
+                lang: [Str, ""],
+                continuous: [Bool, false],
+                interim_results: [Bool, false],
+                max_alternatives: [Float, 1],
+                service_uri: [Str, ""],
+                started: [Bool, false],
+                audio_started: [Bool, false],
+                sound_started: [Bool, false],
+                speech_started: [Bool, false],
+                button_type: [Str, "light"],
+                button_hide: [Bool, false],
+                button_not_started: [Str, ""],
+                button_started: [Str, ""],
+                results: [List(Any), []],
+            }));
+        }
     }
     exports.SpeechToText = SpeechToText;
-    _a = SpeechToText;
-    SpeechToText.__name__ = "SpeechToText";
-    SpeechToText.__module__ = "panel.models.speech_to_text";
-    (() => {
-        _a.prototype.default_view = SpeechToTextView;
-        _a.define(({ Any, List, Bool, Float, Str }) => ({
-            start: [Bool, false],
-            stop: [Bool, false],
-            abort: [Bool, false],
-            grammars: [List(Any), []],
-            lang: [Str, ""],
-            continuous: [Bool, false],
-            interim_results: [Bool, false],
-            max_alternatives: [Float, 1],
-            service_uri: [Str, ""],
-            started: [Bool, false],
-            audio_started: [Bool, false],
-            sound_started: [Bool, false],
-            speech_started: [Bool, false],
-            button_type: [Str, "light"],
-            button_hide: [Bool, false],
-            button_not_started: [Str, ""],
-            button_started: [Str, ""],
-            results: [List(Any), []],
-        }));
-    })();
 },
-"92822cb73a": /* models/state.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"188544eb0b": /* models/state.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const view_1 = require("@bokehjs/core/view");
     const array_1 = require("@bokehjs/core/util/array");
@@ -31676,8 +33426,9 @@ ${compiled}`;
     class StateView extends view_1.View {
     }
     exports.StateView = StateView;
-    StateView.__name__ = "StateView";
     class State extends model_1.Model {
+        _receiver;
+        _cache;
         constructor(attrs) {
             super(attrs);
             this._receiver = new receiver_1.Receiver();
@@ -31736,23 +33487,20 @@ ${compiled}`;
                 this.apply_state(state);
             }
         }
+        static __module__ = "panel.models.state";
+        static {
+            this.prototype.default_view = StateView;
+            this.define(({ Any, Bool }) => ({
+                json: [Bool, false],
+                state: [Any, {}],
+                widgets: [Any, {}],
+                values: [Any, []],
+            }));
+        }
     }
     exports.State = State;
-    _a = State;
-    State.__name__ = "State";
-    State.__module__ = "panel.models.state";
-    (() => {
-        _a.prototype.default_view = StateView;
-        _a.define(({ Any, Bool }) => ({
-            json: [Bool, false],
-            state: [Any, {}],
-            widgets: [Any, {}],
-            values: [Any, []],
-        }));
-    })();
 },
-"fffb4344f7": /* models/tabs.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"3cba64cc82": /* models/tabs.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const tabs = tslib_1.__importStar(require("@bokehjs/styles/tabs.css"));
@@ -31779,9 +33527,33 @@ ${compiled}`;
             let view = this;
             while (view != null) {
                 if (view.model.type.endsWith("Tabs")) {
-                    view.connect(view.model.properties.active.change, () => this.update_zindex());
+                    view.connect(view.model.properties.active.change, () => this.update_active());
                 }
                 view = view.parent || view._parent; // Handle ReactiveHTML
+            }
+        }
+        update_active() {
+            super.update_active();
+            this._update_child_visibility();
+            this.update_zindex();
+        }
+        _active_child_view() {
+            const tab = this.model.tabs[this.model.active];
+            if (tab == null) {
+                return undefined;
+            }
+            return this.child_views.find((child_view) => child_view.model == tab.child);
+        }
+        _update_child_visibility() {
+            const { child_views } = this;
+            for (const child_view of child_views) {
+                if (child_view != null) {
+                    hide(child_view.el);
+                }
+            }
+            const active = this._active_child_view();
+            if (active != null) {
+                show(active.el);
             }
         }
         get is_visible() {
@@ -31789,7 +33561,7 @@ ${compiled}`;
             let current_view = this;
             while (parent != null) {
                 if (parent.model.type.endsWith("Tabs")) {
-                    if (parent.child_views.indexOf(current_view) !== parent.model.active) {
+                    if (parent._active_child_view() !== current_view) {
                         return false;
                     }
                 }
@@ -31810,7 +33582,7 @@ ${compiled}`;
                 }
             }
             if (this.is_visible) {
-                const active = child_views[this.model.active];
+                const active = this._active_child_view();
                 if (active != null && active.el != null) {
                     active.el.style.zIndex = "1";
                 }
@@ -31818,19 +33590,7 @@ ${compiled}`;
         }
         _after_layout() {
             layout_dom_1.LayoutDOMView.prototype._after_layout.call(this);
-            const { child_views } = this;
-            for (const child_view of child_views) {
-                if (child_view !== undefined) {
-                    hide(child_view.el);
-                }
-            }
-            const { active } = this.model;
-            if (active in child_views) {
-                const tab = child_views[active];
-                if (tab !== undefined) {
-                    show(tab.el);
-                }
-            }
+            this._update_child_visibility();
         }
         _update_layout() {
             layout_dom_1.LayoutDOMView.prototype._update_layout.call(this);
@@ -31855,47 +33615,23 @@ ${compiled}`;
                 delete this.layout;
             }
         }
-        update_active() {
-            const i = this.model.active;
-            const { header_els } = this;
-            for (const el of header_els) {
-                el.classList.remove(tabs.active);
-            }
-            if (i in header_els) {
-                header_els[i].classList.add(tabs.active);
-            }
-            const { child_views } = this;
-            for (const child_view of child_views) {
-                hide(child_view.el);
-            }
-            if (i in child_views) {
-                const view = child_views[i];
-                show(view.el);
-                if (view.invalidate_render == null) {
-                    view.invalidate_render();
-                }
-            }
-        }
     }
     exports.TabsView = TabsView;
-    TabsView.__name__ = "TabsView";
     class Tabs extends tabs_1.Tabs {
+        static __module__ = "panel.models.tabs";
+        static {
+            this.prototype.default_view = TabsView;
+        }
     }
     exports.Tabs = Tabs;
-    _a = Tabs;
-    Tabs.__name__ = "Tabs";
-    Tabs.__module__ = "panel.models.tabs";
-    (() => {
-        _a.prototype.default_view = TabsView;
-    })();
 },
-"a961b5ae5e": /* models/terminal.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"4fecff5c68": /* models/terminal.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class KeystrokeEvent extends bokeh_events_1.ModelEvent {
+        key;
         constructor(key) {
             super();
             this.key = key;
@@ -31903,14 +33639,16 @@ ${compiled}`;
         get event_values() {
             return { model: this.origin, key: this.key };
         }
+        static {
+            this.prototype.event_name = "keystroke";
+        }
     }
     exports.KeystrokeEvent = KeystrokeEvent;
-    _a = KeystrokeEvent;
-    KeystrokeEvent.__name__ = "KeystrokeEvent";
-    (() => {
-        _a.prototype.event_name = "keystroke";
-    })();
     class TerminalView extends layout_1.HTMLBoxView {
+        term; // Element
+        webLinksAddon;
+        container;
+        _rendered;
         connect_signals() {
             super.connect_signals();
             const { width, height, min_height, max_height, margin, sizing_mode, output, _clears } = this.model.properties;
@@ -31995,34 +33733,31 @@ ${compiled}`;
         }
     }
     exports.TerminalView = TerminalView;
-    TerminalView.__name__ = "TerminalView";
     // The Bokeh .ts model corresponding to the Bokeh .py model
     class Terminal extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.terminal";
+        static {
+            this.prototype.default_view = TerminalView;
+            this.define(({ Any, Int, Str }) => ({
+                _clears: [Int, 0],
+                options: [Any, {}],
+                output: [Str, ""],
+                ncols: [Int, 0],
+                nrows: [Int, 0],
+            }));
+        }
     }
     exports.Terminal = Terminal;
-    _b = Terminal;
-    Terminal.__name__ = "Terminal";
-    Terminal.__module__ = "panel.models.terminal";
-    (() => {
-        _b.prototype.default_view = TerminalView;
-        _b.define(({ Any, Int, Str }) => ({
-            _clears: [Int, 0],
-            options: [Any, {}],
-            output: [Str, ""],
-            ncols: [Int, 0],
-            nrows: [Int, 0],
-        }));
-    })();
 },
-"8be416b160": /* models/text_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"e9d16ed037": /* models/text_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const text_input_1 = require("@bokehjs/models/widgets/text_input");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     class EnterEvent extends bokeh_events_1.ModelEvent {
+        value_input;
         constructor(value_input) {
             super();
             this.value_input = value_input;
@@ -32030,13 +33765,11 @@ ${compiled}`;
         get event_values() {
             return { model: this.origin, value_input: this.value_input };
         }
+        static {
+            this.prototype.event_name = "enter-pressed";
+        }
     }
     exports.EnterEvent = EnterEvent;
-    _a = EnterEvent;
-    EnterEvent.__name__ = "EnterEvent";
-    (() => {
-        _a.prototype.event_name = "enter-pressed";
-    })();
     class TextInputView extends text_input_1.TextInputView {
         _keyup(event) {
             super._keyup(event);
@@ -32047,25 +33780,21 @@ ${compiled}`;
         }
     }
     exports.TextInputView = TextInputView;
-    TextInputView.__name__ = "TextInputView";
     class TextInput extends text_input_1.TextInput {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = TextInputView;
+            this.define(({}) => ({}));
+        }
     }
     exports.TextInput = TextInput;
-    _b = TextInput;
-    TextInput.__name__ = "TextInput";
-    TextInput.__module__ = "panel.models.widgets";
-    (() => {
-        _b.prototype.default_view = TextInputView;
-        _b.define(({}) => ({}));
-    })();
 },
-"a04eb51988": /* models/text_to_speech.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"1fb38b62cd": /* models/text_to_speech.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     function toVoicesList(voices) {
         const voicesList = [];
         for (const voice of voices) {
@@ -32081,6 +33810,8 @@ ${compiled}`;
         return voicesList;
     }
     class TextToSpeechView extends layout_1.HTMLBoxView {
+        voices;
+        _callback;
         initialize() {
             super.initialize();
             this.model.paused = speechSynthesis.paused;
@@ -32177,32 +33908,28 @@ ${compiled}`;
         }
     }
     exports.TextToSpeechView = TextToSpeechView;
-    TextToSpeechView.__name__ = "TextToSpeechView";
     class TextToSpeech extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.text_to_speech";
+        static {
+            this.prototype.default_view = TextToSpeechView;
+            this.define(({ Any, List, Bool }) => ({
+                paused: [Bool, false],
+                pending: [Bool, false],
+                speaking: [Bool, false],
+                voices: [List(Any), []],
+                cancel: [Bool, false],
+                pause: [Bool, false],
+                resume: [Bool, false],
+                speak: [Any, {}],
+            }));
+        }
     }
     exports.TextToSpeech = TextToSpeech;
-    _a = TextToSpeech;
-    TextToSpeech.__name__ = "TextToSpeech";
-    TextToSpeech.__module__ = "panel.models.text_to_speech";
-    (() => {
-        _a.prototype.default_view = TextToSpeechView;
-        _a.define(({ Any, List, Bool }) => ({
-            paused: [Bool, false],
-            pending: [Bool, false],
-            speaking: [Bool, false],
-            voices: [List(Any), []],
-            cancel: [Bool, false],
-            pause: [Bool, false],
-            resume: [Bool, false],
-            speak: [Any, {}],
-        }));
-    })();
 },
-"1afcab4e45": /* models/time_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"5e05e2d651": /* models/time_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const time_picker_1 = require("@bokehjs/models/widgets/time_picker");
     class TimePickerView extends time_picker_1.TimePickerView {
@@ -32239,25 +33966,21 @@ ${compiled}`;
         }
     }
     exports.TimePickerView = TimePickerView;
-    TimePickerView.__name__ = "TimePickerView";
     class TimePicker extends time_picker_1.TimePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.time_picker";
+        static {
+            this.prototype.default_view = TimePickerView;
+            this.define(({}) => ({}));
+        }
     }
     exports.TimePicker = TimePicker;
-    _a = TimePicker;
-    TimePicker.__name__ = "TimePicker";
-    TimePicker.__module__ = "panel.models.time_picker";
-    (() => {
-        _a.prototype.default_view = TimePickerView;
-        _a.define(({}) => ({}));
-    })();
 },
-"ad985f285e": /* models/toggle_icon.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"49efbd99ad": /* models/toggle_icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const icon_1 = require("6c7fbea0ef") /* ./icon */;
+    const icon_1 = require("bf77ad153d") /* ./icon */;
     class ToggleIconView extends icon_1.ClickableIconView {
         *controls() { }
         click() {
@@ -32269,23 +33992,19 @@ ${compiled}`;
         }
     }
     exports.ToggleIconView = ToggleIconView;
-    ToggleIconView.__name__ = "ToggleIconView";
     class ToggleIcon extends icon_1.ClickableIcon {
+        static __module__ = "panel.models.icon";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = ToggleIconView;
+            this.define(({}) => ({}));
+        }
     }
     exports.ToggleIcon = ToggleIcon;
-    _a = ToggleIcon;
-    ToggleIcon.__name__ = "ToggleIcon";
-    ToggleIcon.__module__ = "panel.models.icon";
-    (() => {
-        _a.prototype.default_view = ToggleIconView;
-        _a.define(({}) => ({}));
-    })();
 },
-"ae3a172647": /* models/tooltip_icon.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"aad04f1876": /* models/tooltip_icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const tooltip_1 = require("@bokehjs/models/ui/tooltip");
@@ -32294,6 +34013,7 @@ ${compiled}`;
     const inputs_css_1 = tslib_1.__importStar(require("@bokehjs/styles/widgets/inputs.css")), inputs = inputs_css_1;
     const icons_css_1 = tslib_1.__importDefault(require("@bokehjs/styles/icons.css"));
     class TooltipIconView extends layout_dom_1.LayoutDOMView {
+        desc_el;
         get child_models() {
             if (this.model.description == null) {
                 return [];
@@ -32360,27 +34080,23 @@ ${compiled}`;
         }
     }
     exports.TooltipIconView = TooltipIconView;
-    TooltipIconView.__name__ = "TooltipIconView";
     class TooltipIcon extends layout_dom_1.LayoutDOM {
+        static __module__ = "panel.models.widgets";
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = TooltipIconView;
+            this.define(({ Ref }) => ({
+                description: [Ref(tooltip_1.Tooltip), new tooltip_1.Tooltip()],
+            }));
+        }
     }
     exports.TooltipIcon = TooltipIcon;
-    _a = TooltipIcon;
-    TooltipIcon.__name__ = "TooltipIcon";
-    TooltipIcon.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = TooltipIconView;
-        _a.define(({ Ref }) => ({
-            description: [Ref(tooltip_1.Tooltip), new tooltip_1.Tooltip()],
-        }));
-    })();
 },
-"29d55a28a9": /* models/trend.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"eb967020e9": /* models/trend.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     const build_views_1 = require("@bokehjs/core/build_views");
     const plots_1 = require("@bokehjs/models/plots");
     const glyphs_1 = require("@bokehjs/models/glyphs");
@@ -32391,6 +34107,16 @@ ${compiled}`;
     const green = "#5cb85c";
     const blue = "#428bca";
     class TrendIndicatorView extends layout_1.HTMLBoxView {
+        containerDiv;
+        textDiv;
+        titleDiv;
+        valueDiv;
+        value2Div;
+        changeDiv;
+        plotDiv;
+        plot;
+        _value_format;
+        _value_change_format;
         initialize() {
             super.initialize();
             this.containerDiv = (0, dom_1.div)({ style: { height: "100%", width: "100%" } });
@@ -32567,46 +34293,44 @@ ${compiled}`;
         }
     }
     exports.TrendIndicatorView = TrendIndicatorView;
-    TrendIndicatorView.__name__ = "TrendIndicatorView";
     class TrendIndicator extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.trend";
+        static {
+            this.prototype.default_view = TrendIndicatorView;
+            this.define(({ Float, Str, Ref }) => ({
+                description: [Str, ""],
+                formatter: [Ref(formatters_1.TickFormatter), () => new formatters_1.BasicTickFormatter()],
+                change_formatter: [Ref(formatters_1.TickFormatter), () => new formatters_1.NumeralTickFormatter()],
+                layout: [Str, "column"],
+                source: [Ref(column_data_source_1.ColumnDataSource)],
+                plot_x: [Str, "x"],
+                plot_y: [Str, "y"],
+                plot_color: [Str, blue],
+                plot_type: [Str, "bar"],
+                pos_color: [Str, green],
+                neg_color: [Str, red],
+                title: [Str, ""],
+                value: [Float, 0],
+                value_change: [Float, 0],
+            }));
+        }
     }
     exports.TrendIndicator = TrendIndicator;
-    _a = TrendIndicator;
-    TrendIndicator.__name__ = "TrendIndicator";
-    TrendIndicator.__module__ = "panel.models.trend";
-    (() => {
-        _a.prototype.default_view = TrendIndicatorView;
-        _a.define(({ Float, Str, Ref }) => ({
-            description: [Str, ""],
-            formatter: [Ref(formatters_1.TickFormatter), () => new formatters_1.BasicTickFormatter()],
-            change_formatter: [Ref(formatters_1.TickFormatter), () => new formatters_1.NumeralTickFormatter()],
-            layout: [Str, "column"],
-            source: [Ref(column_data_source_1.ColumnDataSource)],
-            plot_x: [Str, "x"],
-            plot_y: [Str, "y"],
-            plot_color: [Str, blue],
-            plot_type: [Str, "bar"],
-            pos_color: [Str, green],
-            neg_color: [Str, red],
-            title: [Str, ""],
-            value: [Float, 0],
-            value_change: [Float, 0],
-        }));
-    })();
 },
-"22dbf7c070": /* models/vega.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+"03e8d20a08": /* models/vega.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const types_1 = require("@bokehjs/core/util/types");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const resources_1 = require("3ec7d872e2") /* ./resources */;
     const debounce_1 = require("99a25e6992") /* debounce */;
     class VegaEvent extends bokeh_events_1.ModelEvent {
+        data;
         constructor(data) {
             super();
             this.data = data;
@@ -32614,17 +34338,25 @@ ${compiled}`;
         get event_values() {
             return { model: this.origin, data: this.data };
         }
+        static {
+            this.prototype.event_name = "vega_event";
+        }
     }
     exports.VegaEvent = VegaEvent;
-    _a = VegaEvent;
-    VegaEvent.__name__ = "VegaEvent";
-    (() => {
-        _a.prototype.event_name = "vega_event";
-    })();
     class VegaPlotView extends layout_dom_1.LayoutDOMView {
-        constructor() {
-            super(...arguments);
-            this._rendered = false;
+        vega_view;
+        container;
+        _callbacks;
+        _connected;
+        _replot;
+        _resize;
+        _rendered = false;
+        async lazy_initialize() {
+            await super.lazy_initialize();
+            const error = await (0, resources_1.await_resources)(this.model);
+            if (error != null) {
+                (0, resources_1.render_resource_error)(this, error, layout_dom_1.LayoutDOMView.prototype.render);
+            }
         }
         connect_signals() {
             super.connect_signals();
@@ -32763,41 +34495,41 @@ ${compiled}`;
         }
     }
     exports.VegaPlotView = VegaPlotView;
-    VegaPlotView.__name__ = "VegaPlotView";
     class VegaPlot extends layout_dom_1.LayoutDOM {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.vega";
+        static {
+            this.prototype.default_view = VegaPlotView;
+            this.define(({ Any, List, Bool, Nullable, Str }) => ({
+                data: [Any, {}],
+                data_sources: [Any, {}],
+                events: [List(Str), []],
+                show_actions: [Bool, false],
+                theme: [Nullable(Str), null],
+                throttle: [Any, {}],
+            }));
+            (0, resources_1.define_external_resources)(this);
+        }
+        initialize() {
+            super.initialize();
+            (0, resources_1.load_resources)(this);
+        }
     }
     exports.VegaPlot = VegaPlot;
-    _b = VegaPlot;
-    VegaPlot.__name__ = "VegaPlot";
-    VegaPlot.__module__ = "panel.models.vega";
-    (() => {
-        _b.prototype.default_view = VegaPlotView;
-        _b.define(({ Any, List, Bool, Nullable, Str }) => ({
-            data: [Any, {}],
-            data_sources: [Any, {}],
-            events: [List(Str), []],
-            show_actions: [Bool, false],
-            theme: [Nullable(Str), null],
-            throttle: [Any, {}],
-        }));
-    })();
 },
-"79dc37b888": /* models/video.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"e8830cc759": /* models/video.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("84236c2552") /* ./layout */;
-    const video_css_1 = tslib_1.__importDefault(require("dfe21e6f1b") /* ../styles/models/video.css */);
+    const layout_1 = require("00beb93e38") /* ./layout */;
+    const video_css_1 = tslib_1.__importDefault(require("dfe21e6f1b") /* styles/models/video.css */);
     class VideoView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this._blocked = false;
-            this._setting = false;
-        }
+        video_el;
+        _time;
+        _blocked = false;
+        _setting = false;
         initialize() {
             super.initialize();
             this._time = Date.now();
@@ -32924,46 +34656,42 @@ ${compiled}`;
         }
     }
     exports.VideoView = VideoView;
-    VideoView.__name__ = "VideoView";
     class Video extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = VideoView;
+            this.define(({ Bool, Int, Float, Str, Nullable }) => ({
+                loop: [Bool, false],
+                paused: [Bool, true],
+                muted: [Bool, false],
+                autoplay: [Bool, false],
+                time: [Float, 0],
+                throttle: [Int, 250],
+                value: [Str, ""],
+                volume: [Nullable(Int), null],
+            }));
+        }
     }
     exports.Video = Video;
-    _a = Video;
-    Video.__name__ = "Video";
-    Video.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = VideoView;
-        _a.define(({ Bool, Int, Float, Str, Nullable }) => ({
-            loop: [Bool, false],
-            paused: [Bool, true],
-            muted: [Bool, false],
-            autoplay: [Bool, false],
-            time: [Float, 0],
-            throttle: [Int, 250],
-            value: [Str, ""],
-            volume: [Nullable(Int), null],
-        }));
-    })();
 },
 "dfe21e6f1b": /* styles/models/video.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `video{object-fit:fill;width:100%;height:100%;}`;
 },
-"f8afc4e661": /* models/videostream.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"73b5826147": /* models/videostream.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class VideoStreamView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this.constraints = {
-                audio: false,
-                video: true,
-            };
-        }
+        videoEl;
+        canvasEl;
+        constraints = {
+            audio: false,
+            video: true,
+        };
+        timer;
         initialize() {
             super.initialize();
             if (this.model.timeout !== null) {
@@ -33047,45 +34775,42 @@ ${compiled}`;
         }
     }
     exports.VideoStreamView = VideoStreamView;
-    VideoStreamView.__name__ = "VideoStreamView";
     class VideoStream extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.widgets";
+        static {
+            this.prototype.default_view = VideoStreamView;
+            this.define(({ Any, Bool, Int, Nullable, Str }) => ({
+                format: [Str, "png"],
+                paused: [Bool, false],
+                snapshot: [Bool, false],
+                timeout: [Nullable(Int), null],
+                value: [Any],
+            }));
+            this.override({
+                height: 240,
+                width: 320,
+            });
+        }
     }
     exports.VideoStream = VideoStream;
-    _a = VideoStream;
-    VideoStream.__name__ = "VideoStream";
-    VideoStream.__module__ = "panel.models.widgets";
-    (() => {
-        _a.prototype.default_view = VideoStreamView;
-        _a.define(({ Any, Bool, Int, Nullable, Str }) => ({
-            format: [Str, "png"],
-            paused: [Bool, false],
-            snapshot: [Bool, false],
-            timeout: [Nullable(Int), null],
-            value: [Any],
-        }));
-        _a.override({
-            height: 240,
-            width: 320,
-        });
-    })();
 },
-"1f7bc1f95b": /* models/vizzu.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"e8cb25b7b8": /* models/vizzu.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("84236c2552") /* ./layout */;
+    const layout_1 = require("00beb93e38") /* ./layout */;
     class VizzuEvent extends bokeh_events_1.ModelEvent {
+        data;
+        event_name = "vizzu_event";
+        publish = true;
         constructor(data) {
             super();
-            this.event_name = "vizzu_event";
-            this.publish = true;
             this.data = data;
         }
         get event_values() {
@@ -33093,14 +34818,12 @@ ${compiled}`;
         }
     }
     exports.VizzuEvent = VizzuEvent;
-    VizzuEvent.__name__ = "VizzuEvent";
     const VECTORIZED_PROPERTIES = ["x", "y", "color", "label", "lightness", "size", "splittedBy", "dividedBy"];
     class VizzuChartView extends layout_1.HTMLBoxView {
-        constructor() {
-            super(...arguments);
-            this.update = [];
-            this._animating = false;
-        }
+        container;
+        update = [];
+        vizzu_view;
+        _animating = false;
         connect_signals() {
             super.connect_signals();
             const update = (0, debounce_1.debounce)(() => {
@@ -33231,44 +34954,40 @@ ${compiled}`;
         }
     }
     exports.VizzuChartView = VizzuChartView;
-    VizzuChartView.__name__ = "VizzuChartView";
     class VizzuChart extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
         }
+        static __module__ = "panel.models.vizzu";
+        static {
+            this.prototype.default_view = VizzuChartView;
+            this.define(({ Any, List, Bool, Float, Ref }) => ({
+                animation: [Any, {}],
+                config: [Any, {}],
+                columns: [List(Any), []],
+                source: [Ref(column_data_source_1.ColumnDataSource)],
+                duration: [Float, 500],
+                style: [Any, {}],
+                tooltip: [Bool, false],
+            }));
+        }
     }
     exports.VizzuChart = VizzuChart;
-    _a = VizzuChart;
-    VizzuChart.__name__ = "VizzuChart";
-    VizzuChart.__module__ = "panel.models.vizzu";
-    (() => {
-        _a.prototype.default_view = VizzuChartView;
-        _a.define(({ Any, List, Bool, Float, Ref }) => ({
-            animation: [Any, {}],
-            config: [Any, {}],
-            columns: [List(Any), []],
-            source: [Ref(column_data_source_1.ColumnDataSource)],
-            duration: [Float, 500],
-            style: [Any, {}],
-            tooltip: [Bool, false],
-        }));
-    })();
 },
 "c51f25e2a7": /* models/vtk/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    var vtkjs_1 = require("ac55912dc1") /* ./vtkjs */;
+    var vtkjs_1 = require("f0476173e2") /* ./vtkjs */;
     __esExport("VTKJSPlot", vtkjs_1.VTKJSPlot);
-    var vtkvolume_1 = require("18592eecef") /* ./vtkvolume */;
+    var vtkvolume_1 = require("2d0f1e4d96") /* ./vtkvolume */;
     __esExport("VTKVolumePlot", vtkvolume_1.VTKVolumePlot);
-    var vtkaxes_1 = require("0379dcf1cd") /* ./vtkaxes */;
+    var vtkaxes_1 = require("a9b2ad3ad4") /* ./vtkaxes */;
     __esExport("VTKAxes", vtkaxes_1.VTKAxes);
-    var vtksynchronized_1 = require("a4e5946204") /* ./vtksynchronized */;
+    var vtksynchronized_1 = require("04077eec70") /* ./vtksynchronized */;
     __esExport("VTKSynchronizedPlot", vtksynchronized_1.VTKSynchronizedPlot);
 },
-"ac55912dc1": /* models/vtk/vtkjs.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"f0476173e2": /* models/vtk/vtkjs.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const vtklayout_1 = require("b06d05fa3e") /* ./vtklayout */;
+    const vtklayout_1 = require("d44e946ae8") /* ./vtklayout */;
     const util_1 = require("df9946ff52") /* ./util */;
     class VTKJSPlotView extends vtklayout_1.AbstractVTKView {
         connect_signals() {
@@ -33331,32 +35050,28 @@ ${compiled}`;
         }
     }
     exports.VTKJSPlotView = VTKJSPlotView;
-    VTKJSPlotView.__name__ = "VTKJSPlotView";
     class VTKJSPlot extends vtklayout_1.AbstractVTKPlot {
+        static {
+            this.prototype.default_view = VTKJSPlotView;
+            this.define(({ Boolean, Bytes, Nullable, String }) => ({
+                data: [Nullable(Bytes), null],
+                data_url: [Nullable(String), null],
+                enable_keybindings: [Boolean, false],
+            }));
+        }
     }
     exports.VTKJSPlot = VTKJSPlot;
-    _a = VTKJSPlot;
-    VTKJSPlot.__name__ = "VTKJSPlot";
-    (() => {
-        _a.prototype.default_view = VTKJSPlotView;
-        _a.define(({ Boolean, Bytes, Nullable, String }) => ({
-            data: [Nullable(Bytes), null],
-            data_url: [Nullable(String), null],
-            enable_keybindings: [Boolean, false],
-        }));
-    })();
 },
-"b06d05fa3e": /* models/vtk/vtklayout.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"d44e946ae8": /* models/vtk/vtklayout.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const object_1 = require("@bokehjs/core/util/object");
     const color_mapper_1 = require("@bokehjs/models/mappers/color_mapper");
     const kinds_1 = require("@bokehjs/core/kinds");
-    const layout_1 = require("84236c2552") /* ../layout */;
+    const layout_1 = require("00beb93e38") /* ../layout */;
     const util_1 = require("df9946ff52") /* ./util */;
-    const vtkcolorbar_1 = require("b1d68776a9") /* ./vtkcolorbar */;
-    const vtkaxes_1 = require("0379dcf1cd") /* ./vtkaxes */;
+    const vtkcolorbar_1 = require("db98967aab") /* ./vtkcolorbar */;
+    const vtkaxes_1 = require("a9b2ad3ad4") /* ./vtkaxes */;
     const INFO_DIV_STYLE = {
         padding: "0px 2px 0px 2px",
         maxHeight: "150px",
@@ -33373,6 +35088,16 @@ ${compiled}`;
     };
     const textPositions = (0, kinds_1.Enum)("LowerLeft", "LowerRight", "UpperLeft", "UpperRight", "LowerEdge", "RightEdge", "LeftEdge", "UpperEdge");
     class AbstractVTKView extends layout_1.HTMLBoxView {
+        _axes;
+        _camera_callbacks;
+        _orientationWidget;
+        _renderable;
+        _setting_camera;
+        _vtk_container;
+        _vtk_renwin;
+        _widgetManager;
+        _annotations_container;
+        _rendered;
         initialize() {
             super.initialize();
             this._camera_callbacks = [];
@@ -33766,8 +35491,9 @@ ${compiled}`;
         }
     }
     exports.AbstractVTKView = AbstractVTKView;
-    AbstractVTKView.__name__ = "AbstractVTKView";
     class AbstractVTKPlot extends layout_1.HTMLBox {
+        renderer_el;
+        static __module__ = "panel.models.vtk";
         constructor(attrs) {
             (0, util_1.setup_vtkns)();
             super(attrs);
@@ -33775,25 +35501,22 @@ ${compiled}`;
         getActors() {
             return this.renderer_el.getRenderer().getActors();
         }
+        static {
+            this.define(({ Any, Ref, Array, Boolean, Nullable }) => ({
+                axes: [Nullable(Ref(vtkaxes_1.VTKAxes)), null],
+                camera: [Any, {}],
+                color_mappers: [Array(Ref(color_mapper_1.ColorMapper)), []],
+                orientation_widget: [Boolean, false],
+                interactive_orientation_widget: [Boolean, false],
+                annotations: [Nullable(Array(Any)), null],
+            }));
+            this.override({
+                height: 300,
+                width: 300,
+            });
+        }
     }
     exports.AbstractVTKPlot = AbstractVTKPlot;
-    _a = AbstractVTKPlot;
-    AbstractVTKPlot.__name__ = "AbstractVTKPlot";
-    AbstractVTKPlot.__module__ = "panel.models.vtk";
-    (() => {
-        _a.define(({ Any, Ref, Array, Boolean, Nullable }) => ({
-            axes: [Nullable(Ref(vtkaxes_1.VTKAxes)), null],
-            camera: [Any, {}],
-            color_mappers: [Array(Ref(color_mapper_1.ColorMapper)), []],
-            orientation_widget: [Boolean, false],
-            interactive_orientation_widget: [Boolean, false],
-            annotations: [Nullable(Array(Any)), null],
-        }));
-        _a.override({
-            height: 300,
-            width: 300,
-        });
-    })();
 },
 "df9946ff52": /* models/vtk/util.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -33950,11 +35673,16 @@ ${compiled}`;
         });
     }
 },
-"b1d68776a9": /* models/vtk/vtkcolorbar.js */ function _(require, module, exports, __esModule, __esExport) {
+"db98967aab": /* models/vtk/vtkcolorbar.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const mappers_1 = require("@bokehjs/models/mappers");
     const array_1 = require("@bokehjs/core/util/array");
     class VTKColorBar {
+        parent;
+        mapper;
+        options;
+        canvas;
+        ctx;
         constructor(parent, mapper, options = {}) {
             this.parent = parent;
             this.mapper = mapper;
@@ -34055,17 +35783,48 @@ ${compiled}`;
         }
     }
     exports.VTKColorBar = VTKColorBar;
-    VTKColorBar.__name__ = "VTKColorBar";
 },
-"0379dcf1cd": /* models/vtk/vtkaxes.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"a9b2ad3ad4": /* models/vtk/vtkaxes.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const model_1 = require("@bokehjs/model");
-    const gl_matrix_1 = require("2f3fd5db07") /* gl-matrix */;
     const util_1 = require("df9946ff52") /* ./util */;
+    // In-place transpose of a 4x4 matrix
+    function transpose4(m) {
+        for (let i = 0; i < 4; i++) {
+            for (let j = i + 1; j < 4; j++) {
+                const tmp = m[i * 4 + j];
+                m[i * 4 + j] = m[j * 4 + i];
+                m[j * 4 + i] = tmp;
+            }
+        }
+    }
+    // Transforms a point by a column-major 4x4 matrix, including the perspective divide
+    function transform_point([x, y, z], m) {
+        const wh = m[3] * x + m[7] * y + m[11] * z + m[15];
+        const w = wh === 0 || Number.isNaN(wh) ? 1 : wh;
+        return [
+            (m[0] * x + m[4] * y + m[8] * z + m[12]) / w,
+            (m[1] * x + m[5] * y + m[9] * z + m[13]) / w,
+            (m[2] * x + m[6] * y + m[10] * z + m[14]) / w,
+        ];
+    }
     class VTKAxes extends model_1.Model {
         constructor(attrs) {
             super(attrs);
+        }
+        static __module__ = "panel.models.vtk";
+        static {
+            this.define(({ Any, Array, Boolean, Number }) => ({
+                origin: [Array(Number), [0, 0, 0]],
+                xticker: [Any, null],
+                yticker: [Any, null],
+                zticker: [Any, null],
+                digits: [Number, 1],
+                show_grid: [Boolean, true],
+                grid_opacity: [Number, 0.1],
+                axes_opacity: [Number, 1],
+                fontsize: [Number, 12],
+            }));
         }
         get xticks() {
             if (this.xticker) {
@@ -34209,17 +35968,16 @@ ${compiled}`;
                     };
                     const dataPoints = psMapper.getInputData().getPoints();
                     const viewMatrix = camera.getViewMatrix();
-                    gl_matrix_1.mat4.transpose(viewMatrix, viewMatrix);
+                    transpose4(viewMatrix);
                     const projMatrix = camera.getProjectionMatrix(aspect, -1, 1);
-                    gl_matrix_1.mat4.transpose(projMatrix, projMatrix);
+                    transpose4(projMatrix);
                     textCtx.clearRect(0, 0, dims.width, dims.height);
                     coordsList.forEach((xy, idx) => {
                         const pdPoint = dataPoints.getPoint(idx);
-                        const vc = gl_matrix_1.vec3.fromValues(pdPoint[0], pdPoint[1], pdPoint[2]);
-                        gl_matrix_1.vec3.transformMat4(vc, vc, viewMatrix);
+                        const vc = transform_point(pdPoint, viewMatrix);
                         vc[2] += 0.05; // sensibility
-                        gl_matrix_1.vec3.transformMat4(vc, vc, projMatrix);
-                        if (vc[2] - 0.001 < xy[3]) {
+                        const projected = transform_point(vc, projMatrix);
+                        if (projected[2] - 0.001 < xy[3]) {
                             textCtx.font = "30px serif";
                             textCtx.textAlign = "center";
                             textCtx.textBaseline = "alphabetic";
@@ -34255,6705 +36013,14 @@ ${compiled}`;
         }
     }
     exports.VTKAxes = VTKAxes;
-    _a = VTKAxes;
-    VTKAxes.__name__ = "VTKAxes";
-    VTKAxes.__module__ = "panel.models.vtk";
-    (() => {
-        _a.define(({ Any, Array, Boolean, Number }) => ({
-            origin: [Array(Number), [0, 0, 0]],
-            xticker: [Any, null],
-            yticker: [Any, null],
-            zticker: [Any, null],
-            digits: [Number, 1],
-            show_grid: [Boolean, true],
-            grid_opacity: [Number, 0.1],
-            axes_opacity: [Number, 1],
-            fontsize: [Number, 12],
-        }));
-    })();
 },
-"2f3fd5db07": /* gl-matrix/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
+"2d0f1e4d96": /* models/vtk/vtkvolume.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    exports.glMatrix = glMatrix;
-    const mat2 = tslib_1.__importStar(require("d77e165b60") /* ./mat2.js */);
-    exports.mat2 = mat2;
-    const mat2d = tslib_1.__importStar(require("33a5f6cb7a") /* ./mat2d.js */);
-    exports.mat2d = mat2d;
-    const mat3 = tslib_1.__importStar(require("a025ef02dc") /* ./mat3.js */);
-    exports.mat3 = mat3;
-    const mat4 = tslib_1.__importStar(require("83bad9e639") /* ./mat4.js */);
-    exports.mat4 = mat4;
-    const quat = tslib_1.__importStar(require("f83fe7c413") /* ./quat.js */);
-    exports.quat = quat;
-    const quat2 = tslib_1.__importStar(require("fb9294db61") /* ./quat2.js */);
-    exports.quat2 = quat2;
-    const vec2 = tslib_1.__importStar(require("58c71a9bd3") /* ./vec2.js */);
-    exports.vec2 = vec2;
-    const vec3 = tslib_1.__importStar(require("63eddc5433") /* ./vec3.js */);
-    exports.vec3 = vec3;
-    const vec4 = tslib_1.__importStar(require("11562bccc5") /* ./vec4.js */);
-    exports.vec4 = vec4;
-},
-"7d825b979e": /* gl-matrix/esm/common.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.setMatrixArrayType = setMatrixArrayType;
-    exports.toRadian = toRadian;
-    exports.equals = equals;
-    /**
-     * Common utilities
-     * @module glMatrix
-     */
-    // Configuration Constants
-    exports.EPSILON = 0.000001;
-    exports.ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
-    exports.RANDOM = Math.random;
-    /**
-     * Sets the type of array used when creating new vectors and matrices
-     *
-     * @param {Float32ArrayConstructor | ArrayConstructor} type Array type, such as Float32Array or Array
-     */
-    function setMatrixArrayType(type) {
-        exports.ARRAY_TYPE = type;
-    }
-    var degree = Math.PI / 180;
-    /**
-     * Convert Degree To Radian
-     *
-     * @param {Number} a Angle in Degrees
-     */
-    function toRadian(a) {
-        return a * degree;
-    }
-    /**
-     * Tests whether or not the arguments have approximately the same value, within an absolute
-     * or relative tolerance of glMatrix.EPSILON (an absolute tolerance is used for values less
-     * than or equal to 1.0, and a relative tolerance is used for larger values)
-     *
-     * @param {Number} a The first number to test.
-     * @param {Number} b The second number to test.
-     * @returns {Boolean} True if the numbers are approximately equal, false otherwise.
-     */
-    function equals(a, b) {
-        return Math.abs(a - b) <= exports.EPSILON * Math.max(1.0, Math.abs(a), Math.abs(b));
-    }
-    if (!Math.hypot)
-        Math.hypot = function () {
-            var y = 0, i = arguments.length;
-            while (i--) {
-                y += arguments[i] * arguments[i];
-            }
-            return Math.sqrt(y);
-        };
-},
-"d77e165b60": /* gl-matrix/esm/mat2.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.copy = copy;
-    exports.identity = identity;
-    exports.fromValues = fromValues;
-    exports.set = set;
-    exports.transpose = transpose;
-    exports.invert = invert;
-    exports.adjoint = adjoint;
-    exports.determinant = determinant;
-    exports.multiply = multiply;
-    exports.rotate = rotate;
-    exports.scale = scale;
-    exports.fromRotation = fromRotation;
-    exports.fromScaling = fromScaling;
-    exports.str = str;
-    exports.frob = frob;
-    exports.LDU = LDU;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    exports.multiplyScalar = multiplyScalar;
-    exports.multiplyScalarAndAdd = multiplyScalarAndAdd;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 2x2 Matrix
-     * @module mat2
-     */
-    /**
-     * Creates a new identity mat2
-     *
-     * @returns {mat2} a new 2x2 matrix
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[1] = 0;
-            out[2] = 0;
-        }
-        out[0] = 1;
-        out[3] = 1;
-        return out;
-    }
-    /**
-     * Creates a new mat2 initialized with values from an existing matrix
-     *
-     * @param {ReadonlyMat2} a matrix to clone
-     * @returns {mat2} a new 2x2 matrix
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        return out;
-    }
-    /**
-     * Copy the values from one mat2 to another
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the source matrix
-     * @returns {mat2} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        return out;
-    }
-    /**
-     * Set a mat2 to the identity matrix
-     *
-     * @param {mat2} out the receiving matrix
-     * @returns {mat2} out
-     */
-    function identity(out) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        return out;
-    }
-    /**
-     * Create a new mat2 with the given values
-     *
-     * @param {Number} m00 Component in column 0, row 0 position (index 0)
-     * @param {Number} m01 Component in column 0, row 1 position (index 1)
-     * @param {Number} m10 Component in column 1, row 0 position (index 2)
-     * @param {Number} m11 Component in column 1, row 1 position (index 3)
-     * @returns {mat2} out A new 2x2 matrix
-     */
-    function fromValues(m00, m01, m10, m11) {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        out[0] = m00;
-        out[1] = m01;
-        out[2] = m10;
-        out[3] = m11;
-        return out;
-    }
-    /**
-     * Set the components of a mat2 to the given values
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {Number} m00 Component in column 0, row 0 position (index 0)
-     * @param {Number} m01 Component in column 0, row 1 position (index 1)
-     * @param {Number} m10 Component in column 1, row 0 position (index 2)
-     * @param {Number} m11 Component in column 1, row 1 position (index 3)
-     * @returns {mat2} out
-     */
-    function set(out, m00, m01, m10, m11) {
-        out[0] = m00;
-        out[1] = m01;
-        out[2] = m10;
-        out[3] = m11;
-        return out;
-    }
-    /**
-     * Transpose the values of a mat2
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the source matrix
-     * @returns {mat2} out
-     */
-    function transpose(out, a) {
-        // If we are transposing ourselves we can skip a few steps but have to cache
-        // some values
-        if (out === a) {
-            var a1 = a[1];
-            out[1] = a[2];
-            out[2] = a1;
-        }
-        else {
-            out[0] = a[0];
-            out[1] = a[2];
-            out[2] = a[1];
-            out[3] = a[3];
-        }
-        return out;
-    }
-    /**
-     * Inverts a mat2
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the source matrix
-     * @returns {mat2} out
-     */
-    function invert(out, a) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3]; // Calculate the determinant
-        var det = a0 * a3 - a2 * a1;
-        if (!det) {
-            return null;
-        }
-        det = 1.0 / det;
-        out[0] = a3 * det;
-        out[1] = -a1 * det;
-        out[2] = -a2 * det;
-        out[3] = a0 * det;
-        return out;
-    }
-    /**
-     * Calculates the adjugate of a mat2
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the source matrix
-     * @returns {mat2} out
-     */
-    function adjoint(out, a) {
-        // Caching this value is nessecary if out == a
-        var a0 = a[0];
-        out[0] = a[3];
-        out[1] = -a[1];
-        out[2] = -a[2];
-        out[3] = a0;
-        return out;
-    }
-    /**
-     * Calculates the determinant of a mat2
-     *
-     * @param {ReadonlyMat2} a the source matrix
-     * @returns {Number} determinant of a
-     */
-    function determinant(a) {
-        return a[0] * a[3] - a[2] * a[1];
-    }
-    /**
-     * Multiplies two mat2's
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the first operand
-     * @param {ReadonlyMat2} b the second operand
-     * @returns {mat2} out
-     */
-    function multiply(out, a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-        out[0] = a0 * b0 + a2 * b1;
-        out[1] = a1 * b0 + a3 * b1;
-        out[2] = a0 * b2 + a2 * b3;
-        out[3] = a1 * b2 + a3 * b3;
-        return out;
-    }
-    /**
-     * Rotates a mat2 by the given angle
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat2} out
-     */
-    function rotate(out, a, rad) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var s = Math.sin(rad);
-        var c = Math.cos(rad);
-        out[0] = a0 * c + a2 * s;
-        out[1] = a1 * c + a3 * s;
-        out[2] = a0 * -s + a2 * c;
-        out[3] = a1 * -s + a3 * c;
-        return out;
-    }
-    /**
-     * Scales the mat2 by the dimensions in the given vec2
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the matrix to rotate
-     * @param {ReadonlyVec2} v the vec2 to scale the matrix by
-     * @returns {mat2} out
-     **/
-    function scale(out, a, v) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var v0 = v[0], v1 = v[1];
-        out[0] = a0 * v0;
-        out[1] = a1 * v0;
-        out[2] = a2 * v1;
-        out[3] = a3 * v1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a given angle
-     * This is equivalent to (but much faster than):
-     *
-     *     mat2.identity(dest);
-     *     mat2.rotate(dest, dest, rad);
-     *
-     * @param {mat2} out mat2 receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat2} out
-     */
-    function fromRotation(out, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad);
-        out[0] = c;
-        out[1] = s;
-        out[2] = -s;
-        out[3] = c;
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector scaling
-     * This is equivalent to (but much faster than):
-     *
-     *     mat2.identity(dest);
-     *     mat2.scale(dest, dest, vec);
-     *
-     * @param {mat2} out mat2 receiving operation result
-     * @param {ReadonlyVec2} v Scaling vector
-     * @returns {mat2} out
-     */
-    function fromScaling(out, v) {
-        out[0] = v[0];
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = v[1];
-        return out;
-    }
-    /**
-     * Returns a string representation of a mat2
-     *
-     * @param {ReadonlyMat2} a matrix to represent as a string
-     * @returns {String} string representation of the matrix
-     */
-    function str(a) {
-        return "mat2(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ")";
-    }
-    /**
-     * Returns Frobenius norm of a mat2
-     *
-     * @param {ReadonlyMat2} a the matrix to calculate Frobenius norm of
-     * @returns {Number} Frobenius norm
-     */
-    function frob(a) {
-        return Math.hypot(a[0], a[1], a[2], a[3]);
-    }
-    /**
-     * Returns L, D and U matrices (Lower triangular, Diagonal and Upper triangular) by factorizing the input matrix
-     * @param {ReadonlyMat2} L the lower triangular matrix
-     * @param {ReadonlyMat2} D the diagonal matrix
-     * @param {ReadonlyMat2} U the upper triangular matrix
-     * @param {ReadonlyMat2} a the input matrix to factorize
-     */
-    function LDU(L, D, U, a) {
-        L[2] = a[2] / a[0];
-        U[0] = a[0];
-        U[1] = a[1];
-        U[3] = a[3] - L[2] * U[1];
-        return [L, D, U];
-    }
-    /**
-     * Adds two mat2's
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the first operand
-     * @param {ReadonlyMat2} b the second operand
-     * @returns {mat2} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        out[3] = a[3] + b[3];
-        return out;
-    }
-    /**
-     * Subtracts matrix b from matrix a
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the first operand
-     * @param {ReadonlyMat2} b the second operand
-     * @returns {mat2} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        out[2] = a[2] - b[2];
-        out[3] = a[3] - b[3];
-        return out;
-    }
-    /**
-     * Returns whether or not the matrices have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyMat2} a The first matrix.
-     * @param {ReadonlyMat2} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
-    }
-    /**
-     * Returns whether or not the matrices have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyMat2} a The first matrix.
-     * @param {ReadonlyMat2} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) && Math.abs(a3 - b3) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3));
-    }
-    /**
-     * Multiply each element of the matrix by a scalar.
-     *
-     * @param {mat2} out the receiving matrix
-     * @param {ReadonlyMat2} a the matrix to scale
-     * @param {Number} b amount to scale the matrix's elements by
-     * @returns {mat2} out
-     */
-    function multiplyScalar(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        out[3] = a[3] * b;
-        return out;
-    }
-    /**
-     * Adds two mat2's after multiplying each element of the second operand by a scalar value.
-     *
-     * @param {mat2} out the receiving vector
-     * @param {ReadonlyMat2} a the first operand
-     * @param {ReadonlyMat2} b the second operand
-     * @param {Number} scale the amount to scale b's elements by before adding
-     * @returns {mat2} out
-     */
-    function multiplyScalarAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        out[2] = a[2] + b[2] * scale;
-        out[3] = a[3] + b[3] * scale;
-        return out;
-    }
-    /**
-     * Alias for {@link mat2.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link mat2.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-},
-"33a5f6cb7a": /* gl-matrix/esm/mat2d.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.copy = copy;
-    exports.identity = identity;
-    exports.fromValues = fromValues;
-    exports.set = set;
-    exports.invert = invert;
-    exports.determinant = determinant;
-    exports.multiply = multiply;
-    exports.rotate = rotate;
-    exports.scale = scale;
-    exports.translate = translate;
-    exports.fromRotation = fromRotation;
-    exports.fromScaling = fromScaling;
-    exports.fromTranslation = fromTranslation;
-    exports.str = str;
-    exports.frob = frob;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.multiplyScalar = multiplyScalar;
-    exports.multiplyScalarAndAdd = multiplyScalarAndAdd;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 2x3 Matrix
-     * @module mat2d
-     * @description
-     * A mat2d contains six elements defined as:
-     * <pre>
-     * [a, b,
-     *  c, d,
-     *  tx, ty]
-     * </pre>
-     * This is a short form for the 3x3 matrix:
-     * <pre>
-     * [a, b, 0,
-     *  c, d, 0,
-     *  tx, ty, 1]
-     * </pre>
-     * The last column is ignored so the array is shorter and operations are faster.
-     */
-    /**
-     * Creates a new identity mat2d
-     *
-     * @returns {mat2d} a new 2x3 matrix
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(6);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[1] = 0;
-            out[2] = 0;
-            out[4] = 0;
-            out[5] = 0;
-        }
-        out[0] = 1;
-        out[3] = 1;
-        return out;
-    }
-    /**
-     * Creates a new mat2d initialized with values from an existing matrix
-     *
-     * @param {ReadonlyMat2d} a matrix to clone
-     * @returns {mat2d} a new 2x3 matrix
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(6);
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        return out;
-    }
-    /**
-     * Copy the values from one mat2d to another
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the source matrix
-     * @returns {mat2d} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        return out;
-    }
-    /**
-     * Set a mat2d to the identity matrix
-     *
-     * @param {mat2d} out the receiving matrix
-     * @returns {mat2d} out
-     */
-    function identity(out) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        out[4] = 0;
-        out[5] = 0;
-        return out;
-    }
-    /**
-     * Create a new mat2d with the given values
-     *
-     * @param {Number} a Component A (index 0)
-     * @param {Number} b Component B (index 1)
-     * @param {Number} c Component C (index 2)
-     * @param {Number} d Component D (index 3)
-     * @param {Number} tx Component TX (index 4)
-     * @param {Number} ty Component TY (index 5)
-     * @returns {mat2d} A new mat2d
-     */
-    function fromValues(a, b, c, d, tx, ty) {
-        var out = new glMatrix.ARRAY_TYPE(6);
-        out[0] = a;
-        out[1] = b;
-        out[2] = c;
-        out[3] = d;
-        out[4] = tx;
-        out[5] = ty;
-        return out;
-    }
-    /**
-     * Set the components of a mat2d to the given values
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {Number} a Component A (index 0)
-     * @param {Number} b Component B (index 1)
-     * @param {Number} c Component C (index 2)
-     * @param {Number} d Component D (index 3)
-     * @param {Number} tx Component TX (index 4)
-     * @param {Number} ty Component TY (index 5)
-     * @returns {mat2d} out
-     */
-    function set(out, a, b, c, d, tx, ty) {
-        out[0] = a;
-        out[1] = b;
-        out[2] = c;
-        out[3] = d;
-        out[4] = tx;
-        out[5] = ty;
-        return out;
-    }
-    /**
-     * Inverts a mat2d
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the source matrix
-     * @returns {mat2d} out
-     */
-    function invert(out, a) {
-        var aa = a[0], ab = a[1], ac = a[2], ad = a[3];
-        var atx = a[4], aty = a[5];
-        var det = aa * ad - ab * ac;
-        if (!det) {
-            return null;
-        }
-        det = 1.0 / det;
-        out[0] = ad * det;
-        out[1] = -ab * det;
-        out[2] = -ac * det;
-        out[3] = aa * det;
-        out[4] = (ac * aty - ad * atx) * det;
-        out[5] = (ab * atx - aa * aty) * det;
-        return out;
-    }
-    /**
-     * Calculates the determinant of a mat2d
-     *
-     * @param {ReadonlyMat2d} a the source matrix
-     * @returns {Number} determinant of a
-     */
-    function determinant(a) {
-        return a[0] * a[3] - a[1] * a[2];
-    }
-    /**
-     * Multiplies two mat2d's
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the first operand
-     * @param {ReadonlyMat2d} b the second operand
-     * @returns {mat2d} out
-     */
-    function multiply(out, a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3], b4 = b[4], b5 = b[5];
-        out[0] = a0 * b0 + a2 * b1;
-        out[1] = a1 * b0 + a3 * b1;
-        out[2] = a0 * b2 + a2 * b3;
-        out[3] = a1 * b2 + a3 * b3;
-        out[4] = a0 * b4 + a2 * b5 + a4;
-        out[5] = a1 * b4 + a3 * b5 + a5;
-        return out;
-    }
-    /**
-     * Rotates a mat2d by the given angle
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat2d} out
-     */
-    function rotate(out, a, rad) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5];
-        var s = Math.sin(rad);
-        var c = Math.cos(rad);
-        out[0] = a0 * c + a2 * s;
-        out[1] = a1 * c + a3 * s;
-        out[2] = a0 * -s + a2 * c;
-        out[3] = a1 * -s + a3 * c;
-        out[4] = a4;
-        out[5] = a5;
-        return out;
-    }
-    /**
-     * Scales the mat2d by the dimensions in the given vec2
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the matrix to translate
-     * @param {ReadonlyVec2} v the vec2 to scale the matrix by
-     * @returns {mat2d} out
-     **/
-    function scale(out, a, v) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5];
-        var v0 = v[0], v1 = v[1];
-        out[0] = a0 * v0;
-        out[1] = a1 * v0;
-        out[2] = a2 * v1;
-        out[3] = a3 * v1;
-        out[4] = a4;
-        out[5] = a5;
-        return out;
-    }
-    /**
-     * Translates the mat2d by the dimensions in the given vec2
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the matrix to translate
-     * @param {ReadonlyVec2} v the vec2 to translate the matrix by
-     * @returns {mat2d} out
-     **/
-    function translate(out, a, v) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5];
-        var v0 = v[0], v1 = v[1];
-        out[0] = a0;
-        out[1] = a1;
-        out[2] = a2;
-        out[3] = a3;
-        out[4] = a0 * v0 + a2 * v1 + a4;
-        out[5] = a1 * v0 + a3 * v1 + a5;
-        return out;
-    }
-    /**
-     * Creates a matrix from a given angle
-     * This is equivalent to (but much faster than):
-     *
-     *     mat2d.identity(dest);
-     *     mat2d.rotate(dest, dest, rad);
-     *
-     * @param {mat2d} out mat2d receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat2d} out
-     */
-    function fromRotation(out, rad) {
-        var s = Math.sin(rad), c = Math.cos(rad);
-        out[0] = c;
-        out[1] = s;
-        out[2] = -s;
-        out[3] = c;
-        out[4] = 0;
-        out[5] = 0;
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector scaling
-     * This is equivalent to (but much faster than):
-     *
-     *     mat2d.identity(dest);
-     *     mat2d.scale(dest, dest, vec);
-     *
-     * @param {mat2d} out mat2d receiving operation result
-     * @param {ReadonlyVec2} v Scaling vector
-     * @returns {mat2d} out
-     */
-    function fromScaling(out, v) {
-        out[0] = v[0];
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = v[1];
-        out[4] = 0;
-        out[5] = 0;
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector translation
-     * This is equivalent to (but much faster than):
-     *
-     *     mat2d.identity(dest);
-     *     mat2d.translate(dest, dest, vec);
-     *
-     * @param {mat2d} out mat2d receiving operation result
-     * @param {ReadonlyVec2} v Translation vector
-     * @returns {mat2d} out
-     */
-    function fromTranslation(out, v) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        out[4] = v[0];
-        out[5] = v[1];
-        return out;
-    }
-    /**
-     * Returns a string representation of a mat2d
-     *
-     * @param {ReadonlyMat2d} a matrix to represent as a string
-     * @returns {String} string representation of the matrix
-     */
-    function str(a) {
-        return "mat2d(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ", " + a[4] + ", " + a[5] + ")";
-    }
-    /**
-     * Returns Frobenius norm of a mat2d
-     *
-     * @param {ReadonlyMat2d} a the matrix to calculate Frobenius norm of
-     * @returns {Number} Frobenius norm
-     */
-    function frob(a) {
-        return Math.hypot(a[0], a[1], a[2], a[3], a[4], a[5], 1);
-    }
-    /**
-     * Adds two mat2d's
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the first operand
-     * @param {ReadonlyMat2d} b the second operand
-     * @returns {mat2d} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        out[3] = a[3] + b[3];
-        out[4] = a[4] + b[4];
-        out[5] = a[5] + b[5];
-        return out;
-    }
-    /**
-     * Subtracts matrix b from matrix a
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the first operand
-     * @param {ReadonlyMat2d} b the second operand
-     * @returns {mat2d} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        out[2] = a[2] - b[2];
-        out[3] = a[3] - b[3];
-        out[4] = a[4] - b[4];
-        out[5] = a[5] - b[5];
-        return out;
-    }
-    /**
-     * Multiply each element of the matrix by a scalar.
-     *
-     * @param {mat2d} out the receiving matrix
-     * @param {ReadonlyMat2d} a the matrix to scale
-     * @param {Number} b amount to scale the matrix's elements by
-     * @returns {mat2d} out
-     */
-    function multiplyScalar(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        out[3] = a[3] * b;
-        out[4] = a[4] * b;
-        out[5] = a[5] * b;
-        return out;
-    }
-    /**
-     * Adds two mat2d's after multiplying each element of the second operand by a scalar value.
-     *
-     * @param {mat2d} out the receiving vector
-     * @param {ReadonlyMat2d} a the first operand
-     * @param {ReadonlyMat2d} b the second operand
-     * @param {Number} scale the amount to scale b's elements by before adding
-     * @returns {mat2d} out
-     */
-    function multiplyScalarAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        out[2] = a[2] + b[2] * scale;
-        out[3] = a[3] + b[3] * scale;
-        out[4] = a[4] + b[4] * scale;
-        out[5] = a[5] + b[5] * scale;
-        return out;
-    }
-    /**
-     * Returns whether or not the matrices have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyMat2d} a The first matrix.
-     * @param {ReadonlyMat2d} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5];
-    }
-    /**
-     * Returns whether or not the matrices have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyMat2d} a The first matrix.
-     * @param {ReadonlyMat2d} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3], b4 = b[4], b5 = b[5];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) && Math.abs(a3 - b3) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3)) && Math.abs(a4 - b4) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a4), Math.abs(b4)) && Math.abs(a5 - b5) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a5), Math.abs(b5));
-    }
-    /**
-     * Alias for {@link mat2d.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link mat2d.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-},
-"a025ef02dc": /* gl-matrix/esm/mat3.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.fromMat4 = fromMat4;
-    exports.clone = clone;
-    exports.copy = copy;
-    exports.fromValues = fromValues;
-    exports.set = set;
-    exports.identity = identity;
-    exports.transpose = transpose;
-    exports.invert = invert;
-    exports.adjoint = adjoint;
-    exports.determinant = determinant;
-    exports.multiply = multiply;
-    exports.translate = translate;
-    exports.rotate = rotate;
-    exports.scale = scale;
-    exports.fromTranslation = fromTranslation;
-    exports.fromRotation = fromRotation;
-    exports.fromScaling = fromScaling;
-    exports.fromMat2d = fromMat2d;
-    exports.fromQuat = fromQuat;
-    exports.normalFromMat4 = normalFromMat4;
-    exports.projection = projection;
-    exports.str = str;
-    exports.frob = frob;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.multiplyScalar = multiplyScalar;
-    exports.multiplyScalarAndAdd = multiplyScalarAndAdd;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 3x3 Matrix
-     * @module mat3
-     */
-    /**
-     * Creates a new identity mat3
-     *
-     * @returns {mat3} a new 3x3 matrix
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(9);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[1] = 0;
-            out[2] = 0;
-            out[3] = 0;
-            out[5] = 0;
-            out[6] = 0;
-            out[7] = 0;
-        }
-        out[0] = 1;
-        out[4] = 1;
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Copies the upper-left 3x3 values into the given mat3.
-     *
-     * @param {mat3} out the receiving 3x3 matrix
-     * @param {ReadonlyMat4} a   the source 4x4 matrix
-     * @returns {mat3} out
-     */
-    function fromMat4(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[4];
-        out[4] = a[5];
-        out[5] = a[6];
-        out[6] = a[8];
-        out[7] = a[9];
-        out[8] = a[10];
-        return out;
-    }
-    /**
-     * Creates a new mat3 initialized with values from an existing matrix
-     *
-     * @param {ReadonlyMat3} a matrix to clone
-     * @returns {mat3} a new 3x3 matrix
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(9);
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        out[6] = a[6];
-        out[7] = a[7];
-        out[8] = a[8];
-        return out;
-    }
-    /**
-     * Copy the values from one mat3 to another
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the source matrix
-     * @returns {mat3} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        out[6] = a[6];
-        out[7] = a[7];
-        out[8] = a[8];
-        return out;
-    }
-    /**
-     * Create a new mat3 with the given values
-     *
-     * @param {Number} m00 Component in column 0, row 0 position (index 0)
-     * @param {Number} m01 Component in column 0, row 1 position (index 1)
-     * @param {Number} m02 Component in column 0, row 2 position (index 2)
-     * @param {Number} m10 Component in column 1, row 0 position (index 3)
-     * @param {Number} m11 Component in column 1, row 1 position (index 4)
-     * @param {Number} m12 Component in column 1, row 2 position (index 5)
-     * @param {Number} m20 Component in column 2, row 0 position (index 6)
-     * @param {Number} m21 Component in column 2, row 1 position (index 7)
-     * @param {Number} m22 Component in column 2, row 2 position (index 8)
-     * @returns {mat3} A new mat3
-     */
-    function fromValues(m00, m01, m02, m10, m11, m12, m20, m21, m22) {
-        var out = new glMatrix.ARRAY_TYPE(9);
-        out[0] = m00;
-        out[1] = m01;
-        out[2] = m02;
-        out[3] = m10;
-        out[4] = m11;
-        out[5] = m12;
-        out[6] = m20;
-        out[7] = m21;
-        out[8] = m22;
-        return out;
-    }
-    /**
-     * Set the components of a mat3 to the given values
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {Number} m00 Component in column 0, row 0 position (index 0)
-     * @param {Number} m01 Component in column 0, row 1 position (index 1)
-     * @param {Number} m02 Component in column 0, row 2 position (index 2)
-     * @param {Number} m10 Component in column 1, row 0 position (index 3)
-     * @param {Number} m11 Component in column 1, row 1 position (index 4)
-     * @param {Number} m12 Component in column 1, row 2 position (index 5)
-     * @param {Number} m20 Component in column 2, row 0 position (index 6)
-     * @param {Number} m21 Component in column 2, row 1 position (index 7)
-     * @param {Number} m22 Component in column 2, row 2 position (index 8)
-     * @returns {mat3} out
-     */
-    function set(out, m00, m01, m02, m10, m11, m12, m20, m21, m22) {
-        out[0] = m00;
-        out[1] = m01;
-        out[2] = m02;
-        out[3] = m10;
-        out[4] = m11;
-        out[5] = m12;
-        out[6] = m20;
-        out[7] = m21;
-        out[8] = m22;
-        return out;
-    }
-    /**
-     * Set a mat3 to the identity matrix
-     *
-     * @param {mat3} out the receiving matrix
-     * @returns {mat3} out
-     */
-    function identity(out) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 1;
-        out[5] = 0;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Transpose the values of a mat3
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the source matrix
-     * @returns {mat3} out
-     */
-    function transpose(out, a) {
-        // If we are transposing ourselves we can skip a few steps but have to cache some values
-        if (out === a) {
-            var a01 = a[1], a02 = a[2], a12 = a[5];
-            out[1] = a[3];
-            out[2] = a[6];
-            out[3] = a01;
-            out[5] = a[7];
-            out[6] = a02;
-            out[7] = a12;
-        }
-        else {
-            out[0] = a[0];
-            out[1] = a[3];
-            out[2] = a[6];
-            out[3] = a[1];
-            out[4] = a[4];
-            out[5] = a[7];
-            out[6] = a[2];
-            out[7] = a[5];
-            out[8] = a[8];
-        }
-        return out;
-    }
-    /**
-     * Inverts a mat3
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the source matrix
-     * @returns {mat3} out
-     */
-    function invert(out, a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2];
-        var a10 = a[3], a11 = a[4], a12 = a[5];
-        var a20 = a[6], a21 = a[7], a22 = a[8];
-        var b01 = a22 * a11 - a12 * a21;
-        var b11 = -a22 * a10 + a12 * a20;
-        var b21 = a21 * a10 - a11 * a20; // Calculate the determinant
-        var det = a00 * b01 + a01 * b11 + a02 * b21;
-        if (!det) {
-            return null;
-        }
-        det = 1.0 / det;
-        out[0] = b01 * det;
-        out[1] = (-a22 * a01 + a02 * a21) * det;
-        out[2] = (a12 * a01 - a02 * a11) * det;
-        out[3] = b11 * det;
-        out[4] = (a22 * a00 - a02 * a20) * det;
-        out[5] = (-a12 * a00 + a02 * a10) * det;
-        out[6] = b21 * det;
-        out[7] = (-a21 * a00 + a01 * a20) * det;
-        out[8] = (a11 * a00 - a01 * a10) * det;
-        return out;
-    }
-    /**
-     * Calculates the adjugate of a mat3
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the source matrix
-     * @returns {mat3} out
-     */
-    function adjoint(out, a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2];
-        var a10 = a[3], a11 = a[4], a12 = a[5];
-        var a20 = a[6], a21 = a[7], a22 = a[8];
-        out[0] = a11 * a22 - a12 * a21;
-        out[1] = a02 * a21 - a01 * a22;
-        out[2] = a01 * a12 - a02 * a11;
-        out[3] = a12 * a20 - a10 * a22;
-        out[4] = a00 * a22 - a02 * a20;
-        out[5] = a02 * a10 - a00 * a12;
-        out[6] = a10 * a21 - a11 * a20;
-        out[7] = a01 * a20 - a00 * a21;
-        out[8] = a00 * a11 - a01 * a10;
-        return out;
-    }
-    /**
-     * Calculates the determinant of a mat3
-     *
-     * @param {ReadonlyMat3} a the source matrix
-     * @returns {Number} determinant of a
-     */
-    function determinant(a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2];
-        var a10 = a[3], a11 = a[4], a12 = a[5];
-        var a20 = a[6], a21 = a[7], a22 = a[8];
-        return a00 * (a22 * a11 - a12 * a21) + a01 * (-a22 * a10 + a12 * a20) + a02 * (a21 * a10 - a11 * a20);
-    }
-    /**
-     * Multiplies two mat3's
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the first operand
-     * @param {ReadonlyMat3} b the second operand
-     * @returns {mat3} out
-     */
-    function multiply(out, a, b) {
-        var a00 = a[0], a01 = a[1], a02 = a[2];
-        var a10 = a[3], a11 = a[4], a12 = a[5];
-        var a20 = a[6], a21 = a[7], a22 = a[8];
-        var b00 = b[0], b01 = b[1], b02 = b[2];
-        var b10 = b[3], b11 = b[4], b12 = b[5];
-        var b20 = b[6], b21 = b[7], b22 = b[8];
-        out[0] = b00 * a00 + b01 * a10 + b02 * a20;
-        out[1] = b00 * a01 + b01 * a11 + b02 * a21;
-        out[2] = b00 * a02 + b01 * a12 + b02 * a22;
-        out[3] = b10 * a00 + b11 * a10 + b12 * a20;
-        out[4] = b10 * a01 + b11 * a11 + b12 * a21;
-        out[5] = b10 * a02 + b11 * a12 + b12 * a22;
-        out[6] = b20 * a00 + b21 * a10 + b22 * a20;
-        out[7] = b20 * a01 + b21 * a11 + b22 * a21;
-        out[8] = b20 * a02 + b21 * a12 + b22 * a22;
-        return out;
-    }
-    /**
-     * Translate a mat3 by the given vector
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the matrix to translate
-     * @param {ReadonlyVec2} v vector to translate by
-     * @returns {mat3} out
-     */
-    function translate(out, a, v) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a10 = a[3], a11 = a[4], a12 = a[5], a20 = a[6], a21 = a[7], a22 = a[8], x = v[0], y = v[1];
-        out[0] = a00;
-        out[1] = a01;
-        out[2] = a02;
-        out[3] = a10;
-        out[4] = a11;
-        out[5] = a12;
-        out[6] = x * a00 + y * a10 + a20;
-        out[7] = x * a01 + y * a11 + a21;
-        out[8] = x * a02 + y * a12 + a22;
-        return out;
-    }
-    /**
-     * Rotates a mat3 by the given angle
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat3} out
-     */
-    function rotate(out, a, rad) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a10 = a[3], a11 = a[4], a12 = a[5], a20 = a[6], a21 = a[7], a22 = a[8], s = Math.sin(rad), c = Math.cos(rad);
-        out[0] = c * a00 + s * a10;
-        out[1] = c * a01 + s * a11;
-        out[2] = c * a02 + s * a12;
-        out[3] = c * a10 - s * a00;
-        out[4] = c * a11 - s * a01;
-        out[5] = c * a12 - s * a02;
-        out[6] = a20;
-        out[7] = a21;
-        out[8] = a22;
-        return out;
-    }
-    /**
-     * Scales the mat3 by the dimensions in the given vec2
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the matrix to rotate
-     * @param {ReadonlyVec2} v the vec2 to scale the matrix by
-     * @returns {mat3} out
-     **/
-    function scale(out, a, v) {
-        var x = v[0], y = v[1];
-        out[0] = x * a[0];
-        out[1] = x * a[1];
-        out[2] = x * a[2];
-        out[3] = y * a[3];
-        out[4] = y * a[4];
-        out[5] = y * a[5];
-        out[6] = a[6];
-        out[7] = a[7];
-        out[8] = a[8];
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector translation
-     * This is equivalent to (but much faster than):
-     *
-     *     mat3.identity(dest);
-     *     mat3.translate(dest, dest, vec);
-     *
-     * @param {mat3} out mat3 receiving operation result
-     * @param {ReadonlyVec2} v Translation vector
-     * @returns {mat3} out
-     */
-    function fromTranslation(out, v) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 1;
-        out[5] = 0;
-        out[6] = v[0];
-        out[7] = v[1];
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a given angle
-     * This is equivalent to (but much faster than):
-     *
-     *     mat3.identity(dest);
-     *     mat3.rotate(dest, dest, rad);
-     *
-     * @param {mat3} out mat3 receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat3} out
-     */
-    function fromRotation(out, rad) {
-        var s = Math.sin(rad), c = Math.cos(rad);
-        out[0] = c;
-        out[1] = s;
-        out[2] = 0;
-        out[3] = -s;
-        out[4] = c;
-        out[5] = 0;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector scaling
-     * This is equivalent to (but much faster than):
-     *
-     *     mat3.identity(dest);
-     *     mat3.scale(dest, dest, vec);
-     *
-     * @param {mat3} out mat3 receiving operation result
-     * @param {ReadonlyVec2} v Scaling vector
-     * @returns {mat3} out
-     */
-    function fromScaling(out, v) {
-        out[0] = v[0];
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = v[1];
-        out[5] = 0;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Copies the values from a mat2d into a mat3
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat2d} a the matrix to copy
-     * @returns {mat3} out
-     **/
-    function fromMat2d(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = 0;
-        out[3] = a[2];
-        out[4] = a[3];
-        out[5] = 0;
-        out[6] = a[4];
-        out[7] = a[5];
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Calculates a 3x3 matrix from the given quaternion
-     *
-     * @param {mat3} out mat3 receiving operation result
-     * @param {ReadonlyQuat} q Quaternion to create matrix from
-     *
-     * @returns {mat3} out
-     */
-    function fromQuat(out, q) {
-        var x = q[0], y = q[1], z = q[2], w = q[3];
-        var x2 = x + x;
-        var y2 = y + y;
-        var z2 = z + z;
-        var xx = x * x2;
-        var yx = y * x2;
-        var yy = y * y2;
-        var zx = z * x2;
-        var zy = z * y2;
-        var zz = z * z2;
-        var wx = w * x2;
-        var wy = w * y2;
-        var wz = w * z2;
-        out[0] = 1 - yy - zz;
-        out[3] = yx - wz;
-        out[6] = zx + wy;
-        out[1] = yx + wz;
-        out[4] = 1 - xx - zz;
-        out[7] = zy - wx;
-        out[2] = zx - wy;
-        out[5] = zy + wx;
-        out[8] = 1 - xx - yy;
-        return out;
-    }
-    /**
-     * Calculates a 3x3 normal matrix (transpose inverse) from the 4x4 matrix
-     *
-     * @param {mat3} out mat3 receiving operation result
-     * @param {ReadonlyMat4} a Mat4 to derive the normal matrix from
-     *
-     * @returns {mat3} out
-     */
-    function normalFromMat4(out, a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-        var a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-        var a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-        var a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-        var b00 = a00 * a11 - a01 * a10;
-        var b01 = a00 * a12 - a02 * a10;
-        var b02 = a00 * a13 - a03 * a10;
-        var b03 = a01 * a12 - a02 * a11;
-        var b04 = a01 * a13 - a03 * a11;
-        var b05 = a02 * a13 - a03 * a12;
-        var b06 = a20 * a31 - a21 * a30;
-        var b07 = a20 * a32 - a22 * a30;
-        var b08 = a20 * a33 - a23 * a30;
-        var b09 = a21 * a32 - a22 * a31;
-        var b10 = a21 * a33 - a23 * a31;
-        var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
-        var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-        if (!det) {
-            return null;
-        }
-        det = 1.0 / det;
-        out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
-        out[1] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
-        out[2] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
-        out[3] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
-        out[4] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
-        out[5] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
-        out[6] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
-        out[7] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
-        out[8] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
-        return out;
-    }
-    /**
-     * Generates a 2D projection matrix with the given bounds
-     *
-     * @param {mat3} out mat3 frustum matrix will be written into
-     * @param {number} width Width of your gl context
-     * @param {number} height Height of gl context
-     * @returns {mat3} out
-     */
-    function projection(out, width, height) {
-        out[0] = 2 / width;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = -2 / height;
-        out[5] = 0;
-        out[6] = -1;
-        out[7] = 1;
-        out[8] = 1;
-        return out;
-    }
-    /**
-     * Returns a string representation of a mat3
-     *
-     * @param {ReadonlyMat3} a matrix to represent as a string
-     * @returns {String} string representation of the matrix
-     */
-    function str(a) {
-        return "mat3(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ", " + a[4] + ", " + a[5] + ", " + a[6] + ", " + a[7] + ", " + a[8] + ")";
-    }
-    /**
-     * Returns Frobenius norm of a mat3
-     *
-     * @param {ReadonlyMat3} a the matrix to calculate Frobenius norm of
-     * @returns {Number} Frobenius norm
-     */
-    function frob(a) {
-        return Math.hypot(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]);
-    }
-    /**
-     * Adds two mat3's
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the first operand
-     * @param {ReadonlyMat3} b the second operand
-     * @returns {mat3} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        out[3] = a[3] + b[3];
-        out[4] = a[4] + b[4];
-        out[5] = a[5] + b[5];
-        out[6] = a[6] + b[6];
-        out[7] = a[7] + b[7];
-        out[8] = a[8] + b[8];
-        return out;
-    }
-    /**
-     * Subtracts matrix b from matrix a
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the first operand
-     * @param {ReadonlyMat3} b the second operand
-     * @returns {mat3} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        out[2] = a[2] - b[2];
-        out[3] = a[3] - b[3];
-        out[4] = a[4] - b[4];
-        out[5] = a[5] - b[5];
-        out[6] = a[6] - b[6];
-        out[7] = a[7] - b[7];
-        out[8] = a[8] - b[8];
-        return out;
-    }
-    /**
-     * Multiply each element of the matrix by a scalar.
-     *
-     * @param {mat3} out the receiving matrix
-     * @param {ReadonlyMat3} a the matrix to scale
-     * @param {Number} b amount to scale the matrix's elements by
-     * @returns {mat3} out
-     */
-    function multiplyScalar(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        out[3] = a[3] * b;
-        out[4] = a[4] * b;
-        out[5] = a[5] * b;
-        out[6] = a[6] * b;
-        out[7] = a[7] * b;
-        out[8] = a[8] * b;
-        return out;
-    }
-    /**
-     * Adds two mat3's after multiplying each element of the second operand by a scalar value.
-     *
-     * @param {mat3} out the receiving vector
-     * @param {ReadonlyMat3} a the first operand
-     * @param {ReadonlyMat3} b the second operand
-     * @param {Number} scale the amount to scale b's elements by before adding
-     * @returns {mat3} out
-     */
-    function multiplyScalarAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        out[2] = a[2] + b[2] * scale;
-        out[3] = a[3] + b[3] * scale;
-        out[4] = a[4] + b[4] * scale;
-        out[5] = a[5] + b[5] * scale;
-        out[6] = a[6] + b[6] * scale;
-        out[7] = a[7] + b[7] * scale;
-        out[8] = a[8] + b[8] * scale;
-        return out;
-    }
-    /**
-     * Returns whether or not the matrices have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyMat3} a The first matrix.
-     * @param {ReadonlyMat3} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5] && a[6] === b[6] && a[7] === b[7] && a[8] === b[8];
-    }
-    /**
-     * Returns whether or not the matrices have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyMat3} a The first matrix.
-     * @param {ReadonlyMat3} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7], a8 = a[8];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3], b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7], b8 = b[8];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) && Math.abs(a3 - b3) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3)) && Math.abs(a4 - b4) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a4), Math.abs(b4)) && Math.abs(a5 - b5) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a5), Math.abs(b5)) && Math.abs(a6 - b6) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a6), Math.abs(b6)) && Math.abs(a7 - b7) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a7), Math.abs(b7)) && Math.abs(a8 - b8) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a8), Math.abs(b8));
-    }
-    /**
-     * Alias for {@link mat3.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link mat3.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-},
-"83bad9e639": /* gl-matrix/esm/mat4.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.copy = copy;
-    exports.fromValues = fromValues;
-    exports.set = set;
-    exports.identity = identity;
-    exports.transpose = transpose;
-    exports.invert = invert;
-    exports.adjoint = adjoint;
-    exports.determinant = determinant;
-    exports.multiply = multiply;
-    exports.translate = translate;
-    exports.scale = scale;
-    exports.rotate = rotate;
-    exports.rotateX = rotateX;
-    exports.rotateY = rotateY;
-    exports.rotateZ = rotateZ;
-    exports.fromTranslation = fromTranslation;
-    exports.fromScaling = fromScaling;
-    exports.fromRotation = fromRotation;
-    exports.fromXRotation = fromXRotation;
-    exports.fromYRotation = fromYRotation;
-    exports.fromZRotation = fromZRotation;
-    exports.fromRotationTranslation = fromRotationTranslation;
-    exports.fromQuat2 = fromQuat2;
-    exports.getTranslation = getTranslation;
-    exports.getScaling = getScaling;
-    exports.getRotation = getRotation;
-    exports.fromRotationTranslationScale = fromRotationTranslationScale;
-    exports.fromRotationTranslationScaleOrigin = fromRotationTranslationScaleOrigin;
-    exports.fromQuat = fromQuat;
-    exports.frustum = frustum;
-    exports.perspectiveNO = perspectiveNO;
-    exports.perspectiveZO = perspectiveZO;
-    exports.perspectiveFromFieldOfView = perspectiveFromFieldOfView;
-    exports.orthoNO = orthoNO;
-    exports.orthoZO = orthoZO;
-    exports.lookAt = lookAt;
-    exports.targetTo = targetTo;
-    exports.str = str;
-    exports.frob = frob;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.multiplyScalar = multiplyScalar;
-    exports.multiplyScalarAndAdd = multiplyScalarAndAdd;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 4x4 Matrix<br>Format: column-major, when typed out it looks like row-major<br>The matrices are being post multiplied.
-     * @module mat4
-     */
-    /**
-     * Creates a new identity mat4
-     *
-     * @returns {mat4} a new 4x4 matrix
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(16);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[1] = 0;
-            out[2] = 0;
-            out[3] = 0;
-            out[4] = 0;
-            out[6] = 0;
-            out[7] = 0;
-            out[8] = 0;
-            out[9] = 0;
-            out[11] = 0;
-            out[12] = 0;
-            out[13] = 0;
-            out[14] = 0;
-        }
-        out[0] = 1;
-        out[5] = 1;
-        out[10] = 1;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a new mat4 initialized with values from an existing matrix
-     *
-     * @param {ReadonlyMat4} a matrix to clone
-     * @returns {mat4} a new 4x4 matrix
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(16);
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        out[6] = a[6];
-        out[7] = a[7];
-        out[8] = a[8];
-        out[9] = a[9];
-        out[10] = a[10];
-        out[11] = a[11];
-        out[12] = a[12];
-        out[13] = a[13];
-        out[14] = a[14];
-        out[15] = a[15];
-        return out;
-    }
-    /**
-     * Copy the values from one mat4 to another
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the source matrix
-     * @returns {mat4} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        out[6] = a[6];
-        out[7] = a[7];
-        out[8] = a[8];
-        out[9] = a[9];
-        out[10] = a[10];
-        out[11] = a[11];
-        out[12] = a[12];
-        out[13] = a[13];
-        out[14] = a[14];
-        out[15] = a[15];
-        return out;
-    }
-    /**
-     * Create a new mat4 with the given values
-     *
-     * @param {Number} m00 Component in column 0, row 0 position (index 0)
-     * @param {Number} m01 Component in column 0, row 1 position (index 1)
-     * @param {Number} m02 Component in column 0, row 2 position (index 2)
-     * @param {Number} m03 Component in column 0, row 3 position (index 3)
-     * @param {Number} m10 Component in column 1, row 0 position (index 4)
-     * @param {Number} m11 Component in column 1, row 1 position (index 5)
-     * @param {Number} m12 Component in column 1, row 2 position (index 6)
-     * @param {Number} m13 Component in column 1, row 3 position (index 7)
-     * @param {Number} m20 Component in column 2, row 0 position (index 8)
-     * @param {Number} m21 Component in column 2, row 1 position (index 9)
-     * @param {Number} m22 Component in column 2, row 2 position (index 10)
-     * @param {Number} m23 Component in column 2, row 3 position (index 11)
-     * @param {Number} m30 Component in column 3, row 0 position (index 12)
-     * @param {Number} m31 Component in column 3, row 1 position (index 13)
-     * @param {Number} m32 Component in column 3, row 2 position (index 14)
-     * @param {Number} m33 Component in column 3, row 3 position (index 15)
-     * @returns {mat4} A new mat4
-     */
-    function fromValues(m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33) {
-        var out = new glMatrix.ARRAY_TYPE(16);
-        out[0] = m00;
-        out[1] = m01;
-        out[2] = m02;
-        out[3] = m03;
-        out[4] = m10;
-        out[5] = m11;
-        out[6] = m12;
-        out[7] = m13;
-        out[8] = m20;
-        out[9] = m21;
-        out[10] = m22;
-        out[11] = m23;
-        out[12] = m30;
-        out[13] = m31;
-        out[14] = m32;
-        out[15] = m33;
-        return out;
-    }
-    /**
-     * Set the components of a mat4 to the given values
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {Number} m00 Component in column 0, row 0 position (index 0)
-     * @param {Number} m01 Component in column 0, row 1 position (index 1)
-     * @param {Number} m02 Component in column 0, row 2 position (index 2)
-     * @param {Number} m03 Component in column 0, row 3 position (index 3)
-     * @param {Number} m10 Component in column 1, row 0 position (index 4)
-     * @param {Number} m11 Component in column 1, row 1 position (index 5)
-     * @param {Number} m12 Component in column 1, row 2 position (index 6)
-     * @param {Number} m13 Component in column 1, row 3 position (index 7)
-     * @param {Number} m20 Component in column 2, row 0 position (index 8)
-     * @param {Number} m21 Component in column 2, row 1 position (index 9)
-     * @param {Number} m22 Component in column 2, row 2 position (index 10)
-     * @param {Number} m23 Component in column 2, row 3 position (index 11)
-     * @param {Number} m30 Component in column 3, row 0 position (index 12)
-     * @param {Number} m31 Component in column 3, row 1 position (index 13)
-     * @param {Number} m32 Component in column 3, row 2 position (index 14)
-     * @param {Number} m33 Component in column 3, row 3 position (index 15)
-     * @returns {mat4} out
-     */
-    function set(out, m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33) {
-        out[0] = m00;
-        out[1] = m01;
-        out[2] = m02;
-        out[3] = m03;
-        out[4] = m10;
-        out[5] = m11;
-        out[6] = m12;
-        out[7] = m13;
-        out[8] = m20;
-        out[9] = m21;
-        out[10] = m22;
-        out[11] = m23;
-        out[12] = m30;
-        out[13] = m31;
-        out[14] = m32;
-        out[15] = m33;
-        return out;
-    }
-    /**
-     * Set a mat4 to the identity matrix
-     *
-     * @param {mat4} out the receiving matrix
-     * @returns {mat4} out
-     */
-    function identity(out) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = 1;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[10] = 1;
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Transpose the values of a mat4
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the source matrix
-     * @returns {mat4} out
-     */
-    function transpose(out, a) {
-        // If we are transposing ourselves we can skip a few steps but have to cache some values
-        if (out === a) {
-            var a01 = a[1], a02 = a[2], a03 = a[3];
-            var a12 = a[6], a13 = a[7];
-            var a23 = a[11];
-            out[1] = a[4];
-            out[2] = a[8];
-            out[3] = a[12];
-            out[4] = a01;
-            out[6] = a[9];
-            out[7] = a[13];
-            out[8] = a02;
-            out[9] = a12;
-            out[11] = a[14];
-            out[12] = a03;
-            out[13] = a13;
-            out[14] = a23;
-        }
-        else {
-            out[0] = a[0];
-            out[1] = a[4];
-            out[2] = a[8];
-            out[3] = a[12];
-            out[4] = a[1];
-            out[5] = a[5];
-            out[6] = a[9];
-            out[7] = a[13];
-            out[8] = a[2];
-            out[9] = a[6];
-            out[10] = a[10];
-            out[11] = a[14];
-            out[12] = a[3];
-            out[13] = a[7];
-            out[14] = a[11];
-            out[15] = a[15];
-        }
-        return out;
-    }
-    /**
-     * Inverts a mat4
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the source matrix
-     * @returns {mat4} out
-     */
-    function invert(out, a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-        var a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-        var a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-        var a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-        var b00 = a00 * a11 - a01 * a10;
-        var b01 = a00 * a12 - a02 * a10;
-        var b02 = a00 * a13 - a03 * a10;
-        var b03 = a01 * a12 - a02 * a11;
-        var b04 = a01 * a13 - a03 * a11;
-        var b05 = a02 * a13 - a03 * a12;
-        var b06 = a20 * a31 - a21 * a30;
-        var b07 = a20 * a32 - a22 * a30;
-        var b08 = a20 * a33 - a23 * a30;
-        var b09 = a21 * a32 - a22 * a31;
-        var b10 = a21 * a33 - a23 * a31;
-        var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
-        var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-        if (!det) {
-            return null;
-        }
-        det = 1.0 / det;
-        out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
-        out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
-        out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
-        out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
-        out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
-        out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
-        out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
-        out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
-        out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
-        out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
-        out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
-        out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
-        out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
-        out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
-        out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
-        out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
-        return out;
-    }
-    /**
-     * Calculates the adjugate of a mat4
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the source matrix
-     * @returns {mat4} out
-     */
-    function adjoint(out, a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-        var a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-        var a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-        var a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-        out[0] = a11 * (a22 * a33 - a23 * a32) - a21 * (a12 * a33 - a13 * a32) + a31 * (a12 * a23 - a13 * a22);
-        out[1] = -(a01 * (a22 * a33 - a23 * a32) - a21 * (a02 * a33 - a03 * a32) + a31 * (a02 * a23 - a03 * a22));
-        out[2] = a01 * (a12 * a33 - a13 * a32) - a11 * (a02 * a33 - a03 * a32) + a31 * (a02 * a13 - a03 * a12);
-        out[3] = -(a01 * (a12 * a23 - a13 * a22) - a11 * (a02 * a23 - a03 * a22) + a21 * (a02 * a13 - a03 * a12));
-        out[4] = -(a10 * (a22 * a33 - a23 * a32) - a20 * (a12 * a33 - a13 * a32) + a30 * (a12 * a23 - a13 * a22));
-        out[5] = a00 * (a22 * a33 - a23 * a32) - a20 * (a02 * a33 - a03 * a32) + a30 * (a02 * a23 - a03 * a22);
-        out[6] = -(a00 * (a12 * a33 - a13 * a32) - a10 * (a02 * a33 - a03 * a32) + a30 * (a02 * a13 - a03 * a12));
-        out[7] = a00 * (a12 * a23 - a13 * a22) - a10 * (a02 * a23 - a03 * a22) + a20 * (a02 * a13 - a03 * a12);
-        out[8] = a10 * (a21 * a33 - a23 * a31) - a20 * (a11 * a33 - a13 * a31) + a30 * (a11 * a23 - a13 * a21);
-        out[9] = -(a00 * (a21 * a33 - a23 * a31) - a20 * (a01 * a33 - a03 * a31) + a30 * (a01 * a23 - a03 * a21));
-        out[10] = a00 * (a11 * a33 - a13 * a31) - a10 * (a01 * a33 - a03 * a31) + a30 * (a01 * a13 - a03 * a11);
-        out[11] = -(a00 * (a11 * a23 - a13 * a21) - a10 * (a01 * a23 - a03 * a21) + a20 * (a01 * a13 - a03 * a11));
-        out[12] = -(a10 * (a21 * a32 - a22 * a31) - a20 * (a11 * a32 - a12 * a31) + a30 * (a11 * a22 - a12 * a21));
-        out[13] = a00 * (a21 * a32 - a22 * a31) - a20 * (a01 * a32 - a02 * a31) + a30 * (a01 * a22 - a02 * a21);
-        out[14] = -(a00 * (a11 * a32 - a12 * a31) - a10 * (a01 * a32 - a02 * a31) + a30 * (a01 * a12 - a02 * a11));
-        out[15] = a00 * (a11 * a22 - a12 * a21) - a10 * (a01 * a22 - a02 * a21) + a20 * (a01 * a12 - a02 * a11);
-        return out;
-    }
-    /**
-     * Calculates the determinant of a mat4
-     *
-     * @param {ReadonlyMat4} a the source matrix
-     * @returns {Number} determinant of a
-     */
-    function determinant(a) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-        var a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-        var a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-        var a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-        var b00 = a00 * a11 - a01 * a10;
-        var b01 = a00 * a12 - a02 * a10;
-        var b02 = a00 * a13 - a03 * a10;
-        var b03 = a01 * a12 - a02 * a11;
-        var b04 = a01 * a13 - a03 * a11;
-        var b05 = a02 * a13 - a03 * a12;
-        var b06 = a20 * a31 - a21 * a30;
-        var b07 = a20 * a32 - a22 * a30;
-        var b08 = a20 * a33 - a23 * a30;
-        var b09 = a21 * a32 - a22 * a31;
-        var b10 = a21 * a33 - a23 * a31;
-        var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
-        return b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-    }
-    /**
-     * Multiplies two mat4s
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the first operand
-     * @param {ReadonlyMat4} b the second operand
-     * @returns {mat4} out
-     */
-    function multiply(out, a, b) {
-        var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-        var a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-        var a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-        var a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15]; // Cache only the current line of the second matrix
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-        out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-        b0 = b[4];
-        b1 = b[5];
-        b2 = b[6];
-        b3 = b[7];
-        out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-        b0 = b[8];
-        b1 = b[9];
-        b2 = b[10];
-        b3 = b[11];
-        out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-        b0 = b[12];
-        b1 = b[13];
-        b2 = b[14];
-        b3 = b[15];
-        out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-        return out;
-    }
-    /**
-     * Translate a mat4 by the given vector
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to translate
-     * @param {ReadonlyVec3} v vector to translate by
-     * @returns {mat4} out
-     */
-    function translate(out, a, v) {
-        var x = v[0], y = v[1], z = v[2];
-        var a00, a01, a02, a03;
-        var a10, a11, a12, a13;
-        var a20, a21, a22, a23;
-        if (a === out) {
-            out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
-            out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
-            out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
-            out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
-        }
-        else {
-            a00 = a[0];
-            a01 = a[1];
-            a02 = a[2];
-            a03 = a[3];
-            a10 = a[4];
-            a11 = a[5];
-            a12 = a[6];
-            a13 = a[7];
-            a20 = a[8];
-            a21 = a[9];
-            a22 = a[10];
-            a23 = a[11];
-            out[0] = a00;
-            out[1] = a01;
-            out[2] = a02;
-            out[3] = a03;
-            out[4] = a10;
-            out[5] = a11;
-            out[6] = a12;
-            out[7] = a13;
-            out[8] = a20;
-            out[9] = a21;
-            out[10] = a22;
-            out[11] = a23;
-            out[12] = a00 * x + a10 * y + a20 * z + a[12];
-            out[13] = a01 * x + a11 * y + a21 * z + a[13];
-            out[14] = a02 * x + a12 * y + a22 * z + a[14];
-            out[15] = a03 * x + a13 * y + a23 * z + a[15];
-        }
-        return out;
-    }
-    /**
-     * Scales the mat4 by the dimensions in the given vec3 not using vectorization
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to scale
-     * @param {ReadonlyVec3} v the vec3 to scale the matrix by
-     * @returns {mat4} out
-     **/
-    function scale(out, a, v) {
-        var x = v[0], y = v[1], z = v[2];
-        out[0] = a[0] * x;
-        out[1] = a[1] * x;
-        out[2] = a[2] * x;
-        out[3] = a[3] * x;
-        out[4] = a[4] * y;
-        out[5] = a[5] * y;
-        out[6] = a[6] * y;
-        out[7] = a[7] * y;
-        out[8] = a[8] * z;
-        out[9] = a[9] * z;
-        out[10] = a[10] * z;
-        out[11] = a[11] * z;
-        out[12] = a[12];
-        out[13] = a[13];
-        out[14] = a[14];
-        out[15] = a[15];
-        return out;
-    }
-    /**
-     * Rotates a mat4 by the given angle around the given axis
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @param {ReadonlyVec3} axis the axis to rotate around
-     * @returns {mat4} out
-     */
-    function rotate(out, a, rad, axis) {
-        var x = axis[0], y = axis[1], z = axis[2];
-        var len = Math.hypot(x, y, z);
-        var s, c, t;
-        var a00, a01, a02, a03;
-        var a10, a11, a12, a13;
-        var a20, a21, a22, a23;
-        var b00, b01, b02;
-        var b10, b11, b12;
-        var b20, b21, b22;
-        if (len < glMatrix.EPSILON) {
-            return null;
-        }
-        len = 1 / len;
-        x *= len;
-        y *= len;
-        z *= len;
-        s = Math.sin(rad);
-        c = Math.cos(rad);
-        t = 1 - c;
-        a00 = a[0];
-        a01 = a[1];
-        a02 = a[2];
-        a03 = a[3];
-        a10 = a[4];
-        a11 = a[5];
-        a12 = a[6];
-        a13 = a[7];
-        a20 = a[8];
-        a21 = a[9];
-        a22 = a[10];
-        a23 = a[11]; // Construct the elements of the rotation matrix
-        b00 = x * x * t + c;
-        b01 = y * x * t + z * s;
-        b02 = z * x * t - y * s;
-        b10 = x * y * t - z * s;
-        b11 = y * y * t + c;
-        b12 = z * y * t + x * s;
-        b20 = x * z * t + y * s;
-        b21 = y * z * t - x * s;
-        b22 = z * z * t + c; // Perform rotation-specific matrix multiplication
-        out[0] = a00 * b00 + a10 * b01 + a20 * b02;
-        out[1] = a01 * b00 + a11 * b01 + a21 * b02;
-        out[2] = a02 * b00 + a12 * b01 + a22 * b02;
-        out[3] = a03 * b00 + a13 * b01 + a23 * b02;
-        out[4] = a00 * b10 + a10 * b11 + a20 * b12;
-        out[5] = a01 * b10 + a11 * b11 + a21 * b12;
-        out[6] = a02 * b10 + a12 * b11 + a22 * b12;
-        out[7] = a03 * b10 + a13 * b11 + a23 * b12;
-        out[8] = a00 * b20 + a10 * b21 + a20 * b22;
-        out[9] = a01 * b20 + a11 * b21 + a21 * b22;
-        out[10] = a02 * b20 + a12 * b21 + a22 * b22;
-        out[11] = a03 * b20 + a13 * b21 + a23 * b22;
-        if (a !== out) {
-            // If the source and destination differ, copy the unchanged last row
-            out[12] = a[12];
-            out[13] = a[13];
-            out[14] = a[14];
-            out[15] = a[15];
-        }
-        return out;
-    }
-    /**
-     * Rotates a matrix by the given angle around the X axis
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat4} out
-     */
-    function rotateX(out, a, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad);
-        var a10 = a[4];
-        var a11 = a[5];
-        var a12 = a[6];
-        var a13 = a[7];
-        var a20 = a[8];
-        var a21 = a[9];
-        var a22 = a[10];
-        var a23 = a[11];
-        if (a !== out) {
-            // If the source and destination differ, copy the unchanged rows
-            out[0] = a[0];
-            out[1] = a[1];
-            out[2] = a[2];
-            out[3] = a[3];
-            out[12] = a[12];
-            out[13] = a[13];
-            out[14] = a[14];
-            out[15] = a[15];
-        } // Perform axis-specific matrix multiplication
-        out[4] = a10 * c + a20 * s;
-        out[5] = a11 * c + a21 * s;
-        out[6] = a12 * c + a22 * s;
-        out[7] = a13 * c + a23 * s;
-        out[8] = a20 * c - a10 * s;
-        out[9] = a21 * c - a11 * s;
-        out[10] = a22 * c - a12 * s;
-        out[11] = a23 * c - a13 * s;
-        return out;
-    }
-    /**
-     * Rotates a matrix by the given angle around the Y axis
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat4} out
-     */
-    function rotateY(out, a, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad);
-        var a00 = a[0];
-        var a01 = a[1];
-        var a02 = a[2];
-        var a03 = a[3];
-        var a20 = a[8];
-        var a21 = a[9];
-        var a22 = a[10];
-        var a23 = a[11];
-        if (a !== out) {
-            // If the source and destination differ, copy the unchanged rows
-            out[4] = a[4];
-            out[5] = a[5];
-            out[6] = a[6];
-            out[7] = a[7];
-            out[12] = a[12];
-            out[13] = a[13];
-            out[14] = a[14];
-            out[15] = a[15];
-        } // Perform axis-specific matrix multiplication
-        out[0] = a00 * c - a20 * s;
-        out[1] = a01 * c - a21 * s;
-        out[2] = a02 * c - a22 * s;
-        out[3] = a03 * c - a23 * s;
-        out[8] = a00 * s + a20 * c;
-        out[9] = a01 * s + a21 * c;
-        out[10] = a02 * s + a22 * c;
-        out[11] = a03 * s + a23 * c;
-        return out;
-    }
-    /**
-     * Rotates a matrix by the given angle around the Z axis
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to rotate
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat4} out
-     */
-    function rotateZ(out, a, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad);
-        var a00 = a[0];
-        var a01 = a[1];
-        var a02 = a[2];
-        var a03 = a[3];
-        var a10 = a[4];
-        var a11 = a[5];
-        var a12 = a[6];
-        var a13 = a[7];
-        if (a !== out) {
-            // If the source and destination differ, copy the unchanged last row
-            out[8] = a[8];
-            out[9] = a[9];
-            out[10] = a[10];
-            out[11] = a[11];
-            out[12] = a[12];
-            out[13] = a[13];
-            out[14] = a[14];
-            out[15] = a[15];
-        } // Perform axis-specific matrix multiplication
-        out[0] = a00 * c + a10 * s;
-        out[1] = a01 * c + a11 * s;
-        out[2] = a02 * c + a12 * s;
-        out[3] = a03 * c + a13 * s;
-        out[4] = a10 * c - a00 * s;
-        out[5] = a11 * c - a01 * s;
-        out[6] = a12 * c - a02 * s;
-        out[7] = a13 * c - a03 * s;
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector translation
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.translate(dest, dest, vec);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {ReadonlyVec3} v Translation vector
-     * @returns {mat4} out
-     */
-    function fromTranslation(out, v) {
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = 1;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[10] = 1;
-        out[11] = 0;
-        out[12] = v[0];
-        out[13] = v[1];
-        out[14] = v[2];
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a vector scaling
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.scale(dest, dest, vec);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {ReadonlyVec3} v Scaling vector
-     * @returns {mat4} out
-     */
-    function fromScaling(out, v) {
-        out[0] = v[0];
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = v[1];
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[10] = v[2];
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a given angle around a given axis
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.rotate(dest, dest, rad, axis);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @param {ReadonlyVec3} axis the axis to rotate around
-     * @returns {mat4} out
-     */
-    function fromRotation(out, rad, axis) {
-        var x = axis[0], y = axis[1], z = axis[2];
-        var len = Math.hypot(x, y, z);
-        var s, c, t;
-        if (len < glMatrix.EPSILON) {
-            return null;
-        }
-        len = 1 / len;
-        x *= len;
-        y *= len;
-        z *= len;
-        s = Math.sin(rad);
-        c = Math.cos(rad);
-        t = 1 - c; // Perform rotation-specific matrix multiplication
-        out[0] = x * x * t + c;
-        out[1] = y * x * t + z * s;
-        out[2] = z * x * t - y * s;
-        out[3] = 0;
-        out[4] = x * y * t - z * s;
-        out[5] = y * y * t + c;
-        out[6] = z * y * t + x * s;
-        out[7] = 0;
-        out[8] = x * z * t + y * s;
-        out[9] = y * z * t - x * s;
-        out[10] = z * z * t + c;
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from the given angle around the X axis
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.rotateX(dest, dest, rad);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat4} out
-     */
-    function fromXRotation(out, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad); // Perform axis-specific matrix multiplication
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = c;
-        out[6] = s;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = -s;
-        out[10] = c;
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from the given angle around the Y axis
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.rotateY(dest, dest, rad);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat4} out
-     */
-    function fromYRotation(out, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad); // Perform axis-specific matrix multiplication
-        out[0] = c;
-        out[1] = 0;
-        out[2] = -s;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = 1;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = s;
-        out[9] = 0;
-        out[10] = c;
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from the given angle around the Z axis
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.rotateZ(dest, dest, rad);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {Number} rad the angle to rotate the matrix by
-     * @returns {mat4} out
-     */
-    function fromZRotation(out, rad) {
-        var s = Math.sin(rad);
-        var c = Math.cos(rad); // Perform axis-specific matrix multiplication
-        out[0] = c;
-        out[1] = s;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = -s;
-        out[5] = c;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[10] = 1;
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a quaternion rotation and vector translation
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.translate(dest, vec);
-     *     let quatMat = mat4.create();
-     *     quat4.toMat4(quat, quatMat);
-     *     mat4.multiply(dest, quatMat);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {quat4} q Rotation quaternion
-     * @param {ReadonlyVec3} v Translation vector
-     * @returns {mat4} out
-     */
-    function fromRotationTranslation(out, q, v) {
-        // Quaternion math
-        var x = q[0], y = q[1], z = q[2], w = q[3];
-        var x2 = x + x;
-        var y2 = y + y;
-        var z2 = z + z;
-        var xx = x * x2;
-        var xy = x * y2;
-        var xz = x * z2;
-        var yy = y * y2;
-        var yz = y * z2;
-        var zz = z * z2;
-        var wx = w * x2;
-        var wy = w * y2;
-        var wz = w * z2;
-        out[0] = 1 - (yy + zz);
-        out[1] = xy + wz;
-        out[2] = xz - wy;
-        out[3] = 0;
-        out[4] = xy - wz;
-        out[5] = 1 - (xx + zz);
-        out[6] = yz + wx;
-        out[7] = 0;
-        out[8] = xz + wy;
-        out[9] = yz - wx;
-        out[10] = 1 - (xx + yy);
-        out[11] = 0;
-        out[12] = v[0];
-        out[13] = v[1];
-        out[14] = v[2];
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a new mat4 from a dual quat.
-     *
-     * @param {mat4} out Matrix
-     * @param {ReadonlyQuat2} a Dual Quaternion
-     * @returns {mat4} mat4 receiving operation result
-     */
-    function fromQuat2(out, a) {
-        var translation = new glMatrix.ARRAY_TYPE(3);
-        var bx = -a[0], by = -a[1], bz = -a[2], bw = a[3], ax = a[4], ay = a[5], az = a[6], aw = a[7];
-        var magnitude = bx * bx + by * by + bz * bz + bw * bw; //Only scale if it makes sense
-        if (magnitude > 0) {
-            translation[0] = (ax * bw + aw * bx + ay * bz - az * by) * 2 / magnitude;
-            translation[1] = (ay * bw + aw * by + az * bx - ax * bz) * 2 / magnitude;
-            translation[2] = (az * bw + aw * bz + ax * by - ay * bx) * 2 / magnitude;
-        }
-        else {
-            translation[0] = (ax * bw + aw * bx + ay * bz - az * by) * 2;
-            translation[1] = (ay * bw + aw * by + az * bx - ax * bz) * 2;
-            translation[2] = (az * bw + aw * bz + ax * by - ay * bx) * 2;
-        }
-        fromRotationTranslation(out, a, translation);
-        return out;
-    }
-    /**
-     * Returns the translation vector component of a transformation
-     *  matrix. If a matrix is built with fromRotationTranslation,
-     *  the returned vector will be the same as the translation vector
-     *  originally supplied.
-     * @param  {vec3} out Vector to receive translation component
-     * @param  {ReadonlyMat4} mat Matrix to be decomposed (input)
-     * @return {vec3} out
-     */
-    function getTranslation(out, mat) {
-        out[0] = mat[12];
-        out[1] = mat[13];
-        out[2] = mat[14];
-        return out;
-    }
-    /**
-     * Returns the scaling factor component of a transformation
-     *  matrix. If a matrix is built with fromRotationTranslationScale
-     *  with a normalized Quaternion paramter, the returned vector will be
-     *  the same as the scaling vector
-     *  originally supplied.
-     * @param  {vec3} out Vector to receive scaling factor component
-     * @param  {ReadonlyMat4} mat Matrix to be decomposed (input)
-     * @return {vec3} out
-     */
-    function getScaling(out, mat) {
-        var m11 = mat[0];
-        var m12 = mat[1];
-        var m13 = mat[2];
-        var m21 = mat[4];
-        var m22 = mat[5];
-        var m23 = mat[6];
-        var m31 = mat[8];
-        var m32 = mat[9];
-        var m33 = mat[10];
-        out[0] = Math.hypot(m11, m12, m13);
-        out[1] = Math.hypot(m21, m22, m23);
-        out[2] = Math.hypot(m31, m32, m33);
-        return out;
-    }
-    /**
-     * Returns a quaternion representing the rotational component
-     *  of a transformation matrix. If a matrix is built with
-     *  fromRotationTranslation, the returned quaternion will be the
-     *  same as the quaternion originally supplied.
-     * @param {quat} out Quaternion to receive the rotation component
-     * @param {ReadonlyMat4} mat Matrix to be decomposed (input)
-     * @return {quat} out
-     */
-    function getRotation(out, mat) {
-        var scaling = new glMatrix.ARRAY_TYPE(3);
-        getScaling(scaling, mat);
-        var is1 = 1 / scaling[0];
-        var is2 = 1 / scaling[1];
-        var is3 = 1 / scaling[2];
-        var sm11 = mat[0] * is1;
-        var sm12 = mat[1] * is2;
-        var sm13 = mat[2] * is3;
-        var sm21 = mat[4] * is1;
-        var sm22 = mat[5] * is2;
-        var sm23 = mat[6] * is3;
-        var sm31 = mat[8] * is1;
-        var sm32 = mat[9] * is2;
-        var sm33 = mat[10] * is3;
-        var trace = sm11 + sm22 + sm33;
-        var S = 0;
-        if (trace > 0) {
-            S = Math.sqrt(trace + 1.0) * 2;
-            out[3] = 0.25 * S;
-            out[0] = (sm23 - sm32) / S;
-            out[1] = (sm31 - sm13) / S;
-            out[2] = (sm12 - sm21) / S;
-        }
-        else if (sm11 > sm22 && sm11 > sm33) {
-            S = Math.sqrt(1.0 + sm11 - sm22 - sm33) * 2;
-            out[3] = (sm23 - sm32) / S;
-            out[0] = 0.25 * S;
-            out[1] = (sm12 + sm21) / S;
-            out[2] = (sm31 + sm13) / S;
-        }
-        else if (sm22 > sm33) {
-            S = Math.sqrt(1.0 + sm22 - sm11 - sm33) * 2;
-            out[3] = (sm31 - sm13) / S;
-            out[0] = (sm12 + sm21) / S;
-            out[1] = 0.25 * S;
-            out[2] = (sm23 + sm32) / S;
-        }
-        else {
-            S = Math.sqrt(1.0 + sm33 - sm11 - sm22) * 2;
-            out[3] = (sm12 - sm21) / S;
-            out[0] = (sm31 + sm13) / S;
-            out[1] = (sm23 + sm32) / S;
-            out[2] = 0.25 * S;
-        }
-        return out;
-    }
-    /**
-     * Creates a matrix from a quaternion rotation, vector translation and vector scale
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.translate(dest, vec);
-     *     let quatMat = mat4.create();
-     *     quat4.toMat4(quat, quatMat);
-     *     mat4.multiply(dest, quatMat);
-     *     mat4.scale(dest, scale)
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {quat4} q Rotation quaternion
-     * @param {ReadonlyVec3} v Translation vector
-     * @param {ReadonlyVec3} s Scaling vector
-     * @returns {mat4} out
-     */
-    function fromRotationTranslationScale(out, q, v, s) {
-        // Quaternion math
-        var x = q[0], y = q[1], z = q[2], w = q[3];
-        var x2 = x + x;
-        var y2 = y + y;
-        var z2 = z + z;
-        var xx = x * x2;
-        var xy = x * y2;
-        var xz = x * z2;
-        var yy = y * y2;
-        var yz = y * z2;
-        var zz = z * z2;
-        var wx = w * x2;
-        var wy = w * y2;
-        var wz = w * z2;
-        var sx = s[0];
-        var sy = s[1];
-        var sz = s[2];
-        out[0] = (1 - (yy + zz)) * sx;
-        out[1] = (xy + wz) * sx;
-        out[2] = (xz - wy) * sx;
-        out[3] = 0;
-        out[4] = (xy - wz) * sy;
-        out[5] = (1 - (xx + zz)) * sy;
-        out[6] = (yz + wx) * sy;
-        out[7] = 0;
-        out[8] = (xz + wy) * sz;
-        out[9] = (yz - wx) * sz;
-        out[10] = (1 - (xx + yy)) * sz;
-        out[11] = 0;
-        out[12] = v[0];
-        out[13] = v[1];
-        out[14] = v[2];
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Creates a matrix from a quaternion rotation, vector translation and vector scale, rotating and scaling around the given origin
-     * This is equivalent to (but much faster than):
-     *
-     *     mat4.identity(dest);
-     *     mat4.translate(dest, vec);
-     *     mat4.translate(dest, origin);
-     *     let quatMat = mat4.create();
-     *     quat4.toMat4(quat, quatMat);
-     *     mat4.multiply(dest, quatMat);
-     *     mat4.scale(dest, scale)
-     *     mat4.translate(dest, negativeOrigin);
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {quat4} q Rotation quaternion
-     * @param {ReadonlyVec3} v Translation vector
-     * @param {ReadonlyVec3} s Scaling vector
-     * @param {ReadonlyVec3} o The origin vector around which to scale and rotate
-     * @returns {mat4} out
-     */
-    function fromRotationTranslationScaleOrigin(out, q, v, s, o) {
-        // Quaternion math
-        var x = q[0], y = q[1], z = q[2], w = q[3];
-        var x2 = x + x;
-        var y2 = y + y;
-        var z2 = z + z;
-        var xx = x * x2;
-        var xy = x * y2;
-        var xz = x * z2;
-        var yy = y * y2;
-        var yz = y * z2;
-        var zz = z * z2;
-        var wx = w * x2;
-        var wy = w * y2;
-        var wz = w * z2;
-        var sx = s[0];
-        var sy = s[1];
-        var sz = s[2];
-        var ox = o[0];
-        var oy = o[1];
-        var oz = o[2];
-        var out0 = (1 - (yy + zz)) * sx;
-        var out1 = (xy + wz) * sx;
-        var out2 = (xz - wy) * sx;
-        var out4 = (xy - wz) * sy;
-        var out5 = (1 - (xx + zz)) * sy;
-        var out6 = (yz + wx) * sy;
-        var out8 = (xz + wy) * sz;
-        var out9 = (yz - wx) * sz;
-        var out10 = (1 - (xx + yy)) * sz;
-        out[0] = out0;
-        out[1] = out1;
-        out[2] = out2;
-        out[3] = 0;
-        out[4] = out4;
-        out[5] = out5;
-        out[6] = out6;
-        out[7] = 0;
-        out[8] = out8;
-        out[9] = out9;
-        out[10] = out10;
-        out[11] = 0;
-        out[12] = v[0] + ox - (out0 * ox + out4 * oy + out8 * oz);
-        out[13] = v[1] + oy - (out1 * ox + out5 * oy + out9 * oz);
-        out[14] = v[2] + oz - (out2 * ox + out6 * oy + out10 * oz);
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Calculates a 4x4 matrix from the given quaternion
-     *
-     * @param {mat4} out mat4 receiving operation result
-     * @param {ReadonlyQuat} q Quaternion to create matrix from
-     *
-     * @returns {mat4} out
-     */
-    function fromQuat(out, q) {
-        var x = q[0], y = q[1], z = q[2], w = q[3];
-        var x2 = x + x;
-        var y2 = y + y;
-        var z2 = z + z;
-        var xx = x * x2;
-        var yx = y * x2;
-        var yy = y * y2;
-        var zx = z * x2;
-        var zy = z * y2;
-        var zz = z * z2;
-        var wx = w * x2;
-        var wy = w * y2;
-        var wz = w * z2;
-        out[0] = 1 - yy - zz;
-        out[1] = yx + wz;
-        out[2] = zx - wy;
-        out[3] = 0;
-        out[4] = yx - wz;
-        out[5] = 1 - xx - zz;
-        out[6] = zy + wx;
-        out[7] = 0;
-        out[8] = zx + wy;
-        out[9] = zy - wx;
-        out[10] = 1 - xx - yy;
-        out[11] = 0;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = 0;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Generates a frustum matrix with the given bounds
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {Number} left Left bound of the frustum
-     * @param {Number} right Right bound of the frustum
-     * @param {Number} bottom Bottom bound of the frustum
-     * @param {Number} top Top bound of the frustum
-     * @param {Number} near Near bound of the frustum
-     * @param {Number} far Far bound of the frustum
-     * @returns {mat4} out
-     */
-    function frustum(out, left, right, bottom, top, near, far) {
-        var rl = 1 / (right - left);
-        var tb = 1 / (top - bottom);
-        var nf = 1 / (near - far);
-        out[0] = near * 2 * rl;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = near * 2 * tb;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = (right + left) * rl;
-        out[9] = (top + bottom) * tb;
-        out[10] = (far + near) * nf;
-        out[11] = -1;
-        out[12] = 0;
-        out[13] = 0;
-        out[14] = far * near * 2 * nf;
-        out[15] = 0;
-        return out;
-    }
-    /**
-     * Generates a perspective projection matrix with the given bounds.
-     * The near/far clip planes correspond to a normalized device coordinate Z range of [-1, 1],
-     * which matches WebGL/OpenGL's clip volume.
-     * Passing null/undefined/no value for far will generate infinite projection matrix.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {number} fovy Vertical field of view in radians
-     * @param {number} aspect Aspect ratio. typically viewport width/height
-     * @param {number} near Near bound of the frustum
-     * @param {number} far Far bound of the frustum, can be null or Infinity
-     * @returns {mat4} out
-     */
-    function perspectiveNO(out, fovy, aspect, near, far) {
-        var f = 1.0 / Math.tan(fovy / 2), nf;
-        out[0] = f / aspect;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = f;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[11] = -1;
-        out[12] = 0;
-        out[13] = 0;
-        out[15] = 0;
-        if (far != null && far !== Infinity) {
-            nf = 1 / (near - far);
-            out[10] = (far + near) * nf;
-            out[14] = 2 * far * near * nf;
-        }
-        else {
-            out[10] = -1;
-            out[14] = -2 * near;
-        }
-        return out;
-    }
-    /**
-     * Alias for {@link mat4.perspectiveNO}
-     * @function
-     */
-    exports.perspective = perspectiveNO;
-    /**
-     * Generates a perspective projection matrix suitable for WebGPU with the given bounds.
-     * The near/far clip planes correspond to a normalized device coordinate Z range of [0, 1],
-     * which matches WebGPU/Vulkan/DirectX/Metal's clip volume.
-     * Passing null/undefined/no value for far will generate infinite projection matrix.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {number} fovy Vertical field of view in radians
-     * @param {number} aspect Aspect ratio. typically viewport width/height
-     * @param {number} near Near bound of the frustum
-     * @param {number} far Far bound of the frustum, can be null or Infinity
-     * @returns {mat4} out
-     */
-    function perspectiveZO(out, fovy, aspect, near, far) {
-        var f = 1.0 / Math.tan(fovy / 2), nf;
-        out[0] = f / aspect;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = f;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[11] = -1;
-        out[12] = 0;
-        out[13] = 0;
-        out[15] = 0;
-        if (far != null && far !== Infinity) {
-            nf = 1 / (near - far);
-            out[10] = far * nf;
-            out[14] = far * near * nf;
-        }
-        else {
-            out[10] = -1;
-            out[14] = -near;
-        }
-        return out;
-    }
-    /**
-     * Generates a perspective projection matrix with the given field of view.
-     * This is primarily useful for generating projection matrices to be used
-     * with the still experiemental WebVR API.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {Object} fov Object containing the following values: upDegrees, downDegrees, leftDegrees, rightDegrees
-     * @param {number} near Near bound of the frustum
-     * @param {number} far Far bound of the frustum
-     * @returns {mat4} out
-     */
-    function perspectiveFromFieldOfView(out, fov, near, far) {
-        var upTan = Math.tan(fov.upDegrees * Math.PI / 180.0);
-        var downTan = Math.tan(fov.downDegrees * Math.PI / 180.0);
-        var leftTan = Math.tan(fov.leftDegrees * Math.PI / 180.0);
-        var rightTan = Math.tan(fov.rightDegrees * Math.PI / 180.0);
-        var xScale = 2.0 / (leftTan + rightTan);
-        var yScale = 2.0 / (upTan + downTan);
-        out[0] = xScale;
-        out[1] = 0.0;
-        out[2] = 0.0;
-        out[3] = 0.0;
-        out[4] = 0.0;
-        out[5] = yScale;
-        out[6] = 0.0;
-        out[7] = 0.0;
-        out[8] = -((leftTan - rightTan) * xScale * 0.5);
-        out[9] = (upTan - downTan) * yScale * 0.5;
-        out[10] = far / (near - far);
-        out[11] = -1.0;
-        out[12] = 0.0;
-        out[13] = 0.0;
-        out[14] = far * near / (near - far);
-        out[15] = 0.0;
-        return out;
-    }
-    /**
-     * Generates a orthogonal projection matrix with the given bounds.
-     * The near/far clip planes correspond to a normalized device coordinate Z range of [-1, 1],
-     * which matches WebGL/OpenGL's clip volume.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {number} left Left bound of the frustum
-     * @param {number} right Right bound of the frustum
-     * @param {number} bottom Bottom bound of the frustum
-     * @param {number} top Top bound of the frustum
-     * @param {number} near Near bound of the frustum
-     * @param {number} far Far bound of the frustum
-     * @returns {mat4} out
-     */
-    function orthoNO(out, left, right, bottom, top, near, far) {
-        var lr = 1 / (left - right);
-        var bt = 1 / (bottom - top);
-        var nf = 1 / (near - far);
-        out[0] = -2 * lr;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = -2 * bt;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[10] = 2 * nf;
-        out[11] = 0;
-        out[12] = (left + right) * lr;
-        out[13] = (top + bottom) * bt;
-        out[14] = (far + near) * nf;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Alias for {@link mat4.orthoNO}
-     * @function
-     */
-    exports.ortho = orthoNO;
-    /**
-     * Generates a orthogonal projection matrix with the given bounds.
-     * The near/far clip planes correspond to a normalized device coordinate Z range of [0, 1],
-     * which matches WebGPU/Vulkan/DirectX/Metal's clip volume.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {number} left Left bound of the frustum
-     * @param {number} right Right bound of the frustum
-     * @param {number} bottom Bottom bound of the frustum
-     * @param {number} top Top bound of the frustum
-     * @param {number} near Near bound of the frustum
-     * @param {number} far Far bound of the frustum
-     * @returns {mat4} out
-     */
-    function orthoZO(out, left, right, bottom, top, near, far) {
-        var lr = 1 / (left - right);
-        var bt = 1 / (bottom - top);
-        var nf = 1 / (near - far);
-        out[0] = -2 * lr;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 0;
-        out[4] = 0;
-        out[5] = -2 * bt;
-        out[6] = 0;
-        out[7] = 0;
-        out[8] = 0;
-        out[9] = 0;
-        out[10] = nf;
-        out[11] = 0;
-        out[12] = (left + right) * lr;
-        out[13] = (top + bottom) * bt;
-        out[14] = near * nf;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Generates a look-at matrix with the given eye position, focal point, and up axis.
-     * If you want a matrix that actually makes an object look at another object, you should use targetTo instead.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {ReadonlyVec3} eye Position of the viewer
-     * @param {ReadonlyVec3} center Point the viewer is looking at
-     * @param {ReadonlyVec3} up vec3 pointing up
-     * @returns {mat4} out
-     */
-    function lookAt(out, eye, center, up) {
-        var x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
-        var eyex = eye[0];
-        var eyey = eye[1];
-        var eyez = eye[2];
-        var upx = up[0];
-        var upy = up[1];
-        var upz = up[2];
-        var centerx = center[0];
-        var centery = center[1];
-        var centerz = center[2];
-        if (Math.abs(eyex - centerx) < glMatrix.EPSILON && Math.abs(eyey - centery) < glMatrix.EPSILON && Math.abs(eyez - centerz) < glMatrix.EPSILON) {
-            return identity(out);
-        }
-        z0 = eyex - centerx;
-        z1 = eyey - centery;
-        z2 = eyez - centerz;
-        len = 1 / Math.hypot(z0, z1, z2);
-        z0 *= len;
-        z1 *= len;
-        z2 *= len;
-        x0 = upy * z2 - upz * z1;
-        x1 = upz * z0 - upx * z2;
-        x2 = upx * z1 - upy * z0;
-        len = Math.hypot(x0, x1, x2);
-        if (!len) {
-            x0 = 0;
-            x1 = 0;
-            x2 = 0;
-        }
-        else {
-            len = 1 / len;
-            x0 *= len;
-            x1 *= len;
-            x2 *= len;
-        }
-        y0 = z1 * x2 - z2 * x1;
-        y1 = z2 * x0 - z0 * x2;
-        y2 = z0 * x1 - z1 * x0;
-        len = Math.hypot(y0, y1, y2);
-        if (!len) {
-            y0 = 0;
-            y1 = 0;
-            y2 = 0;
-        }
-        else {
-            len = 1 / len;
-            y0 *= len;
-            y1 *= len;
-            y2 *= len;
-        }
-        out[0] = x0;
-        out[1] = y0;
-        out[2] = z0;
-        out[3] = 0;
-        out[4] = x1;
-        out[5] = y1;
-        out[6] = z1;
-        out[7] = 0;
-        out[8] = x2;
-        out[9] = y2;
-        out[10] = z2;
-        out[11] = 0;
-        out[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
-        out[13] = -(y0 * eyex + y1 * eyey + y2 * eyez);
-        out[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Generates a matrix that makes something look at something else.
-     *
-     * @param {mat4} out mat4 frustum matrix will be written into
-     * @param {ReadonlyVec3} eye Position of the viewer
-     * @param {ReadonlyVec3} center Point the viewer is looking at
-     * @param {ReadonlyVec3} up vec3 pointing up
-     * @returns {mat4} out
-     */
-    function targetTo(out, eye, target, up) {
-        var eyex = eye[0], eyey = eye[1], eyez = eye[2], upx = up[0], upy = up[1], upz = up[2];
-        var z0 = eyex - target[0], z1 = eyey - target[1], z2 = eyez - target[2];
-        var len = z0 * z0 + z1 * z1 + z2 * z2;
-        if (len > 0) {
-            len = 1 / Math.sqrt(len);
-            z0 *= len;
-            z1 *= len;
-            z2 *= len;
-        }
-        var x0 = upy * z2 - upz * z1, x1 = upz * z0 - upx * z2, x2 = upx * z1 - upy * z0;
-        len = x0 * x0 + x1 * x1 + x2 * x2;
-        if (len > 0) {
-            len = 1 / Math.sqrt(len);
-            x0 *= len;
-            x1 *= len;
-            x2 *= len;
-        }
-        out[0] = x0;
-        out[1] = x1;
-        out[2] = x2;
-        out[3] = 0;
-        out[4] = z1 * x2 - z2 * x1;
-        out[5] = z2 * x0 - z0 * x2;
-        out[6] = z0 * x1 - z1 * x0;
-        out[7] = 0;
-        out[8] = z0;
-        out[9] = z1;
-        out[10] = z2;
-        out[11] = 0;
-        out[12] = eyex;
-        out[13] = eyey;
-        out[14] = eyez;
-        out[15] = 1;
-        return out;
-    }
-    /**
-     * Returns a string representation of a mat4
-     *
-     * @param {ReadonlyMat4} a matrix to represent as a string
-     * @returns {String} string representation of the matrix
-     */
-    function str(a) {
-        return "mat4(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ", " + a[4] + ", " + a[5] + ", " + a[6] + ", " + a[7] + ", " + a[8] + ", " + a[9] + ", " + a[10] + ", " + a[11] + ", " + a[12] + ", " + a[13] + ", " + a[14] + ", " + a[15] + ")";
-    }
-    /**
-     * Returns Frobenius norm of a mat4
-     *
-     * @param {ReadonlyMat4} a the matrix to calculate Frobenius norm of
-     * @returns {Number} Frobenius norm
-     */
-    function frob(a) {
-        return Math.hypot(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
-    }
-    /**
-     * Adds two mat4's
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the first operand
-     * @param {ReadonlyMat4} b the second operand
-     * @returns {mat4} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        out[3] = a[3] + b[3];
-        out[4] = a[4] + b[4];
-        out[5] = a[5] + b[5];
-        out[6] = a[6] + b[6];
-        out[7] = a[7] + b[7];
-        out[8] = a[8] + b[8];
-        out[9] = a[9] + b[9];
-        out[10] = a[10] + b[10];
-        out[11] = a[11] + b[11];
-        out[12] = a[12] + b[12];
-        out[13] = a[13] + b[13];
-        out[14] = a[14] + b[14];
-        out[15] = a[15] + b[15];
-        return out;
-    }
-    /**
-     * Subtracts matrix b from matrix a
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the first operand
-     * @param {ReadonlyMat4} b the second operand
-     * @returns {mat4} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        out[2] = a[2] - b[2];
-        out[3] = a[3] - b[3];
-        out[4] = a[4] - b[4];
-        out[5] = a[5] - b[5];
-        out[6] = a[6] - b[6];
-        out[7] = a[7] - b[7];
-        out[8] = a[8] - b[8];
-        out[9] = a[9] - b[9];
-        out[10] = a[10] - b[10];
-        out[11] = a[11] - b[11];
-        out[12] = a[12] - b[12];
-        out[13] = a[13] - b[13];
-        out[14] = a[14] - b[14];
-        out[15] = a[15] - b[15];
-        return out;
-    }
-    /**
-     * Multiply each element of the matrix by a scalar.
-     *
-     * @param {mat4} out the receiving matrix
-     * @param {ReadonlyMat4} a the matrix to scale
-     * @param {Number} b amount to scale the matrix's elements by
-     * @returns {mat4} out
-     */
-    function multiplyScalar(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        out[3] = a[3] * b;
-        out[4] = a[4] * b;
-        out[5] = a[5] * b;
-        out[6] = a[6] * b;
-        out[7] = a[7] * b;
-        out[8] = a[8] * b;
-        out[9] = a[9] * b;
-        out[10] = a[10] * b;
-        out[11] = a[11] * b;
-        out[12] = a[12] * b;
-        out[13] = a[13] * b;
-        out[14] = a[14] * b;
-        out[15] = a[15] * b;
-        return out;
-    }
-    /**
-     * Adds two mat4's after multiplying each element of the second operand by a scalar value.
-     *
-     * @param {mat4} out the receiving vector
-     * @param {ReadonlyMat4} a the first operand
-     * @param {ReadonlyMat4} b the second operand
-     * @param {Number} scale the amount to scale b's elements by before adding
-     * @returns {mat4} out
-     */
-    function multiplyScalarAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        out[2] = a[2] + b[2] * scale;
-        out[3] = a[3] + b[3] * scale;
-        out[4] = a[4] + b[4] * scale;
-        out[5] = a[5] + b[5] * scale;
-        out[6] = a[6] + b[6] * scale;
-        out[7] = a[7] + b[7] * scale;
-        out[8] = a[8] + b[8] * scale;
-        out[9] = a[9] + b[9] * scale;
-        out[10] = a[10] + b[10] * scale;
-        out[11] = a[11] + b[11] * scale;
-        out[12] = a[12] + b[12] * scale;
-        out[13] = a[13] + b[13] * scale;
-        out[14] = a[14] + b[14] * scale;
-        out[15] = a[15] + b[15] * scale;
-        return out;
-    }
-    /**
-     * Returns whether or not the matrices have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyMat4} a The first matrix.
-     * @param {ReadonlyMat4} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5] && a[6] === b[6] && a[7] === b[7] && a[8] === b[8] && a[9] === b[9] && a[10] === b[10] && a[11] === b[11] && a[12] === b[12] && a[13] === b[13] && a[14] === b[14] && a[15] === b[15];
-    }
-    /**
-     * Returns whether or not the matrices have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyMat4} a The first matrix.
-     * @param {ReadonlyMat4} b The second matrix.
-     * @returns {Boolean} True if the matrices are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
-        var a8 = a[8], a9 = a[9], a10 = a[10], a11 = a[11];
-        var a12 = a[12], a13 = a[13], a14 = a[14], a15 = a[15];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-        var b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
-        var b8 = b[8], b9 = b[9], b10 = b[10], b11 = b[11];
-        var b12 = b[12], b13 = b[13], b14 = b[14], b15 = b[15];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) && Math.abs(a3 - b3) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3)) && Math.abs(a4 - b4) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a4), Math.abs(b4)) && Math.abs(a5 - b5) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a5), Math.abs(b5)) && Math.abs(a6 - b6) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a6), Math.abs(b6)) && Math.abs(a7 - b7) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a7), Math.abs(b7)) && Math.abs(a8 - b8) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a8), Math.abs(b8)) && Math.abs(a9 - b9) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a9), Math.abs(b9)) && Math.abs(a10 - b10) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a10), Math.abs(b10)) && Math.abs(a11 - b11) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a11), Math.abs(b11)) && Math.abs(a12 - b12) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a12), Math.abs(b12)) && Math.abs(a13 - b13) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a13), Math.abs(b13)) && Math.abs(a14 - b14) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a14), Math.abs(b14)) && Math.abs(a15 - b15) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a15), Math.abs(b15));
-    }
-    /**
-     * Alias for {@link mat4.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link mat4.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-},
-"f83fe7c413": /* gl-matrix/esm/quat.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.identity = identity;
-    exports.setAxisAngle = setAxisAngle;
-    exports.getAxisAngle = getAxisAngle;
-    exports.getAngle = getAngle;
-    exports.multiply = multiply;
-    exports.rotateX = rotateX;
-    exports.rotateY = rotateY;
-    exports.rotateZ = rotateZ;
-    exports.calculateW = calculateW;
-    exports.exp = exp;
-    exports.ln = ln;
-    exports.pow = pow;
-    exports.slerp = slerp;
-    exports.random = random;
-    exports.invert = invert;
-    exports.conjugate = conjugate;
-    exports.fromMat3 = fromMat3;
-    exports.fromEuler = fromEuler;
-    exports.str = str;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    const mat3 = tslib_1.__importStar(require("a025ef02dc") /* ./mat3.js */);
-    const vec3 = tslib_1.__importStar(require("63eddc5433") /* ./vec3.js */);
-    const vec4 = tslib_1.__importStar(require("11562bccc5") /* ./vec4.js */);
-    /**
-     * Quaternion
-     * @module quat
-     */
-    /**
-     * Creates a new identity quat
-     *
-     * @returns {quat} a new quaternion
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[0] = 0;
-            out[1] = 0;
-            out[2] = 0;
-        }
-        out[3] = 1;
-        return out;
-    }
-    /**
-     * Set a quat to the identity quaternion
-     *
-     * @param {quat} out the receiving quaternion
-     * @returns {quat} out
-     */
-    function identity(out) {
-        out[0] = 0;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        return out;
-    }
-    /**
-     * Sets a quat from the given angle and rotation axis,
-     * then returns it.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyVec3} axis the axis around which to rotate
-     * @param {Number} rad the angle in radians
-     * @returns {quat} out
-     **/
-    function setAxisAngle(out, axis, rad) {
-        rad = rad * 0.5;
-        var s = Math.sin(rad);
-        out[0] = s * axis[0];
-        out[1] = s * axis[1];
-        out[2] = s * axis[2];
-        out[3] = Math.cos(rad);
-        return out;
-    }
-    /**
-     * Gets the rotation axis and angle for a given
-     *  quaternion. If a quaternion is created with
-     *  setAxisAngle, this method will return the same
-     *  values as providied in the original parameter list
-     *  OR functionally equivalent values.
-     * Example: The quaternion formed by axis [0, 0, 1] and
-     *  angle -90 is the same as the quaternion formed by
-     *  [0, 0, 1] and 270. This method favors the latter.
-     * @param  {vec3} out_axis  Vector receiving the axis of rotation
-     * @param  {ReadonlyQuat} q     Quaternion to be decomposed
-     * @return {Number}     Angle, in radians, of the rotation
-     */
-    function getAxisAngle(out_axis, q) {
-        var rad = Math.acos(q[3]) * 2.0;
-        var s = Math.sin(rad / 2.0);
-        if (s > glMatrix.EPSILON) {
-            out_axis[0] = q[0] / s;
-            out_axis[1] = q[1] / s;
-            out_axis[2] = q[2] / s;
-        }
-        else {
-            // If s is zero, return any axis (no rotation - axis does not matter)
-            out_axis[0] = 1;
-            out_axis[1] = 0;
-            out_axis[2] = 0;
-        }
-        return rad;
-    }
-    /**
-     * Gets the angular distance between two unit quaternions
-     *
-     * @param  {ReadonlyQuat} a     Origin unit quaternion
-     * @param  {ReadonlyQuat} b     Destination unit quaternion
-     * @return {Number}     Angle, in radians, between the two quaternions
-     */
-    function getAngle(a, b) {
-        var dotproduct = (0, exports.dot)(a, b);
-        return Math.acos(2 * dotproduct * dotproduct - 1);
-    }
-    /**
-     * Multiplies two quat's
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a the first operand
-     * @param {ReadonlyQuat} b the second operand
-     * @returns {quat} out
-     */
-    function multiply(out, a, b) {
-        var ax = a[0], ay = a[1], az = a[2], aw = a[3];
-        var bx = b[0], by = b[1], bz = b[2], bw = b[3];
-        out[0] = ax * bw + aw * bx + ay * bz - az * by;
-        out[1] = ay * bw + aw * by + az * bx - ax * bz;
-        out[2] = az * bw + aw * bz + ax * by - ay * bx;
-        out[3] = aw * bw - ax * bx - ay * by - az * bz;
-        return out;
-    }
-    /**
-     * Rotates a quaternion by the given angle about the X axis
-     *
-     * @param {quat} out quat receiving operation result
-     * @param {ReadonlyQuat} a quat to rotate
-     * @param {number} rad angle (in radians) to rotate
-     * @returns {quat} out
-     */
-    function rotateX(out, a, rad) {
-        rad *= 0.5;
-        var ax = a[0], ay = a[1], az = a[2], aw = a[3];
-        var bx = Math.sin(rad), bw = Math.cos(rad);
-        out[0] = ax * bw + aw * bx;
-        out[1] = ay * bw + az * bx;
-        out[2] = az * bw - ay * bx;
-        out[3] = aw * bw - ax * bx;
-        return out;
-    }
-    /**
-     * Rotates a quaternion by the given angle about the Y axis
-     *
-     * @param {quat} out quat receiving operation result
-     * @param {ReadonlyQuat} a quat to rotate
-     * @param {number} rad angle (in radians) to rotate
-     * @returns {quat} out
-     */
-    function rotateY(out, a, rad) {
-        rad *= 0.5;
-        var ax = a[0], ay = a[1], az = a[2], aw = a[3];
-        var by = Math.sin(rad), bw = Math.cos(rad);
-        out[0] = ax * bw - az * by;
-        out[1] = ay * bw + aw * by;
-        out[2] = az * bw + ax * by;
-        out[3] = aw * bw - ay * by;
-        return out;
-    }
-    /**
-     * Rotates a quaternion by the given angle about the Z axis
-     *
-     * @param {quat} out quat receiving operation result
-     * @param {ReadonlyQuat} a quat to rotate
-     * @param {number} rad angle (in radians) to rotate
-     * @returns {quat} out
-     */
-    function rotateZ(out, a, rad) {
-        rad *= 0.5;
-        var ax = a[0], ay = a[1], az = a[2], aw = a[3];
-        var bz = Math.sin(rad), bw = Math.cos(rad);
-        out[0] = ax * bw + ay * bz;
-        out[1] = ay * bw - ax * bz;
-        out[2] = az * bw + aw * bz;
-        out[3] = aw * bw - az * bz;
-        return out;
-    }
-    /**
-     * Calculates the W component of a quat from the X, Y, and Z components.
-     * Assumes that quaternion is 1 unit in length.
-     * Any existing W component will be ignored.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quat to calculate W component of
-     * @returns {quat} out
-     */
-    function calculateW(out, a) {
-        var x = a[0], y = a[1], z = a[2];
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
-        out[3] = Math.sqrt(Math.abs(1.0 - x * x - y * y - z * z));
-        return out;
-    }
-    /**
-     * Calculate the exponential of a unit quaternion.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quat to calculate the exponential of
-     * @returns {quat} out
-     */
-    function exp(out, a) {
-        var x = a[0], y = a[1], z = a[2], w = a[3];
-        var r = Math.sqrt(x * x + y * y + z * z);
-        var et = Math.exp(w);
-        var s = r > 0 ? et * Math.sin(r) / r : 0;
-        out[0] = x * s;
-        out[1] = y * s;
-        out[2] = z * s;
-        out[3] = et * Math.cos(r);
-        return out;
-    }
-    /**
-     * Calculate the natural logarithm of a unit quaternion.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quat to calculate the exponential of
-     * @returns {quat} out
-     */
-    function ln(out, a) {
-        var x = a[0], y = a[1], z = a[2], w = a[3];
-        var r = Math.sqrt(x * x + y * y + z * z);
-        var t = r > 0 ? Math.atan2(r, w) / r : 0;
-        out[0] = x * t;
-        out[1] = y * t;
-        out[2] = z * t;
-        out[3] = 0.5 * Math.log(x * x + y * y + z * z + w * w);
-        return out;
-    }
-    /**
-     * Calculate the scalar power of a unit quaternion.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quat to calculate the exponential of
-     * @param {Number} b amount to scale the quaternion by
-     * @returns {quat} out
-     */
-    function pow(out, a, b) {
-        ln(out, a);
-        (0, exports.scale)(out, out, b);
-        exp(out, out);
-        return out;
-    }
-    /**
-     * Performs a spherical linear interpolation between two quat
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a the first operand
-     * @param {ReadonlyQuat} b the second operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {quat} out
-     */
-    function slerp(out, a, b, t) {
-        // benchmarks:
-        //    http://jsperf.com/quaternion-slerp-implementations
-        var ax = a[0], ay = a[1], az = a[2], aw = a[3];
-        var bx = b[0], by = b[1], bz = b[2], bw = b[3];
-        var omega, cosom, sinom, scale0, scale1; // calc cosine
-        cosom = ax * bx + ay * by + az * bz + aw * bw; // adjust signs (if necessary)
-        if (cosom < 0.0) {
-            cosom = -cosom;
-            bx = -bx;
-            by = -by;
-            bz = -bz;
-            bw = -bw;
-        } // calculate coefficients
-        if (1.0 - cosom > glMatrix.EPSILON) {
-            // standard case (slerp)
-            omega = Math.acos(cosom);
-            sinom = Math.sin(omega);
-            scale0 = Math.sin((1.0 - t) * omega) / sinom;
-            scale1 = Math.sin(t * omega) / sinom;
-        }
-        else {
-            // "from" and "to" quaternions are very close
-            //  ... so we can do a linear interpolation
-            scale0 = 1.0 - t;
-            scale1 = t;
-        } // calculate final values
-        out[0] = scale0 * ax + scale1 * bx;
-        out[1] = scale0 * ay + scale1 * by;
-        out[2] = scale0 * az + scale1 * bz;
-        out[3] = scale0 * aw + scale1 * bw;
-        return out;
-    }
-    /**
-     * Generates a random unit quaternion
-     *
-     * @param {quat} out the receiving quaternion
-     * @returns {quat} out
-     */
-    function random(out) {
-        // Implementation of http://planning.cs.uiuc.edu/node198.html
-        // TODO: Calling random 3 times is probably not the fastest solution
-        var u1 = glMatrix.RANDOM();
-        var u2 = glMatrix.RANDOM();
-        var u3 = glMatrix.RANDOM();
-        var sqrt1MinusU1 = Math.sqrt(1 - u1);
-        var sqrtU1 = Math.sqrt(u1);
-        out[0] = sqrt1MinusU1 * Math.sin(2.0 * Math.PI * u2);
-        out[1] = sqrt1MinusU1 * Math.cos(2.0 * Math.PI * u2);
-        out[2] = sqrtU1 * Math.sin(2.0 * Math.PI * u3);
-        out[3] = sqrtU1 * Math.cos(2.0 * Math.PI * u3);
-        return out;
-    }
-    /**
-     * Calculates the inverse of a quat
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quat to calculate inverse of
-     * @returns {quat} out
-     */
-    function invert(out, a) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var dot = a0 * a0 + a1 * a1 + a2 * a2 + a3 * a3;
-        var invDot = dot ? 1.0 / dot : 0; // TODO: Would be faster to return [0,0,0,0] immediately if dot == 0
-        out[0] = -a0 * invDot;
-        out[1] = -a1 * invDot;
-        out[2] = -a2 * invDot;
-        out[3] = a3 * invDot;
-        return out;
-    }
-    /**
-     * Calculates the conjugate of a quat
-     * If the quaternion is normalized, this function is faster than quat.inverse and produces the same result.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quat to calculate conjugate of
-     * @returns {quat} out
-     */
-    function conjugate(out, a) {
-        out[0] = -a[0];
-        out[1] = -a[1];
-        out[2] = -a[2];
-        out[3] = a[3];
-        return out;
-    }
-    /**
-     * Creates a quaternion from the given 3x3 rotation matrix.
-     *
-     * NOTE: The resultant quaternion is not normalized, so you should be sure
-     * to renormalize the quaternion yourself where necessary.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyMat3} m rotation matrix
-     * @returns {quat} out
-     * @function
-     */
-    function fromMat3(out, m) {
-        // Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
-        // article "Quaternion Calculus and Fast Animation".
-        var fTrace = m[0] + m[4] + m[8];
-        var fRoot;
-        if (fTrace > 0.0) {
-            // |w| > 1/2, may as well choose w > 1/2
-            fRoot = Math.sqrt(fTrace + 1.0); // 2w
-            out[3] = 0.5 * fRoot;
-            fRoot = 0.5 / fRoot; // 1/(4w)
-            out[0] = (m[5] - m[7]) * fRoot;
-            out[1] = (m[6] - m[2]) * fRoot;
-            out[2] = (m[1] - m[3]) * fRoot;
-        }
-        else {
-            // |w| <= 1/2
-            var i = 0;
-            if (m[4] > m[0])
-                i = 1;
-            if (m[8] > m[i * 3 + i])
-                i = 2;
-            var j = (i + 1) % 3;
-            var k = (i + 2) % 3;
-            fRoot = Math.sqrt(m[i * 3 + i] - m[j * 3 + j] - m[k * 3 + k] + 1.0);
-            out[i] = 0.5 * fRoot;
-            fRoot = 0.5 / fRoot;
-            out[3] = (m[j * 3 + k] - m[k * 3 + j]) * fRoot;
-            out[j] = (m[j * 3 + i] + m[i * 3 + j]) * fRoot;
-            out[k] = (m[k * 3 + i] + m[i * 3 + k]) * fRoot;
-        }
-        return out;
-    }
-    /**
-     * Creates a quaternion from the given euler angle x, y, z.
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {x} Angle to rotate around X axis in degrees.
-     * @param {y} Angle to rotate around Y axis in degrees.
-     * @param {z} Angle to rotate around Z axis in degrees.
-     * @returns {quat} out
-     * @function
-     */
-    function fromEuler(out, x, y, z) {
-        var halfToRad = 0.5 * Math.PI / 180.0;
-        x *= halfToRad;
-        y *= halfToRad;
-        z *= halfToRad;
-        var sx = Math.sin(x);
-        var cx = Math.cos(x);
-        var sy = Math.sin(y);
-        var cy = Math.cos(y);
-        var sz = Math.sin(z);
-        var cz = Math.cos(z);
-        out[0] = sx * cy * cz - cx * sy * sz;
-        out[1] = cx * sy * cz + sx * cy * sz;
-        out[2] = cx * cy * sz - sx * sy * cz;
-        out[3] = cx * cy * cz + sx * sy * sz;
-        return out;
-    }
-    /**
-     * Returns a string representation of a quatenion
-     *
-     * @param {ReadonlyQuat} a vector to represent as a string
-     * @returns {String} string representation of the vector
-     */
-    function str(a) {
-        return "quat(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ")";
-    }
-    /**
-     * Creates a new quat initialized with values from an existing quaternion
-     *
-     * @param {ReadonlyQuat} a quaternion to clone
-     * @returns {quat} a new quaternion
-     * @function
-     */
-    exports.clone = vec4.clone;
-    /**
-     * Creates a new quat initialized with the given values
-     *
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @param {Number} z Z component
-     * @param {Number} w W component
-     * @returns {quat} a new quaternion
-     * @function
-     */
-    exports.fromValues = vec4.fromValues;
-    /**
-     * Copy the values from one quat to another
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a the source quaternion
-     * @returns {quat} out
-     * @function
-     */
-    exports.copy = vec4.copy;
-    /**
-     * Set the components of a quat to the given values
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @param {Number} z Z component
-     * @param {Number} w W component
-     * @returns {quat} out
-     * @function
-     */
-    exports.set = vec4.set;
-    /**
-     * Adds two quat's
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a the first operand
-     * @param {ReadonlyQuat} b the second operand
-     * @returns {quat} out
-     * @function
-     */
-    exports.add = vec4.add;
-    /**
-     * Alias for {@link quat.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Scales a quat by a scalar number
-     *
-     * @param {quat} out the receiving vector
-     * @param {ReadonlyQuat} a the vector to scale
-     * @param {Number} b amount to scale the vector by
-     * @returns {quat} out
-     * @function
-     */
-    exports.scale = vec4.scale;
-    /**
-     * Calculates the dot product of two quat's
-     *
-     * @param {ReadonlyQuat} a the first operand
-     * @param {ReadonlyQuat} b the second operand
-     * @returns {Number} dot product of a and b
-     * @function
-     */
-    exports.dot = vec4.dot;
-    /**
-     * Performs a linear interpolation between two quat's
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a the first operand
-     * @param {ReadonlyQuat} b the second operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {quat} out
-     * @function
-     */
-    exports.lerp = vec4.lerp;
-    /**
-     * Calculates the length of a quat
-     *
-     * @param {ReadonlyQuat} a vector to calculate length of
-     * @returns {Number} length of a
-     */
-    exports.length = vec4.length;
-    /**
-     * Alias for {@link quat.length}
-     * @function
-     */
-    exports.len = exports.length;
-    /**
-     * Calculates the squared length of a quat
-     *
-     * @param {ReadonlyQuat} a vector to calculate squared length of
-     * @returns {Number} squared length of a
-     * @function
-     */
-    exports.squaredLength = vec4.squaredLength;
-    /**
-     * Alias for {@link quat.squaredLength}
-     * @function
-     */
-    exports.sqrLen = exports.squaredLength;
-    /**
-     * Normalize a quat
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a quaternion to normalize
-     * @returns {quat} out
-     * @function
-     */
-    exports.normalize = vec4.normalize;
-    /**
-     * Returns whether or not the quaternions have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyQuat} a The first quaternion.
-     * @param {ReadonlyQuat} b The second quaternion.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    exports.exactEquals = vec4.exactEquals;
-    /**
-     * Returns whether or not the quaternions have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyQuat} a The first vector.
-     * @param {ReadonlyQuat} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    exports.equals = vec4.equals;
-    /**
-     * Sets a quaternion to represent the shortest rotation from one
-     * vector to another.
-     *
-     * Both vectors are assumed to be unit length.
-     *
-     * @param {quat} out the receiving quaternion.
-     * @param {ReadonlyVec3} a the initial vector
-     * @param {ReadonlyVec3} b the destination vector
-     * @returns {quat} out
-     */
-    exports.rotationTo = function () {
-        var tmpvec3 = vec3.create();
-        var xUnitVec3 = vec3.fromValues(1, 0, 0);
-        var yUnitVec3 = vec3.fromValues(0, 1, 0);
-        return function (out, a, b) {
-            var dot = vec3.dot(a, b);
-            if (dot < -0.999999) {
-                vec3.cross(tmpvec3, xUnitVec3, a);
-                if (vec3.len(tmpvec3) < 0.000001)
-                    vec3.cross(tmpvec3, yUnitVec3, a);
-                vec3.normalize(tmpvec3, tmpvec3);
-                setAxisAngle(out, tmpvec3, Math.PI);
-                return out;
-            }
-            else if (dot > 0.999999) {
-                out[0] = 0;
-                out[1] = 0;
-                out[2] = 0;
-                out[3] = 1;
-                return out;
-            }
-            else {
-                vec3.cross(tmpvec3, a, b);
-                out[0] = tmpvec3[0];
-                out[1] = tmpvec3[1];
-                out[2] = tmpvec3[2];
-                out[3] = 1 + dot;
-                return (0, exports.normalize)(out, out);
-            }
-        };
-    }();
-    /**
-     * Performs a spherical linear interpolation with two control points
-     *
-     * @param {quat} out the receiving quaternion
-     * @param {ReadonlyQuat} a the first operand
-     * @param {ReadonlyQuat} b the second operand
-     * @param {ReadonlyQuat} c the third operand
-     * @param {ReadonlyQuat} d the fourth operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {quat} out
-     */
-    exports.sqlerp = function () {
-        var temp1 = create();
-        var temp2 = create();
-        return function (out, a, b, c, d, t) {
-            slerp(temp1, a, d, t);
-            slerp(temp2, b, c, t);
-            slerp(out, temp1, temp2, 2 * t * (1 - t));
-            return out;
-        };
-    }();
-    /**
-     * Sets the specified quaternion with values corresponding to the given
-     * axes. Each axis is a vec3 and is expected to be unit length and
-     * perpendicular to all other specified axes.
-     *
-     * @param {ReadonlyVec3} view  the vector representing the viewing direction
-     * @param {ReadonlyVec3} right the vector representing the local "right" direction
-     * @param {ReadonlyVec3} up    the vector representing the local "up" direction
-     * @returns {quat} out
-     */
-    exports.setAxes = function () {
-        var matr = mat3.create();
-        return function (out, view, right, up) {
-            matr[0] = right[0];
-            matr[3] = right[1];
-            matr[6] = right[2];
-            matr[1] = up[0];
-            matr[4] = up[1];
-            matr[7] = up[2];
-            matr[2] = -view[0];
-            matr[5] = -view[1];
-            matr[8] = -view[2];
-            return (0, exports.normalize)(out, fromMat3(out, matr));
-        };
-    }();
-},
-"63eddc5433": /* gl-matrix/esm/vec3.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.length = length;
-    exports.fromValues = fromValues;
-    exports.copy = copy;
-    exports.set = set;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.multiply = multiply;
-    exports.divide = divide;
-    exports.ceil = ceil;
-    exports.floor = floor;
-    exports.min = min;
-    exports.max = max;
-    exports.round = round;
-    exports.scale = scale;
-    exports.scaleAndAdd = scaleAndAdd;
-    exports.distance = distance;
-    exports.squaredDistance = squaredDistance;
-    exports.squaredLength = squaredLength;
-    exports.negate = negate;
-    exports.inverse = inverse;
-    exports.normalize = normalize;
-    exports.dot = dot;
-    exports.cross = cross;
-    exports.lerp = lerp;
-    exports.hermite = hermite;
-    exports.bezier = bezier;
-    exports.random = random;
-    exports.transformMat4 = transformMat4;
-    exports.transformMat3 = transformMat3;
-    exports.transformQuat = transformQuat;
-    exports.rotateX = rotateX;
-    exports.rotateY = rotateY;
-    exports.rotateZ = rotateZ;
-    exports.angle = angle;
-    exports.zero = zero;
-    exports.str = str;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 3 Dimensional Vector
-     * @module vec3
-     */
-    /**
-     * Creates a new, empty vec3
-     *
-     * @returns {vec3} a new 3D vector
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(3);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[0] = 0;
-            out[1] = 0;
-            out[2] = 0;
-        }
-        return out;
-    }
-    /**
-     * Creates a new vec3 initialized with values from an existing vector
-     *
-     * @param {ReadonlyVec3} a vector to clone
-     * @returns {vec3} a new 3D vector
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(3);
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        return out;
-    }
-    /**
-     * Calculates the length of a vec3
-     *
-     * @param {ReadonlyVec3} a vector to calculate length of
-     * @returns {Number} length of a
-     */
-    function length(a) {
-        var x = a[0];
-        var y = a[1];
-        var z = a[2];
-        return Math.hypot(x, y, z);
-    }
-    /**
-     * Creates a new vec3 initialized with the given values
-     *
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @param {Number} z Z component
-     * @returns {vec3} a new 3D vector
-     */
-    function fromValues(x, y, z) {
-        var out = new glMatrix.ARRAY_TYPE(3);
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
-        return out;
-    }
-    /**
-     * Copy the values from one vec3 to another
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the source vector
-     * @returns {vec3} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        return out;
-    }
-    /**
-     * Set the components of a vec3 to the given values
-     *
-     * @param {vec3} out the receiving vector
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @param {Number} z Z component
-     * @returns {vec3} out
-     */
-    function set(out, x, y, z) {
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
-        return out;
-    }
-    /**
-     * Adds two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        return out;
-    }
-    /**
-     * Subtracts vector b from vector a
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        out[2] = a[2] - b[2];
-        return out;
-    }
-    /**
-     * Multiplies two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function multiply(out, a, b) {
-        out[0] = a[0] * b[0];
-        out[1] = a[1] * b[1];
-        out[2] = a[2] * b[2];
-        return out;
-    }
-    /**
-     * Divides two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function divide(out, a, b) {
-        out[0] = a[0] / b[0];
-        out[1] = a[1] / b[1];
-        out[2] = a[2] / b[2];
-        return out;
-    }
-    /**
-     * Math.ceil the components of a vec3
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a vector to ceil
-     * @returns {vec3} out
-     */
-    function ceil(out, a) {
-        out[0] = Math.ceil(a[0]);
-        out[1] = Math.ceil(a[1]);
-        out[2] = Math.ceil(a[2]);
-        return out;
-    }
-    /**
-     * Math.floor the components of a vec3
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a vector to floor
-     * @returns {vec3} out
-     */
-    function floor(out, a) {
-        out[0] = Math.floor(a[0]);
-        out[1] = Math.floor(a[1]);
-        out[2] = Math.floor(a[2]);
-        return out;
-    }
-    /**
-     * Returns the minimum of two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function min(out, a, b) {
-        out[0] = Math.min(a[0], b[0]);
-        out[1] = Math.min(a[1], b[1]);
-        out[2] = Math.min(a[2], b[2]);
-        return out;
-    }
-    /**
-     * Returns the maximum of two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function max(out, a, b) {
-        out[0] = Math.max(a[0], b[0]);
-        out[1] = Math.max(a[1], b[1]);
-        out[2] = Math.max(a[2], b[2]);
-        return out;
-    }
-    /**
-     * Math.round the components of a vec3
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a vector to round
-     * @returns {vec3} out
-     */
-    function round(out, a) {
-        out[0] = Math.round(a[0]);
-        out[1] = Math.round(a[1]);
-        out[2] = Math.round(a[2]);
-        return out;
-    }
-    /**
-     * Scales a vec3 by a scalar number
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the vector to scale
-     * @param {Number} b amount to scale the vector by
-     * @returns {vec3} out
-     */
-    function scale(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        return out;
-    }
-    /**
-     * Adds two vec3's after scaling the second operand by a scalar value
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @param {Number} scale the amount to scale b by before adding
-     * @returns {vec3} out
-     */
-    function scaleAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        out[2] = a[2] + b[2] * scale;
-        return out;
-    }
-    /**
-     * Calculates the euclidian distance between two vec3's
-     *
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {Number} distance between a and b
-     */
-    function distance(a, b) {
-        var x = b[0] - a[0];
-        var y = b[1] - a[1];
-        var z = b[2] - a[2];
-        return Math.hypot(x, y, z);
-    }
-    /**
-     * Calculates the squared euclidian distance between two vec3's
-     *
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {Number} squared distance between a and b
-     */
-    function squaredDistance(a, b) {
-        var x = b[0] - a[0];
-        var y = b[1] - a[1];
-        var z = b[2] - a[2];
-        return x * x + y * y + z * z;
-    }
-    /**
-     * Calculates the squared length of a vec3
-     *
-     * @param {ReadonlyVec3} a vector to calculate squared length of
-     * @returns {Number} squared length of a
-     */
-    function squaredLength(a) {
-        var x = a[0];
-        var y = a[1];
-        var z = a[2];
-        return x * x + y * y + z * z;
-    }
-    /**
-     * Negates the components of a vec3
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a vector to negate
-     * @returns {vec3} out
-     */
-    function negate(out, a) {
-        out[0] = -a[0];
-        out[1] = -a[1];
-        out[2] = -a[2];
-        return out;
-    }
-    /**
-     * Returns the inverse of the components of a vec3
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a vector to invert
-     * @returns {vec3} out
-     */
-    function inverse(out, a) {
-        out[0] = 1.0 / a[0];
-        out[1] = 1.0 / a[1];
-        out[2] = 1.0 / a[2];
-        return out;
-    }
-    /**
-     * Normalize a vec3
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a vector to normalize
-     * @returns {vec3} out
-     */
-    function normalize(out, a) {
-        var x = a[0];
-        var y = a[1];
-        var z = a[2];
-        var len = x * x + y * y + z * z;
-        if (len > 0) {
-            //TODO: evaluate use of glm_invsqrt here?
-            len = 1 / Math.sqrt(len);
-        }
-        out[0] = a[0] * len;
-        out[1] = a[1] * len;
-        out[2] = a[2] * len;
-        return out;
-    }
-    /**
-     * Calculates the dot product of two vec3's
-     *
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {Number} dot product of a and b
-     */
-    function dot(a, b) {
-        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-    }
-    /**
-     * Computes the cross product of two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @returns {vec3} out
-     */
-    function cross(out, a, b) {
-        var ax = a[0], ay = a[1], az = a[2];
-        var bx = b[0], by = b[1], bz = b[2];
-        out[0] = ay * bz - az * by;
-        out[1] = az * bx - ax * bz;
-        out[2] = ax * by - ay * bx;
-        return out;
-    }
-    /**
-     * Performs a linear interpolation between two vec3's
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {vec3} out
-     */
-    function lerp(out, a, b, t) {
-        var ax = a[0];
-        var ay = a[1];
-        var az = a[2];
-        out[0] = ax + t * (b[0] - ax);
-        out[1] = ay + t * (b[1] - ay);
-        out[2] = az + t * (b[2] - az);
-        return out;
-    }
-    /**
-     * Performs a hermite interpolation with two control points
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @param {ReadonlyVec3} c the third operand
-     * @param {ReadonlyVec3} d the fourth operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {vec3} out
-     */
-    function hermite(out, a, b, c, d, t) {
-        var factorTimes2 = t * t;
-        var factor1 = factorTimes2 * (2 * t - 3) + 1;
-        var factor2 = factorTimes2 * (t - 2) + t;
-        var factor3 = factorTimes2 * (t - 1);
-        var factor4 = factorTimes2 * (3 - 2 * t);
-        out[0] = a[0] * factor1 + b[0] * factor2 + c[0] * factor3 + d[0] * factor4;
-        out[1] = a[1] * factor1 + b[1] * factor2 + c[1] * factor3 + d[1] * factor4;
-        out[2] = a[2] * factor1 + b[2] * factor2 + c[2] * factor3 + d[2] * factor4;
-        return out;
-    }
-    /**
-     * Performs a bezier interpolation with two control points
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the first operand
-     * @param {ReadonlyVec3} b the second operand
-     * @param {ReadonlyVec3} c the third operand
-     * @param {ReadonlyVec3} d the fourth operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {vec3} out
-     */
-    function bezier(out, a, b, c, d, t) {
-        var inverseFactor = 1 - t;
-        var inverseFactorTimesTwo = inverseFactor * inverseFactor;
-        var factorTimes2 = t * t;
-        var factor1 = inverseFactorTimesTwo * inverseFactor;
-        var factor2 = 3 * t * inverseFactorTimesTwo;
-        var factor3 = 3 * factorTimes2 * inverseFactor;
-        var factor4 = factorTimes2 * t;
-        out[0] = a[0] * factor1 + b[0] * factor2 + c[0] * factor3 + d[0] * factor4;
-        out[1] = a[1] * factor1 + b[1] * factor2 + c[1] * factor3 + d[1] * factor4;
-        out[2] = a[2] * factor1 + b[2] * factor2 + c[2] * factor3 + d[2] * factor4;
-        return out;
-    }
-    /**
-     * Generates a random vector with the given scale
-     *
-     * @param {vec3} out the receiving vector
-     * @param {Number} [scale] Length of the resulting vector. If ommitted, a unit vector will be returned
-     * @returns {vec3} out
-     */
-    function random(out, scale) {
-        scale = scale || 1.0;
-        var r = glMatrix.RANDOM() * 2.0 * Math.PI;
-        var z = glMatrix.RANDOM() * 2.0 - 1.0;
-        var zScale = Math.sqrt(1.0 - z * z) * scale;
-        out[0] = Math.cos(r) * zScale;
-        out[1] = Math.sin(r) * zScale;
-        out[2] = z * scale;
-        return out;
-    }
-    /**
-     * Transforms the vec3 with a mat4.
-     * 4th vector component is implicitly '1'
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the vector to transform
-     * @param {ReadonlyMat4} m matrix to transform with
-     * @returns {vec3} out
-     */
-    function transformMat4(out, a, m) {
-        var x = a[0], y = a[1], z = a[2];
-        var w = m[3] * x + m[7] * y + m[11] * z + m[15];
-        w = w || 1.0;
-        out[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
-        out[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
-        out[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
-        return out;
-    }
-    /**
-     * Transforms the vec3 with a mat3.
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the vector to transform
-     * @param {ReadonlyMat3} m the 3x3 matrix to transform with
-     * @returns {vec3} out
-     */
-    function transformMat3(out, a, m) {
-        var x = a[0], y = a[1], z = a[2];
-        out[0] = x * m[0] + y * m[3] + z * m[6];
-        out[1] = x * m[1] + y * m[4] + z * m[7];
-        out[2] = x * m[2] + y * m[5] + z * m[8];
-        return out;
-    }
-    /**
-     * Transforms the vec3 with a quat
-     * Can also be used for dual quaternions. (Multiply it with the real part)
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec3} a the vector to transform
-     * @param {ReadonlyQuat} q quaternion to transform with
-     * @returns {vec3} out
-     */
-    function transformQuat(out, a, q) {
-        // benchmarks: https://jsperf.com/quaternion-transform-vec3-implementations-fixed
-        var qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-        var x = a[0], y = a[1], z = a[2]; // var qvec = [qx, qy, qz];
-        // var uv = vec3.cross([], qvec, a);
-        var uvx = qy * z - qz * y, uvy = qz * x - qx * z, uvz = qx * y - qy * x; // var uuv = vec3.cross([], qvec, uv);
-        var uuvx = qy * uvz - qz * uvy, uuvy = qz * uvx - qx * uvz, uuvz = qx * uvy - qy * uvx; // vec3.scale(uv, uv, 2 * w);
-        var w2 = qw * 2;
-        uvx *= w2;
-        uvy *= w2;
-        uvz *= w2; // vec3.scale(uuv, uuv, 2);
-        uuvx *= 2;
-        uuvy *= 2;
-        uuvz *= 2; // return vec3.add(out, a, vec3.add(out, uv, uuv));
-        out[0] = x + uvx + uuvx;
-        out[1] = y + uvy + uuvy;
-        out[2] = z + uvz + uuvz;
-        return out;
-    }
-    /**
-     * Rotate a 3D vector around the x-axis
-     * @param {vec3} out The receiving vec3
-     * @param {ReadonlyVec3} a The vec3 point to rotate
-     * @param {ReadonlyVec3} b The origin of the rotation
-     * @param {Number} rad The angle of rotation in radians
-     * @returns {vec3} out
-     */
-    function rotateX(out, a, b, rad) {
-        var p = [], r = []; //Translate point to the origin
-        p[0] = a[0] - b[0];
-        p[1] = a[1] - b[1];
-        p[2] = a[2] - b[2]; //perform rotation
-        r[0] = p[0];
-        r[1] = p[1] * Math.cos(rad) - p[2] * Math.sin(rad);
-        r[2] = p[1] * Math.sin(rad) + p[2] * Math.cos(rad); //translate to correct position
-        out[0] = r[0] + b[0];
-        out[1] = r[1] + b[1];
-        out[2] = r[2] + b[2];
-        return out;
-    }
-    /**
-     * Rotate a 3D vector around the y-axis
-     * @param {vec3} out The receiving vec3
-     * @param {ReadonlyVec3} a The vec3 point to rotate
-     * @param {ReadonlyVec3} b The origin of the rotation
-     * @param {Number} rad The angle of rotation in radians
-     * @returns {vec3} out
-     */
-    function rotateY(out, a, b, rad) {
-        var p = [], r = []; //Translate point to the origin
-        p[0] = a[0] - b[0];
-        p[1] = a[1] - b[1];
-        p[2] = a[2] - b[2]; //perform rotation
-        r[0] = p[2] * Math.sin(rad) + p[0] * Math.cos(rad);
-        r[1] = p[1];
-        r[2] = p[2] * Math.cos(rad) - p[0] * Math.sin(rad); //translate to correct position
-        out[0] = r[0] + b[0];
-        out[1] = r[1] + b[1];
-        out[2] = r[2] + b[2];
-        return out;
-    }
-    /**
-     * Rotate a 3D vector around the z-axis
-     * @param {vec3} out The receiving vec3
-     * @param {ReadonlyVec3} a The vec3 point to rotate
-     * @param {ReadonlyVec3} b The origin of the rotation
-     * @param {Number} rad The angle of rotation in radians
-     * @returns {vec3} out
-     */
-    function rotateZ(out, a, b, rad) {
-        var p = [], r = []; //Translate point to the origin
-        p[0] = a[0] - b[0];
-        p[1] = a[1] - b[1];
-        p[2] = a[2] - b[2]; //perform rotation
-        r[0] = p[0] * Math.cos(rad) - p[1] * Math.sin(rad);
-        r[1] = p[0] * Math.sin(rad) + p[1] * Math.cos(rad);
-        r[2] = p[2]; //translate to correct position
-        out[0] = r[0] + b[0];
-        out[1] = r[1] + b[1];
-        out[2] = r[2] + b[2];
-        return out;
-    }
-    /**
-     * Get the angle between two 3D vectors
-     * @param {ReadonlyVec3} a The first operand
-     * @param {ReadonlyVec3} b The second operand
-     * @returns {Number} The angle in radians
-     */
-    function angle(a, b) {
-        var ax = a[0], ay = a[1], az = a[2], bx = b[0], by = b[1], bz = b[2], mag1 = Math.sqrt(ax * ax + ay * ay + az * az), mag2 = Math.sqrt(bx * bx + by * by + bz * bz), mag = mag1 * mag2, cosine = mag && dot(a, b) / mag;
-        return Math.acos(Math.min(Math.max(cosine, -1), 1));
-    }
-    /**
-     * Set the components of a vec3 to zero
-     *
-     * @param {vec3} out the receiving vector
-     * @returns {vec3} out
-     */
-    function zero(out) {
-        out[0] = 0.0;
-        out[1] = 0.0;
-        out[2] = 0.0;
-        return out;
-    }
-    /**
-     * Returns a string representation of a vector
-     *
-     * @param {ReadonlyVec3} a vector to represent as a string
-     * @returns {String} string representation of the vector
-     */
-    function str(a) {
-        return "vec3(" + a[0] + ", " + a[1] + ", " + a[2] + ")";
-    }
-    /**
-     * Returns whether or not the vectors have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyVec3} a The first vector.
-     * @param {ReadonlyVec3} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
-    }
-    /**
-     * Returns whether or not the vectors have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyVec3} a The first vector.
-     * @param {ReadonlyVec3} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2];
-        var b0 = b[0], b1 = b[1], b2 = b[2];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2));
-    }
-    /**
-     * Alias for {@link vec3.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-    /**
-     * Alias for {@link vec3.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link vec3.divide}
-     * @function
-     */
-    exports.div = divide;
-    /**
-     * Alias for {@link vec3.distance}
-     * @function
-     */
-    exports.dist = distance;
-    /**
-     * Alias for {@link vec3.squaredDistance}
-     * @function
-     */
-    exports.sqrDist = squaredDistance;
-    /**
-     * Alias for {@link vec3.length}
-     * @function
-     */
-    exports.len = length;
-    /**
-     * Alias for {@link vec3.squaredLength}
-     * @function
-     */
-    exports.sqrLen = squaredLength;
-    /**
-     * Perform some operation over an array of vec3s.
-     *
-     * @param {Array} a the array of vectors to iterate over
-     * @param {Number} stride Number of elements between the start of each vec3. If 0 assumes tightly packed
-     * @param {Number} offset Number of elements to skip at the beginning of the array
-     * @param {Number} count Number of vec3s to iterate over. If 0 iterates over entire array
-     * @param {Function} fn Function to call for each vector in the array
-     * @param {Object} [arg] additional argument to pass to fn
-     * @returns {Array} a
-     * @function
-     */
-    exports.forEach = function () {
-        var vec = create();
-        return function (a, stride, offset, count, fn, arg) {
-            var i, l;
-            if (!stride) {
-                stride = 3;
-            }
-            if (!offset) {
-                offset = 0;
-            }
-            if (count) {
-                l = Math.min(count * stride + offset, a.length);
-            }
-            else {
-                l = a.length;
-            }
-            for (i = offset; i < l; i += stride) {
-                vec[0] = a[i];
-                vec[1] = a[i + 1];
-                vec[2] = a[i + 2];
-                fn(vec, vec, arg);
-                a[i] = vec[0];
-                a[i + 1] = vec[1];
-                a[i + 2] = vec[2];
-            }
-            return a;
-        };
-    }();
-},
-"11562bccc5": /* gl-matrix/esm/vec4.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.fromValues = fromValues;
-    exports.copy = copy;
-    exports.set = set;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.multiply = multiply;
-    exports.divide = divide;
-    exports.ceil = ceil;
-    exports.floor = floor;
-    exports.min = min;
-    exports.max = max;
-    exports.round = round;
-    exports.scale = scale;
-    exports.scaleAndAdd = scaleAndAdd;
-    exports.distance = distance;
-    exports.squaredDistance = squaredDistance;
-    exports.length = length;
-    exports.squaredLength = squaredLength;
-    exports.negate = negate;
-    exports.inverse = inverse;
-    exports.normalize = normalize;
-    exports.dot = dot;
-    exports.cross = cross;
-    exports.lerp = lerp;
-    exports.random = random;
-    exports.transformMat4 = transformMat4;
-    exports.transformQuat = transformQuat;
-    exports.zero = zero;
-    exports.str = str;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 4 Dimensional Vector
-     * @module vec4
-     */
-    /**
-     * Creates a new, empty vec4
-     *
-     * @returns {vec4} a new 4D vector
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[0] = 0;
-            out[1] = 0;
-            out[2] = 0;
-            out[3] = 0;
-        }
-        return out;
-    }
-    /**
-     * Creates a new vec4 initialized with values from an existing vector
-     *
-     * @param {ReadonlyVec4} a vector to clone
-     * @returns {vec4} a new 4D vector
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        return out;
-    }
-    /**
-     * Creates a new vec4 initialized with the given values
-     *
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @param {Number} z Z component
-     * @param {Number} w W component
-     * @returns {vec4} a new 4D vector
-     */
-    function fromValues(x, y, z, w) {
-        var out = new glMatrix.ARRAY_TYPE(4);
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
-        out[3] = w;
-        return out;
-    }
-    /**
-     * Copy the values from one vec4 to another
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the source vector
-     * @returns {vec4} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        return out;
-    }
-    /**
-     * Set the components of a vec4 to the given values
-     *
-     * @param {vec4} out the receiving vector
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @param {Number} z Z component
-     * @param {Number} w W component
-     * @returns {vec4} out
-     */
-    function set(out, x, y, z, w) {
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
-        out[3] = w;
-        return out;
-    }
-    /**
-     * Adds two vec4's
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {vec4} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        out[3] = a[3] + b[3];
-        return out;
-    }
-    /**
-     * Subtracts vector b from vector a
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {vec4} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        out[2] = a[2] - b[2];
-        out[3] = a[3] - b[3];
-        return out;
-    }
-    /**
-     * Multiplies two vec4's
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {vec4} out
-     */
-    function multiply(out, a, b) {
-        out[0] = a[0] * b[0];
-        out[1] = a[1] * b[1];
-        out[2] = a[2] * b[2];
-        out[3] = a[3] * b[3];
-        return out;
-    }
-    /**
-     * Divides two vec4's
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {vec4} out
-     */
-    function divide(out, a, b) {
-        out[0] = a[0] / b[0];
-        out[1] = a[1] / b[1];
-        out[2] = a[2] / b[2];
-        out[3] = a[3] / b[3];
-        return out;
-    }
-    /**
-     * Math.ceil the components of a vec4
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a vector to ceil
-     * @returns {vec4} out
-     */
-    function ceil(out, a) {
-        out[0] = Math.ceil(a[0]);
-        out[1] = Math.ceil(a[1]);
-        out[2] = Math.ceil(a[2]);
-        out[3] = Math.ceil(a[3]);
-        return out;
-    }
-    /**
-     * Math.floor the components of a vec4
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a vector to floor
-     * @returns {vec4} out
-     */
-    function floor(out, a) {
-        out[0] = Math.floor(a[0]);
-        out[1] = Math.floor(a[1]);
-        out[2] = Math.floor(a[2]);
-        out[3] = Math.floor(a[3]);
-        return out;
-    }
-    /**
-     * Returns the minimum of two vec4's
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {vec4} out
-     */
-    function min(out, a, b) {
-        out[0] = Math.min(a[0], b[0]);
-        out[1] = Math.min(a[1], b[1]);
-        out[2] = Math.min(a[2], b[2]);
-        out[3] = Math.min(a[3], b[3]);
-        return out;
-    }
-    /**
-     * Returns the maximum of two vec4's
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {vec4} out
-     */
-    function max(out, a, b) {
-        out[0] = Math.max(a[0], b[0]);
-        out[1] = Math.max(a[1], b[1]);
-        out[2] = Math.max(a[2], b[2]);
-        out[3] = Math.max(a[3], b[3]);
-        return out;
-    }
-    /**
-     * Math.round the components of a vec4
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a vector to round
-     * @returns {vec4} out
-     */
-    function round(out, a) {
-        out[0] = Math.round(a[0]);
-        out[1] = Math.round(a[1]);
-        out[2] = Math.round(a[2]);
-        out[3] = Math.round(a[3]);
-        return out;
-    }
-    /**
-     * Scales a vec4 by a scalar number
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the vector to scale
-     * @param {Number} b amount to scale the vector by
-     * @returns {vec4} out
-     */
-    function scale(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        out[3] = a[3] * b;
-        return out;
-    }
-    /**
-     * Adds two vec4's after scaling the second operand by a scalar value
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @param {Number} scale the amount to scale b by before adding
-     * @returns {vec4} out
-     */
-    function scaleAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        out[2] = a[2] + b[2] * scale;
-        out[3] = a[3] + b[3] * scale;
-        return out;
-    }
-    /**
-     * Calculates the euclidian distance between two vec4's
-     *
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {Number} distance between a and b
-     */
-    function distance(a, b) {
-        var x = b[0] - a[0];
-        var y = b[1] - a[1];
-        var z = b[2] - a[2];
-        var w = b[3] - a[3];
-        return Math.hypot(x, y, z, w);
-    }
-    /**
-     * Calculates the squared euclidian distance between two vec4's
-     *
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {Number} squared distance between a and b
-     */
-    function squaredDistance(a, b) {
-        var x = b[0] - a[0];
-        var y = b[1] - a[1];
-        var z = b[2] - a[2];
-        var w = b[3] - a[3];
-        return x * x + y * y + z * z + w * w;
-    }
-    /**
-     * Calculates the length of a vec4
-     *
-     * @param {ReadonlyVec4} a vector to calculate length of
-     * @returns {Number} length of a
-     */
-    function length(a) {
-        var x = a[0];
-        var y = a[1];
-        var z = a[2];
-        var w = a[3];
-        return Math.hypot(x, y, z, w);
-    }
-    /**
-     * Calculates the squared length of a vec4
-     *
-     * @param {ReadonlyVec4} a vector to calculate squared length of
-     * @returns {Number} squared length of a
-     */
-    function squaredLength(a) {
-        var x = a[0];
-        var y = a[1];
-        var z = a[2];
-        var w = a[3];
-        return x * x + y * y + z * z + w * w;
-    }
-    /**
-     * Negates the components of a vec4
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a vector to negate
-     * @returns {vec4} out
-     */
-    function negate(out, a) {
-        out[0] = -a[0];
-        out[1] = -a[1];
-        out[2] = -a[2];
-        out[3] = -a[3];
-        return out;
-    }
-    /**
-     * Returns the inverse of the components of a vec4
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a vector to invert
-     * @returns {vec4} out
-     */
-    function inverse(out, a) {
-        out[0] = 1.0 / a[0];
-        out[1] = 1.0 / a[1];
-        out[2] = 1.0 / a[2];
-        out[3] = 1.0 / a[3];
-        return out;
-    }
-    /**
-     * Normalize a vec4
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a vector to normalize
-     * @returns {vec4} out
-     */
-    function normalize(out, a) {
-        var x = a[0];
-        var y = a[1];
-        var z = a[2];
-        var w = a[3];
-        var len = x * x + y * y + z * z + w * w;
-        if (len > 0) {
-            len = 1 / Math.sqrt(len);
-        }
-        out[0] = x * len;
-        out[1] = y * len;
-        out[2] = z * len;
-        out[3] = w * len;
-        return out;
-    }
-    /**
-     * Calculates the dot product of two vec4's
-     *
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @returns {Number} dot product of a and b
-     */
-    function dot(a, b) {
-        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
-    }
-    /**
-     * Returns the cross-product of three vectors in a 4-dimensional space
-     *
-     * @param {ReadonlyVec4} result the receiving vector
-     * @param {ReadonlyVec4} U the first vector
-     * @param {ReadonlyVec4} V the second vector
-     * @param {ReadonlyVec4} W the third vector
-     * @returns {vec4} result
-     */
-    function cross(out, u, v, w) {
-        var A = v[0] * w[1] - v[1] * w[0], B = v[0] * w[2] - v[2] * w[0], C = v[0] * w[3] - v[3] * w[0], D = v[1] * w[2] - v[2] * w[1], E = v[1] * w[3] - v[3] * w[1], F = v[2] * w[3] - v[3] * w[2];
-        var G = u[0];
-        var H = u[1];
-        var I = u[2];
-        var J = u[3];
-        out[0] = H * F - I * E + J * D;
-        out[1] = -(G * F) + I * C - J * B;
-        out[2] = G * E - H * C + J * A;
-        out[3] = -(G * D) + H * B - I * A;
-        return out;
-    }
-    /**
-     * Performs a linear interpolation between two vec4's
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the first operand
-     * @param {ReadonlyVec4} b the second operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {vec4} out
-     */
-    function lerp(out, a, b, t) {
-        var ax = a[0];
-        var ay = a[1];
-        var az = a[2];
-        var aw = a[3];
-        out[0] = ax + t * (b[0] - ax);
-        out[1] = ay + t * (b[1] - ay);
-        out[2] = az + t * (b[2] - az);
-        out[3] = aw + t * (b[3] - aw);
-        return out;
-    }
-    /**
-     * Generates a random vector with the given scale
-     *
-     * @param {vec4} out the receiving vector
-     * @param {Number} [scale] Length of the resulting vector. If ommitted, a unit vector will be returned
-     * @returns {vec4} out
-     */
-    function random(out, scale) {
-        scale = scale || 1.0; // Marsaglia, George. Choosing a Point from the Surface of a
-        // Sphere. Ann. Math. Statist. 43 (1972), no. 2, 645--646.
-        // http://projecteuclid.org/euclid.aoms/1177692644;
-        var v1, v2, v3, v4;
-        var s1, s2;
-        do {
-            v1 = glMatrix.RANDOM() * 2 - 1;
-            v2 = glMatrix.RANDOM() * 2 - 1;
-            s1 = v1 * v1 + v2 * v2;
-        } while (s1 >= 1);
-        do {
-            v3 = glMatrix.RANDOM() * 2 - 1;
-            v4 = glMatrix.RANDOM() * 2 - 1;
-            s2 = v3 * v3 + v4 * v4;
-        } while (s2 >= 1);
-        var d = Math.sqrt((1 - s1) / s2);
-        out[0] = scale * v1;
-        out[1] = scale * v2;
-        out[2] = scale * v3 * d;
-        out[3] = scale * v4 * d;
-        return out;
-    }
-    /**
-     * Transforms the vec4 with a mat4.
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the vector to transform
-     * @param {ReadonlyMat4} m matrix to transform with
-     * @returns {vec4} out
-     */
-    function transformMat4(out, a, m) {
-        var x = a[0], y = a[1], z = a[2], w = a[3];
-        out[0] = m[0] * x + m[4] * y + m[8] * z + m[12] * w;
-        out[1] = m[1] * x + m[5] * y + m[9] * z + m[13] * w;
-        out[2] = m[2] * x + m[6] * y + m[10] * z + m[14] * w;
-        out[3] = m[3] * x + m[7] * y + m[11] * z + m[15] * w;
-        return out;
-    }
-    /**
-     * Transforms the vec4 with a quat
-     *
-     * @param {vec4} out the receiving vector
-     * @param {ReadonlyVec4} a the vector to transform
-     * @param {ReadonlyQuat} q quaternion to transform with
-     * @returns {vec4} out
-     */
-    function transformQuat(out, a, q) {
-        var x = a[0], y = a[1], z = a[2];
-        var qx = q[0], qy = q[1], qz = q[2], qw = q[3]; // calculate quat * vec
-        var ix = qw * x + qy * z - qz * y;
-        var iy = qw * y + qz * x - qx * z;
-        var iz = qw * z + qx * y - qy * x;
-        var iw = -qx * x - qy * y - qz * z; // calculate result * inverse quat
-        out[0] = ix * qw + iw * -qx + iy * -qz - iz * -qy;
-        out[1] = iy * qw + iw * -qy + iz * -qx - ix * -qz;
-        out[2] = iz * qw + iw * -qz + ix * -qy - iy * -qx;
-        out[3] = a[3];
-        return out;
-    }
-    /**
-     * Set the components of a vec4 to zero
-     *
-     * @param {vec4} out the receiving vector
-     * @returns {vec4} out
-     */
-    function zero(out) {
-        out[0] = 0.0;
-        out[1] = 0.0;
-        out[2] = 0.0;
-        out[3] = 0.0;
-        return out;
-    }
-    /**
-     * Returns a string representation of a vector
-     *
-     * @param {ReadonlyVec4} a vector to represent as a string
-     * @returns {String} string representation of the vector
-     */
-    function str(a) {
-        return "vec4(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ")";
-    }
-    /**
-     * Returns whether or not the vectors have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyVec4} a The first vector.
-     * @param {ReadonlyVec4} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
-    }
-    /**
-     * Returns whether or not the vectors have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyVec4} a The first vector.
-     * @param {ReadonlyVec4} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) && Math.abs(a3 - b3) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3));
-    }
-    /**
-     * Alias for {@link vec4.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-    /**
-     * Alias for {@link vec4.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link vec4.divide}
-     * @function
-     */
-    exports.div = divide;
-    /**
-     * Alias for {@link vec4.distance}
-     * @function
-     */
-    exports.dist = distance;
-    /**
-     * Alias for {@link vec4.squaredDistance}
-     * @function
-     */
-    exports.sqrDist = squaredDistance;
-    /**
-     * Alias for {@link vec4.length}
-     * @function
-     */
-    exports.len = length;
-    /**
-     * Alias for {@link vec4.squaredLength}
-     * @function
-     */
-    exports.sqrLen = squaredLength;
-    /**
-     * Perform some operation over an array of vec4s.
-     *
-     * @param {Array} a the array of vectors to iterate over
-     * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
-     * @param {Number} offset Number of elements to skip at the beginning of the array
-     * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
-     * @param {Function} fn Function to call for each vector in the array
-     * @param {Object} [arg] additional argument to pass to fn
-     * @returns {Array} a
-     * @function
-     */
-    exports.forEach = function () {
-        var vec = create();
-        return function (a, stride, offset, count, fn, arg) {
-            var i, l;
-            if (!stride) {
-                stride = 4;
-            }
-            if (!offset) {
-                offset = 0;
-            }
-            if (count) {
-                l = Math.min(count * stride + offset, a.length);
-            }
-            else {
-                l = a.length;
-            }
-            for (i = offset; i < l; i += stride) {
-                vec[0] = a[i];
-                vec[1] = a[i + 1];
-                vec[2] = a[i + 2];
-                vec[3] = a[i + 3];
-                fn(vec, vec, arg);
-                a[i] = vec[0];
-                a[i + 1] = vec[1];
-                a[i + 2] = vec[2];
-                a[i + 3] = vec[3];
-            }
-            return a;
-        };
-    }();
-},
-"fb9294db61": /* gl-matrix/esm/quat2.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.fromValues = fromValues;
-    exports.fromRotationTranslationValues = fromRotationTranslationValues;
-    exports.fromRotationTranslation = fromRotationTranslation;
-    exports.fromTranslation = fromTranslation;
-    exports.fromRotation = fromRotation;
-    exports.fromMat4 = fromMat4;
-    exports.copy = copy;
-    exports.identity = identity;
-    exports.set = set;
-    exports.getDual = getDual;
-    exports.setDual = setDual;
-    exports.getTranslation = getTranslation;
-    exports.translate = translate;
-    exports.rotateX = rotateX;
-    exports.rotateY = rotateY;
-    exports.rotateZ = rotateZ;
-    exports.rotateByQuatAppend = rotateByQuatAppend;
-    exports.rotateByQuatPrepend = rotateByQuatPrepend;
-    exports.rotateAroundAxis = rotateAroundAxis;
-    exports.add = add;
-    exports.multiply = multiply;
-    exports.scale = scale;
-    exports.lerp = lerp;
-    exports.invert = invert;
-    exports.conjugate = conjugate;
-    exports.normalize = normalize;
-    exports.str = str;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    const quat = tslib_1.__importStar(require("f83fe7c413") /* ./quat.js */);
-    const mat4 = tslib_1.__importStar(require("83bad9e639") /* ./mat4.js */);
-    /**
-     * Dual Quaternion<br>
-     * Format: [real, dual]<br>
-     * Quaternion format: XYZW<br>
-     * Make sure to have normalized dual quaternions, otherwise the functions may not work as intended.<br>
-     * @module quat2
-     */
-    /**
-     * Creates a new identity dual quat
-     *
-     * @returns {quat2} a new dual quaternion [real -> rotation, dual -> translation]
-     */
-    function create() {
-        var dq = new glMatrix.ARRAY_TYPE(8);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            dq[0] = 0;
-            dq[1] = 0;
-            dq[2] = 0;
-            dq[4] = 0;
-            dq[5] = 0;
-            dq[6] = 0;
-            dq[7] = 0;
-        }
-        dq[3] = 1;
-        return dq;
-    }
-    /**
-     * Creates a new quat initialized with values from an existing quaternion
-     *
-     * @param {ReadonlyQuat2} a dual quaternion to clone
-     * @returns {quat2} new dual quaternion
-     * @function
-     */
-    function clone(a) {
-        var dq = new glMatrix.ARRAY_TYPE(8);
-        dq[0] = a[0];
-        dq[1] = a[1];
-        dq[2] = a[2];
-        dq[3] = a[3];
-        dq[4] = a[4];
-        dq[5] = a[5];
-        dq[6] = a[6];
-        dq[7] = a[7];
-        return dq;
-    }
-    /**
-     * Creates a new dual quat initialized with the given values
-     *
-     * @param {Number} x1 X component
-     * @param {Number} y1 Y component
-     * @param {Number} z1 Z component
-     * @param {Number} w1 W component
-     * @param {Number} x2 X component
-     * @param {Number} y2 Y component
-     * @param {Number} z2 Z component
-     * @param {Number} w2 W component
-     * @returns {quat2} new dual quaternion
-     * @function
-     */
-    function fromValues(x1, y1, z1, w1, x2, y2, z2, w2) {
-        var dq = new glMatrix.ARRAY_TYPE(8);
-        dq[0] = x1;
-        dq[1] = y1;
-        dq[2] = z1;
-        dq[3] = w1;
-        dq[4] = x2;
-        dq[5] = y2;
-        dq[6] = z2;
-        dq[7] = w2;
-        return dq;
-    }
-    /**
-     * Creates a new dual quat from the given values (quat and translation)
-     *
-     * @param {Number} x1 X component
-     * @param {Number} y1 Y component
-     * @param {Number} z1 Z component
-     * @param {Number} w1 W component
-     * @param {Number} x2 X component (translation)
-     * @param {Number} y2 Y component (translation)
-     * @param {Number} z2 Z component (translation)
-     * @returns {quat2} new dual quaternion
-     * @function
-     */
-    function fromRotationTranslationValues(x1, y1, z1, w1, x2, y2, z2) {
-        var dq = new glMatrix.ARRAY_TYPE(8);
-        dq[0] = x1;
-        dq[1] = y1;
-        dq[2] = z1;
-        dq[3] = w1;
-        var ax = x2 * 0.5, ay = y2 * 0.5, az = z2 * 0.5;
-        dq[4] = ax * w1 + ay * z1 - az * y1;
-        dq[5] = ay * w1 + az * x1 - ax * z1;
-        dq[6] = az * w1 + ax * y1 - ay * x1;
-        dq[7] = -ax * x1 - ay * y1 - az * z1;
-        return dq;
-    }
-    /**
-     * Creates a dual quat from a quaternion and a translation
-     *
-     * @param {ReadonlyQuat2} dual quaternion receiving operation result
-     * @param {ReadonlyQuat} q a normalized quaternion
-     * @param {ReadonlyVec3} t tranlation vector
-     * @returns {quat2} dual quaternion receiving operation result
-     * @function
-     */
-    function fromRotationTranslation(out, q, t) {
-        var ax = t[0] * 0.5, ay = t[1] * 0.5, az = t[2] * 0.5, bx = q[0], by = q[1], bz = q[2], bw = q[3];
-        out[0] = bx;
-        out[1] = by;
-        out[2] = bz;
-        out[3] = bw;
-        out[4] = ax * bw + ay * bz - az * by;
-        out[5] = ay * bw + az * bx - ax * bz;
-        out[6] = az * bw + ax * by - ay * bx;
-        out[7] = -ax * bx - ay * by - az * bz;
-        return out;
-    }
-    /**
-     * Creates a dual quat from a translation
-     *
-     * @param {ReadonlyQuat2} dual quaternion receiving operation result
-     * @param {ReadonlyVec3} t translation vector
-     * @returns {quat2} dual quaternion receiving operation result
-     * @function
-     */
-    function fromTranslation(out, t) {
-        out[0] = 0;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        out[4] = t[0] * 0.5;
-        out[5] = t[1] * 0.5;
-        out[6] = t[2] * 0.5;
-        out[7] = 0;
-        return out;
-    }
-    /**
-     * Creates a dual quat from a quaternion
-     *
-     * @param {ReadonlyQuat2} dual quaternion receiving operation result
-     * @param {ReadonlyQuat} q the quaternion
-     * @returns {quat2} dual quaternion receiving operation result
-     * @function
-     */
-    function fromRotation(out, q) {
-        out[0] = q[0];
-        out[1] = q[1];
-        out[2] = q[2];
-        out[3] = q[3];
-        out[4] = 0;
-        out[5] = 0;
-        out[6] = 0;
-        out[7] = 0;
-        return out;
-    }
-    /**
-     * Creates a new dual quat from a matrix (4x4)
-     *
-     * @param {quat2} out the dual quaternion
-     * @param {ReadonlyMat4} a the matrix
-     * @returns {quat2} dual quat receiving operation result
-     * @function
-     */
-    function fromMat4(out, a) {
-        //TODO Optimize this
-        var outer = quat.create();
-        mat4.getRotation(outer, a);
-        var t = new glMatrix.ARRAY_TYPE(3);
-        mat4.getTranslation(t, a);
-        fromRotationTranslation(out, outer, t);
-        return out;
-    }
-    /**
-     * Copy the values from one dual quat to another
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the source dual quaternion
-     * @returns {quat2} out
-     * @function
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        out[2] = a[2];
-        out[3] = a[3];
-        out[4] = a[4];
-        out[5] = a[5];
-        out[6] = a[6];
-        out[7] = a[7];
-        return out;
-    }
-    /**
-     * Set a dual quat to the identity dual quaternion
-     *
-     * @param {quat2} out the receiving quaternion
-     * @returns {quat2} out
-     */
-    function identity(out) {
-        out[0] = 0;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        out[4] = 0;
-        out[5] = 0;
-        out[6] = 0;
-        out[7] = 0;
-        return out;
-    }
-    /**
-     * Set the components of a dual quat to the given values
-     *
-     * @param {quat2} out the receiving quaternion
-     * @param {Number} x1 X component
-     * @param {Number} y1 Y component
-     * @param {Number} z1 Z component
-     * @param {Number} w1 W component
-     * @param {Number} x2 X component
-     * @param {Number} y2 Y component
-     * @param {Number} z2 Z component
-     * @param {Number} w2 W component
-     * @returns {quat2} out
-     * @function
-     */
-    function set(out, x1, y1, z1, w1, x2, y2, z2, w2) {
-        out[0] = x1;
-        out[1] = y1;
-        out[2] = z1;
-        out[3] = w1;
-        out[4] = x2;
-        out[5] = y2;
-        out[6] = z2;
-        out[7] = w2;
-        return out;
-    }
-    /**
-     * Gets the real part of a dual quat
-     * @param  {quat} out real part
-     * @param  {ReadonlyQuat2} a Dual Quaternion
-     * @return {quat} real part
-     */
-    exports.getReal = quat.copy;
-    /**
-     * Gets the dual part of a dual quat
-     * @param  {quat} out dual part
-     * @param  {ReadonlyQuat2} a Dual Quaternion
-     * @return {quat} dual part
-     */
-    function getDual(out, a) {
-        out[0] = a[4];
-        out[1] = a[5];
-        out[2] = a[6];
-        out[3] = a[7];
-        return out;
-    }
-    /**
-     * Set the real component of a dual quat to the given quaternion
-     *
-     * @param {quat2} out the receiving quaternion
-     * @param {ReadonlyQuat} q a quaternion representing the real part
-     * @returns {quat2} out
-     * @function
-     */
-    exports.setReal = quat.copy;
-    /**
-     * Set the dual component of a dual quat to the given quaternion
-     *
-     * @param {quat2} out the receiving quaternion
-     * @param {ReadonlyQuat} q a quaternion representing the dual part
-     * @returns {quat2} out
-     * @function
-     */
-    function setDual(out, q) {
-        out[4] = q[0];
-        out[5] = q[1];
-        out[6] = q[2];
-        out[7] = q[3];
-        return out;
-    }
-    /**
-     * Gets the translation of a normalized dual quat
-     * @param  {vec3} out translation
-     * @param  {ReadonlyQuat2} a Dual Quaternion to be decomposed
-     * @return {vec3} translation
-     */
-    function getTranslation(out, a) {
-        var ax = a[4], ay = a[5], az = a[6], aw = a[7], bx = -a[0], by = -a[1], bz = -a[2], bw = a[3];
-        out[0] = (ax * bw + aw * bx + ay * bz - az * by) * 2;
-        out[1] = (ay * bw + aw * by + az * bx - ax * bz) * 2;
-        out[2] = (az * bw + aw * bz + ax * by - ay * bx) * 2;
-        return out;
-    }
-    /**
-     * Translates a dual quat by the given vector
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the dual quaternion to translate
-     * @param {ReadonlyVec3} v vector to translate by
-     * @returns {quat2} out
-     */
-    function translate(out, a, v) {
-        var ax1 = a[0], ay1 = a[1], az1 = a[2], aw1 = a[3], bx1 = v[0] * 0.5, by1 = v[1] * 0.5, bz1 = v[2] * 0.5, ax2 = a[4], ay2 = a[5], az2 = a[6], aw2 = a[7];
-        out[0] = ax1;
-        out[1] = ay1;
-        out[2] = az1;
-        out[3] = aw1;
-        out[4] = aw1 * bx1 + ay1 * bz1 - az1 * by1 + ax2;
-        out[5] = aw1 * by1 + az1 * bx1 - ax1 * bz1 + ay2;
-        out[6] = aw1 * bz1 + ax1 * by1 - ay1 * bx1 + az2;
-        out[7] = -ax1 * bx1 - ay1 * by1 - az1 * bz1 + aw2;
-        return out;
-    }
-    /**
-     * Rotates a dual quat around the X axis
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the dual quaternion to rotate
-     * @param {number} rad how far should the rotation be
-     * @returns {quat2} out
-     */
-    function rotateX(out, a, rad) {
-        var bx = -a[0], by = -a[1], bz = -a[2], bw = a[3], ax = a[4], ay = a[5], az = a[6], aw = a[7], ax1 = ax * bw + aw * bx + ay * bz - az * by, ay1 = ay * bw + aw * by + az * bx - ax * bz, az1 = az * bw + aw * bz + ax * by - ay * bx, aw1 = aw * bw - ax * bx - ay * by - az * bz;
-        quat.rotateX(out, a, rad);
-        bx = out[0];
-        by = out[1];
-        bz = out[2];
-        bw = out[3];
-        out[4] = ax1 * bw + aw1 * bx + ay1 * bz - az1 * by;
-        out[5] = ay1 * bw + aw1 * by + az1 * bx - ax1 * bz;
-        out[6] = az1 * bw + aw1 * bz + ax1 * by - ay1 * bx;
-        out[7] = aw1 * bw - ax1 * bx - ay1 * by - az1 * bz;
-        return out;
-    }
-    /**
-     * Rotates a dual quat around the Y axis
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the dual quaternion to rotate
-     * @param {number} rad how far should the rotation be
-     * @returns {quat2} out
-     */
-    function rotateY(out, a, rad) {
-        var bx = -a[0], by = -a[1], bz = -a[2], bw = a[3], ax = a[4], ay = a[5], az = a[6], aw = a[7], ax1 = ax * bw + aw * bx + ay * bz - az * by, ay1 = ay * bw + aw * by + az * bx - ax * bz, az1 = az * bw + aw * bz + ax * by - ay * bx, aw1 = aw * bw - ax * bx - ay * by - az * bz;
-        quat.rotateY(out, a, rad);
-        bx = out[0];
-        by = out[1];
-        bz = out[2];
-        bw = out[3];
-        out[4] = ax1 * bw + aw1 * bx + ay1 * bz - az1 * by;
-        out[5] = ay1 * bw + aw1 * by + az1 * bx - ax1 * bz;
-        out[6] = az1 * bw + aw1 * bz + ax1 * by - ay1 * bx;
-        out[7] = aw1 * bw - ax1 * bx - ay1 * by - az1 * bz;
-        return out;
-    }
-    /**
-     * Rotates a dual quat around the Z axis
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the dual quaternion to rotate
-     * @param {number} rad how far should the rotation be
-     * @returns {quat2} out
-     */
-    function rotateZ(out, a, rad) {
-        var bx = -a[0], by = -a[1], bz = -a[2], bw = a[3], ax = a[4], ay = a[5], az = a[6], aw = a[7], ax1 = ax * bw + aw * bx + ay * bz - az * by, ay1 = ay * bw + aw * by + az * bx - ax * bz, az1 = az * bw + aw * bz + ax * by - ay * bx, aw1 = aw * bw - ax * bx - ay * by - az * bz;
-        quat.rotateZ(out, a, rad);
-        bx = out[0];
-        by = out[1];
-        bz = out[2];
-        bw = out[3];
-        out[4] = ax1 * bw + aw1 * bx + ay1 * bz - az1 * by;
-        out[5] = ay1 * bw + aw1 * by + az1 * bx - ax1 * bz;
-        out[6] = az1 * bw + aw1 * bz + ax1 * by - ay1 * bx;
-        out[7] = aw1 * bw - ax1 * bx - ay1 * by - az1 * bz;
-        return out;
-    }
-    /**
-     * Rotates a dual quat by a given quaternion (a * q)
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the dual quaternion to rotate
-     * @param {ReadonlyQuat} q quaternion to rotate by
-     * @returns {quat2} out
-     */
-    function rotateByQuatAppend(out, a, q) {
-        var qx = q[0], qy = q[1], qz = q[2], qw = q[3], ax = a[0], ay = a[1], az = a[2], aw = a[3];
-        out[0] = ax * qw + aw * qx + ay * qz - az * qy;
-        out[1] = ay * qw + aw * qy + az * qx - ax * qz;
-        out[2] = az * qw + aw * qz + ax * qy - ay * qx;
-        out[3] = aw * qw - ax * qx - ay * qy - az * qz;
-        ax = a[4];
-        ay = a[5];
-        az = a[6];
-        aw = a[7];
-        out[4] = ax * qw + aw * qx + ay * qz - az * qy;
-        out[5] = ay * qw + aw * qy + az * qx - ax * qz;
-        out[6] = az * qw + aw * qz + ax * qy - ay * qx;
-        out[7] = aw * qw - ax * qx - ay * qy - az * qz;
-        return out;
-    }
-    /**
-     * Rotates a dual quat by a given quaternion (q * a)
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat} q quaternion to rotate by
-     * @param {ReadonlyQuat2} a the dual quaternion to rotate
-     * @returns {quat2} out
-     */
-    function rotateByQuatPrepend(out, q, a) {
-        var qx = q[0], qy = q[1], qz = q[2], qw = q[3], bx = a[0], by = a[1], bz = a[2], bw = a[3];
-        out[0] = qx * bw + qw * bx + qy * bz - qz * by;
-        out[1] = qy * bw + qw * by + qz * bx - qx * bz;
-        out[2] = qz * bw + qw * bz + qx * by - qy * bx;
-        out[3] = qw * bw - qx * bx - qy * by - qz * bz;
-        bx = a[4];
-        by = a[5];
-        bz = a[6];
-        bw = a[7];
-        out[4] = qx * bw + qw * bx + qy * bz - qz * by;
-        out[5] = qy * bw + qw * by + qz * bx - qx * bz;
-        out[6] = qz * bw + qw * bz + qx * by - qy * bx;
-        out[7] = qw * bw - qx * bx - qy * by - qz * bz;
-        return out;
-    }
-    /**
-     * Rotates a dual quat around a given axis. Does the normalisation automatically
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the dual quaternion to rotate
-     * @param {ReadonlyVec3} axis the axis to rotate around
-     * @param {Number} rad how far the rotation should be
-     * @returns {quat2} out
-     */
-    function rotateAroundAxis(out, a, axis, rad) {
-        //Special case for rad = 0
-        if (Math.abs(rad) < glMatrix.EPSILON) {
-            return copy(out, a);
-        }
-        var axisLength = Math.hypot(axis[0], axis[1], axis[2]);
-        rad = rad * 0.5;
-        var s = Math.sin(rad);
-        var bx = s * axis[0] / axisLength;
-        var by = s * axis[1] / axisLength;
-        var bz = s * axis[2] / axisLength;
-        var bw = Math.cos(rad);
-        var ax1 = a[0], ay1 = a[1], az1 = a[2], aw1 = a[3];
-        out[0] = ax1 * bw + aw1 * bx + ay1 * bz - az1 * by;
-        out[1] = ay1 * bw + aw1 * by + az1 * bx - ax1 * bz;
-        out[2] = az1 * bw + aw1 * bz + ax1 * by - ay1 * bx;
-        out[3] = aw1 * bw - ax1 * bx - ay1 * by - az1 * bz;
-        var ax = a[4], ay = a[5], az = a[6], aw = a[7];
-        out[4] = ax * bw + aw * bx + ay * bz - az * by;
-        out[5] = ay * bw + aw * by + az * bx - ax * bz;
-        out[6] = az * bw + aw * bz + ax * by - ay * bx;
-        out[7] = aw * bw - ax * bx - ay * by - az * bz;
-        return out;
-    }
-    /**
-     * Adds two dual quat's
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the first operand
-     * @param {ReadonlyQuat2} b the second operand
-     * @returns {quat2} out
-     * @function
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        out[2] = a[2] + b[2];
-        out[3] = a[3] + b[3];
-        out[4] = a[4] + b[4];
-        out[5] = a[5] + b[5];
-        out[6] = a[6] + b[6];
-        out[7] = a[7] + b[7];
-        return out;
-    }
-    /**
-     * Multiplies two dual quat's
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a the first operand
-     * @param {ReadonlyQuat2} b the second operand
-     * @returns {quat2} out
-     */
-    function multiply(out, a, b) {
-        var ax0 = a[0], ay0 = a[1], az0 = a[2], aw0 = a[3], bx1 = b[4], by1 = b[5], bz1 = b[6], bw1 = b[7], ax1 = a[4], ay1 = a[5], az1 = a[6], aw1 = a[7], bx0 = b[0], by0 = b[1], bz0 = b[2], bw0 = b[3];
-        out[0] = ax0 * bw0 + aw0 * bx0 + ay0 * bz0 - az0 * by0;
-        out[1] = ay0 * bw0 + aw0 * by0 + az0 * bx0 - ax0 * bz0;
-        out[2] = az0 * bw0 + aw0 * bz0 + ax0 * by0 - ay0 * bx0;
-        out[3] = aw0 * bw0 - ax0 * bx0 - ay0 * by0 - az0 * bz0;
-        out[4] = ax0 * bw1 + aw0 * bx1 + ay0 * bz1 - az0 * by1 + ax1 * bw0 + aw1 * bx0 + ay1 * bz0 - az1 * by0;
-        out[5] = ay0 * bw1 + aw0 * by1 + az0 * bx1 - ax0 * bz1 + ay1 * bw0 + aw1 * by0 + az1 * bx0 - ax1 * bz0;
-        out[6] = az0 * bw1 + aw0 * bz1 + ax0 * by1 - ay0 * bx1 + az1 * bw0 + aw1 * bz0 + ax1 * by0 - ay1 * bx0;
-        out[7] = aw0 * bw1 - ax0 * bx1 - ay0 * by1 - az0 * bz1 + aw1 * bw0 - ax1 * bx0 - ay1 * by0 - az1 * bz0;
-        return out;
-    }
-    /**
-     * Alias for {@link quat2.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Scales a dual quat by a scalar number
-     *
-     * @param {quat2} out the receiving dual quat
-     * @param {ReadonlyQuat2} a the dual quat to scale
-     * @param {Number} b amount to scale the dual quat by
-     * @returns {quat2} out
-     * @function
-     */
-    function scale(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        out[2] = a[2] * b;
-        out[3] = a[3] * b;
-        out[4] = a[4] * b;
-        out[5] = a[5] * b;
-        out[6] = a[6] * b;
-        out[7] = a[7] * b;
-        return out;
-    }
-    /**
-     * Calculates the dot product of two dual quat's (The dot product of the real parts)
-     *
-     * @param {ReadonlyQuat2} a the first operand
-     * @param {ReadonlyQuat2} b the second operand
-     * @returns {Number} dot product of a and b
-     * @function
-     */
-    exports.dot = quat.dot;
-    /**
-     * Performs a linear interpolation between two dual quats's
-     * NOTE: The resulting dual quaternions won't always be normalized (The error is most noticeable when t = 0.5)
-     *
-     * @param {quat2} out the receiving dual quat
-     * @param {ReadonlyQuat2} a the first operand
-     * @param {ReadonlyQuat2} b the second operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {quat2} out
-     */
-    function lerp(out, a, b, t) {
-        var mt = 1 - t;
-        if ((0, exports.dot)(a, b) < 0)
-            t = -t;
-        out[0] = a[0] * mt + b[0] * t;
-        out[1] = a[1] * mt + b[1] * t;
-        out[2] = a[2] * mt + b[2] * t;
-        out[3] = a[3] * mt + b[3] * t;
-        out[4] = a[4] * mt + b[4] * t;
-        out[5] = a[5] * mt + b[5] * t;
-        out[6] = a[6] * mt + b[6] * t;
-        out[7] = a[7] * mt + b[7] * t;
-        return out;
-    }
-    /**
-     * Calculates the inverse of a dual quat. If they are normalized, conjugate is cheaper
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a dual quat to calculate inverse of
-     * @returns {quat2} out
-     */
-    function invert(out, a) {
-        var sqlen = (0, exports.squaredLength)(a);
-        out[0] = -a[0] / sqlen;
-        out[1] = -a[1] / sqlen;
-        out[2] = -a[2] / sqlen;
-        out[3] = a[3] / sqlen;
-        out[4] = -a[4] / sqlen;
-        out[5] = -a[5] / sqlen;
-        out[6] = -a[6] / sqlen;
-        out[7] = a[7] / sqlen;
-        return out;
-    }
-    /**
-     * Calculates the conjugate of a dual quat
-     * If the dual quaternion is normalized, this function is faster than quat2.inverse and produces the same result.
-     *
-     * @param {quat2} out the receiving quaternion
-     * @param {ReadonlyQuat2} a quat to calculate conjugate of
-     * @returns {quat2} out
-     */
-    function conjugate(out, a) {
-        out[0] = -a[0];
-        out[1] = -a[1];
-        out[2] = -a[2];
-        out[3] = a[3];
-        out[4] = -a[4];
-        out[5] = -a[5];
-        out[6] = -a[6];
-        out[7] = a[7];
-        return out;
-    }
-    /**
-     * Calculates the length of a dual quat
-     *
-     * @param {ReadonlyQuat2} a dual quat to calculate length of
-     * @returns {Number} length of a
-     * @function
-     */
-    exports.length = quat.length;
-    /**
-     * Alias for {@link quat2.length}
-     * @function
-     */
-    exports.len = exports.length;
-    /**
-     * Calculates the squared length of a dual quat
-     *
-     * @param {ReadonlyQuat2} a dual quat to calculate squared length of
-     * @returns {Number} squared length of a
-     * @function
-     */
-    exports.squaredLength = quat.squaredLength;
-    /**
-     * Alias for {@link quat2.squaredLength}
-     * @function
-     */
-    exports.sqrLen = exports.squaredLength;
-    /**
-     * Normalize a dual quat
-     *
-     * @param {quat2} out the receiving dual quaternion
-     * @param {ReadonlyQuat2} a dual quaternion to normalize
-     * @returns {quat2} out
-     * @function
-     */
-    function normalize(out, a) {
-        var magnitude = (0, exports.squaredLength)(a);
-        if (magnitude > 0) {
-            magnitude = Math.sqrt(magnitude);
-            var a0 = a[0] / magnitude;
-            var a1 = a[1] / magnitude;
-            var a2 = a[2] / magnitude;
-            var a3 = a[3] / magnitude;
-            var b0 = a[4];
-            var b1 = a[5];
-            var b2 = a[6];
-            var b3 = a[7];
-            var a_dot_b = a0 * b0 + a1 * b1 + a2 * b2 + a3 * b3;
-            out[0] = a0;
-            out[1] = a1;
-            out[2] = a2;
-            out[3] = a3;
-            out[4] = (b0 - a0 * a_dot_b) / magnitude;
-            out[5] = (b1 - a1 * a_dot_b) / magnitude;
-            out[6] = (b2 - a2 * a_dot_b) / magnitude;
-            out[7] = (b3 - a3 * a_dot_b) / magnitude;
-        }
-        return out;
-    }
-    /**
-     * Returns a string representation of a dual quatenion
-     *
-     * @param {ReadonlyQuat2} a dual quaternion to represent as a string
-     * @returns {String} string representation of the dual quat
-     */
-    function str(a) {
-        return "quat2(" + a[0] + ", " + a[1] + ", " + a[2] + ", " + a[3] + ", " + a[4] + ", " + a[5] + ", " + a[6] + ", " + a[7] + ")";
-    }
-    /**
-     * Returns whether or not the dual quaternions have exactly the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyQuat2} a the first dual quaternion.
-     * @param {ReadonlyQuat2} b the second dual quaternion.
-     * @returns {Boolean} true if the dual quaternions are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5] && a[6] === b[6] && a[7] === b[7];
-    }
-    /**
-     * Returns whether or not the dual quaternions have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyQuat2} a the first dual quat.
-     * @param {ReadonlyQuat2} b the second dual quat.
-     * @returns {Boolean} true if the dual quats are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3], a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
-        var b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3], b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) && Math.abs(a2 - b2) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) && Math.abs(a3 - b3) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3)) && Math.abs(a4 - b4) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a4), Math.abs(b4)) && Math.abs(a5 - b5) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a5), Math.abs(b5)) && Math.abs(a6 - b6) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a6), Math.abs(b6)) && Math.abs(a7 - b7) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a7), Math.abs(b7));
-    }
-},
-"58c71a9bd3": /* gl-matrix/esm/vec2.js */ function _(require, module, exports, __esModule, __esExport) {
-    __esModule();
-    exports.create = create;
-    exports.clone = clone;
-    exports.fromValues = fromValues;
-    exports.copy = copy;
-    exports.set = set;
-    exports.add = add;
-    exports.subtract = subtract;
-    exports.multiply = multiply;
-    exports.divide = divide;
-    exports.ceil = ceil;
-    exports.floor = floor;
-    exports.min = min;
-    exports.max = max;
-    exports.round = round;
-    exports.scale = scale;
-    exports.scaleAndAdd = scaleAndAdd;
-    exports.distance = distance;
-    exports.squaredDistance = squaredDistance;
-    exports.length = length;
-    exports.squaredLength = squaredLength;
-    exports.negate = negate;
-    exports.inverse = inverse;
-    exports.normalize = normalize;
-    exports.dot = dot;
-    exports.cross = cross;
-    exports.lerp = lerp;
-    exports.random = random;
-    exports.transformMat2 = transformMat2;
-    exports.transformMat2d = transformMat2d;
-    exports.transformMat3 = transformMat3;
-    exports.transformMat4 = transformMat4;
-    exports.rotate = rotate;
-    exports.angle = angle;
-    exports.zero = zero;
-    exports.str = str;
-    exports.exactEquals = exactEquals;
-    exports.equals = equals;
-    const tslib_1 = require("tslib");
-    const glMatrix = tslib_1.__importStar(require("7d825b979e") /* ./common.js */);
-    /**
-     * 2 Dimensional Vector
-     * @module vec2
-     */
-    /**
-     * Creates a new, empty vec2
-     *
-     * @returns {vec2} a new 2D vector
-     */
-    function create() {
-        var out = new glMatrix.ARRAY_TYPE(2);
-        if (glMatrix.ARRAY_TYPE != Float32Array) {
-            out[0] = 0;
-            out[1] = 0;
-        }
-        return out;
-    }
-    /**
-     * Creates a new vec2 initialized with values from an existing vector
-     *
-     * @param {ReadonlyVec2} a vector to clone
-     * @returns {vec2} a new 2D vector
-     */
-    function clone(a) {
-        var out = new glMatrix.ARRAY_TYPE(2);
-        out[0] = a[0];
-        out[1] = a[1];
-        return out;
-    }
-    /**
-     * Creates a new vec2 initialized with the given values
-     *
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @returns {vec2} a new 2D vector
-     */
-    function fromValues(x, y) {
-        var out = new glMatrix.ARRAY_TYPE(2);
-        out[0] = x;
-        out[1] = y;
-        return out;
-    }
-    /**
-     * Copy the values from one vec2 to another
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the source vector
-     * @returns {vec2} out
-     */
-    function copy(out, a) {
-        out[0] = a[0];
-        out[1] = a[1];
-        return out;
-    }
-    /**
-     * Set the components of a vec2 to the given values
-     *
-     * @param {vec2} out the receiving vector
-     * @param {Number} x X component
-     * @param {Number} y Y component
-     * @returns {vec2} out
-     */
-    function set(out, x, y) {
-        out[0] = x;
-        out[1] = y;
-        return out;
-    }
-    /**
-     * Adds two vec2's
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec2} out
-     */
-    function add(out, a, b) {
-        out[0] = a[0] + b[0];
-        out[1] = a[1] + b[1];
-        return out;
-    }
-    /**
-     * Subtracts vector b from vector a
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec2} out
-     */
-    function subtract(out, a, b) {
-        out[0] = a[0] - b[0];
-        out[1] = a[1] - b[1];
-        return out;
-    }
-    /**
-     * Multiplies two vec2's
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec2} out
-     */
-    function multiply(out, a, b) {
-        out[0] = a[0] * b[0];
-        out[1] = a[1] * b[1];
-        return out;
-    }
-    /**
-     * Divides two vec2's
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec2} out
-     */
-    function divide(out, a, b) {
-        out[0] = a[0] / b[0];
-        out[1] = a[1] / b[1];
-        return out;
-    }
-    /**
-     * Math.ceil the components of a vec2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a vector to ceil
-     * @returns {vec2} out
-     */
-    function ceil(out, a) {
-        out[0] = Math.ceil(a[0]);
-        out[1] = Math.ceil(a[1]);
-        return out;
-    }
-    /**
-     * Math.floor the components of a vec2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a vector to floor
-     * @returns {vec2} out
-     */
-    function floor(out, a) {
-        out[0] = Math.floor(a[0]);
-        out[1] = Math.floor(a[1]);
-        return out;
-    }
-    /**
-     * Returns the minimum of two vec2's
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec2} out
-     */
-    function min(out, a, b) {
-        out[0] = Math.min(a[0], b[0]);
-        out[1] = Math.min(a[1], b[1]);
-        return out;
-    }
-    /**
-     * Returns the maximum of two vec2's
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec2} out
-     */
-    function max(out, a, b) {
-        out[0] = Math.max(a[0], b[0]);
-        out[1] = Math.max(a[1], b[1]);
-        return out;
-    }
-    /**
-     * Math.round the components of a vec2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a vector to round
-     * @returns {vec2} out
-     */
-    function round(out, a) {
-        out[0] = Math.round(a[0]);
-        out[1] = Math.round(a[1]);
-        return out;
-    }
-    /**
-     * Scales a vec2 by a scalar number
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the vector to scale
-     * @param {Number} b amount to scale the vector by
-     * @returns {vec2} out
-     */
-    function scale(out, a, b) {
-        out[0] = a[0] * b;
-        out[1] = a[1] * b;
-        return out;
-    }
-    /**
-     * Adds two vec2's after scaling the second operand by a scalar value
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @param {Number} scale the amount to scale b by before adding
-     * @returns {vec2} out
-     */
-    function scaleAndAdd(out, a, b, scale) {
-        out[0] = a[0] + b[0] * scale;
-        out[1] = a[1] + b[1] * scale;
-        return out;
-    }
-    /**
-     * Calculates the euclidian distance between two vec2's
-     *
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {Number} distance between a and b
-     */
-    function distance(a, b) {
-        var x = b[0] - a[0], y = b[1] - a[1];
-        return Math.hypot(x, y);
-    }
-    /**
-     * Calculates the squared euclidian distance between two vec2's
-     *
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {Number} squared distance between a and b
-     */
-    function squaredDistance(a, b) {
-        var x = b[0] - a[0], y = b[1] - a[1];
-        return x * x + y * y;
-    }
-    /**
-     * Calculates the length of a vec2
-     *
-     * @param {ReadonlyVec2} a vector to calculate length of
-     * @returns {Number} length of a
-     */
-    function length(a) {
-        var x = a[0], y = a[1];
-        return Math.hypot(x, y);
-    }
-    /**
-     * Calculates the squared length of a vec2
-     *
-     * @param {ReadonlyVec2} a vector to calculate squared length of
-     * @returns {Number} squared length of a
-     */
-    function squaredLength(a) {
-        var x = a[0], y = a[1];
-        return x * x + y * y;
-    }
-    /**
-     * Negates the components of a vec2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a vector to negate
-     * @returns {vec2} out
-     */
-    function negate(out, a) {
-        out[0] = -a[0];
-        out[1] = -a[1];
-        return out;
-    }
-    /**
-     * Returns the inverse of the components of a vec2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a vector to invert
-     * @returns {vec2} out
-     */
-    function inverse(out, a) {
-        out[0] = 1.0 / a[0];
-        out[1] = 1.0 / a[1];
-        return out;
-    }
-    /**
-     * Normalize a vec2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a vector to normalize
-     * @returns {vec2} out
-     */
-    function normalize(out, a) {
-        var x = a[0], y = a[1];
-        var len = x * x + y * y;
-        if (len > 0) {
-            //TODO: evaluate use of glm_invsqrt here?
-            len = 1 / Math.sqrt(len);
-        }
-        out[0] = a[0] * len;
-        out[1] = a[1] * len;
-        return out;
-    }
-    /**
-     * Calculates the dot product of two vec2's
-     *
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {Number} dot product of a and b
-     */
-    function dot(a, b) {
-        return a[0] * b[0] + a[1] * b[1];
-    }
-    /**
-     * Computes the cross product of two vec2's
-     * Note that the cross product must by definition produce a 3D vector
-     *
-     * @param {vec3} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @returns {vec3} out
-     */
-    function cross(out, a, b) {
-        var z = a[0] * b[1] - a[1] * b[0];
-        out[0] = out[1] = 0;
-        out[2] = z;
-        return out;
-    }
-    /**
-     * Performs a linear interpolation between two vec2's
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the first operand
-     * @param {ReadonlyVec2} b the second operand
-     * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
-     * @returns {vec2} out
-     */
-    function lerp(out, a, b, t) {
-        var ax = a[0], ay = a[1];
-        out[0] = ax + t * (b[0] - ax);
-        out[1] = ay + t * (b[1] - ay);
-        return out;
-    }
-    /**
-     * Generates a random vector with the given scale
-     *
-     * @param {vec2} out the receiving vector
-     * @param {Number} [scale] Length of the resulting vector. If ommitted, a unit vector will be returned
-     * @returns {vec2} out
-     */
-    function random(out, scale) {
-        scale = scale || 1.0;
-        var r = glMatrix.RANDOM() * 2.0 * Math.PI;
-        out[0] = Math.cos(r) * scale;
-        out[1] = Math.sin(r) * scale;
-        return out;
-    }
-    /**
-     * Transforms the vec2 with a mat2
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the vector to transform
-     * @param {ReadonlyMat2} m matrix to transform with
-     * @returns {vec2} out
-     */
-    function transformMat2(out, a, m) {
-        var x = a[0], y = a[1];
-        out[0] = m[0] * x + m[2] * y;
-        out[1] = m[1] * x + m[3] * y;
-        return out;
-    }
-    /**
-     * Transforms the vec2 with a mat2d
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the vector to transform
-     * @param {ReadonlyMat2d} m matrix to transform with
-     * @returns {vec2} out
-     */
-    function transformMat2d(out, a, m) {
-        var x = a[0], y = a[1];
-        out[0] = m[0] * x + m[2] * y + m[4];
-        out[1] = m[1] * x + m[3] * y + m[5];
-        return out;
-    }
-    /**
-     * Transforms the vec2 with a mat3
-     * 3rd vector component is implicitly '1'
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the vector to transform
-     * @param {ReadonlyMat3} m matrix to transform with
-     * @returns {vec2} out
-     */
-    function transformMat3(out, a, m) {
-        var x = a[0], y = a[1];
-        out[0] = m[0] * x + m[3] * y + m[6];
-        out[1] = m[1] * x + m[4] * y + m[7];
-        return out;
-    }
-    /**
-     * Transforms the vec2 with a mat4
-     * 3rd vector component is implicitly '0'
-     * 4th vector component is implicitly '1'
-     *
-     * @param {vec2} out the receiving vector
-     * @param {ReadonlyVec2} a the vector to transform
-     * @param {ReadonlyMat4} m matrix to transform with
-     * @returns {vec2} out
-     */
-    function transformMat4(out, a, m) {
-        var x = a[0];
-        var y = a[1];
-        out[0] = m[0] * x + m[4] * y + m[12];
-        out[1] = m[1] * x + m[5] * y + m[13];
-        return out;
-    }
-    /**
-     * Rotate a 2D vector
-     * @param {vec2} out The receiving vec2
-     * @param {ReadonlyVec2} a The vec2 point to rotate
-     * @param {ReadonlyVec2} b The origin of the rotation
-     * @param {Number} rad The angle of rotation in radians
-     * @returns {vec2} out
-     */
-    function rotate(out, a, b, rad) {
-        //Translate point to the origin
-        var p0 = a[0] - b[0], p1 = a[1] - b[1], sinC = Math.sin(rad), cosC = Math.cos(rad); //perform rotation and translate to correct position
-        out[0] = p0 * cosC - p1 * sinC + b[0];
-        out[1] = p0 * sinC + p1 * cosC + b[1];
-        return out;
-    }
-    /**
-     * Get the angle between two 2D vectors
-     * @param {ReadonlyVec2} a The first operand
-     * @param {ReadonlyVec2} b The second operand
-     * @returns {Number} The angle in radians
-     */
-    function angle(a, b) {
-        var x1 = a[0], y1 = a[1], x2 = b[0], y2 = b[1], 
-        // mag is the product of the magnitudes of a and b
-        mag = Math.sqrt(x1 * x1 + y1 * y1) * Math.sqrt(x2 * x2 + y2 * y2), 
-        // mag &&.. short circuits if mag == 0
-        cosine = mag && (x1 * x2 + y1 * y2) / mag; // Math.min(Math.max(cosine, -1), 1) clamps the cosine between -1 and 1
-        return Math.acos(Math.min(Math.max(cosine, -1), 1));
-    }
-    /**
-     * Set the components of a vec2 to zero
-     *
-     * @param {vec2} out the receiving vector
-     * @returns {vec2} out
-     */
-    function zero(out) {
-        out[0] = 0.0;
-        out[1] = 0.0;
-        return out;
-    }
-    /**
-     * Returns a string representation of a vector
-     *
-     * @param {ReadonlyVec2} a vector to represent as a string
-     * @returns {String} string representation of the vector
-     */
-    function str(a) {
-        return "vec2(" + a[0] + ", " + a[1] + ")";
-    }
-    /**
-     * Returns whether or not the vectors exactly have the same elements in the same position (when compared with ===)
-     *
-     * @param {ReadonlyVec2} a The first vector.
-     * @param {ReadonlyVec2} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    function exactEquals(a, b) {
-        return a[0] === b[0] && a[1] === b[1];
-    }
-    /**
-     * Returns whether or not the vectors have approximately the same elements in the same position.
-     *
-     * @param {ReadonlyVec2} a The first vector.
-     * @param {ReadonlyVec2} b The second vector.
-     * @returns {Boolean} True if the vectors are equal, false otherwise.
-     */
-    function equals(a, b) {
-        var a0 = a[0], a1 = a[1];
-        var b0 = b[0], b1 = b[1];
-        return Math.abs(a0 - b0) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) && Math.abs(a1 - b1) <= glMatrix.EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1));
-    }
-    /**
-     * Alias for {@link vec2.length}
-     * @function
-     */
-    exports.len = length;
-    /**
-     * Alias for {@link vec2.subtract}
-     * @function
-     */
-    exports.sub = subtract;
-    /**
-     * Alias for {@link vec2.multiply}
-     * @function
-     */
-    exports.mul = multiply;
-    /**
-     * Alias for {@link vec2.divide}
-     * @function
-     */
-    exports.div = divide;
-    /**
-     * Alias for {@link vec2.distance}
-     * @function
-     */
-    exports.dist = distance;
-    /**
-     * Alias for {@link vec2.squaredDistance}
-     * @function
-     */
-    exports.sqrDist = squaredDistance;
-    /**
-     * Alias for {@link vec2.squaredLength}
-     * @function
-     */
-    exports.sqrLen = squaredLength;
-    /**
-     * Perform some operation over an array of vec2s.
-     *
-     * @param {Array} a the array of vectors to iterate over
-     * @param {Number} stride Number of elements between the start of each vec2. If 0 assumes tightly packed
-     * @param {Number} offset Number of elements to skip at the beginning of the array
-     * @param {Number} count Number of vec2s to iterate over. If 0 iterates over entire array
-     * @param {Function} fn Function to call for each vector in the array
-     * @param {Object} [arg] additional argument to pass to fn
-     * @returns {Array} a
-     * @function
-     */
-    exports.forEach = function () {
-        var vec = create();
-        return function (a, stride, offset, count, fn, arg) {
-            var i, l;
-            if (!stride) {
-                stride = 2;
-            }
-            if (!offset) {
-                offset = 0;
-            }
-            if (count) {
-                l = Math.min(count * stride + offset, a.length);
-            }
-            else {
-                l = a.length;
-            }
-            for (i = offset; i < l; i += stride) {
-                vec[0] = a[i];
-                vec[1] = a[i + 1];
-                fn(vec, vec, arg);
-                a[i] = vec[0];
-                a[i + 1] = vec[1];
-            }
-            return a;
-        };
-    }();
-},
-"18592eecef": /* models/vtk/vtkvolume.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
-    __esModule();
-    const vtklayout_1 = require("b06d05fa3e") /* ./vtklayout */;
+    const vtklayout_1 = require("d44e946ae8") /* ./vtklayout */;
     const util_1 = require("df9946ff52") /* ./util */;
     class VTKVolumePlotView extends vtklayout_1.AbstractVTKView {
+        _controllerWidget;
+        _vtk_image_data;
         connect_signals() {
             super.connect_signals();
             const { data, colormap, shadow, sampling, edge_gradient, rescale, ambient, diffuse, camera, specular, specular_power, display_volume, display_slices, slice_i, slice_j, slice_k, render_background, interpolation, controller_expanded, nan_opacity, } = this.model.properties;
@@ -41287,55 +36354,54 @@ ${compiled}`;
         }
     }
     exports.VTKVolumePlotView = VTKVolumePlotView;
-    VTKVolumePlotView.__name__ = "VTKVolumePlotView";
     class VTKVolumePlot extends vtklayout_1.AbstractVTKPlot {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = VTKVolumePlotView;
+            this.define(({ Any, Array, Boolean, Int, Number, String, Struct }) => ({
+                ambient: [Number, 0.2],
+                colormap: [String],
+                data: [Any],
+                diffuse: [Number, 0.7],
+                display_slices: [Boolean, false],
+                display_volume: [Boolean, true],
+                edge_gradient: [Number, 0.2],
+                interpolation: [util_1.Interpolation, "fast_linear"],
+                mapper: [Struct({ palette: Array(String), low: Number, high: Number }), { palette: [], low: 0, high: 0 }],
+                nan_opacity: [Number, 1],
+                render_background: [String, "#52576e"],
+                rescale: [Boolean, false],
+                sampling: [Number, 0.4],
+                shadow: [Boolean, true],
+                slice_i: [Int, 0],
+                slice_j: [Int, 0],
+                slice_k: [Int, 0],
+                specular: [Number, 0.3],
+                specular_power: [Number, 8.0],
+                controller_expanded: [Boolean, true],
+            }));
+            this.override({
+                height: 300,
+                width: 300,
+            });
+        }
     }
     exports.VTKVolumePlot = VTKVolumePlot;
-    _a = VTKVolumePlot;
-    VTKVolumePlot.__name__ = "VTKVolumePlot";
-    (() => {
-        _a.prototype.default_view = VTKVolumePlotView;
-        _a.define(({ Any, Array, Boolean, Int, Number, String, Struct }) => ({
-            ambient: [Number, 0.2],
-            colormap: [String],
-            data: [Any],
-            diffuse: [Number, 0.7],
-            display_slices: [Boolean, false],
-            display_volume: [Boolean, true],
-            edge_gradient: [Number, 0.2],
-            interpolation: [util_1.Interpolation, "fast_linear"],
-            mapper: [Struct({ palette: Array(String), low: Number, high: Number }), { palette: [], low: 0, high: 0 }],
-            nan_opacity: [Number, 1],
-            render_background: [String, "#52576e"],
-            rescale: [Boolean, false],
-            sampling: [Number, 0.4],
-            shadow: [Boolean, true],
-            slice_i: [Int, 0],
-            slice_j: [Int, 0],
-            slice_k: [Int, 0],
-            specular: [Number, 0.3],
-            specular_power: [Number, 8.0],
-            controller_expanded: [Boolean, true],
-        }));
-        _a.override({
-            height: 300,
-            width: 300,
-        });
-    })();
 },
-"a4e5946204": /* models/vtk/vtksynchronized.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+"04077eec70": /* models/vtk/vtksynchronized.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const object_1 = require("@bokehjs/core/util/object");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const vtklayout_1 = require("b06d05fa3e") /* ./vtklayout */;
+    const vtklayout_1 = require("d44e946ae8") /* ./vtklayout */;
     const panel_fullscreen_renwin_sync_1 = require("5e89c7b3eb") /* ./panel_fullscreen_renwin_sync */;
     const util_1 = require("df9946ff52") /* ./util */;
     const CONTEXT_NAME = "panel";
     class VTKSynchronizedPlotView extends vtklayout_1.AbstractVTKView {
+        _synchronizer_context;
+        _arrays;
+        registerArray;
         initialize() {
             super.initialize();
             this._renderable = false;
@@ -41407,8 +36473,10 @@ ${compiled}`;
         }
     }
     exports.VTKSynchronizedPlotView = VTKSynchronizedPlotView;
-    VTKSynchronizedPlotView.__name__ = "VTKSynchronizedPlotView";
     class VTKSynchronizedPlot extends vtklayout_1.AbstractVTKPlot {
+        outline;
+        outline_actor;
+        static __module__ = "panel.models.vtk";
         constructor(attrs) {
             super(attrs);
             (0, panel_fullscreen_renwin_sync_1.initialize_fullscreen_render)();
@@ -41429,26 +36497,23 @@ ${compiled}`;
             }
             return actors;
         }
+        static {
+            this.prototype.default_view = VTKSynchronizedPlotView;
+            this.define(({ Any, Array, Boolean, Bytes, Dict, String }) => ({
+                arrays: [Dict(Bytes), {}],
+                arrays_processed: [Array(String), []],
+                enable_keybindings: [Boolean, false],
+                one_time_reset: [Boolean, false],
+                rebuild: [Boolean, false],
+                scene: [Any, {}],
+            }));
+            this.override({
+                height: 300,
+                width: 300,
+            });
+        }
     }
     exports.VTKSynchronizedPlot = VTKSynchronizedPlot;
-    _a = VTKSynchronizedPlot;
-    VTKSynchronizedPlot.__name__ = "VTKSynchronizedPlot";
-    VTKSynchronizedPlot.__module__ = "panel.models.vtk";
-    (() => {
-        _a.prototype.default_view = VTKSynchronizedPlotView;
-        _a.define(({ Any, Array, Boolean, Bytes, Dict, String }) => ({
-            arrays: [Dict(Bytes), {}],
-            arrays_processed: [Array(String), []],
-            enable_keybindings: [Boolean, false],
-            one_time_reset: [Boolean, false],
-            rebuild: [Boolean, false],
-            scene: [Any, {}],
-        }));
-        _a.override({
-            height: 300,
-            width: 300,
-        });
-    })();
 },
 "5e89c7b3eb": /* models/vtk/panel_fullscreen_renwin_sync.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -41571,5 +36636,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"84236c2552","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"fb9db49f87","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"e0501f9786","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"44a7ecdf96","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"54e5f3767b","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"a2b691ef16","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"36236053e8","models/ace":"7b034b2ba5","models/layout":"00beb93e38","models/resources":"3ec7d872e2","models/util":"aa07eb54cc","models/anywidget_component":"f4bc4e23b4","models/reactive_esm":"f3226cbf82","models/event-to-object":"e5a0036205","models/html":"9012c2f5ae","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fdf76c2b8b","models/browser":"f25f215a58","models/button":"29120fca73","models/button_icon":"7e77f478cb","models/icon":"bf77ad153d","models/card":"a668a42a0f","models/column":"3967d78fb5","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"138d8a2ed1","models/chatarea_input":"a9ce3554f5","models/textarea_input":"2f8fe6797e","models/comm_manager":"f8f420cdc3","models/customselect":"519009caed","models/multiselect":"8653ba687c","models/tabulator":"381057489b","models/cell_formatters":"254387d0dc","models/data":"be689f0377","styles/models/tabulator.css":"b0fdc4e99b","models/datetime_picker":"7408873be7","models/datetime_slider":"47671196f6","models/deckgl":"609f06c18b","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"eee856b107","models/player":"ed49986321","models/echarts":"df5e7d36e5","models/feed":"56255f9c11","models/file_download":"a7746def5a","models/file_dropper":"bff8eeed36","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"fd4c3f6bc4","models/json":"19285971d9","models/jsoneditor":"372d3e3a52","styles/models/jsoneditor.css":"317a12d360","models/katex":"052b7b0298","models/location":"2116677c2d","models/mathjax":"07688254ed","models/modal":"37ed29726e","styles/models/modal.css":"be4b4352c6","models/pdf":"87a65d7fb5","models/perspective":"7a00e4d590","styles/models/perspective.css":"2e2913ea54","models/plotly":"39230f6818","styles/models/plotly.css":"3d56c75186","models/progress":"443fb5cf42","models/quill":"3df70ba3b3","models/radio_button_group":"08a22fed1a","models/react_component":"e74ecd40bb","models/reactive_html":"61cc258c24","models/singleselect":"3766e0c917","models/speech_to_text":"95fa78f501","models/state":"188544eb0b","models/tabs":"3cba64cc82","models/terminal":"4fecff5c68","models/text_input":"e9d16ed037","models/text_to_speech":"1fb38b62cd","models/time_picker":"5e05e2d651","models/toggle_icon":"49efbd99ad","models/tooltip_icon":"aad04f1876","models/trend":"eb967020e9","models/vega":"03e8d20a08","models/video":"e8830cc759","styles/models/video.css":"dfe21e6f1b","models/videostream":"73b5826147","models/vizzu":"e8cb25b7b8","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"f0476173e2","models/vtk/vtklayout":"d44e946ae8","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"db98967aab","models/vtk/vtkaxes":"a9b2ad3ad4","models/vtk/vtkvolume":"2d0f1e4d96","models/vtk/vtksynchronized":"04077eec70","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

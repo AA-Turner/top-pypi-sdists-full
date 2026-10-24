@@ -1,34 +1,40 @@
+from __future__ import annotations
+
 import datetime
-import functools
-import inspect
-import io
+import json
 import logging
-import warnings
-from collections.abc import Callable, Iterator, Mapping
-from typing import Any, TypeVar, cast, get_type_hints
-from urllib.parse import quote
+from collections.abc import Iterator, Mapping
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
-import httpx
-from pydantic import BaseModel, Field, validate_call
-from pydantic.json_schema import SkipJsonSchema
+from pydantic import ValidationError
+from pydantic_core import to_json, to_jsonable_python
 from typing_extensions import Self
 
-# The frozen client still speaks the deprecated types; selecting it does not warn.
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", FutureWarning)
-    from weave.shared import http_service_interface as his
-    from weave.shared import trace_server_interface as tsi
-    from weave.shared.service_interface import ServerInfoRes
-    from weave.shared.trace_server_interface import agent_types
-from weave.trace.env import weave_trace_server_url
+from weave.trace.call_request_validation import validate_call_end, validate_call_start
+from weave.trace.env import ssl_verify, weave_trace_server_url
+from weave.trace.serialization.json_dict_keys import to_jsonable_with_json_keys
 from weave.trace.settings import (
+    http_timeout,
     max_calls_queue_size,
     should_enable_disk_fallback,
     should_use_calls_complete,
 )
 from weave.trace_server_bindings.async_batch_processor import AsyncBatchProcessor
 from weave.trace_server_bindings.call_batch_processor import CallBatchProcessor
+from weave.trace_server_bindings.client_interface import (
+    ObjAddTagsParams,
+    ObjRemoveAliasesParams,
+    ObjRemoveTagsParams,
+    ObjSetAliasesParams,
+    QueueAddCallsParams,
+    QueueDeleteParams,
+    QueueItemProgressUpdateParams,
+    QueueItemsQueryParams,
+    QueueReadParams,
+    QueueUpdateParams,
+    TraceServerClientInterface,
+)
 from weave.trace_server_bindings.http_utils import (
     CLIENT_CAPABILITIES,
     CLIENT_CAPABILITIES_HEADER,
@@ -36,83 +42,277 @@ from weave.trace_server_bindings.http_utils import (
     TRACE_ID_HEADER,
     CallsCompleteModeRequired,
     as_params,
-    handle_response_error,
+    is_calls_complete_mode_error,
     log_dropped_call_batch,
     log_dropped_feedback_batch,
     process_batch_with_retry,
 )
 from weave.trace_server_bindings.models import (
+    CallsQueryRes,
     CompleteBatchItem,
+    DatasetSourcesLinkDeleteEntry,
+    DatasetSourcesLinkDeleteRes,
     EndBatchItem,
-    EntityProjectInfo,
+    EnsureProjectExistsRes,
+    FileContentReadRes,
     StartBatchItem,
 )
-from weave.utils import http_requests
 from weave.utils.ids import generate_id
 from weave.utils.project_id import from_project_id
 from weave.utils.retry import get_current_retry_id, with_retry
-from weave.vendor.weave_server_sdk.types import FileCreateParams
+from weave.vendor.weave_server_sdk import APIStatusError, DefaultHttpxClient
+from weave.vendor.weave_server_sdk import Client as StainlessClient
+from weave.vendor.weave_server_sdk.types import (
+    AgentQueryParams,
+    AgentQueryResponse,
+    AgentSearchParams,
+    AgentSearchResponse,
+    AgentTraceChatRes,
+    AnnotationQueueCreateParams,
+    AnnotationQueueCreateResponse,
+    AnnotationQueueDeleteResponse,
+    AnnotationQueueQueryParams,
+    AnnotationQueueReadResponse,
+    AnnotationQueueSchema,
+    AnnotationQueueStatsParams,
+    AnnotationQueueStatsResponse,
+    AnnotationQueueUpdateResponse,
+    CallDeleteParams,
+    CallDeleteResponse,
+    CallEndParams,
+    CallQueryStatsParams,
+    CallQueryStatsResponse,
+    CallReadParams,
+    CallReadResponse,
+    CallScoreParams,
+    CallStartParams,
+    CallStartResponse,
+    CallStatsParams,
+    CallStatsResponse,
+    CallStreamQueryParams,
+    CallUpdateParams,
+    CallUpsertBatchParams,
+    CallUpsertBatchResponse,
+    CallUsageParams,
+    CallUsageResponse,
+    CompletionCreateParams,
+    CompletionCreateResponse,
+    CompletionCreateStreamParams,
+    CostCreateParams,
+    CostCreateResponse,
+    CostPurgeParams,
+    CostQueryParams,
+    CostQueryResponse,
+    DatasetSourceLinkParams,
+    DatasetSourceLinkResponse,
+    DatasetSourceQueryParams,
+    DatasetSourceQueryResponse,
+    DatasetSourceSourceDatasetsQueryParams,
+    DatasetSourceSourceDatasetsQueryResponse,
+    EvaluationEvaluateModelParams,
+    EvaluationEvaluateModelResponse,
+    EvaluationRescoreParams,
+    EvaluationRescoreResponse,
+    EvaluationStatusParams,
+    EvaluationStatusResponse,
+    FeedbackAggregateParams,
+    FeedbackAggregateResponse,
+    FeedbackBatchCreateParams,
+    FeedbackBatchCreateResponse,
+    FeedbackCreateParams,
+    FeedbackCreateResponse,
+    FeedbackPayloadSchemaParams,
+    FeedbackPayloadSchemaResponse,
+    FeedbackPurgeParams,
+    FeedbackQueryParams,
+    FeedbackQueryResponse,
+    FeedbackReplaceParams,
+    FeedbackReplaceResponse,
+    FeedbackStatsParams,
+    FeedbackStatsResponse,
+    FileContentParams,
+    FileCreateParams,
+    FileCreateResponse,
+    FileStatsParams,
+    FileStatsResponse,
+    ImageCreateParams,
+    ImageCreateResponse,
+    ObjectCreateParams,
+    ObjectCreateResponse,
+    ObjectDeleteParams,
+    ObjectDeleteResponse,
+    ObjectQueryParams,
+    ObjectQueryResponse,
+    ObjectReadParams,
+    ObjectReadResponse,
+    ProjectStatsParams,
+    ProjectStatsResponse,
+    RefReadBatchParams,
+    RefReadBatchResponse,
+    ServerInfoRes,
+    ServiceProjectsInfoParams,
+    ServiceProjectsInfoResponse,
+    TableCreateFromDigestsParams,
+    TableCreateFromDigestsResponse,
+    TableCreateParams,
+    TableCreateResponse,
+    TableQueryParams,
+    TableQueryResponse,
+    TableQueryStatsBatchParams,
+    TableQueryStatsBatchResponse,
+    TableQueryStatsParams,
+    TableQueryStatsResponse,
+    TableUpdateParams,
+    TableUpdateResponse,
+    ThreadStreamQueryParams,
+    ThreadStreamQueryResponse,
+    TraceUsageParams,
+    TraceUsageResponse,
+    V2DatasetCreateResponse,
+    V2DatasetDeleteResponse,
+    V2DatasetListResponse,
+    V2DatasetReadResponse,
+    V2EvalResultQueryResponse,
+    V2EvaluationCreateResponse,
+    V2EvaluationDeleteResponse,
+    V2EvaluationListResponse,
+    V2EvaluationReadResponse,
+    V2EvaluationRunCreateResponse,
+    V2EvaluationRunDeleteResponse,
+    V2EvaluationRunFinishResponse,
+    V2EvaluationRunListResponse,
+    V2EvaluationRunReadResponse,
+    V2ModelCreateResponse,
+    V2ModelDeleteResponse,
+    V2ModelListResponse,
+    V2ModelReadResponse,
+    V2OpCreateResponse,
+    V2OpDeleteResponse,
+    V2OpListResponse,
+    V2OpReadResponse,
+    V2PredictionCreateResponse,
+    V2PredictionDeleteResponse,
+    V2PredictionFinishResponse,
+    V2PredictionListResponse,
+    V2PredictionReadResponse,
+    V2RuntimeApplyResponse,
+    V2ScoreCreateResponse,
+    V2ScoreDeleteResponse,
+    V2ScoreListResponse,
+    V2ScorerCreateResponse,
+    V2ScorerDeleteResponse,
+    V2ScoreReadResponse,
+    V2ScorerListResponse,
+    V2ScorerReadResponse,
+    feedback_batch_create_params,
+)
+from weave.vendor.weave_server_sdk.types.agents import (
+    AgentVersionQueryParams,
+    AgentVersionQueryResponse,
+    ConversationChatParams,
+    ConversationChatResponse,
+    ConversationSpansParams,
+    ConversationSpansResponse,
+    SpanCustomAttrsSchemaParams,
+    SpanCustomAttrsSchemaResponse,
+    SpanQueryParams,
+    SpanQueryResponse,
+    SpanStatsParams,
+    SpanStatsResponse,
+    TraceChatParams,
+)
+from weave.vendor.weave_server_sdk.types.annotation_queues import (
+    ItemAddResponse,
+    ItemQueryResponse,
+    ItemUpdateProgressResponse,
+)
+from weave.vendor.weave_server_sdk.types.call_read_response import Call
+from weave.vendor.weave_server_sdk.types.objects import (
+    AliasListParams,
+    AliasListResponse,
+    TagListParams,
+    TagListResponse,
+)
+from weave.vendor.weave_server_sdk.types.projects import (
+    TtlSettingReadParams,
+    TtlSettingReadResponse,
+    TtlSettingUpdateParams,
+    TtlSettingUpdateResponse,
+)
+from weave.vendor.weave_server_sdk.types.table_query_response import Row
 from weave.wandb_interface import project_creator
-from weave.wandb_interface.auth import WandbCredentials
+from weave.wandb_interface.auth import (
+    ApiKeyCredentials,
+    WandbCredentials,
+)
 
 logger = logging.getLogger(__name__)
 
-_ServerT = TypeVar("_ServerT", bound=type)
-_R = TypeVar("_R")
 
-# Default timeout values (in seconds)
-# DEFAULT_CONNECT_TIMEOUT = 10
-# DEFAULT_READ_TIMEOUT = 30
-# DEFAULT_TIMEOUT = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
+def _feedback_body(
+    req: Mapping[str, Any], *, keep_id: bool = True
+) -> feedback_batch_create_params.Batch:
+    """The feedback fields this binding sends: those set, but not created_at.
 
+    The id goes too, so the stored feedback has the id the client returned.
+    Only the per-item fallback, for a server without the batch route, drops it.
 
-def _accept_mapping_requests(cls: _ServerT) -> _ServerT:
-    """Let every request method take a Mapping as well as its request model.
-
-    The Mapping becomes the model the method's `req` parameter is annotated
-    with, as `@validate_call` already does for the methods that have it.
+    The body is dumped to plain JSON values first, so a nested Pydantic model in
+    a user payload keeps its default-valued fields. The generated client dumps
+    nested models with exclude_unset and would drop them.
     """
-    for name, method in list(vars(cls).items()):
-        if name.startswith("_") or not inspect.isfunction(method):
-            continue
-        req_model = get_type_hints(method).get("req")
-        if isinstance(req_model, type) and issubclass(req_model, BaseModel):
-            setattr(cls, name, _validate_mapping_req(method, req_model))
-    return cls
+    body = {
+        key: value
+        for key, value in as_params(req).items()
+        if value is not None and key != "created_at" and (keep_id or key != "id")
+    }
+    return cast(
+        feedback_batch_create_params.Batch,
+        to_jsonable_python(body, inf_nan_mode="null"),
+    )
 
 
-def _validate_mapping_req(
-    method: Callable[..., _R], req_model: type[BaseModel]
-) -> Callable[..., _R]:
-    @functools.wraps(method)
-    def wrapper(self: Any, req: Any, *args: Any, **kwargs: Any) -> _R:
-        if isinstance(req, Mapping):
-            req = req_model.model_validate(req)
-        return method(self, req, *args, **kwargs)
+def _parse_streamed_call(item: dict[str, Any]) -> Call:
+    """Parse one streamed call line into the vendored Call model.
 
-    return wrapper
+    Validation runs in compiled pydantic-core and is several times faster than
+    Call.construct, which walks every field in Python. A line the vendored model
+    rejects falls back to construct so it still parses as leniently as the
+    generated client parses every other response.
+    """
+    try:
+        return Call.model_validate(item)
+    except ValidationError:
+        return Call.construct(**item)
 
 
-@_accept_mapping_requests
-class RemoteHTTPTraceServer:
+class RemoteHTTPTraceServer(TraceServerClientInterface):
+    """The client's trace server binding, built on the stainless-generated client."""
+
     trace_server_url: str
 
-    # My current batching is not safe in notebooks, disable it for now
     def __init__(
         self,
         trace_server_url: str,
         should_batch: bool = False,
         *,
         remote_request_bytes_limit: int = REMOTE_REQUEST_BYTES_LIMIT,
-        auth: WandbCredentials | None = None,
+        username: str = "",
+        password: str = "",
         extra_headers: dict[str, str] | None = None,
     ):
-        super().__init__()
-        self.trace_server_url = trace_server_url
+        self.trace_server_url = trace_server_url.rstrip("/")
         self.should_batch = should_batch
         self.use_calls_complete = should_use_calls_complete() and should_batch
         self.call_processor: AsyncBatchProcessor | CallBatchProcessor | None = None
         self.feedback_processor: AsyncBatchProcessor | None = None
+        self.remote_request_bytes_limit = remote_request_bytes_limit
+        self._extra_headers: dict[str, str] = extra_headers or {}
+        self._credentials: WandbCredentials | None = (
+            ApiKeyCredentials(password) if password else None
+        )
+        self._rebuild_client()
+
         if self.should_batch:
             if self.use_calls_complete:
                 self.call_processor = CallBatchProcessor(
@@ -132,102 +332,104 @@ class RemoteHTTPTraceServer:
                 max_queue_size=max_calls_queue_size(),
                 enable_disk_fallback=should_enable_disk_fallback(),
             )
-        self._auth: httpx.Auth | None = auth.httpx_auth() if auth is not None else None
-        self._extra_headers: dict[str, str] | None = extra_headers
-        self.remote_request_bytes_limit = remote_request_bytes_limit
 
     def ensure_project_exists(
         self, entity: str, project: str
-    ) -> tsi.EnsureProjectExistsRes:
+    ) -> EnsureProjectExistsRes:
         # TODO: This should happen in the wandb backend, not here, and it's slow
         # (hundreds of ms)
-        return tsi.EnsureProjectExistsRes.model_validate(
-            project_creator.ensure_project_exists(entity, project)
-        )
+        res = project_creator.ensure_project_exists(entity, project)
+        return EnsureProjectExistsRes(project_name=res["project_name"])
 
     @classmethod
     def from_env(cls, should_batch: bool = False) -> Self:
         return cls(weave_trace_server_url(), should_batch)
 
-    def set_auth(self, auth: WandbCredentials | None) -> None:
-        self._auth = auth.httpx_auth() if auth is not None else None
+    def set_auth(self, auth: tuple[str, str] | WandbCredentials) -> None:
+        if isinstance(auth, tuple):
+            auth = ApiKeyCredentials(auth[1])
+        self._credentials = auth
+        self._rebuild_client()
 
-    def _build_dynamic_request_headers(
-        self, trace_id: str | None = None
-    ) -> dict[str, str]:
-        """Build headers for HTTP requests: extra headers, capabilities, IDs.
+    def _rebuild_client(self) -> None:
+        self._stainless_client = StainlessClient(
+            base_url=self.trace_server_url,
+            username="",
+            password="",
+            default_headers=self._compose_headers(),
+            timeout=http_timeout(),
+            # DefaultHttpxClient keeps the vendor's own limits and redirect handling.
+            http_client=DefaultHttpxClient(verify=ssl_verify()),
+        )
 
-        Every request carries ``X-Weave-Client-Capabilities`` (the capabilities
-        this SDK build guarantees) so a future server-side ingest sampler can
-        recognize a sampling-safe client. When ``trace_id`` is provided
-        (single-call ingest requests) it is also attached as ``X-Weave-Trace-Id``
-        so the sampler can decide keep/drop per trace without parsing the body.
-        """
-        headers = dict(self._extra_headers) if self._extra_headers else {}
+    def _compose_headers(self, trace_id: str | None = None) -> dict[str, str]:
+        headers = self._extra_headers.copy()
         headers[CLIENT_CAPABILITIES_HEADER] = CLIENT_CAPABILITIES
+        if self._credentials is not None:
+            headers["Authorization"] = self._credentials.authorization_header()
         if retry_id := get_current_retry_id():
             headers["X-Weave-Retry-Id"] = retry_id
         if trace_id is not None:
             headers[TRACE_ID_HEADER] = trace_id
         return headers
 
-    def get(self, url: str, *args: Any, **kwargs: Any) -> httpx.Response:
-        headers = self._build_dynamic_request_headers()
+    def _update_client_headers(self) -> None:
+        """Update client headers with current retry ID and extra headers."""
+        headers = self._compose_headers()
+        if headers:
+            self._stainless_client = self._stainless_client.copy(
+                default_headers=headers
+            )
 
-        return http_requests.get(
-            self.trace_server_url + url,
-            *args,
-            auth=self._auth,
-            headers=headers,
-            **kwargs,
-        )
+    def _prepare_v2_request(self, req: Mapping[str, Any]) -> tuple[str, str]:
+        """Prepare v2 API request by updating headers and splitting project_id.
 
-    def post(
-        self, url: str, *args: Any, trace_id: str | None = None, **kwargs: Any
-    ) -> httpx.Response:
-        headers = self._build_dynamic_request_headers(trace_id=trace_id)
+        Args:
+            req: Request with a project_id.
 
-        return http_requests.post(
-            self.trace_server_url + url,
-            *args,
-            auth=self._auth,
-            headers=headers,
-            **kwargs,
-        )
+        Returns:
+            Tuple of (entity, project) from split project_id.
 
-    def put(self, url: str, *args: Any, **kwargs: Any) -> httpx.Response:
-        headers = self._build_dynamic_request_headers()
+        Examples:
+            >>> entity, project = self._prepare_v2_request(req)
+        """
+        self._update_client_headers()
+        return from_project_id(as_params(req)["project_id"])
 
-        return http_requests.put(
-            self.trace_server_url + url,
-            *args,
-            auth=self._auth,
-            headers={**headers, **kwargs.pop("headers", {})},
-            **kwargs,
-        )
+    def _v2_params(self, req: Mapping[str, Any]) -> dict[str, Any]:
+        """Return a v2 request as the keyword arguments of its generated method.
 
-    def delete(self, url: str, *args: Any, **kwargs: Any) -> httpx.Response:
-        headers = self._build_dynamic_request_headers()
-
-        return http_requests.delete(
-            self.trace_server_url + url,
-            *args,
-            auth=self._auth,
-            headers=headers,
-            **kwargs,
-        )
+        The project goes in the route's `entity` and `project` path parameters,
+        and the route takes no `wb_user_id`: the server sets the user itself.
+        """
+        params = dict(as_params(req))
+        entity, project = self._prepare_v2_request(params)
+        del params["project_id"]
+        params.pop("wb_user_id", None)
+        return {"entity": entity, "project": project, **params}
 
     @with_retry
     def _send_batch_to_server(self, encoded_data: bytes) -> None:
-        """Send a batch of data to the server with retry logic.
+        """Send an encoded batch of calls to the server using the stainless client.
 
-        This method is separated from _flush_calls to avoid recursive retries.
+        Args:
+            encoded_data: Encoded batch data to send.
         """
-        r = self.post(
-            "/call/upsert_batch",
-            data=encoded_data,  # type: ignore
-        )
-        handle_response_error(r, "/call/upsert_batch")
+        self._update_client_headers()
+        self._upsert_calls_batch(json.loads(encoded_data)["batch"])
+
+    def _upsert_calls_batch(self, stainless_batch: list[Any]) -> Any:
+        """Send a legacy batch, mapping the calls_complete signal onto our own type.
+
+        The vendor client raises one generic type for every 4xx, so the signal has
+        to be recovered from the response body.
+        """
+        try:
+            return self._stainless_client.calls.upsert_batch(batch=stainless_batch)  # type: ignore[arg-type]
+        except APIStatusError as e:
+            if is_calls_complete_mode_error(e):
+                raise CallsCompleteModeRequired(str(e)) from e
+            raise
 
     def _flush_calls(
         self,
@@ -237,10 +439,10 @@ class RemoteHTTPTraceServer:
     ) -> None:
         """Process a batch of calls, splitting if necessary and sending to the server.
 
-        This method handles the logic of splitting batches that are too large,
-        but delegates the actual server communication (with retries) to _send_batch_to_server.
+        Args:
+            batch: List of batch items to process.
+            _should_update_batch_size: Whether to update batch size based on response.
         """
-        # Call processor must be defined for this method
         assert self.call_processor is not None
         if len(batch) == 0:
             return
@@ -253,15 +455,12 @@ class RemoteHTTPTraceServer:
             return "unknown"
 
         def encode_batch(batch: list[StartBatchItem | EndBatchItem]) -> bytes:
-            req = tsi.CallCreateBatchReq(
-                batch=[
-                    tsi.CallBatchStartMode(req=item.req)
-                    if isinstance(item, StartBatchItem)
-                    else tsi.CallBatchEndMode(req=item.req)
-                    for item in batch
+            body = {
+                "batch": [
+                    {"mode": item.mode, "req": as_params(item.req)} for item in batch
                 ]
-            )
-            return req.model_dump_json().encode("utf-8")
+            }
+            return to_json(body, inf_nan_mode="null")
 
         try:
             process_batch_with_retry(
@@ -284,9 +483,10 @@ class RemoteHTTPTraceServer:
     ) -> None:
         """Upgrade from legacy AsyncBatchProcessor to CallBatchProcessor.
 
-        This is called when the server indicates a project requires calls_complete mode.
-        The upgrade happens transparently: we replace the processor and re-enqueue
-        the current batch items. No calls are dropped during this upgrade.
+        Called when the server says a project requires calls_complete mode. The
+        batch that was rejected is re-enqueued onto the replacement; anything still
+        queued on the retired processor arrives here again through its own thread
+        and takes the already-upgraded path below.
 
         Args:
             batch: The batch of items that failed to send (will be re-enqueued).
@@ -305,10 +505,8 @@ class RemoteHTTPTraceServer:
             error_message,
         )
 
-        # Store old processor reference for cleanup
         old_processor = self.call_processor
 
-        # Create new CallBatchProcessor
         self.use_calls_complete = True
         self.call_processor = CallBatchProcessor(
             complete_processor_fn=self._flush_calls_complete,
@@ -317,7 +515,6 @@ class RemoteHTTPTraceServer:
             enable_disk_fallback=should_enable_disk_fallback(),
         )
 
-        # Re-enqueue the batch items to the new processor
         # Cast needed: list is invariant, but StartBatchItem | EndBatchItem is a valid subset of BatchItem
         self.call_processor.enqueue(
             cast(list[StartBatchItem | EndBatchItem | CompleteBatchItem], batch)
@@ -335,15 +532,11 @@ class RemoteHTTPTraceServer:
         *,
         _should_update_batch_size: bool = True,
     ) -> None:
-        """Process eager start/end items via v2 single endpoints.
+        """Send eager start/end items one at a time via the v2 single endpoints.
 
-        This is used for ops like Evaluation.evaluate that need their start
-        to be visible immediately in the UI. Uses single call/start and call/end
-        endpoints for easier rate limiting.
-
-        Each item is sent individually with retry logic (@with_retry). If all retries
-        are exhausted, the item is logged and dropped, then processing continues
-        with remaining items in the batch.
+        Used by ops like Evaluation.evaluate whose start must be visible before
+        the call finishes, and for items still unpaired when the queue closes.
+        A failed item is logged and dropped; the rest of the batch continues.
         """
         for item in batch:
             try:
@@ -351,69 +544,62 @@ class RemoteHTTPTraceServer:
                     self._send_call_start_v2(as_params(item.req)["start"])
                 elif isinstance(item, EndBatchItem):
                     self._send_call_end_v2(as_params(item.req)["end"])
-            except CallsCompleteModeRequired:
-                # Re-raise so caller can handle the upgrade to calls_complete mode
-                raise
             except Exception as e:
                 log_dropped_call_batch([item], e)
 
     @with_retry
     def _send_call_start_v2(self, start: Mapping[str, Any]) -> None:
         """Send a single call start to the v2 endpoint."""
-        req = tsi.CallStartV2Req(start=start)
-        project_id = req.start.project_id
-        entity, project = project_id.split("/", 1)
-        url = f"/v2/{entity}/{project}/call/start"
-        r = self.post(
-            url,
-            data=req.model_dump_json().encode("utf-8"),
-            trace_id=req.start.trace_id,
+        entity, project = self._prepare_v2_request(start)
+        # The v2 single-call routes are hidden from the OpenAPI spec, so the
+        # generator emits no method for them.
+        self._stainless_client.post(
+            f"/v2/{entity}/{project}/call/start",
+            body=to_jsonable_python({"start": start}, inf_nan_mode="null"),
+            cast_to=object,
+            options={"headers": self._compose_headers(trace_id=start.get("trace_id"))},
         )
-        handle_response_error(r, url)
 
     @with_retry
     def _send_call_end_v2(self, end: Mapping[str, Any]) -> None:
         """Send a single call end to the v2 endpoint."""
-        req = tsi.CallEndV2Req(end=end)
-        project_id = req.end.project_id
-        entity, project = project_id.split("/", 1)
-        url = f"/v2/{entity}/{project}/call/end"
-        r = self.post(
-            url,
-            data=req.model_dump_json().encode("utf-8"),
-            trace_id=req.end.trace_id,
+        entity, project = self._prepare_v2_request(end)
+        self._stainless_client.post(
+            f"/v2/{entity}/{project}/call/end",
+            body=to_jsonable_python({"end": end}, inf_nan_mode="null"),
+            cast_to=object,
+            options={"headers": self._compose_headers(trace_id=end.get("trace_id"))},
         )
-        handle_response_error(r, url)
-
-    def _extract_entity_project(
-        self, batch: list[CompleteBatchItem]
-    ) -> EntityProjectInfo:
-        """Extract entity, project, and project_id from first batch item."""
-        if not batch:
-            raise ValueError("Cannot extract entity/project from empty batch")
-
-        first_item = batch[0]
-        project_id = as_params(first_item.req)["project_id"]
-
-        if not project_id or "/" not in project_id:
-            raise ValueError(
-                f"Invalid project_id format: {project_id}. Expected 'entity/project'"
-            )
-
-        entity, project = project_id.split("/", 1)
-        if not entity or not project:
-            raise ValueError(f"Invalid project_id: {project_id}")
-
-        return EntityProjectInfo(entity=entity, project=project, project_id=project_id)
 
     @with_retry
     def _send_calls_complete_to_server(
         self, entity: str, project: str, encoded_data: bytes
     ) -> None:
         """Send a batch of completed calls to the server with retry logic."""
-        url = f"/v2/{entity}/{project}/calls/complete"
-        r = self.post(url, data=encoded_data)
-        handle_response_error(r, url)
+        # The generated method takes objects, not the bytes the batch splitter works in.
+        self._update_client_headers()
+        self._stainless_client.v2_calls.complete(
+            project, entity=entity, batch=json.loads(encoded_data)["batch"]
+        )
+
+    def calls_complete(self, req: Mapping[str, Any]) -> object:
+        """Upsert a batch of completed calls.
+
+        Args:
+            req: Calls upsert complete request.
+
+        Returns:
+            Calls upsert complete response.
+        """
+        batch = [as_params(item) for item in as_params(req)["batch"]]
+        if not batch:
+            return {}
+        entity, project = from_project_id(batch[0]["project_id"])
+        # The same body the batch processor sends (_flush_calls_complete).
+        self._send_calls_complete_to_server(
+            entity, project, to_json({"batch": batch}, inf_nan_mode="null")
+        )
+        return {}
 
     def _flush_calls_complete(
         self,
@@ -421,31 +607,26 @@ class RemoteHTTPTraceServer:
         *,
         _should_update_batch_size: bool = True,
     ) -> None:
-        """Process a batch of complete calls and send to the calls/upsert endpoint.
-
-        This is the new calls_complete path. Complete calls have both start and
-        end information bundled together.
-        """
+        """Send a batch of paired calls to the calls_complete endpoint."""
         assert self.call_processor is not None
         if not batch:
             return
 
-        ep_info = self._extract_entity_project(batch)
+        entity, project = from_project_id(as_params(batch[0].req)["project_id"])
 
         def get_item_id(item: CompleteBatchItem) -> str:
             return f"{as_params(item.req)['id']}-complete"
 
         def encode_batch(batch: list[CompleteBatchItem]) -> bytes:
-            api_batch = [item.req for item in batch]
-            req = tsi.CallsUpsertCompleteReq(batch=api_batch)
-            return req.model_dump_json().encode("utf-8")
+            body = {"batch": [as_params(item.req) for item in batch]}
+            return to_json(body, inf_nan_mode="null")
 
         process_batch_with_retry(
             batch_name="calls_complete",
             batch=batch,
             remote_request_bytes_limit=self.remote_request_bytes_limit,
             send_batch_fn=lambda data: self._send_calls_complete_to_server(
-                ep_info.entity, ep_info.project, data
+                entity, project, data
             ),
             processor_obj=self.call_processor,
             should_update_batch_size=_should_update_batch_size,
@@ -455,73 +636,51 @@ class RemoteHTTPTraceServer:
         )
 
     def get_call_processor(self) -> AsyncBatchProcessor | CallBatchProcessor | None:
-        """Custom method not defined on the formal TraceServerInterface to expose
-        the underlying call processor. Should be formalized in a client-side interface.
+        """Get the call processor for batching.
+
+        Returns:
+            AsyncBatchProcessor or CallBatchProcessor, or None if batching is disabled.
         """
         return self.call_processor
 
-    def _send_feedback_batch_to_server(self, encoded_data: bytes) -> None:
-        """Send a batch of feedback data to the server with retry logic.
-
-        This method is separated from _flush_feedback to avoid recursive retries.
-        """
-        r = self.post(
-            "/feedback/batch/create",
-            data=encoded_data,  # type: ignore
-        )
-        handle_response_error(r, "/feedback/batch/create")
-
     def _flush_feedback(
         self,
-        batch: list[tsi.FeedbackCreateReq],
+        batch: list[Mapping[str, Any]],
     ) -> None:
         """Process a batch of feedback, splitting if necessary and sending to the server.
 
-        This method handles the logic of splitting batches that are too large,
-        but delegates the actual server communication (with retries) to _send_feedback_batch_to_server.
+        Args:
+            batch: List of feedback requests to process.
         """
-        # Feedback processor must be defined for this method
         assert self.feedback_processor is not None
         if len(batch) == 0:
             return
 
-        def get_item_id(item: tsi.FeedbackCreateReq) -> str:
-            return f"{item.id}"
+        def get_item_id(item: Mapping[str, Any]) -> str:
+            return f"{item['id']}"
 
-        def encode_batch(batch: list[tsi.FeedbackCreateReq]) -> bytes:
-            batch_req = tsi.FeedbackCreateBatchReq(batch=batch)
-            data = batch_req.model_dump_json()
-            return data.encode("utf-8")
+        def encode_batch(batch: list[Mapping[str, Any]]) -> bytes:
+            return to_json({"batch": batch}, inf_nan_mode="null")
 
         def send_feedback_batch(encoded_data: bytes) -> None:
+            self._update_client_headers()
             try:
-                self._send_feedback_batch_to_server(encoded_data)
-            except (httpx.HTTPError, httpx.HTTPStatusError) as e:
+                items = json.loads(encoded_data)["batch"]
+                self._stainless_client.feedback.batch_create(
+                    batch=[_feedback_body(item) for item in items]
+                )
+            except Exception as e:
                 # If batching endpoint doesn't exist (404) fall back to individual calls
-                if (
-                    response := getattr(e, "response", None)
-                ) and response.status_code == 404:
+                if hasattr(e, "status_code") and e.status_code == 404:
                     logger.debug(
                         "Batching endpoint not available, falling back to individual feedback creation: %s",
                         e,
                     )
-
-                    # Feedback endpoint doesn't support id, created_at, so we need to strip them
-                    class FeedbackCreateReqStripped(tsi.FeedbackCreateReq):
-                        id: SkipJsonSchema[str] = Field(exclude=True)
-                        created_at: SkipJsonSchema[datetime.datetime | None] = Field(
-                            exclude=True, default=None
-                        )
-
                     # Fall back to individual feedback creation calls
-                    for item in batch:
-                        item_copy = FeedbackCreateReqStripped(**item.model_dump())
+                    for item in items:
                         try:
-                            self._generic_request(
-                                "/feedback/create",
-                                item_copy,
-                                FeedbackCreateReqStripped,
-                                tsi.FeedbackCreateRes,
+                            self._stainless_client.feedback.create(
+                                **_feedback_body(item, keep_id=False)
                             )
                         except Exception as individual_error:
                             logger.warning(
@@ -529,7 +688,6 @@ class RemoteHTTPTraceServer:
                                 individual_error,
                             )
                 else:
-                    # Re-raise server errors (5xx) as they're not client compatibility issues
                     raise
 
         process_batch_with_retry(
@@ -545,1515 +703,1637 @@ class RemoteHTTPTraceServer:
         )
 
     def get_feedback_processor(self) -> AsyncBatchProcessor | None:
-        """Custom method not defined on the formal TraceServerInterface to expose
-        the underlying feedback processor. Should be formalized in a client-side interface.
+        """Get the feedback processor for batching.
+
+        Returns:
+            AsyncBatchProcessor instance or None if batching is disabled.
         """
         return self.feedback_processor
 
-    @with_retry
-    def _post_request_executor(
-        self,
-        url: str,
-        req: BaseModel,
-        stream: bool = False,
-        trace_id: str | None = None,
-    ) -> httpx.Response:
-        r = self.post(
-            url,
-            # `by_alias` is required since we have Mongo-style properties in the
-            # query models that are aliased to conform to start with `$`. Without
-            # this, the model_dump will use the internal property names which are
-            # not valid for the `model_validate` step.
-            data=req.model_dump_json(by_alias=True).encode("utf-8"),
-            stream=stream,
-            trace_id=trace_id,
-        )
-        handle_response_error(r, url)
-        return r
-
-    @with_retry
-    def _get_request_executor(
-        self,
-        url: str,
-        params: dict[str, Any] | None = None,
-        stream: bool = False,
-    ) -> httpx.Response:
-        r = self.get(url, params=params or {}, stream=stream)
-        handle_response_error(r, url)
-        return r
-
-    def _put_request_executor(
-        self,
-        url: str,
-        req: BaseModel,
-        stream: bool = False,
-    ) -> httpx.Response:
-        r = self.put(
-            url,
-            data=req.model_dump_json(by_alias=True).encode("utf-8"),
-            stream=stream,
-        )
-        handle_response_error(r, url)
-        return r
-
-    @with_retry
-    def _delete_request_executor(
-        self,
-        url: str,
-        params: dict[str, Any] | None = None,
-        stream: bool = False,
-    ) -> httpx.Response:
-        r = self.delete(url, params=params or {}, stream=stream)
-        handle_response_error(r, url)
-        return r
-
-    def _generic_request(
-        self,
-        url: str,
-        req: BaseModel,
-        req_model: type[BaseModel],
-        res_model: type[BaseModel],
-        method: str = "POST",
-        params: dict[str, Any] | None = None,
-        trace_id: str | None = None,
-    ) -> BaseModel:
-        if method == "POST":
-            r = self._post_request_executor(url, req, trace_id=trace_id)
-        elif method == "PUT":
-            r = self._put_request_executor(url, req)
-        elif method == "GET":
-            r = self._get_request_executor(url, params)
-        elif method == "DELETE":
-            r = self._delete_request_executor(url, params)
-        else:
-            raise ValueError(f"Unsupported HTTP method: {method}")
-
-        return res_model.model_validate(r.json())
-
-    def _generic_stream_request(
-        self,
-        url: str,
-        req: BaseModel,
-        req_model: type[BaseModel],
-        res_model: type[BaseModel],
-        method: str = "POST",
-        params: dict[str, Any] | None = None,
-    ) -> Iterator[BaseModel]:
-        if method == "POST":
-            r = self._post_request_executor(url, req, stream=True)
-        elif method == "GET":
-            r = self._get_request_executor(url, params, stream=True)
-        elif method == "DELETE":
-            r = self._delete_request_executor(url, params, stream=True)
-        else:
-            raise ValueError(f"Unsupported HTTP method: {method}")
-
-        try:
-            for line in r.iter_lines():
-                if line:
-                    yield res_model.model_validate_json(line)
-        finally:
-            r.close()
-
-    @with_retry
     def server_info(self) -> ServerInfoRes:
-        r = self.get(
-            "/server_info",
-        )
-        handle_response_error(r, "/server_info")
-        return ServerInfoRes.model_validate(r.json())
+        """Get server information.
 
-    @validate_call
-    def projects_info(self, req: tsi.ProjectsInfoReq) -> list[tsi.ProjectsInfoRes]:
-        r = self._post_request_executor("/service/projects_info", req)
-        handle_response_error(r, "/service/projects_info")
-        return [tsi.ProjectsInfoRes.model_validate(item) for item in r.json()]
+        Returns:
+            ServerInfoRes with server information.
+        """
+        self._update_client_headers()
+        return self._stainless_client.services.server_info()
 
-    def otel_export(self, req: tsi.OTelExportReq) -> tsi.OTelExportRes:
-        # TODO: Add docs link (DOCS-1390)
+    def projects_info(
+        self, req: ServiceProjectsInfoParams
+    ) -> ServiceProjectsInfoResponse:
+        self._update_client_headers()
+        return self._stainless_client.services.projects_info(**as_params(req))
+
+    def otel_export(self, req: Mapping[str, Any]) -> Any:
+        """Export OTEL traces.
+
+        Args:
+            req: OTEL export request.
+
+        Returns:
+            OTEL export response.
+
+        Raises:
+            NotImplementedError: OTEL export is not yet supported.
+        """
         raise NotImplementedError("Sending otel traces directly is not yet supported.")
 
-    @validate_call
-    def eval_results_query(
-        self, req: tsi.EvalResultsQueryReq
-    ) -> tsi.EvalResultsQueryRes:
-        entity, project = from_project_id(req.project_id)
-        body = tsi.EvalResultsQueryBody.model_validate(
-            req.model_dump(exclude={"project_id"})
-        )
-        return self._generic_request(
-            f"/v2/{entity}/{project}/eval_results/query",
-            body,
-            tsi.EvalResultsQueryBody,
-            tsi.EvalResultsQueryRes,
-        )
+    # Agent Observability API
+    def agent_spans_query(self, req: SpanQueryParams) -> SpanQueryResponse:
+        """Query agent spans, either as raw rows or grouped aggregates.
 
-    # === GenAI / Agent Observability API (read) ===
+        Args:
+            req: Agent spans query request.
 
-    @validate_call
-    def agent_spans_query(
-        self, req: agent_types.AgentSpansQueryReq
-    ) -> agent_types.AgentSpansQueryRes:
-        return self._generic_request(
-            "/agents/spans/query",
-            req,
-            agent_types.AgentSpansQueryReq,
-            agent_types.AgentSpansQueryRes,
+        Returns:
+            Agent spans query response.
+        """
+        return self._stainless_client.agents.spans.query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def agent_traces_chat(
-        self, req: agent_types.AgentTraceChatReq
-    ) -> agent_types.AgentTraceChatRes:
-        return self._generic_request(
-            "/agents/traces/chat",
-            req,
-            agent_types.AgentTraceChatReq,
-            agent_types.AgentTraceChatRes,
+    def agent_traces_chat(self, req: TraceChatParams) -> AgentTraceChatRes:
+        """Read an agent trace as a chat transcript.
+
+        Args:
+            req: Agent trace chat request.
+
+        Returns:
+            Agent trace chat response.
+        """
+        params = dict(as_params(req))
+        # The vendored SDK is generated from core and may lag this server's API.
+        extra_body = {
+            key: params.pop(key)
+            for key in ["include_model_tool_calls"]
+            if key in params
+        }
+        return self._stainless_client.agents.traces.chat(
+            extra_headers=self._compose_headers(), extra_body=extra_body, **params
         )
 
-    @validate_call
     def agent_conversation_chat(
-        self, req: agent_types.AgentConversationChatReq
-    ) -> agent_types.AgentConversationChatRes:
-        return self._generic_request(
-            "/agents/conversations/chat",
-            req,
-            agent_types.AgentConversationChatReq,
-            agent_types.AgentConversationChatRes,
+        self, req: ConversationChatParams
+    ) -> ConversationChatResponse:
+        """Read a conversation as a chat transcript.
+
+        Args:
+            req: Agent conversation chat request.
+
+        Returns:
+            Agent conversation chat response.
+        """
+        params = dict(as_params(req))
+        # The vendored SDK is generated from core and may lag this server's API.
+        extra_body = {
+            key: params.pop(key)
+            for key in ["include_model_tool_calls"]
+            if key in params
+        }
+        return self._stainless_client.agents.conversations.chat(
+            extra_headers=self._compose_headers(), extra_body=extra_body, **params
         )
 
-    @validate_call
-    def agent_agents_query(
-        self, req: agent_types.AgentsQueryReq
-    ) -> agent_types.AgentsQueryRes:
-        return self._generic_request(
-            "/agents/query",
-            req,
-            agent_types.AgentsQueryReq,
-            agent_types.AgentsQueryRes,
+    def agent_conversation_spans(
+        self, req: ConversationSpansParams
+    ) -> ConversationSpansResponse:
+        """Read the spans of one or more conversations.
+
+        Args:
+            req: Agent conversation spans request.
+
+        Returns:
+            Agent conversation spans response.
+        """
+        return self._stainless_client.agents.conversations.spans(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
+    def agent_agents_query(self, req: AgentQueryParams) -> AgentQueryResponse:
+        """Query agents.
+
+        Args:
+            req: Agents query request.
+
+        Returns:
+            Agents query response.
+        """
+        return self._stainless_client.agents.query(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
     def agent_versions_query(
-        self, req: agent_types.AgentVersionsQueryReq
-    ) -> agent_types.AgentVersionsQueryRes:
-        return self._generic_request(
-            "/agents/agent-versions/query",
-            req,
-            agent_types.AgentVersionsQueryReq,
-            agent_types.AgentVersionsQueryRes,
+        self, req: AgentVersionQueryParams
+    ) -> AgentVersionQueryResponse:
+        """Query the versions of an agent.
+
+        Args:
+            req: Agent versions query request.
+
+        Returns:
+            Agent versions query response.
+        """
+        return self._stainless_client.agents.agent_versions.query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def agent_spans_stats(
-        self, req: agent_types.AgentSpanStatsReq
-    ) -> agent_types.AgentSpanStatsRes:
-        return self._generic_request(
-            "/agents/spans/stats",
-            req,
-            agent_types.AgentSpanStatsReq,
-            agent_types.AgentSpanStatsRes,
+    def agent_spans_stats(self, req: SpanStatsParams) -> SpanStatsResponse:
+        """Query chart-ready aggregations over agent spans.
+
+        Args:
+            req: Agent span stats request.
+
+        Returns:
+            Agent span stats response.
+        """
+        return self._stainless_client.agents.spans.stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
     def agent_custom_attrs_schema(
-        self, req: agent_types.AgentCustomAttrsSchemaReq
-    ) -> agent_types.AgentCustomAttrsSchemaRes:
-        return self._generic_request(
-            "/agents/spans/custom-attrs/schema",
-            req,
-            agent_types.AgentCustomAttrsSchemaReq,
-            agent_types.AgentCustomAttrsSchemaRes,
+        self, req: SpanCustomAttrsSchemaParams
+    ) -> SpanCustomAttrsSchemaResponse:
+        """Discover typed custom attribute keys on matching agent spans.
+
+        Args:
+            req: Agent custom attrs schema request.
+
+        Returns:
+            Agent custom attrs schema response.
+        """
+        return self._stainless_client.agents.spans.custom_attrs_schema(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def agent_search(
-        self, req: agent_types.AgentSearchReq
-    ) -> agent_types.AgentSearchRes:
-        return self._generic_request(
-            "/agents/search",
-            req,
-            agent_types.AgentSearchReq,
-            agent_types.AgentSearchRes,
+    def agent_search(self, req: AgentSearchParams) -> AgentSearchResponse:
+        """Search conversations.
+
+        Args:
+            req: Agent search request.
+
+        Returns:
+            Agent search response.
+        """
+        return self._stainless_client.agents.search(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     # Call API
-    @validate_call
-    def call_start(self, req: tsi.CallStartReq) -> tsi.CallStartRes:
+    def call_start(self, req: CallStartParams) -> CallStartResponse:
+        """Start a call.
+
+        Args:
+            req: Call start request.
+
+        Returns:
+            Call start response.
+        """
+        params = as_params(req)
+        validate_call_start(params)
         if self.should_batch:
             assert self.call_processor is not None
-
-            if req.start.id is None or req.start.trace_id is None:
+            start = params["start"]
+            if start.get("id") is None or start.get("trace_id") is None:
                 raise ValueError(
                     "CallStartReq must have id and trace_id when batching."
                 )
             self.call_processor.enqueue_start(StartBatchItem(req=req))
-            return tsi.CallStartRes(id=req.start.id, trace_id=req.start.trace_id)
-        return self._generic_request(
-            "/call/start",
-            req,
-            tsi.CallStartReq,
-            tsi.CallStartRes,
-            trace_id=req.start.trace_id,
+            return CallStartResponse(id=start["id"], trace_id=start["trace_id"])
+
+        return self._stainless_client.calls.start(
+            extra_headers=self._compose_headers(), **params
         )
 
-    def call_start_batch(self, req: tsi.CallCreateBatchReq) -> tsi.CallCreateBatchRes:
-        return self._generic_request(
-            "/call/upsert_batch", req, tsi.CallCreateBatchReq, tsi.CallCreateBatchRes
-        )
+    def call_start_batch(self, req: CallUpsertBatchParams) -> CallUpsertBatchResponse:
+        """Start a batch of calls.
 
-    @validate_call
-    def call_end(self, req: tsi.CallEndReq) -> tsi.CallEndRes:
+        Args:
+            req: Batch create request.
+
+        Returns:
+            Batch create response.
+        """
+        self._update_client_headers()
+        return self._upsert_calls_batch(as_params(req)["batch"])
+
+    def call_end(self, req: CallEndParams) -> object:
+        """End a call.
+
+        Args:
+            req: Call end request.
+
+        Returns:
+            Call end response.
+        """
+        validate_call_end(req)
         if self.should_batch:
             assert self.call_processor is not None
-
             self.call_processor.enqueue([EndBatchItem(req=req)])
-            return tsi.CallEndRes()
-        return self._generic_request(
-            "/call/end",
-            req,
-            tsi.CallEndReq,
-            tsi.CallEndRes,
-            trace_id=req.end.trace_id,
+            return {}
+
+        return self._stainless_client.calls.end(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def call_read(self, req: tsi.CallReadReq) -> tsi.CallReadRes:
-        return self._generic_request(
-            "/call/read", req, tsi.CallReadReq, tsi.CallReadRes
+    def call_read(self, req: CallReadParams) -> CallReadResponse:
+        """Read a call.
+
+        Args:
+            req: Call read request.
+
+        Returns:
+            Call read response.
+        """
+        return self._stainless_client.calls.read(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def calls_query(self, req: tsi.CallsQueryReq) -> tsi.CallsQueryRes:
-        # This previously called the deprecated /calls/query endpoint.
-        return tsi.CallsQueryRes(calls=list(self.calls_query_stream(req)))
+    def calls_query(self, req: CallStreamQueryParams) -> CallsQueryRes:
+        """Query calls.
 
-    @validate_call
-    def calls_query_stream(self, req: tsi.CallsQueryReq) -> Iterator[tsi.CallSchema]:
-        return self._generic_stream_request(
-            "/calls/stream_query", req, tsi.CallsQueryReq, tsi.CallSchema
+        Args:
+            req: Calls query request.
+
+        Returns:
+            Calls query response.
+        """
+        return CallsQueryRes(calls=list(self.calls_query_stream(req)))
+
+    def calls_query_stream(self, req: CallStreamQueryParams) -> Iterator[Call]:
+        """Stream query calls.
+
+        Args:
+            req: Calls query request.
+
+        Yields:
+            Call instances.
+        """
+        self._update_client_headers()
+        # Use stream_query endpoint
+        response = self._stainless_client.calls.stream_query(**as_params(req))
+        for item in response:
+            # The route's lines are generated as bare objects; each one is a call.
+            yield _parse_streamed_call(cast(dict[str, Any], item))
+
+    def calls_query_stats(self, req: CallQueryStatsParams) -> CallQueryStatsResponse:
+        """Query call statistics.
+
+        Args:
+            req: Calls query stats request.
+
+        Returns:
+            Calls query stats response.
+        """
+        return self._stainless_client.calls.query_stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def calls_query_stats(self, req: tsi.CallsQueryStatsReq) -> tsi.CallsQueryStatsRes:
-        return self._generic_request(
-            "/calls/query_stats", req, tsi.CallsQueryStatsReq, tsi.CallsQueryStatsRes
+    def call_stats(self, req: CallStatsParams) -> CallStatsResponse:
+        """Query call statistics bucketed over time.
+
+        Args:
+            req: Call stats request.
+
+        Returns:
+            Call stats response.
+        """
+        return self._stainless_client.calls.stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def trace_usage(self, req: tsi.TraceUsageReq) -> tsi.TraceUsageRes:
-        return self._generic_request(
-            "/trace/usage", req, tsi.TraceUsageReq, tsi.TraceUsageRes
+    def trace_usage(self, req: TraceUsageParams) -> TraceUsageResponse:
+        """Compute per-call usage with descendant rollup.
+
+        Args:
+            req: Trace usage request.
+
+        Returns:
+            Trace usage response.
+
+        Examples:
+            >>> server = RemoteHTTPTraceServer("http://example.com")
+            >>> req = {"project_id": "entity/project"}
+            >>> _ = server.trace_usage(req)  # doctest: +SKIP
+        """
+        return self._stainless_client.trace.usage(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def calls_usage(self, req: tsi.CallsUsageReq) -> tsi.CallsUsageRes:
-        return self._generic_request(
-            "/calls/usage", req, tsi.CallsUsageReq, tsi.CallsUsageRes
+    def calls_usage(self, req: CallUsageParams) -> CallUsageResponse:
+        """Compute aggregated usage for multiple root calls.
+
+        Args:
+            req: Calls usage request.
+
+        Returns:
+            Calls usage response.
+        """
+        return self._stainless_client.calls.usage(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def calls_delete(self, req: tsi.CallsDeleteReq) -> tsi.CallsDeleteRes:
-        return self._generic_request(
-            "/calls/delete", req, tsi.CallsDeleteReq, tsi.CallsDeleteRes
+    def calls_delete(self, req: CallDeleteParams) -> CallDeleteResponse:
+        """Delete calls.
+
+        Args:
+            req: Calls delete request.
+
+        Returns:
+            Calls delete response.
+        """
+        return self._stainless_client.calls.delete(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def call_update(self, req: tsi.CallUpdateReq) -> tsi.CallUpdateRes:
-        return self._generic_request(
-            "/call/update", req, tsi.CallUpdateReq, tsi.CallUpdateRes
+    def call_update(self, req: CallUpdateParams) -> object:
+        """Update a call.
+
+        Args:
+            req: Call update request.
+
+        Returns:
+            Call update response.
+        """
+        return self._stainless_client.calls.update(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     # Obj API
+    def obj_create(self, req: ObjectCreateParams) -> ObjectCreateResponse:
+        """Create an object.
 
-    @validate_call
-    def obj_create(self, req: tsi.ObjCreateReq) -> tsi.ObjCreateRes:
-        return self._generic_request(
-            "/obj/create", req, tsi.ObjCreateReq, tsi.ObjCreateRes
-        )
+        Args:
+            req: Object create request.
 
-    @validate_call
-    def obj_read(self, req: tsi.ObjReadReq) -> tsi.ObjReadRes:
-        return self._generic_request("/obj/read", req, tsi.ObjReadReq, tsi.ObjReadRes)
-
-    @validate_call
-    def objs_query(self, req: tsi.ObjQueryReq) -> tsi.ObjQueryRes:
-        return self._generic_request(
-            "/objs/query", req, tsi.ObjQueryReq, tsi.ObjQueryRes
-        )
-
-    def obj_delete(self, req: tsi.ObjDeleteReq) -> tsi.ObjDeleteRes:
-        return self._generic_request(
-            "/obj/delete", req, tsi.ObjDeleteReq, tsi.ObjDeleteRes
-        )
-
-    def obj_add_tags(self, req: tsi.ObjAddTagsReq) -> tsi.ObjAddTagsRes:
-        body = his.ObjTagsBody(project_id=req.project_id, tags=req.tags)
-        return self._generic_request(
-            f"/objs/{req.object_id}/versions/{req.digest}/tags",
-            body,
-            his.ObjTagsBody,
-            tsi.ObjAddTagsRes,
-            method="PUT",
-        )
-
-    def obj_remove_tags(self, req: tsi.ObjRemoveTagsReq) -> tsi.ObjRemoveTagsRes:
-        body = his.ObjTagsBody(project_id=req.project_id, tags=req.tags)
-        return self._generic_request(
-            f"/objs/{req.object_id}/versions/{req.digest}/tags/remove",
-            body,
-            his.ObjTagsBody,
-            tsi.ObjRemoveTagsRes,
-        )
-
-    def obj_set_aliases(self, req: tsi.ObjSetAliasesReq) -> tsi.ObjSetAliasesRes:
-        body = his.ObjSetAliasesBody(
-            project_id=req.project_id, digest=req.digest, aliases=req.aliases
-        )
-        return self._generic_request(
-            f"/objs/{req.object_id}/aliases",
-            body,
-            his.ObjSetAliasesBody,
-            tsi.ObjSetAliasesRes,
-            method="PUT",
-        )
-
-    def obj_remove_aliases(
-        self, req: tsi.ObjRemoveAliasesReq
-    ) -> tsi.ObjRemoveAliasesRes:
-        body = his.ObjRemoveAliasesBody(project_id=req.project_id, aliases=req.aliases)
-        return self._generic_request(
-            f"/objs/{req.object_id}/aliases/remove",
-            body,
-            his.ObjRemoveAliasesBody,
-            tsi.ObjRemoveAliasesRes,
-        )
-
-    def tags_list(self, req: tsi.TagsListReq) -> tsi.TagsListRes:
-        return self._generic_request(
-            "/tags",
-            req,
-            tsi.TagsListReq,
-            tsi.TagsListRes,
-            method="GET",
-            params={"project_id": req.project_id},
-        )
-
-    def aliases_list(self, req: tsi.AliasesListReq) -> tsi.AliasesListRes:
-        return self._generic_request(
-            "/aliases",
-            req,
-            tsi.AliasesListReq,
-            tsi.AliasesListRes,
-            method="GET",
-            params={"project_id": req.project_id},
-        )
-
-    @validate_call
-    def table_create(self, req: tsi.TableCreateReq) -> tsi.TableCreateRes:
-        return self._generic_request(
-            "/table/create", req, tsi.TableCreateReq, tsi.TableCreateRes
-        )
-
-    @validate_call
-    def table_update(self, req: tsi.TableUpdateReq) -> tsi.TableUpdateRes:
-        """Similar to `calls/batch_upsert`, we can dynamically adjust the payload size
-        due to the property that table updates can be decomposed into a series of
-        updates.
+        Returns:
+            Object create response.
         """
-        estimated_bytes = len(req.model_dump_json(by_alias=True).encode("utf-8"))
-        if estimated_bytes > self.remote_request_bytes_limit and len(req.updates) > 1:
-            split_ndx = len(req.updates) // 2
-            first_half_req = tsi.TableUpdateReq(
-                project_id=req.project_id,
-                base_digest=req.base_digest,
-                updates=req.updates[:split_ndx],
+        # The value goes out the way the client encodes it before computing its digest.
+        params = dict(as_params(req))
+        params["obj"] = {
+            **params["obj"],
+            "val": to_jsonable_with_json_keys(params["obj"]["val"]),
+        }
+        return self._stainless_client.objects.create(
+            extra_headers=self._compose_headers(), **params
+        )
+
+    def obj_read(self, req: ObjectReadParams) -> ObjectReadResponse:
+        """Read an object.
+
+        Args:
+            req: Object read request.
+
+        Returns:
+            Object read response.
+        """
+        return self._stainless_client.objects.read(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
+    def objs_query(self, req: ObjectQueryParams) -> ObjectQueryResponse:
+        """Query objects.
+
+        Args:
+            req: Object query request.
+
+        Returns:
+            Object query response.
+        """
+        # The route takes no `query`, and the server ignores one.
+        return self._stainless_client.objects.query(
+            extra_headers=self._compose_headers(), **as_params(req, exclude={"query"})
+        )
+
+    def obj_delete(self, req: ObjectDeleteParams) -> ObjectDeleteResponse:
+        """Delete an object.
+
+        Args:
+            req: Object delete request.
+
+        Returns:
+            Object delete response.
+        """
+        return self._stainless_client.objects.delete(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
+    # Tag and Alias API
+    # The routes take the acting user from the auth header, not the body.
+    def obj_add_tags(self, req: ObjAddTagsParams) -> object:
+        return self._stainless_client.objects.tags.add(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def obj_remove_tags(self, req: ObjRemoveTagsParams) -> object:
+        return self._stainless_client.objects.tags.remove(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def obj_set_aliases(self, req: ObjSetAliasesParams) -> object:
+        return self._stainless_client.objects.aliases.set(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def obj_remove_aliases(self, req: ObjRemoveAliasesParams) -> object:
+        return self._stainless_client.objects.aliases.remove(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def tags_list(self, req: TagListParams) -> TagListResponse:
+        return self._stainless_client.objects.tags.list(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def aliases_list(self, req: AliasListParams) -> AliasListResponse:
+        return self._stainless_client.objects.aliases.list(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    # Table API
+    def table_create(self, req: TableCreateParams) -> TableCreateResponse:
+        """Create a table.
+
+        Args:
+            req: Table create request.
+
+        Returns:
+            Table create response.
+        """
+        params = dict(as_params(req))
+        params["table"] = {
+            **params["table"],
+            "rows": to_jsonable_with_json_keys(
+                params["table"]["rows"], inf_nan_mode="null"
+            ),
+        }
+        return self._stainless_client.tables.create(
+            extra_headers=self._compose_headers(), **params
+        )
+
+    def table_update(self, req: TableUpdateParams) -> TableUpdateResponse:
+        """Update a table.
+
+        Args:
+            req: Table update request.
+
+        Returns:
+            Table update response.
+        """
+        # The updates may be any iterable, so read them once; rows are normalized
+        # here because the request model that used to do it is no longer built.
+        params = dict(as_params(req))
+        updates = to_jsonable_with_json_keys(
+            list(params["updates"]), inf_nan_mode="null"
+        )
+        params["updates"] = updates
+        # Handle large requests by splitting
+        estimated_bytes = len(to_json(params, inf_nan_mode="null"))
+        if estimated_bytes > self.remote_request_bytes_limit and len(updates) > 1:
+            split_ndx = len(updates) // 2
+            first_half_res = self.table_update(
+                cast(TableUpdateParams, {**params, "updates": updates[:split_ndx]})
             )
-            first_half_res = self.table_update(first_half_req)
-            second_half_req = tsi.TableUpdateReq(
-                project_id=req.project_id,
-                base_digest=first_half_res.digest,
-                updates=req.updates[split_ndx:],
+            second_half_res = self.table_update(
+                cast(
+                    TableUpdateParams,
+                    {
+                        **params,
+                        "base_digest": first_half_res.digest,
+                        "updates": updates[split_ndx:],
+                    },
+                )
             )
-            second_half_res = self.table_update(second_half_req)
-            all_digests = (
-                first_half_res.updated_row_digests + second_half_res.updated_row_digests
+            all_digests = (first_half_res.updated_row_digests or []) + (
+                second_half_res.updated_row_digests or []
             )
-            return tsi.TableUpdateRes(
+            return TableUpdateResponse(
                 digest=second_half_res.digest, updated_row_digests=all_digests
             )
         else:
-            return self._generic_request(
-                "/table/update", req, tsi.TableUpdateReq, tsi.TableUpdateRes
+            return self._stainless_client.tables.update(
+                extra_headers=self._compose_headers(), **params
             )
 
-    @validate_call
-    def table_query(self, req: tsi.TableQueryReq) -> tsi.TableQueryRes:
-        return self._generic_request(
-            "/table/query", req, tsi.TableQueryReq, tsi.TableQueryRes
+    def table_query(self, req: TableQueryParams) -> TableQueryResponse:
+        """Query a table.
+
+        Args:
+            req: Table query request.
+
+        Returns:
+            Table query response.
+        """
+        return self._stainless_client.tables.query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def table_query_stream(
-        self, req: tsi.TableQueryReq
-    ) -> Iterator[tsi.TableRowSchema]:
+    def table_query_stream(self, req: TableQueryParams) -> Iterator[Row]:
+        """Stream query a table.
+
+        Args:
+            req: Table query request.
+
+        Yields:
+            Table rows.
+        """
         # Need to manually iterate over this until the stream endpoint is built and shipped.
         res = self.table_query(req)
         yield from res.rows
 
-    @validate_call
-    def table_query_stats(self, req: tsi.TableQueryStatsReq) -> tsi.TableQueryStatsRes:
-        return self._generic_request(
-            "/table/query_stats", req, tsi.TableQueryStatsReq, tsi.TableQueryStatsRes
+    def table_query_stats(self, req: TableQueryStatsParams) -> TableQueryStatsResponse:
+        """Query table statistics.
+
+        Args:
+            req: Table query stats request.
+
+        Returns:
+            Table query stats response.
+        """
+        return self._stainless_client.tables.query_stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
     def table_create_from_digests(
-        self, req: tsi.TableCreateFromDigestsReq
-    ) -> tsi.TableCreateFromDigestsRes:
-        """Create a table by specifying row digests instead of actual rows."""
-        return self._generic_request(
-            "/table/create_from_digests",
-            req,
-            tsi.TableCreateFromDigestsReq,
-            tsi.TableCreateFromDigestsRes,
+        self, req: TableCreateFromDigestsParams
+    ) -> TableCreateFromDigestsResponse:
+        """Create a table from digests.
+
+        Args:
+            req: Table create from digests request.
+
+        Returns:
+            Table create from digests response.
+        """
+        return self._stainless_client.tables.create_from_digests(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
     def table_query_stats_batch(
-        self, req: tsi.TableQueryStatsBatchReq
-    ) -> tsi.TableQueryStatsBatchRes:
-        return self._generic_request(
-            "/table/query_stats_batch",
-            req,
-            tsi.TableQueryStatsBatchReq,
-            tsi.TableQueryStatsBatchRes,
+        self, req: TableQueryStatsBatchParams
+    ) -> TableQueryStatsBatchResponse:
+        """Query table statistics in batch.
+
+        Args:
+            req: Table query stats batch request.
+
+        Returns:
+            Table query stats batch response.
+        """
+        return self._stainless_client.tables.query_stats_batch(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def refs_read_batch(self, req: tsi.RefsReadBatchReq) -> tsi.RefsReadBatchRes:
-        return self._generic_request(
-            "/refs/read_batch", req, tsi.RefsReadBatchReq, tsi.RefsReadBatchRes
+    def refs_read_batch(self, req: RefReadBatchParams) -> RefReadBatchResponse:
+        """Read refs in batch.
+
+        Args:
+            req: Refs read batch request.
+
+        Returns:
+            Refs read batch response.
+        """
+        return self._stainless_client.refs.read_batch(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @with_retry
-    def file_create(
-        self, req: FileCreateParams | tsi.FileCreateReq
-    ) -> tsi.FileCreateRes:
-        if not isinstance(req, tsi.FileCreateReq):
-            name, content = cast("tuple[str, bytes]", req["file"])
-            req = tsi.FileCreateReq(
-                project_id=req["project_id"],
-                name=name,
-                content=content,
-                expected_digest=req.get("expected_digest"),
-            )
-        data: dict[str, str] = {"project_id": req.project_id}
-        if req.expected_digest is not None:
-            data["expected_digest"] = req.expected_digest
-        r = self.post(
-            "/files/create",
-            data=data,
-            files={"file": (req.name, req.content)},
-        )
-        handle_response_error(r, "/files/create")
-        return tsi.FileCreateRes.model_validate(r.json())
+    def file_create(self, req: FileCreateParams) -> FileCreateResponse:
+        """Create a file.
 
-    @with_retry
-    def file_content_read(self, req: tsi.FileContentReadReq) -> tsi.FileContentReadRes:
-        r = self.post(
-            "/files/content",
-            json={"project_id": req.project_id, "digest": req.digest},
-        )
-        handle_response_error(r, "/files/content")
+        Args:
+            req: File create request.
+
+        Returns:
+            File create response.
+        """
+        self._update_client_headers()
+        return self._stainless_client.files.create(**req)
+
+    def file_content_read(self, req: FileContentParams) -> FileContentReadRes:
+        """Read file content.
+
+        Args:
+            req: File content read request.
+
+        Returns:
+            File content read response.
+        """
+        self._update_client_headers()
         # TODO: Should stream to disk rather than to memory
-        bytes = io.BytesIO()
-        bytes.writelines(r.iter_bytes())
-        bytes.seek(0)
-        return tsi.FileContentReadRes(content=bytes.read())
+        # The plain call decodes the body as text, corrupting binary files.
+        response = self._stainless_client.files.with_raw_response.content(
+            **as_params(req)
+        )
+        return FileContentReadRes(content=response.read())
 
-    def files_stats(self, req: tsi.FilesStatsReq) -> tsi.FilesStatsRes:
-        return self._generic_request(
-            "/files/query_stats", req, tsi.FilesStatsReq, tsi.FilesStatsRes
+    def files_stats(self, req: FileStatsParams) -> FileStatsResponse:
+        """Get file statistics.
+
+        Args:
+            req: Files stats request.
+
+        Returns:
+            Files stats response.
+        """
+        return self._stainless_client.files.stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def feedback_create(self, req: tsi.FeedbackCreateReq) -> tsi.FeedbackCreateRes:
+    def feedback_create(self, req: FeedbackCreateParams) -> FeedbackCreateResponse:
+        """Create feedback.
+
+        Args:
+            req: Feedback create request.
+
+        Returns:
+            Feedback create response.
+        """
         if self.should_batch:
             assert self.feedback_processor is not None
 
-            feedback_id = req.id or generate_id()
-            req.id = feedback_id
+            params = dict(as_params(req))
+            params["id"] = params.get("id") or generate_id()
 
-            self.feedback_processor.enqueue([req])
-            return tsi.FeedbackCreateRes(
-                id=feedback_id,
+            res = FeedbackCreateResponse(
+                id=params["id"],
                 # technically incorrect, this can be off by a few seconds
                 created_at=datetime.datetime.now(ZoneInfo("UTC")),
-                wb_user_id=req.wb_user_id or "",
-                payload=req.payload,
+                wb_user_id=params.get("wb_user_id") or "",
+                payload=params["payload"],
             )
+            # Snapshot the payload so a caller's later edits do not reach the queue.
+            params["payload"] = to_jsonable_python(
+                params["payload"], inf_nan_mode="null"
+            )
+            self.feedback_processor.enqueue([params])
+            return res
         else:
-            return self._generic_request(
-                "/feedback/create", req, tsi.FeedbackCreateReq, tsi.FeedbackCreateRes
-            )
+            self._update_client_headers()
+            return self._stainless_client.feedback.create(**_feedback_body(req))
 
     def feedback_create_batch(
-        self, req: tsi.FeedbackCreateBatchReq
-    ) -> tsi.FeedbackCreateBatchRes:
-        return self._generic_request(
-            "/feedback/batch/create",
-            req,
-            tsi.FeedbackCreateBatchReq,
-            tsi.FeedbackCreateBatchRes,
+        self, req: FeedbackBatchCreateParams
+    ) -> FeedbackBatchCreateResponse:
+        """Create feedback in batch.
+
+        Args:
+            req: Feedback create batch request.
+
+        Returns:
+            Feedback create batch response.
+        """
+        self._update_client_headers()
+        return self._stainless_client.feedback.batch_create(
+            batch=[_feedback_body(item) for item in as_params(req)["batch"]]
         )
 
-    @validate_call
-    def feedback_query(self, req: tsi.FeedbackQueryReq) -> tsi.FeedbackQueryRes:
-        return self._generic_request(
-            "/feedback/query", req, tsi.FeedbackQueryReq, tsi.FeedbackQueryRes
+    def feedback_query(self, req: FeedbackQueryParams) -> FeedbackQueryResponse:
+        """Query feedback.
+
+        Args:
+            req: Feedback query request.
+
+        Returns:
+            Feedback query response.
+        """
+        return self._stainless_client.feedback.query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def feedback_purge(self, req: tsi.FeedbackPurgeReq) -> tsi.FeedbackPurgeRes:
-        return self._generic_request(
-            "/feedback/purge", req, tsi.FeedbackPurgeReq, tsi.FeedbackPurgeRes
+    def feedback_purge(self, req: FeedbackPurgeParams) -> object:
+        """Purge feedback.
+
+        Args:
+            req: Feedback purge request.
+
+        Returns:
+            Feedback purge response.
+        """
+        return self._stainless_client.feedback.purge(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def feedback_replace(self, req: tsi.FeedbackReplaceReq) -> tsi.FeedbackReplaceRes:
-        return self._generic_request(
-            "/feedback/replace", req, tsi.FeedbackReplaceReq, tsi.FeedbackReplaceRes
+    def feedback_replace(self, req: FeedbackReplaceParams) -> FeedbackReplaceResponse:
+        """Replace feedback.
+
+        Args:
+            req: Feedback replace request.
+
+        Returns:
+            Feedback replace response.
+        """
+        # Same normalization as _feedback_body: the user payload must not lose
+        # the default fields of a nested model to the client's exclude_unset dump.
+        return self._stainless_client.feedback.replace(
+            extra_headers=self._compose_headers(),
+            **to_jsonable_python(as_params(req), inf_nan_mode="null"),
         )
 
-    @validate_call
-    def feedback_stats(self, req: tsi.FeedbackStatsReq) -> tsi.FeedbackStatsRes:
-        return self._generic_request(
-            "/feedback/stats", req, tsi.FeedbackStatsReq, tsi.FeedbackStatsRes
+    def feedback_stats(self, req: FeedbackStatsParams) -> FeedbackStatsResponse:
+        """Query feedback statistics bucketed over time.
+
+        Args:
+            req: Feedback stats request.
+
+        Returns:
+            Feedback stats response.
+        """
+        return self._stainless_client.feedback.stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
     def feedback_aggregate(
-        self, req: tsi.FeedbackAggregateReq
-    ) -> tsi.FeedbackAggregateRes:
-        """Query the feedback table for aggregate scores over time."""
-        return self._generic_request(
-            "/feedback/aggregate",
-            req,
-            tsi.FeedbackAggregateReq,
-            tsi.FeedbackAggregateRes,
+        self, req: FeedbackAggregateParams
+    ) -> FeedbackAggregateResponse:
+        """Aggregate feedback payload values.
+
+        Args:
+            req: Feedback aggregate request.
+
+        Returns:
+            Feedback aggregate response.
+        """
+        return self._stainless_client.feedback.aggregate(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
     def feedback_payload_schema(
-        self, req: tsi.FeedbackPayloadSchemaReq
-    ) -> tsi.FeedbackPayloadSchemaRes:
-        return self._generic_request(
-            "/feedback/payload_schema",
-            req,
-            tsi.FeedbackPayloadSchemaReq,
-            tsi.FeedbackPayloadSchemaRes,
+        self, req: FeedbackPayloadSchemaParams
+    ) -> FeedbackPayloadSchemaResponse:
+        """Discover the payload paths feedback rows use.
+
+        Args:
+            req: Feedback payload schema request.
+
+        Returns:
+            Feedback payload schema response.
+        """
+        return self._stainless_client.feedback.payload_schema(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     # Cost API
-    @validate_call
-    def cost_query(self, req: tsi.CostQueryReq) -> tsi.CostQueryRes:
-        return self._generic_request(
-            "/cost/query", req, tsi.CostQueryReq, tsi.CostQueryRes
+    def cost_query(self, req: CostQueryParams) -> CostQueryResponse:
+        """Query costs.
+
+        Args:
+            req: Cost query request.
+
+        Returns:
+            Cost query response.
+        """
+        return self._stainless_client.costs.query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def cost_create(self, req: tsi.CostCreateReq) -> tsi.CostCreateRes:
-        return self._generic_request(
-            "/cost/create", req, tsi.CostCreateReq, tsi.CostCreateRes
+    def cost_create(self, req: CostCreateParams) -> CostCreateResponse:
+        """Create cost.
+
+        Args:
+            req: Cost create request.
+
+        Returns:
+            Cost create response.
+        """
+        return self._stainless_client.costs.create(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def cost_purge(self, req: tsi.CostPurgeReq) -> tsi.CostPurgeRes:
-        return self._generic_request(
-            "/cost/purge", req, tsi.CostPurgeReq, tsi.CostPurgeRes
+    def cost_purge(self, req: CostPurgeParams) -> object:
+        """Purge costs.
+
+        Args:
+            req: Cost purge request.
+
+        Returns:
+            Cost purge response.
+        """
+        return self._stainless_client.costs.purge(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     def completions_create(
-        self, req: tsi.CompletionsCreateReq
-    ) -> tsi.CompletionsCreateRes:
-        return self._generic_request(
-            "/completions/create",
-            req,
-            tsi.CompletionsCreateReq,
-            tsi.CompletionsCreateRes,
+        self, req: CompletionCreateParams
+    ) -> CompletionCreateResponse:
+        """Create completion.
+
+        Args:
+            req: Completions create request.
+
+        Returns:
+            Completions create response.
+        """
+        return self._stainless_client.completions.create(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     def completions_create_stream(
-        self, req: tsi.CompletionsCreateReq
+        self, req: CompletionCreateStreamParams
     ) -> Iterator[dict[str, Any]]:
-        # For remote servers, streaming is not implemented
-        # Fall back to non-streaming completion
-        response = self.completions_create(req)
-        yield {"response": response.response, "weave_call_id": response.weave_call_id}
+        """Create completion stream.
 
-    def image_create(
-        self, req: tsi.ImageGenerationCreateReq
-    ) -> tsi.ImageGenerationCreateRes:
-        return self._generic_request(
-            "/image/create",
-            req,
-            tsi.ImageGenerationCreateReq,
-            tsi.ImageGenerationCreateRes,
+        Args:
+            req: Completions create request.
+
+        Yields:
+            Dictionary chunks of the streamed response.
+        """
+        self._update_client_headers()
+        response = self._stainless_client.completions.create_stream(**as_params(req))
+        for item in response:
+            yield item.model_dump(by_alias=True, exclude_unset=True)
+
+    def image_create(self, req: ImageCreateParams) -> ImageCreateResponse:
+        """Create image generation.
+
+        Args:
+            req: Image generation create request.
+
+        Returns:
+            Image generation create response.
+        """
+        return self._stainless_client.images.create(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    def project_stats(self, req: tsi.ProjectStatsReq) -> tsi.ProjectStatsRes:
-        return self._generic_request(
-            "/project/stats", req, tsi.ProjectStatsReq, tsi.ProjectStatsRes
+    def project_stats(self, req: ProjectStatsParams) -> ProjectStatsResponse:
+        """Get project statistics.
+
+        Args:
+            req: Project stats request.
+
+        Returns:
+            Project stats response.
+        """
+        return self._stainless_client.projects.stats(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     def project_ttl_settings_read(
-        self, req: tsi.ProjectTTLSettingsReadReq
-    ) -> tsi.ProjectTTLSettingsReadRes:
-        return self._generic_request(
-            "/project/ttl_settings/read",
-            req,
-            tsi.ProjectTTLSettingsReadReq,
-            tsi.ProjectTTLSettingsReadRes,
+        self, req: TtlSettingReadParams
+    ) -> TtlSettingReadResponse:
+        """Read project TTL settings.
+
+        Args:
+            req: Project TTL settings read request.
+
+        Returns:
+            Project TTL settings read response.
+        """
+        return self._stainless_client.projects.ttl_settings.read(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     def project_ttl_settings_update(
-        self, req: tsi.ProjectTTLSettingsUpdateReq
-    ) -> tsi.ProjectTTLSettingsUpdateRes:
-        return self._generic_request(
-            "/project/ttl_settings/update",
-            req,
-            tsi.ProjectTTLSettingsUpdateReq,
-            tsi.ProjectTTLSettingsUpdateRes,
+        self, req: TtlSettingUpdateParams
+    ) -> TtlSettingUpdateResponse:
+        """Update project TTL settings.
+
+        Args:
+            req: Project TTL settings update request.
+
+        Returns:
+            Project TTL settings update response.
+        """
+        return self._stainless_client.projects.ttl_settings.update(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    def threads_query_stream(
-        self, req: tsi.ThreadsQueryReq
-    ) -> Iterator[tsi.ThreadSchema]:
-        return self._generic_stream_request(
-            "/threads/stream_query", req, tsi.ThreadsQueryReq, tsi.ThreadSchema
-        )
-
-    # Annotation Queue API
-    def annotation_queue_create(
-        self, req: tsi.AnnotationQueueCreateReq
-    ) -> tsi.AnnotationQueueCreateRes:
-        return self._generic_request(
-            "/annotation_queues",
-            req,
-            tsi.AnnotationQueueCreateReq,
-            tsi.AnnotationQueueCreateRes,
-        )
-
-    def annotation_queues_query_stream(
-        self, req: tsi.AnnotationQueuesQueryReq
-    ) -> Iterator[tsi.AnnotationQueueSchema]:
-        return self._generic_stream_request(
-            "/annotation_queues/query",
-            req,
-            tsi.AnnotationQueuesQueryReq,
-            tsi.AnnotationQueueSchema,
-        )
-
-    def annotation_queue_read(
-        self, req: tsi.AnnotationQueueReadReq
-    ) -> tsi.AnnotationQueueReadRes:
-        return self._generic_request(
-            f"/annotation_queues/{req.queue_id}",
-            req,
-            tsi.AnnotationQueueReadReq,
-            tsi.AnnotationQueueReadRes,
-            method="GET",
-            params={"project_id": req.project_id},
-        )
-
-    def annotation_queue_delete(
-        self, req: tsi.AnnotationQueueDeleteReq
-    ) -> tsi.AnnotationQueueDeleteRes:
-        return self._generic_request(
-            f"/annotation_queues/{req.queue_id}",
-            req,
-            tsi.AnnotationQueueDeleteReq,
-            tsi.AnnotationQueueDeleteRes,
-            method="DELETE",
-            params={"project_id": req.project_id},
-        )
-
-    def annotation_queue_update(
-        self, req: tsi.AnnotationQueueUpdateReq
-    ) -> tsi.AnnotationQueueUpdateRes:
-        # Convert to Body type to exclude queue_id from request body (it's in the URL path)
-        body = his.AnnotationQueueUpdateBody(
-            project_id=req.project_id,
-            name=req.name,
-            description=req.description,
-            scorer_refs=req.scorer_refs,
-        )
-        return self._generic_request(
-            f"/annotation_queues/{req.queue_id}",
-            body,
-            his.AnnotationQueueUpdateBody,
-            tsi.AnnotationQueueUpdateRes,
-            method="PUT",
-        )
-
-    def annotation_queue_add_calls(
-        self, req: tsi.AnnotationQueueAddCallsReq
-    ) -> tsi.AnnotationQueueAddCallsRes:
-        # Convert to Body type to exclude queue_id from request body (it's in the URL path)
-        body = his.AnnotationQueueAddCallsBody(
-            project_id=req.project_id,
-            call_ids=req.call_ids,
-            display_fields=req.display_fields,
-        )
-        return self._generic_request(
-            f"/annotation_queues/{req.queue_id}/items",
-            body,
-            his.AnnotationQueueAddCallsBody,
-            tsi.AnnotationQueueAddCallsRes,
-        )
-
-    def annotation_queue_items_query(
-        self, req: tsi.AnnotationQueueItemsQueryReq
-    ) -> tsi.AnnotationQueueItemsQueryRes:
-        # Convert to Body type to exclude queue_id from request body (it's in the URL path)
-        body = his.AnnotationQueueItemsQueryBody(
-            project_id=req.project_id,
-            filter=req.filter,
-            sort_by=req.sort_by,
-            limit=req.limit,
-            offset=req.offset,
-            include_position=req.include_position,
-        )
-        return self._generic_request(
-            f"/annotation_queues/{req.queue_id}/items/query",
-            body,
-            his.AnnotationQueueItemsQueryBody,
-            tsi.AnnotationQueueItemsQueryRes,
-        )
-
-    def annotation_queues_stats(
-        self, req: tsi.AnnotationQueuesStatsReq
-    ) -> tsi.AnnotationQueuesStatsRes:
-        return self._generic_request(
-            "/annotation_queues/stats",
-            req,
-            tsi.AnnotationQueuesStatsReq,
-            tsi.AnnotationQueuesStatsRes,
-        )
-
-    def annotator_queue_items_progress_update(
-        self, req: tsi.AnnotatorQueueItemsProgressUpdateReq
-    ) -> tsi.AnnotatorQueueItemsProgressUpdateRes:
-        # Convert to Body type to exclude queue_id, item_id, and wb_user_id from request body
-        # (queue_id and item_id are in the URL path, wb_user_id is set server-side from auth)
-        body = his.AnnotationQueueItemProgressUpdateBody(
-            project_id=req.project_id,
-            annotation_state=req.annotation_state,
-        )
-        return self._generic_request(
-            f"/annotation_queues/{req.queue_id}/items/{req.item_id}/progress",
-            body,
-            his.AnnotationQueueItemProgressUpdateBody,
-            tsi.AnnotatorQueueItemsProgressUpdateRes,
-        )
-
-    # Dataset Sources API
     def dataset_sources_link(
-        self, req: tsi.DatasetSourcesLinkReq
-    ) -> tsi.DatasetSourcesLinkRes:
-        return self._generic_request(
-            "/dataset_sources/link",
-            req,
-            tsi.DatasetSourcesLinkReq,
-            tsi.DatasetSourcesLinkRes,
+        self, req: DatasetSourceLinkParams
+    ) -> DatasetSourceLinkResponse:
+        """Link dataset rows to their provenance sources.
+
+        Args:
+            req: Dataset sources link request.
+
+        Returns:
+            Dataset sources link response.
+        """
+        return self._stainless_client.dataset_sources.link(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
+    @with_retry
     def dataset_sources_link_delete(
-        self, req: tsi.DatasetSourcesLinkDeleteReq
-    ) -> tsi.DatasetSourcesLinkDeleteRes:
-        return self._generic_request(
+        self, req: Mapping[str, Any]
+    ) -> DatasetSourcesLinkDeleteRes:
+        """Soft-delete dataset source links by id.
+
+        Args:
+            req: Dataset sources link delete request.
+
+        Returns:
+            Dataset sources link delete response.
+        """
+        # Hidden from the OpenAPI spec, so the generator emits no method for it.
+        response = self._stainless_client.post(
             "/dataset_sources/link_delete",
-            req,
-            tsi.DatasetSourcesLinkDeleteReq,
-            tsi.DatasetSourcesLinkDeleteRes,
+            body=to_jsonable_python(as_params(req), inf_nan_mode="null"),
+            cast_to=object,
+            options={"headers": self._compose_headers(), "max_retries": 0},
+        )
+        return DatasetSourcesLinkDeleteRes(
+            entries=[
+                DatasetSourcesLinkDeleteEntry(
+                    link_id=entry["link_id"], deleted=entry["deleted"]
+                )
+                for entry in cast(dict[str, Any], response)["entries"]
+            ]
         )
 
     def dataset_sources_query(
-        self, req: tsi.DatasetSourcesQueryReq
-    ) -> tsi.DatasetSourcesQueryRes:
-        return self._generic_request(
-            "/dataset_sources/query",
-            req,
-            tsi.DatasetSourcesQueryReq,
-            tsi.DatasetSourcesQueryRes,
+        self, req: DatasetSourceQueryParams
+    ) -> DatasetSourceQueryResponse:
+        """Query sources linked to a dataset.
+
+        Args:
+            req: Dataset sources query request.
+
+        Returns:
+            Dataset sources query response.
+        """
+        return self._stainless_client.dataset_sources.query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
     def source_datasets_query(
-        self, req: tsi.SourceDatasetsQueryReq
-    ) -> tsi.SourceDatasetsQueryRes:
-        return self._generic_request(
-            "/dataset_sources/source_datasets_query",
-            req,
-            tsi.SourceDatasetsQueryReq,
-            tsi.SourceDatasetsQueryRes,
+        self, req: DatasetSourceSourceDatasetsQueryParams
+    ) -> DatasetSourceSourceDatasetsQueryResponse:
+        """Query datasets that contain the given sources.
+
+        Args:
+            req: Source datasets query request.
+
+        Returns:
+            Source datasets query response.
+        """
+        return self._stainless_client.dataset_sources.source_datasets_query(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    def evaluate_model(self, req: tsi.EvaluateModelReq) -> tsi.EvaluateModelRes:
-        raise NotImplementedError("evaluate_model is not implemented")
+    def threads_query_stream(
+        self, req: ThreadStreamQueryParams
+    ) -> Iterator[ThreadStreamQueryResponse]:
+        """Stream query threads.
+
+        Args:
+            req: Threads query request.
+
+        Yields:
+            ThreadStreamQueryResponse instances.
+        """
+        self._update_client_headers()
+        yield from self._stainless_client.threads.stream_query(**as_params(req))
+
+    # Annotation Queue API
+    def annotation_queue_create(
+        self, req: AnnotationQueueCreateParams
+    ) -> AnnotationQueueCreateResponse:
+        """Create an annotation queue.
+
+        Args:
+            req: Annotation queue create request.
+
+        Returns:
+            Annotation queue create response.
+        """
+        return self._stainless_client.annotation_queues.create(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
+    def annotation_queues_query_stream(
+        self, req: AnnotationQueueQueryParams
+    ) -> Iterator[AnnotationQueueSchema]:
+        """Stream query annotation queues.
+
+        Args:
+            req: Annotation queues query request.
+
+        Yields:
+            AnnotationQueueSchema instances.
+        """
+        self._update_client_headers()
+        yield from self._stainless_client.annotation_queues.query(**as_params(req))
+
+    def annotation_queue_read(
+        self, req: QueueReadParams
+    ) -> AnnotationQueueReadResponse:
+        """Read an annotation queue.
+
+        Args:
+            req: Annotation queue read request.
+
+        Returns:
+            Annotation queue read response.
+        """
+        return self._stainless_client.annotation_queues.read(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
+    def annotation_queue_delete(
+        self, req: QueueDeleteParams
+    ) -> AnnotationQueueDeleteResponse:
+        """Soft-delete an annotation queue.
+
+        Args:
+            req: Annotation queue delete request.
+
+        Returns:
+            Annotation queue delete response.
+        """
+        return self._stainless_client.annotation_queues.delete(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def annotation_queue_update(
+        self, req: QueueUpdateParams
+    ) -> AnnotationQueueUpdateResponse:
+        """Update an annotation queue's metadata.
+
+        Args:
+            req: Annotation queue update request.
+
+        Returns:
+            Annotation queue update response.
+        """
+        return self._stainless_client.annotation_queues.update(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def annotation_queue_add_calls(self, req: QueueAddCallsParams) -> ItemAddResponse:
+        """Add calls to an annotation queue.
+
+        Args:
+            req: Annotation queue add calls request.
+
+        Returns:
+            Annotation queue add calls response.
+        """
+        return self._stainless_client.annotation_queues.items.add(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def annotation_queue_items_query(
+        self, req: QueueItemsQueryParams
+    ) -> ItemQueryResponse:
+        """Query the items of an annotation queue.
+
+        Args:
+            req: Annotation queue items query request.
+
+        Returns:
+            Annotation queue items query response.
+        """
+        return self._stainless_client.annotation_queues.items.query(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
+    def annotation_queues_stats(
+        self, req: AnnotationQueueStatsParams
+    ) -> AnnotationQueueStatsResponse:
+        """Get stats for multiple annotation queues.
+
+        Args:
+            req: Annotation queues stats request.
+
+        Returns:
+            Annotation queues stats response.
+        """
+        return self._stainless_client.annotation_queues.stats(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
+
+    def annotator_queue_items_progress_update(
+        self,
+        req: QueueItemProgressUpdateParams,
+    ) -> ItemUpdateProgressResponse:
+        """Update the annotation state of a queue item.
+
+        Args:
+            req: Annotator queue items progress update request.
+
+        Returns:
+            Annotator queue items progress update response.
+        """
+        return self._stainless_client.annotation_queues.items.update_progress(
+            extra_headers=self._compose_headers(),
+            **as_params(req, exclude={"wb_user_id"}),
+        )
+
+    def evaluate_model(
+        self, req: EvaluationEvaluateModelParams
+    ) -> EvaluationEvaluateModelResponse:
+        """Evaluate model.
+
+        Args:
+            req: Evaluate model request.
+
+        Returns:
+            Evaluate model response.
+        """
+        return self._stainless_client.evaluations.evaluate_model(
+            extra_headers=self._compose_headers(), **as_params(req)
+        )
 
     def evaluation_status(
-        self, req: tsi.EvaluationStatusReq
-    ) -> tsi.EvaluationStatusRes:
-        raise NotImplementedError("evaluation_status is not implemented")
+        self, req: EvaluationStatusParams
+    ) -> EvaluationStatusResponse:
+        """Get evaluation status.
 
-    def rescore(self, req: tsi.RescoreReq) -> tsi.RescoreRes:
-        raise NotImplementedError("rescore is not implemented")
+        Args:
+            req: Evaluation status request.
 
-    def calls_score(self, req: tsi.CallsScoreReq) -> tsi.CallsScoreRes:
-        raise NotImplementedError("calls_score is not implemented")
-
-    # === V2 APIs ===
-
-    @validate_call
-    def op_create(self, req: tsi.OpCreateReq) -> tsi.OpCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/ops"
-        # For create, we need to send the body without project_id (OpCreateBody)
-        body_data = req.model_dump(exclude={"project_id"})
-        body = tsi.OpCreateBody.model_validate(body_data)
-        return self._generic_request(
-            url,
-            body,
-            tsi.OpCreateBody,
-            tsi.OpCreateRes,
-            method="POST",
+        Returns:
+            Evaluation status response.
+        """
+        return self._stainless_client.evaluations.status(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def op_read(self, req: tsi.OpReadReq) -> tsi.OpReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/ops/{req.object_id}/versions/{req.digest}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.OpReadReq,
-            tsi.OpReadRes,
-            method="GET",
+    def rescore(self, req: EvaluationRescoreParams) -> EvaluationRescoreResponse:
+        """Rescore an existing evaluation run with different scorers.
+
+        Args:
+            req: Rescore request.
+
+        Returns:
+            Rescore response.
+        """
+        return self._stainless_client.evaluations.rescore(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def op_list(self, req: tsi.OpListReq) -> Iterator[tsi.OpReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/ops"
-        # Build query params
-        params: dict[str, Any] = {}
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.OpListReq,
-            tsi.OpReadRes,
-            method="GET",
-            params=params,
+    def calls_score(self, req: CallScoreParams) -> object:
+        """Score calls.
+
+        Args:
+            req: Calls score request.
+
+        Returns:
+            Calls score response.
+        """
+        return self._stainless_client.calls.score(
+            extra_headers=self._compose_headers(), **as_params(req)
         )
 
-    @validate_call
-    def op_delete(self, req: tsi.OpDeleteReq) -> tsi.OpDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/ops/{req.object_id}"
-        # Build query params
-        params = {}
-        if req.digests:
-            params["digests"] = req.digests
-        return self._generic_request(
-            url,
-            req,
-            tsi.OpDeleteReq,
-            tsi.OpDeleteRes,
-            method="DELETE",
-            params=params,
+    # === Object APIs ===
+
+    def op_create(self, req: Mapping[str, Any]) -> V2OpCreateResponse:
+        """Create op.
+
+        Args:
+            req: Op create request.
+
+        Returns:
+            Op create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_ops.create(**params)
+
+    def op_read(self, req: Mapping[str, Any]) -> V2OpReadResponse:
+        """Read op.
+
+        Args:
+            req: Op read request.
+
+        Returns:
+            Op read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_ops.read(**params)
+
+    def op_list(self, req: Mapping[str, Any]) -> Iterator[V2OpListResponse]:
+        """List ops.
+
+        Args:
+            req: Op list request.
+
+        Yields:
+            V2OpListResponse instances.
+        """
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_ops.list(**params)
+
+    def op_delete(self, req: Mapping[str, Any]) -> V2OpDeleteResponse:
+        """Delete op.
+
+        Args:
+            req: Op delete request.
+
+        Returns:
+            Op delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_ops.delete(**params)
+
+    def dataset_create(self, req: Mapping[str, Any]) -> V2DatasetCreateResponse:
+        """Create dataset.
+
+        Args:
+            req: Dataset create request.
+
+        Returns:
+            Dataset create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_datasets.create(**params)
+
+    def dataset_read(self, req: Mapping[str, Any]) -> V2DatasetReadResponse:
+        """Read dataset.
+
+        Args:
+            req: Dataset read request.
+
+        Returns:
+            Dataset read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_datasets.read(**params)
+
+    def dataset_list(self, req: Mapping[str, Any]) -> Iterator[V2DatasetListResponse]:
+        """List datasets.
+
+        Args:
+            req: Dataset list request.
+
+        Yields:
+            V2DatasetListResponse instances.
+        """
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_datasets.list(**params)
+
+    def dataset_delete(self, req: Mapping[str, Any]) -> V2DatasetDeleteResponse:
+        """Delete dataset.
+
+        Args:
+            req: Dataset delete request.
+
+        Returns:
+            Dataset delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_datasets.delete(**params)
+
+    def custom_runtime_apply(self, req: Mapping[str, Any]) -> V2RuntimeApplyResponse:
+        """Apply custom runtime.
+
+        Args:
+            req: Custom runtime apply request.
+
+        Returns:
+            Custom runtime apply response.
+        """
+        return self._stainless_client.v2_runtimes.apply(
+            extra_headers=self._compose_headers(), **self._v2_params(req)
         )
 
-    @validate_call
-    def dataset_create(self, req: tsi.DatasetCreateReq) -> tsi.DatasetCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/datasets"
-        # For create, we need to send the body without project_id (DatasetCreateBody)
-        body_data = req.model_dump(exclude={"project_id"})
-        body = tsi.DatasetCreateBody.model_validate(body_data)
-        return self._generic_request(
-            url,
-            body,
-            tsi.DatasetCreateBody,
-            tsi.DatasetCreateRes,
-            method="POST",
-        )
+    def scorer_create(self, req: Mapping[str, Any]) -> V2ScorerCreateResponse:
+        """Create scorer.
 
-    @validate_call
-    def dataset_read(self, req: tsi.DatasetReadReq) -> tsi.DatasetReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/datasets/{req.object_id}/versions/{req.digest}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.DatasetReadReq,
-            tsi.DatasetReadRes,
-            method="GET",
-        )
+        Args:
+            req: Scorer create request.
 
-    @validate_call
-    def dataset_list(self, req: tsi.DatasetListReq) -> Iterator[tsi.DatasetReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/datasets"
-        # Build query params
-        params: dict[str, Any] = {}
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.DatasetListReq,
-            tsi.DatasetReadRes,
-            method="GET",
-            params=params,
-        )
+        Returns:
+            Scorer create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_scorers.create(**params)
 
-    @validate_call
-    def dataset_delete(self, req: tsi.DatasetDeleteReq) -> tsi.DatasetDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/datasets/{req.object_id}"
-        # Build query params
-        params = {}
-        if req.digests:
-            params["digests"] = req.digests
-        return self._generic_request(
-            url,
-            req,
-            tsi.DatasetDeleteReq,
-            tsi.DatasetDeleteRes,
-            method="DELETE",
-            params=params,
-        )
+    def scorer_read(self, req: Mapping[str, Any]) -> V2ScorerReadResponse:
+        """Read scorer.
 
-    @validate_call
-    def custom_runtime_apply(
-        self, req: tsi.CustomRuntimeApplyReq
-    ) -> tsi.CustomRuntimeApplyRes:
-        entity, project = from_project_id(req.project_id)
-        runtime_name = quote(req.runtime_name, safe="")
-        url = f"/v2/{entity}/{project}/runtimes/{runtime_name}"
-        body = tsi.CustomRuntimeApplyBody.model_validate(
-            req.model_dump(exclude={"project_id", "runtime_name", "wb_user_id"})
-        )
-        return self._generic_request(
-            url,
-            body,
-            tsi.CustomRuntimeApplyBody,
-            tsi.CustomRuntimeApplyRes,
-            method="PUT",
-        )
+        Args:
+            req: Scorer read request.
 
-    @validate_call
-    def scorer_create(self, req: tsi.ScorerCreateReq) -> tsi.ScorerCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scorers"
-        # For create, we need to send the body without project_id (ScorerCreateBody)
-        body_data = req.model_dump(exclude={"project_id"})
-        body = tsi.ScorerCreateBody.model_validate(body_data)
-        return self._generic_request(
-            url,
-            body,
-            tsi.ScorerCreateBody,
-            tsi.ScorerCreateRes,
-            method="POST",
-        )
+        Returns:
+            Scorer read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_scorers.read(**params)
 
-    @validate_call
-    def scorer_read(self, req: tsi.ScorerReadReq) -> tsi.ScorerReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scorers/{req.object_id}/versions/{req.digest}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.ScorerReadReq,
-            tsi.ScorerReadRes,
-            method="GET",
-        )
+    def scorer_list(self, req: Mapping[str, Any]) -> Iterator[V2ScorerListResponse]:
+        """List scorers.
 
-    @validate_call
-    def scorer_list(self, req: tsi.ScorerListReq) -> Iterator[tsi.ScorerReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scorers"
-        # Build query params
-        params = {}
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.ScorerListReq,
-            tsi.ScorerReadRes,
-            method="GET",
-            params=params,
-        )
+        Args:
+            req: Scorer list request.
 
-    @validate_call
-    def scorer_delete(self, req: tsi.ScorerDeleteReq) -> tsi.ScorerDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scorers/{req.object_id}"
-        # Build query params
-        params = {}
-        if req.digests:
-            params["digests"] = req.digests
-        return self._generic_request(
-            url,
-            req,
-            tsi.ScorerDeleteReq,
-            tsi.ScorerDeleteRes,
-            method="DELETE",
-            params=params,
-        )
+        Yields:
+            V2ScorerListResponse instances.
+        """
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_scorers.list(**params)
 
-    @validate_call
-    def evaluation_create(
-        self, req: tsi.EvaluationCreateReq
-    ) -> tsi.EvaluationCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluations"
-        # For create, we need to send the body without project_id (EvaluationCreateBody)
-        body_data = req.model_dump(exclude={"project_id"})
-        body = tsi.EvaluationCreateBody.model_validate(body_data)
-        return self._generic_request(
-            url,
-            body,
-            tsi.EvaluationCreateBody,
-            tsi.EvaluationCreateRes,
-            method="POST",
-        )
+    def scorer_delete(self, req: Mapping[str, Any]) -> V2ScorerDeleteResponse:
+        """Delete scorer.
 
-    @validate_call
-    def evaluation_read(self, req: tsi.EvaluationReadReq) -> tsi.EvaluationReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = (
-            f"/v2/{entity}/{project}/evaluations/{req.object_id}/versions/{req.digest}"
-        )
-        return self._generic_request(
-            url,
-            req,
-            tsi.EvaluationReadReq,
-            tsi.EvaluationReadRes,
-            method="GET",
-        )
+        Args:
+            req: Scorer delete request.
 
-    @validate_call
+        Returns:
+            Scorer delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_scorers.delete(**params)
+
+    def evaluation_create(self, req: Mapping[str, Any]) -> V2EvaluationCreateResponse:
+        """Create evaluation.
+
+        Args:
+            req: Evaluation create request.
+
+        Returns:
+            Evaluation create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluations.create(**params)
+
+    def evaluation_read(self, req: Mapping[str, Any]) -> V2EvaluationReadResponse:
+        """Read evaluation.
+
+        Args:
+            req: Evaluation read request.
+
+        Returns:
+            Evaluation read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluations.read(**params)
+
     def evaluation_list(
-        self, req: tsi.EvaluationListReq
-    ) -> Iterator[tsi.EvaluationReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluations"
-        # Build query params
-        params = {}
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.EvaluationListReq,
-            tsi.EvaluationReadRes,
-            method="GET",
-            params=params,
-        )
+        self, req: Mapping[str, Any]
+    ) -> Iterator[V2EvaluationListResponse]:
+        """List evaluations.
 
-    @validate_call
-    def evaluation_delete(
-        self, req: tsi.EvaluationDeleteReq
-    ) -> tsi.EvaluationDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluations/{req.object_id}"
-        # Build query params
-        params = {}
-        if req.digests:
-            params["digests"] = req.digests
-        return self._generic_request(
-            url,
-            req,
-            tsi.EvaluationDeleteReq,
-            tsi.EvaluationDeleteRes,
-            method="DELETE",
-            params=params,
-        )
+        Args:
+            req: Evaluation list request.
 
-    # Model V2 API
+        Yields:
+            V2EvaluationListResponse instances.
+        """
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_evaluations.list(**params)
 
-    @validate_call
-    def model_create(self, req: tsi.ModelCreateReq) -> tsi.ModelCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/models"
-        body = tsi.ModelCreateBody.model_validate(
-            req.model_dump(exclude={"project_id"})
-        )
-        return self._generic_request(
-            url,
-            body,
-            tsi.ModelCreateBody,
-            tsi.ModelCreateRes,
-            method="POST",
-        )
+    def evaluation_delete(self, req: Mapping[str, Any]) -> V2EvaluationDeleteResponse:
+        """Delete evaluation.
 
-    @validate_call
-    def model_read(self, req: tsi.ModelReadReq) -> tsi.ModelReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/models/{req.object_id}/versions/{req.digest}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.ModelReadReq,
-            tsi.ModelReadRes,
-            method="GET",
-        )
+        Args:
+            req: Evaluation delete request.
 
-    @validate_call
-    def model_list(self, req: tsi.ModelListReq) -> Iterator[tsi.ModelReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/models"
-        # Build query params
-        params = {}
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.ModelListReq,
-            tsi.ModelReadRes,
-            method="GET",
-            params=params,
-        )
+        Returns:
+            Evaluation delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluations.delete(**params)
 
-    @validate_call
-    def model_delete(self, req: tsi.ModelDeleteReq) -> tsi.ModelDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/models/{req.object_id}"
-        # Build query params
-        params = {}
-        if req.digests:
-            params["digests"] = req.digests
-        return self._generic_request(
-            url,
-            req,
-            tsi.ModelDeleteReq,
-            tsi.ModelDeleteRes,
-            method="DELETE",
-            params=params,
-        )
+    def model_create(self, req: Mapping[str, Any]) -> V2ModelCreateResponse:
+        """Create model.
 
-    @validate_call
+        Args:
+            req: Model create request.
+
+        Returns:
+            Model create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_models.create(**params)
+
+    def model_read(self, req: Mapping[str, Any]) -> V2ModelReadResponse:
+        """Read model.
+
+        Args:
+            req: Model read request.
+
+        Returns:
+            Model read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_models.read(**params)
+
+    def model_list(self, req: Mapping[str, Any]) -> Iterator[V2ModelListResponse]:
+        """List models.
+
+        Args:
+            req: Model list request.
+
+        Yields:
+            V2ModelListResponse instances.
+        """
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_models.list(**params)
+
+    def model_delete(self, req: Mapping[str, Any]) -> V2ModelDeleteResponse:
+        """Delete model.
+
+        Args:
+            req: Model delete request.
+
+        Returns:
+            Model delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_models.delete(**params)
+
     def evaluation_run_create(
-        self, req: tsi.EvaluationRunCreateReq
-    ) -> tsi.EvaluationRunCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluation_runs"
-        # For create, we need to send the body without project_id (EvaluationRunCreateBody)
-        body_data = req.model_dump(exclude={"project_id"})
-        body = tsi.EvaluationRunCreateBody.model_validate(body_data)
-        return self._generic_request(
-            url,
-            body,
-            tsi.EvaluationRunCreateBody,
-            tsi.EvaluationRunCreateRes,
-        )
+        self, req: Mapping[str, Any]
+    ) -> V2EvaluationRunCreateResponse:
+        """Create evaluation run.
 
-    @validate_call
+        Args:
+            req: Evaluation run create request.
+
+        Returns:
+            Evaluation run create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluation_runs.create(**params)
+
     def evaluation_run_read(
-        self, req: tsi.EvaluationRunReadReq
-    ) -> tsi.EvaluationRunReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluation_runs/{req.evaluation_run_id}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.EvaluationRunReadReq,
-            tsi.EvaluationRunReadRes,
-            method="GET",
-        )
+        self, req: Mapping[str, Any]
+    ) -> V2EvaluationRunReadResponse:
+        """Read evaluation run.
 
-    @validate_call
+        Args:
+            req: Evaluation run read request.
+
+        Returns:
+            Evaluation run read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluation_runs.read(**params)
+
     def evaluation_run_list(
-        self, req: tsi.EvaluationRunListReq
-    ) -> Iterator[tsi.EvaluationRunReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluation_runs"
-        # Build query params
-        params: dict[str, Any] = {}
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        # The route takes each filter as a repeated query parameter.
-        if req.filter:
-            if req.filter.evaluations:
-                params["evaluations"] = req.filter.evaluations
-            if req.filter.models:
-                params["models"] = req.filter.models
-            if req.filter.evaluation_run_ids:
-                params["evaluation_run_ids"] = req.filter.evaluation_run_ids
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.EvaluationRunListReq,
-            tsi.EvaluationRunReadRes,
-            method="GET",
-            params=params,
-        )
+        self, req: Mapping[str, Any]
+    ) -> Iterator[V2EvaluationRunListResponse]:
+        """List evaluation runs.
 
-    @validate_call
+        Args:
+            req: Evaluation run list request.
+
+        Yields:
+            V2EvaluationRunListResponse instances.
+        """
+        params = self._v2_params(req)
+        # The route takes each filter field as a query parameter of its own.
+        params.update(params.pop("filter", None) or {})
+        yield from self._stainless_client.v2_evaluation_runs.list(**params)
+
     def evaluation_run_delete(
-        self, req: tsi.EvaluationRunDeleteReq
-    ) -> tsi.EvaluationRunDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluation_runs"
-        # Build query params - evaluation_run_ids are passed as a query param
-        params = {"evaluation_run_ids": req.evaluation_run_ids}
-        return self._generic_request(
-            url,
-            req,
-            tsi.EvaluationRunDeleteReq,
-            tsi.EvaluationRunDeleteRes,
-            method="DELETE",
-            params=params,
-        )
+        self, req: Mapping[str, Any]
+    ) -> V2EvaluationRunDeleteResponse:
+        """Delete evaluation run.
 
-    @validate_call
+        Args:
+            req: Evaluation run delete request.
+
+        Returns:
+            Evaluation run delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluation_runs.delete(**params)
+
     def evaluation_run_finish(
-        self, req: tsi.EvaluationRunFinishReq
-    ) -> tsi.EvaluationRunFinishRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/evaluation_runs/{req.evaluation_run_id}/finish"
-        return self._generic_request(
-            url,
-            req,
-            tsi.EvaluationRunFinishReq,
-            tsi.EvaluationRunFinishRes,
-            method="POST",
-        )
+        self, req: Mapping[str, Any]
+    ) -> V2EvaluationRunFinishResponse:
+        """Finish evaluation run.
 
-    # Prediction V2 API
+        Args:
+            req: Evaluation run finish request.
 
-    @validate_call
-    def prediction_create(
-        self, req: tsi.PredictionCreateReq
-    ) -> tsi.PredictionCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/predictions"
-        body = tsi.PredictionCreateBody.model_validate(
-            req.model_dump(exclude={"project_id"})
-        )
-        return self._generic_request(
-            url,
-            body,
-            tsi.PredictionCreateBody,
-            tsi.PredictionCreateRes,
-            method="POST",
-        )
+        Returns:
+            Evaluation run finish response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_evaluation_runs.finish(**params)
 
-    @validate_call
-    def prediction_read(self, req: tsi.PredictionReadReq) -> tsi.PredictionReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/predictions/{req.prediction_id}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.PredictionReadReq,
-            tsi.PredictionReadRes,
-            method="GET",
-        )
+    def prediction_create(self, req: Mapping[str, Any]) -> V2PredictionCreateResponse:
+        """Create prediction.
 
-    @validate_call
+        Args:
+            req: Prediction create request.
+
+        Returns:
+            Prediction create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_predictions.create(**params)
+
+    def prediction_read(self, req: Mapping[str, Any]) -> V2PredictionReadResponse:
+        """Read prediction.
+
+        Args:
+            req: Prediction read request.
+
+        Returns:
+            Prediction read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_predictions.read(**params)
+
     def prediction_list(
-        self, req: tsi.PredictionListReq
-    ) -> Iterator[tsi.PredictionReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/predictions"
-        # Build query params
-        params: dict[str, Any] = {}
-        if req.evaluation_run_id is not None:
-            params["evaluation_run_id"] = req.evaluation_run_id
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.PredictionListReq,
-            tsi.PredictionReadRes,
-            method="GET",
-            params=params,
-        )
+        self, req: Mapping[str, Any]
+    ) -> Iterator[V2PredictionListResponse]:
+        """List predictions.
 
-    @validate_call
-    def prediction_delete(
-        self, req: tsi.PredictionDeleteReq
-    ) -> tsi.PredictionDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/predictions"
-        # Build query params - prediction_ids are passed as a query param
-        params = {"prediction_ids": req.prediction_ids}
-        return self._generic_request(
-            url,
-            req,
-            tsi.PredictionDeleteReq,
-            tsi.PredictionDeleteRes,
-            method="DELETE",
-            params=params,
-        )
+        Args:
+            req: Prediction list request.
 
-    @validate_call
-    def prediction_finish(
-        self, req: tsi.PredictionFinishReq
-    ) -> tsi.PredictionFinishRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/predictions/{req.prediction_id}/finish"
-        return self._generic_request(
-            url,
-            req,
-            tsi.PredictionFinishReq,
-            tsi.PredictionFinishRes,
-            method="POST",
-        )
-
-    # Score V2 API
-
-    @validate_call
-    def score_create(self, req: tsi.ScoreCreateReq) -> tsi.ScoreCreateRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scores"
-        body = tsi.ScoreCreateBody.model_validate(
-            req.model_dump(exclude={"project_id"})
-        )
-        return self._generic_request(
-            url,
-            body,
-            tsi.ScoreCreateBody,
-            tsi.ScoreCreateRes,
-            method="POST",
-        )
-
-    @validate_call
-    def score_read(self, req: tsi.ScoreReadReq) -> tsi.ScoreReadRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scores/{req.score_id}"
-        return self._generic_request(
-            url,
-            req,
-            tsi.ScoreReadReq,
-            tsi.ScoreReadRes,
-            method="GET",
-        )
-
-    @validate_call
-    def score_list(self, req: tsi.ScoreListReq) -> Iterator[tsi.ScoreReadRes]:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scores"
-        # Build query params
-        params: dict[str, Any] = {}
-        if req.evaluation_run_id is not None:
-            params["evaluation_run_id"] = req.evaluation_run_id
-        if req.limit is not None:
-            params["limit"] = req.limit
-        if req.offset is not None:
-            params["offset"] = req.offset
-        return self._generic_stream_request(
-            url,
-            req,
-            tsi.ScoreListReq,
-            tsi.ScoreReadRes,
-            method="GET",
-            params=params,
-        )
-
-    @validate_call
-    def score_delete(self, req: tsi.ScoreDeleteReq) -> tsi.ScoreDeleteRes:
-        entity, project = from_project_id(req.project_id)
-        url = f"/v2/{entity}/{project}/scores"
-        # Build query params - score_ids are passed as a query param
-        params = {"score_ids": req.score_ids}
-        return self._generic_request(
-            url,
-            req,
-            tsi.ScoreDeleteReq,
-            tsi.ScoreDeleteRes,
-            method="DELETE",
-            params=params,
-        )
-
-    # === Calls V2 API ===
-
-    def calls_complete(
-        self, req: tsi.CallsUpsertCompleteReq
-    ) -> tsi.CallsUpsertCompleteRes:
-        """Batch complete calls endpoint (v2).
-
-        This endpoint is used when use_calls_complete is enabled to send
-        complete calls (with both start and end information) in batches.
+        Yields:
+            V2PredictionListResponse instances.
         """
-        if not req.batch:
-            return tsi.CallsUpsertCompleteRes()
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_predictions.list(**params)
 
-        # Extract entity/project from first item
-        first_item = req.batch[0]
-        entity, project = from_project_id(first_item.project_id)
+    def prediction_delete(self, req: Mapping[str, Any]) -> V2PredictionDeleteResponse:
+        """Delete prediction.
 
-        url = f"/v2/{entity}/{project}/calls/complete"
-        return self._generic_request(
-            url,
-            req,
-            tsi.CallsUpsertCompleteReq,
-            tsi.CallsUpsertCompleteRes,
-        )
+        Args:
+            req: Prediction delete request.
 
-    def call_start_v2(self, req: tsi.CallStartV2Req) -> tsi.CallStartV2Res:
-        """Single call start endpoint (v2).
-
-        This endpoint is used for eager ops that need their start visible immediately.
+        Returns:
+            Prediction delete response.
         """
-        project_id = req.start.project_id
-        entity, project = from_project_id(project_id)
+        params = self._v2_params(req)
+        return self._stainless_client.v2_predictions.delete(**params)
 
-        url = f"/v2/{entity}/{project}/call/start"
-        return self._generic_request(
-            url,
-            req,
-            tsi.CallStartV2Req,
-            tsi.CallStartV2Res,
-            trace_id=req.start.trace_id,
-        )
+    def prediction_finish(self, req: Mapping[str, Any]) -> V2PredictionFinishResponse:
+        """Finish prediction.
 
-    def call_end_v2(self, req: tsi.CallEndV2Req) -> tsi.CallEndV2Res:
-        """Single call end endpoint (v2).
+        Args:
+            req: Prediction finish request.
 
-        This endpoint is used for eager ops that need their end sent separately.
+        Returns:
+            Prediction finish response.
         """
-        project_id = req.end.project_id
-        entity, project = from_project_id(project_id)
+        params = self._v2_params(req)
+        return self._stainless_client.v2_predictions.finish(**params)
 
-        url = f"/v2/{entity}/{project}/call/end"
-        return self._generic_request(
-            url,
-            req,
-            tsi.CallEndV2Req,
-            tsi.CallEndV2Res,
-            trace_id=req.end.trace_id,
-        )
+    def score_create(self, req: Mapping[str, Any]) -> V2ScoreCreateResponse:
+        """Create score.
+
+        Args:
+            req: Score create request.
+
+        Returns:
+            Score create response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_scores.create(**params)
+
+    def score_read(self, req: Mapping[str, Any]) -> V2ScoreReadResponse:
+        """Read score.
+
+        Args:
+            req: Score read request.
+
+        Returns:
+            Score read response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_scores.read(**params)
+
+    def score_list(self, req: Mapping[str, Any]) -> Iterator[V2ScoreListResponse]:
+        """List scores.
+
+        Args:
+            req: Score list request.
+
+        Yields:
+            V2ScoreListResponse instances.
+        """
+        params = self._v2_params(req)
+        yield from self._stainless_client.v2_scores.list(**params)
+
+    def score_delete(self, req: Mapping[str, Any]) -> V2ScoreDeleteResponse:
+        """Delete score.
+
+        Args:
+            req: Score delete request.
+
+        Returns:
+            Score delete response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_scores.delete(**params)
+
+    def eval_results_query(self, req: Mapping[str, Any]) -> V2EvalResultQueryResponse:
+        """Query eval results.
+
+        Args:
+            req: Eval results query request.
+
+        Returns:
+            Eval results query response.
+        """
+        params = self._v2_params(req)
+        return self._stainless_client.v2_eval_results.query(**params)

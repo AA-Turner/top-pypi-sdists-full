@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.16.5
+Version: 0.16.6
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
@@ -23,7 +23,7 @@ Requires-Dist: langgraph<2,>=0.4.10
 Requires-Dist: langsmith[otel]>=0.6.3
 Requires-Dist: opentelemetry-api>=0.0.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=0.0.1
-Requires-Dist: opentelemetry-exporter-prometheus<0.64,>=0.63b1
+Requires-Dist: opentelemetry-exporter-prometheus<0.67,>=0.63b1
 Requires-Dist: opentelemetry-sdk>=0.0.1
 Requires-Dist: orjson>=3.9.7
 Requires-Dist: prometheus-client>=0.0.1

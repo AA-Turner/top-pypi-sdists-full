@@ -148,7 +148,6 @@ pub fn handle_mouse_event(
                     selected_text.len()
                 );
                 for instr in clipboard_instructions {
-                    debug!("Sending clipboard instruction: {}", instr);
                     out.to_client.push(instr);
                 }
                 info!("Clipboard instructions sent successfully to UI");

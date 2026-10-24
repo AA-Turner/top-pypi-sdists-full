@@ -7,13 +7,14 @@ import importlib.metadata
 import json
 import logging
 import os
+import time
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, NoReturn, cast, get_args, get_origin
 
 import httpx
 from opentelemetry.trace import StatusCode
@@ -21,12 +22,13 @@ from pydantic import BaseModel as PydanticBaseModel
 from typing_extensions import TypeVar
 
 from plato.markers import WorkspaceMarker
-from plato.otel import aggregate_step_costs, get_tracer
+from plato.otel import aggregate_step_costs, force_flush_tracing, get_tracer
 from plato.runtimes.base import RuntimeInfo
 from plato.settings import PlatoSettings
 from plato.settings import get_settings as get_plato_settings
 from plato.utils.versions import get_plato_version
 from plato.vm_metrics import instrument_system_metrics
+from plato.worlds import handover
 from plato.worlds.chronos_mixin import ChronosSessionMixin
 from plato.worlds.config import (
     AgentConfig,
@@ -36,6 +38,7 @@ from plato.worlds.config import (
     LLMConfig,
     RunConfig,
 )
+from plato.worlds.handover import Handoff, HandoffAgent, HandoffRefused, HandoffWorkspace
 from plato.worlds.models import (
     Observation,
     StepResult,
@@ -146,6 +149,12 @@ def _version_for_top_package(top_package: str) -> str:
     return "0.0.0"
 
 
+def _distribution_for_top_package(top_package: str) -> str | None:
+    """The installed distribution that provides ``top_package`` (what Chronos installs), or None."""
+    names = importlib.metadata.packages_distributions().get(top_package, [])
+    return names[0] if names else None
+
+
 class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[ConfigT, StateT]):
     """Base class for Plato worlds.
 
@@ -177,6 +186,10 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             async def reset(self) -> Observation:
                 self.state.current_step = 0  # fully typed
     """
+
+    handoff: Handoff | None = None
+    """Set when this process took the world over from a previous one in the same session (handover.py): its agents
+    to re-attach and its state. None for a world that started fresh."""
 
     # Class attributes
     name: ClassVar[str] = "base"
@@ -215,6 +228,12 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         # can exceed the session env limit. Worlds that fan out across multiple
         # shapes (e.g. the workflow world) set this in reset().
         self._agent_vm_budget: AgentVMBudget | None = None
+        # request_checkpoint() coalescer: one background task per world runs
+        # the newest pending label, so a burst of merges gets one checkpoint.
+        self._pending_checkpoint_label: str | None = None
+        self._requested_checkpoint_task: asyncio.Task[None] | None = None
+        # Raised once by flush_requested_checkpoints: the merged tree is not in a checkpoint yet.
+        self._requested_checkpoint_error: Exception | None = None
         self._tailscale_world_node: TailscaleNode | None = None
         self._tailscale_agent_members: dict[str, AgentTailnetMember] = {}
 
@@ -394,7 +413,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                         ssh_key_path=ssh_key_path,
                     ),
                     world_runtime_info=self._runtime_info,
-                    checkpoint=self.checkpoint,
+                    request_checkpoint=self.request_checkpoint,
                     primary_workspace=primary_workspace,
                     primary_mount=primary_mount,
                     total_agents=total_agents,
@@ -554,6 +573,49 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 await workspace.commit(label, trigger_span_id=trigger_span_id)
         await self.save_state()
 
+    def request_checkpoint(self, label: str) -> None:
+        """Ask for a checkpoint without waiting for it.
+
+        Requests made while one runs coalesce to the newest label. A world
+        with its own checkpoint loop overrides this to wake that loop.
+        """
+        self._pending_checkpoint_label = label
+        task = self._requested_checkpoint_task
+        if task is None or task.done():
+            self._requested_checkpoint_task = asyncio.create_task(self._run_requested_checkpoints())
+
+    async def _run_requested_checkpoints(self) -> None:
+        while self._pending_checkpoint_label is not None:
+            label = self._pending_checkpoint_label
+            self._pending_checkpoint_label = None
+            try:
+                await self.checkpoint(label)
+            except Exception as exc:
+                self.logger.warning("Requested checkpoint '%s' failed", label, exc_info=True)
+                self._requested_checkpoint_error = exc
+                if self._pending_checkpoint_label is None:
+                    # Keep it pending: the next request must still commit the merged tree.
+                    self._pending_checkpoint_label = label
+                    return
+                # A newer request commits every workspace, so it covers this merge too.
+                continue
+            # This checkpoint committed every workspace, so it covers earlier failures.
+            self._requested_checkpoint_error = None
+
+    async def flush_requested_checkpoints(self) -> None:
+        """Wait for the requested checkpoints (running and pending) to finish.
+
+        Raises the error of a failed requested checkpoint, one time. The failed
+        label stays pending, so the next ``request_checkpoint`` runs it again.
+        """
+        task = self._requested_checkpoint_task
+        if task is not None:
+            await asyncio.shield(task)
+        error = self._requested_checkpoint_error
+        if error is not None:
+            self._requested_checkpoint_error = None
+            raise error
+
     def workspace_repo_name(self, field_name: str) -> str:
         """Return the Chronos repo name for a workspace field.
 
@@ -642,6 +704,133 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
     # run() and helpers
     # ------------------------------------------------------------------
 
+    def _handed_over_workspace(self, name: str) -> HandoffWorkspace | None:
+        if self.handoff is None:
+            return None
+        return next((ws for ws in self.handoff.workspaces if ws.name == name), None)
+
+    async def check_handoff(self, handoff: Handoff) -> None:
+        """Override to check a handoff this process is about to take over, while the previous process is still in
+        charge: raise ``HandoffRefused`` (the state it can't read, an agent it doesn't know) and the previous process
+        stops this one and carries on. Nothing may be touched here (agents, workspaces): only read and check."""
+
+    async def hand_over(
+        self,
+        version: str,
+        *,
+        agents: dict[str, AgentTask],
+        state: dict[str, Any] | None = None,
+        package: str | None = None,
+        upgrade_sdk: bool = True,
+    ) -> NoReturn:
+        """Hand this world over to ``version`` of its package, in place: same VM, same session (handover.py).
+
+        ``agents`` are the running agents to hand over, by the world's name for each: each must be running a daemon
+        job now (``AgentTask.agent_job_id``) or be between turns (``AgentTask.between_turns``), and stay so until this
+        process exits: the world holds back their next turns meanwhile. ``state`` goes to the new process as ``self.handoff.state``. The new
+        process is installed and started the way Chronos started this one, with the package pinned to ``version`` (and
+        the SDK installed as for a fresh start, unless ``upgrade_sdk`` is False); this one stops its
+        heartbeat and exits without stopping any agent, unmounting any workspace or completing the session.
+
+        Raises ``HandoffRefused`` (and hands nothing over; this process carries on) when it can't: an agent without a
+        running job, a workspace on a transport other than NFS, a start script it can't read, or a failed install.
+        """
+
+        package = package or _distribution_for_top_package(type(self).__module__.split(".")[0])
+        if not package:
+            raise HandoffRefused("can't tell which package this world was installed from")
+        handed: list[HandoffAgent] = []
+        for name, task in agents.items():
+            info = task.current_runtime_info
+            if info is None or (task.agent_job_id is None and not task.between_turns):
+                raise HandoffRefused(f"agent {name} is neither running a daemon job nor between turns")
+            runtime = info.model_dump(mode="json", exclude={"env"})
+            handed.append(HandoffAgent(name=name, agent_job_id=task.agent_job_id, runtime=runtime))
+        workspaces: list[HandoffWorkspace] = []
+        annotations = {**self.config.get_field_annotations(), **self.extra_workspace_markers()}
+        for name, ws in self._workspaces.items():
+            marker = annotations.get(name)
+            transport = marker.transport if isinstance(marker, WorkspaceMarker) else None
+            if (transport or self.config.transport_mode) not in ("nfs_kernel", None):
+                raise HandoffRefused(f"workspace '{name}' uses the {transport} transport: only NFS can be handed over")
+            mount = ws.live_mount()
+            workspaces.append(
+                HandoffWorkspace(
+                    name=name,
+                    mountpoint=str(mount.mountpoint if mount is not None else ws.path),
+                    cache_dir=str(mount.cache_dir) if mount is not None else None,
+                    worker_pid=getattr(mount.worker_proc, "pid", None) if mount is not None else None,
+                )
+            )
+        nxt = handover.next_process(handover.START_SCRIPT.read_text(), package, version)
+        commands = nxt.install if upgrade_sdk else [c for c in nxt.install if "plato-sdk-v2" not in c]
+
+        async def put_back() -> None:
+            back = handover.next_process(handover.START_SCRIPT.read_text(), package, self.get_version())
+            await asyncio.to_thread(handover.install, [c for c in back.install if "plato-sdk-v2" not in c])
+
+        async def put_back_after(installing: asyncio.Future[None]) -> None:
+            (outcome,) = await asyncio.gather(installing, return_exceptions=True)
+            if outcome is not None:
+                self.logger.warning("Installing %s==%s failed while cancelled: %r", package, version, outcome)
+            await put_back()
+
+        installing = asyncio.ensure_future(asyncio.to_thread(handover.install, commands))
+        try:
+            await asyncio.shield(installing)
+        except asyncio.CancelledError:
+            # The install's thread can't be stopped: let it finish, then put this version back, before cancelling.
+            await asyncio.shield(put_back_after(installing))
+            raise
+
+        previous = self.handoff.generation if self.handoff is not None else 0
+        handoff = Handoff(
+            generation=previous + 1,
+            old_pid=os.getpid(),
+            handed_at=time.time(),
+            package_spec=f"{package}=={version}",
+            chronos_session_id=self.chronos.session_id,
+            plato_session_id=self._plato_session.session_id if self._plato_session is not None else None,
+            agents=handed,
+            workspaces=workspaces,
+            state=state or {},
+        )
+        try:
+            path = handover.write(handoff)
+            pid = handover.start_next(nxt.runner, path)
+        except BaseException as error:
+            # Nothing was started: this process stays in charge, on its own version.
+            await asyncio.shield(put_back())
+            if isinstance(error, Exception):
+                raise HandoffRefused(f"starting {handoff.package_spec} failed: {error}") from error
+            raise
+
+        async def roll_back() -> None:
+            # The new version won't take over: stop it, and put this version back.
+            handover.abort(pid)
+            await put_back()
+
+        try:
+            ready = await asyncio.to_thread(handover.wait_ready, path, pid)
+        except BaseException:
+            # Cancelled (or failed) while waiting: this process stays in charge, so the successor must not.
+            await asyncio.shield(roll_back())
+            raise
+        if not ready:
+            await roll_back()
+            raise HandoffRefused(f"{handoff.package_spec} didn't get ready to take over (see /tmp/world.log)")
+        self.logger.info(
+            "Handed over to %s (pid %d): %d agent(s), %d workspace(s); this process exits now",
+            handoff.package_spec,
+            pid,
+            len(handed),
+            len(workspaces),
+        )
+        await self._disconnect_plato_session()
+        await asyncio.to_thread(force_flush_tracing, 5000)
+        logging.shutdown()
+        os._exit(0)
+
     async def run(
         self,
         config: ConfigT,
@@ -675,8 +864,40 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         world_version = self.get_version()
         self.logger.debug(f"World version: {world_version}, Plato SDK version: {plato_version}")
 
+        handoff_path = os.environ.get(handover.HANDOFF_ENV)
+        handoff = handover.read(Path(handoff_path)) if handoff_path else None
         await self._connect_plato_session()
         await self._resolve_world_hostname()
+        if handoff_path and handoff is not None:
+            # Taking over from a previous process. Check everything that can be checked while it's still in charge,
+            # say so, and touch nothing (agents, workspaces) until it has exited: one world process at a time.
+            async with self._chronos_client() as chronos:
+                await handover.verify(
+                    handoff,
+                    session_id=self.chronos.session_id,
+                    plato_session=self._plato_session,
+                    get_session=chronos.get_session,
+                )
+            declared = {
+                name
+                for name, marker in {**self.config.get_field_annotations(), **self.extra_workspace_markers()}.items()
+                if isinstance(marker, WorkspaceMarker)
+            }
+            if declared != {ws.name for ws in handoff.workspaces}:
+                raise HandoffRefused(f"this version's workspaces {sorted(declared)} aren't the ones handed over")
+            await self.check_handoff(handoff)
+            handover.ready_path(Path(handoff_path)).touch()
+            await asyncio.to_thread(handover.wait_for_exit, handoff.old_pid)
+            handover.taken_path(Path(handoff_path)).touch()
+            self.handoff = handoff
+            self.logger.info(
+                "Took over from world process %d (handoff %d, %.1f s ago): %d agent(s), %d workspace(s)",
+                handoff.old_pid,
+                handoff.generation,
+                time.time() - handoff.handed_at,
+                len(handoff.agents),
+                len(handoff.workspaces),
+            )
 
         tracer = get_tracer("plato.world")
 
@@ -713,6 +934,12 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             finally:
                 if self._slack_notify_token is not None:
                     disable_stage_tracking(self._slack_notify_token)
+                # A merge near the end must not lose its requested checkpoint.
+                # A failed one is logged, so that the shutdown steps still run.
+                try:
+                    await self.flush_requested_checkpoints()
+                except Exception:
+                    self.logger.warning("A requested checkpoint failed before shutdown", exc_info=True)
                 # Each step runs even when an earlier one raises, so a failed close() keeps no VM alive.
                 try:
                     await self.close()
@@ -887,7 +1114,18 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 pin_to_agent_vm=getattr(marker, "pin_to_agent_vm", False),
             )
 
-            await workspace.init()
+            if self.handoff is not None:
+                # Every workspace was handed over live. A new one can't be set up beside them: the NFS server's
+                # exports would be written again under the agents. That release needs a full restart.
+                adopted = self._handed_over_workspace(field_name)
+                if adopted is None:
+                    raise HandoffRefused(f"workspace '{field_name}' is new in this version: it needs a full restart")
+                if adopted.cache_dir:
+                    workspace.adopt_mount(Path(adopted.mountpoint), Path(adopted.cache_dir), adopted.worker_pid)
+                else:
+                    await workspace.init()  # untracked: a plain directory, nothing mounted to keep
+            else:
+                await workspace.init()
 
             self._workspaces[field_name] = workspace
             # workspace.path is the content directory (data/ for tracked, root otherwise)
@@ -979,14 +1217,23 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
         # NFS: first workspace creates server, rest add exports (sequential)
         nfs_server = None
+        nfs_fresh = False
         for i, (ws, ws_marker) in enumerate(nfs_ws):
+            readonly = ws_marker.readonly if ws_marker is not None else False
+            if self._handed_over_workspace(ws.name) is not None:
+                # The previous process's NFS server is still serving this export: only the handle is new.
+                nfs_server = ws.adopt_nfs_transport(runtime_info, nfs_server, readonly=readonly)
+                continue
             nfs_server = await ws.setup_transport(
                 self._runtime_info,
                 transport_mode="nfs_kernel",
                 nfs_server=nfs_server,
                 export_fsid=i,
-                readonly=ws_marker.readonly if ws_marker is not None else False,
+                readonly=readonly,
             )
+            nfs_fresh = True
+        if not nfs_fresh:
+            nfs_server = None  # nothing new to export: leave the running server alone
 
         # Run NFS refresh + git/sshfs inits in parallel
         if parallel_tasks and nfs_server is not None:
@@ -1014,7 +1261,9 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
         # Resume state BEFORE setting up workspaces so restored .git-bare
         # isn't nuked by _init_bare_repo during transport setup.
-        resumed = await self._try_resume()
+        # A world taking over keeps the live workspaces: restoring a checkpoint over them would roll back the
+        # agents' writes since it.
+        resumed = await self._try_resume() if self.handoff is None else False
         if resumed:
             self.logger.info("Resumed from saved state")
 
@@ -1051,7 +1300,15 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
             # Checkpoint unconditionally — the final step's outputs would
             # otherwise be dropped because the previous gate skipped this
-            # call when result.done was True.
+            # call when result.done was True. Requested checkpoints finish
+            # first, so two checkpoints never commit the workspaces at once.
+            # A failed one is logged; step.N commits every workspace.
+            try:
+                await self.flush_requested_checkpoints()
+            except Exception:
+                self.logger.warning(
+                    "A requested checkpoint failed; step.%d commits all workspaces", self._step_count, exc_info=True
+                )
             await self.checkpoint(f"step.{self._step_count}")
 
             if result.done:
@@ -1078,6 +1335,12 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             )
         finally:
             try:
+                try:
+                    await self.flush_requested_checkpoints()
+                except Exception:
+                    self.logger.warning(
+                        "A requested checkpoint failed; e2e_tests commits all workspaces", exc_info=True
+                    )
                 await self.checkpoint("e2e_tests")
                 tracked = [n for n, ws in self._workspaces.items() if ws.tracked]
                 if tracked:

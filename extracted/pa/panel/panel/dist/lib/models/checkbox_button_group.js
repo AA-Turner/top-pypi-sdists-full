@@ -2,7 +2,6 @@ import { Tooltip } from "@bokehjs/models/ui/tooltip";
 import { build_view } from "@bokehjs/core/build_views";
 import { CheckboxButtonGroup as bkCheckboxButtonGroup, CheckboxButtonGroupView as bkCheckboxButtonGroupView, } from "@bokehjs/models/widgets/checkbox_button_group";
 export class CheckboxButtonGroupView extends bkCheckboxButtonGroupView {
-    static __name__ = "CheckboxButtonGroupView";
     tooltip;
     *children() {
         yield* super.children();
@@ -53,7 +52,6 @@ export class CheckboxButtonGroupView extends bkCheckboxButtonGroupView {
     }
 }
 export class CheckboxButtonGroup extends bkCheckboxButtonGroup {
-    static __name__ = "CheckboxButtonGroup";
     static __module__ = "panel.models.widgets";
     constructor(attrs) {
         super(attrs);

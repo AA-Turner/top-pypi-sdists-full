@@ -9,6 +9,7 @@ import shlex
 import shutil
 import time as _time
 from collections.abc import Awaitable, Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -306,13 +307,16 @@ class GitTransport(Transport):
         if not (bare_dir / "HEAD").exists():
             return
 
-        def _build_and_swap() -> None:
-            staging = Path(f"{bare_dir}.snapshot")
+        staging = Path(f"{bare_dir}.snapshot")
+
+        def _copy_to_staging() -> None:
             if staging.exists():
                 shutil.rmtree(staging)
             # copytree (not a bare clone) preserves ALL refs, including hidden
             # refs/plato/* published refs that a clone would drop.
             shutil.copytree(bare_dir, staging)
+
+        def _pack_and_swap() -> None:
             trust_git_directory(staging)
             Repo(staging).git.repack("-a", "-d", "-q")
             mirror_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -321,7 +325,12 @@ class GitTransport(Transport):
             shutil.copytree(staging, mirror_dir)
             shutil.rmtree(staging, ignore_errors=True)
 
-        await asyncio.to_thread(_build_and_swap)
+        # Only the copy holds the sync lock: a push or merge that runs during
+        # the copy can leave refs/heads/main naming objects the copy missed.
+        # The repack and the mirror swap work on the private staging copy.
+        async with self._sync_lock or nullcontext():
+            await asyncio.to_thread(_copy_to_staging)
+        await asyncio.to_thread(_pack_and_swap)
 
     def _write_post_receive_hook(self, bare_dir: Path, repo_dir: Path) -> None:
         """(Re)write the post-receive hook that refreshes repo/ on push.
@@ -705,32 +714,15 @@ class GitTransport(Transport):
 
         if sync_mode != "merge_to_main":
             compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
-            # Serialize publish_ref/push_branch pushes too: concurrent
-            # receive-pack invocations against the same bare repo race the
-            # packfile index even when each push targets a unique hidden
-            # ref, producing "packfile claims to have N objects while index
-            # indicates M" corruption.
-            if self._sync_lock:
-                async with self._sync_lock:
-                    await self._publish_sync_back_impl(
-                        agent_env,
-                        hostname,
-                        remote,
-                        sync_mode,
-                        sync_target,
-                        sync_exact,
-                        compare_ref,
-                    )
-            else:
-                await self._publish_sync_back_impl(
-                    agent_env,
-                    hostname,
-                    remote,
-                    sync_mode,
-                    sync_target,
-                    sync_exact,
-                    compare_ref,
-                )
+            await self._publish_sync_back_impl(
+                agent_env,
+                hostname,
+                remote,
+                sync_mode,
+                sync_target,
+                sync_exact,
+                compare_ref,
+            )
             return
         if self._sync_lock:
             async with self._sync_lock:
@@ -870,7 +862,14 @@ class GitTransport(Transport):
         retries = max(1, cfg.merge_agent.max_retries)
         for attempt in range(1, retries + 1):
             try:
-                await self._push_head_to_ref(remote, hostname, published_ref)
+                # Serialize publish_ref/push_branch pushes too: concurrent
+                # receive-pack invocations against the same bare repo race the
+                # packfile index even when each push targets a unique hidden
+                # ref, producing "packfile claims to have N objects while index
+                # indicates M" corruption. Only the push needs the lock; the
+                # commit and state reads above run on the agent VM.
+                async with self._sync_lock or nullcontext():
+                    await self._push_head_to_ref(remote, hostname, published_ref)
                 self._published_ref = GitPublishedRef(commit_sha=head_sha, ref=published_ref)
                 logger.info("Published agent %s commit %s to %s", hostname, head_sha, published_ref)
                 return
@@ -933,12 +932,6 @@ class GitTransport(Transport):
         remote = mount.agent_path
         salvage_ref = self._salvage_ref_name(sync_target)
         compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
-        # Serialize against every other push into the shared bare repo — the
-        # same packfile-index race documented in sync_back applies to salvage
-        # pushes racing a sibling agent's success sync.
-        if self._sync_lock:
-            async with self._sync_lock:
-                return await self._salvage_sync_impl(hostname, remote, salvage_ref, compare_ref)
         return await self._salvage_sync_impl(hostname, remote, salvage_ref, compare_ref)
 
     async def _salvage_sync_impl(
@@ -961,7 +954,10 @@ class GitTransport(Transport):
             if compare.ok and bool(compare.noop):
                 logger.info("Salvage: agent %s produced no changes to salvage (head=%s)", hostname, head_sha)
                 return None
-            await self._push_head_to_ref(remote, hostname, salvage_ref)
+            # Only the push holds the lock (packfile-index race, see
+            # _publish_sync_back_impl); a dead VM must not block other merges.
+            async with self._sync_lock or nullcontext():
+                await self._push_head_to_ref(remote, hostname, salvage_ref)
             logger.info(
                 "Salvaged failed agent %s git state: commit %s -> %s",
                 hostname,

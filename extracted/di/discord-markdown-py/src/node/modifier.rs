@@ -6,7 +6,7 @@
 //! parsing and resolved into the finished tree afterwards, by [`crate::range`]. Each module here
 //! defines a modifier's delimiters and how to write it back.
 
-use crate::rule::Rule;
+use enumset::{EnumSet, EnumSetType};
 
 pub mod bold;
 pub mod italic;
@@ -14,9 +14,13 @@ pub mod spoiler;
 pub mod strikethrough;
 pub mod underline;
 
-/// The kinds of modifier, one per [`crate::rule::MODIFIER_RULES`] member. Each has its own
-/// [`super::Inline`] variant; see [`super::Inline::modifier_kind`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A set of [`ModifierKind`]s.
+pub type ModifierKinds = EnumSet<ModifierKind>;
+
+/// The kinds of modifier node. Each has its own [`super::Inline`] variant; see
+/// [`super::Inline::modifier_kind`]. Each is written with one or more of
+/// [`crate::syntax::Syntax::MODIFIERS`].
+#[derive(Debug, EnumSetType)]
 pub enum ModifierKind {
 	Bold,
 	Italic,
@@ -26,17 +30,6 @@ pub enum ModifierKind {
 }
 
 impl ModifierKind {
-	#[must_use]
-	pub const fn rule(self) -> Rule {
-		match self {
-			Self::Bold => Rule::Bold,
-			Self::Italic => Rule::Italic,
-			Self::Underline => Rule::Underline,
-			Self::Strikethrough => Rule::Strikethrough,
-			Self::Spoiler => Rule::Spoiler,
-		}
-	}
-
 	/// How many delimiter characters it spends at each end.
 	#[must_use]
 	pub const fn delimiter_len(self) -> usize {

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from vercel.sandbox._internal.models import (
     JSONObject,
@@ -103,6 +103,10 @@ class SandboxState:
     _current_session_attached: bool = True
 
 
+UpdateSandboxStep: TypeAlias = SandboxRuntimeSessionState | SandboxState
+"""A live current-session result or the final saved sandbox configuration."""
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeSessionStopState:
     """State returned after stopping one exact runtime session."""
@@ -139,6 +143,8 @@ class DriveState:
     current_sandbox_name: str | None
     created_at: int
     updated_at: int
+    parent_drive_id: str | None = None
+    root_drive_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

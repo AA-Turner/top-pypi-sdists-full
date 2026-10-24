@@ -254,6 +254,12 @@ def set_cloud_connector_version_override(
 ) -> VersionOverrideOperationResult:
     """Set or clear a version override for a deployed connector.
 
+    This creates a regular version override, not a progressive-rollout pin. The
+    rollout does not track it, count it toward its progress, or remove it at
+    finalization, and an actor with this override is never picked by a rollout.
+    To include a specific actor in a running rollout, use
+    `progress_connector_rollout` with `actor_ids` instead.
+
     **Admin-only operation** - Requires:
 
     - AIRBYTE_INTERNAL_ADMIN_FLAG=airbyte.io environment variable
@@ -441,6 +447,12 @@ def set_workspace_connector_version_override(
     This pins ALL instances of a connector type within a workspace to a specific version.
     For example, pinning 'source-github' at workspace level means all GitHub sources
     in that workspace will use the pinned version.
+
+    This creates a regular version override, not a progressive-rollout pin. The
+    rollout does not track it, count it toward its progress, or remove it at
+    finalization, and an actor with this override is never picked by a rollout.
+    To include a specific actor in a running rollout, use
+    `progress_connector_rollout` with `actor_ids` instead.
 
     **Admin-only operation** - Requires:
 

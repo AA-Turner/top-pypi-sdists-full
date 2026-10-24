@@ -286,6 +286,13 @@ def ping(ctx, **kwargs):
     "Running only periodic validations will require less time and run the same validations that "
     "are executed periodically.",
 )
+@click.option(
+    "--include-internal",
+    is_flag=True,
+    default=False,
+    hidden=True,
+    help="Also run internal validations. Used by Monte Carlo CI.",
+)
 @add_common_options(DISAMBIGUATE_DC_OPTIONS)
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
 def run_validations(ctx, **kwargs):

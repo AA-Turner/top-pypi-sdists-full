@@ -39,9 +39,9 @@ from __future__ import annotations
 
 import ctypes
 import decimal
+import os
 import platform
 import sys
-from contextlib import suppress
 from ctypes import (
     CFUNCTYPE,
     POINTER,
@@ -64,13 +64,13 @@ from ctypes import (
     cast,
     create_string_buffer,
 )
-from ctypes.util import find_library
 from locale import getpreferredencoding
 from pathlib import Path
 from typing import ClassVar
 
 from .config import driver_config
 from .hooks import APIHook, get_callbacks, register_class
+from .provider import FirebirdProvider, _DriverProvider
 
 # Constants
 
@@ -1891,8 +1891,8 @@ IInt128_VTable._fields_: ClassVar = [
     ('fromString', IInt128_fromString)]
 
 
-#: Encoding used to decode error messages from Firebird.
 err_encoding = getpreferredencoding()
+"Encoding used to decode error messages from Firebird."
 
 def db_api_error(status: ISC_STATUS_ARRAY) -> bool:
     "Returns True if `status` contains error"
@@ -1925,15 +1925,20 @@ def exception_from_status(error, status: ISC_STATUS_ARRAY, preamble: str | None=
 
 class FirebirdAPI:
     """Firebird Client API interface object. Loads Firebird Client Library and
-    exposes `fb_get_master_interface()`. Uses :ref:`ctypes <python:module-ctypes>`
+    exposes `fb_get_master_interface()`. Uses [`ctypes`](https://docs.python.org/3/library/ctypes.html)
     for bindings.
 
     Arguments:
-        filename (`~pathlib.Path`): Firebird client library to be loaded. If it's not provided,
-            the driver uses :func:`~ctypes.util.find_library()` to locate the library.
+        filename: Client library filename or runtime provider. When omitted, the driver
+            locates a system client library.
+        provider: Runtime provider supplied by keyword, as an alternative to `filename`.
+
+    When a runtime provider is supplied, `FIREBIRD` is set to its root before loading the
+    client library if the variable is unset or resolves to a different directory.
 
     Attributes:
-        client_library (`~ctypes.ctypes.CDLL`): Loaded Firebird client library :mod:`ctypes` handler
+        provider (`.FirebirdProvider`): Runtime provider used to load this API
+        client_library (`ctypes.CDLL`): Loaded Firebird client library `ctypes` handler
         client_library_name (`~pathlib.Path`): Path to loaded Firebird client library
         master (iMaster): Firebird API IMaster interface
         util (iUtil): Firebird API IUtil interface
@@ -2015,116 +2020,110 @@ class FirebirdAPI:
         isc_cancel_events():
             Old API function.
 
-        isc_compile_request()
+        isc_compile_request():
             Old API function.
 
-        isc_start_request()
+        isc_start_request():
             Old API function.
 
-        isc_release_request()
+        isc_release_request():
             Old API function.
 
-        isc_receive()
+        isc_receive():
             Old API function.
 
-        isc_start_and_send()
+        isc_start_and_send():
             Old API function.
 
-        isc_send()
+        isc_send():
             Old API function.
 
-        isc_open_blob2()
+        isc_open_blob2():
             Old API function.
 
-        isc_blob_info()
+        isc_blob_info():
             Old API function.
 
-        isc_create_blob2()
+        isc_create_blob2():
             Old API function.
 
-        isc_get_segment()
+        isc_get_segment():
             Old API function.
 
-        isc_put_segment()
+        isc_put_segment():
             Old API function.
 
         isc_close_blob():
             Old API function.
 
     """
-    def __init__(self, filename: Path | None=None):
+    def __init__(self, filename: FirebirdProvider | str | Path | None=None,
+                 *, provider: FirebirdProvider | None=None):
         decimal.getcontext().prec = 34
-        if filename is None:
-            if sys.platform == 'darwin':
-                filename = find_library('Firebird')
-            elif sys.platform == 'win32':
-                filename = find_library('fbclient.dll')
-            else:
-                filename = find_library('fbclient')
-                if not filename:
-                    with suppress(Exception):
-                        ctypes.CDLL('libfbclient.so')
-                        filename = 'libfbclient.so'
-            if not filename:
-                raise Exception("The location of Firebird Client Library could not be determined.")
-        elif not filename.exists():
-            file_name = find_library(filename.name)
-            if not file_name:
-                raise Exception(f"Firebird Client Library '{filename}' not found")
-            filename = file_name
-        #: Firebird client library
+        if filename is not None and provider is not None:
+            raise TypeError('Specify either filename or provider')
+        selected = provider if provider is not None else filename
+        self._provider = _DriverProvider(selected) if selected is None or isinstance(selected, (str, Path)) \
+            else selected
+        if not isinstance(self._provider, _DriverProvider):
+            runtime_root = Path(self._provider.root)
+            configured_root = os.environ.get('FIREBIRD')
+            if not configured_root or Path(configured_root).resolve() != runtime_root.resolve():
+                os.environ['FIREBIRD'] = str(runtime_root)
+        filename = self._provider.client_library
         self.client_library: ctypes.CDLL = None
+        "Firebird client library"
         if sys.platform in ('win32', 'cygwin', 'os2', 'os2emx'):
             self.client_library: ctypes.CDLL = ctypes.WinDLL(str(filename))
         else:
             self.client_library: ctypes.CDLL = ctypes.CDLL(str(filename), mode=ctypes.RTLD_GLOBAL)
-        #: Firebird client library name
         self.client_library_name: Path = Path(filename)
-        #: Firebird API
+        "Firebird client library name"
         self.fb_get_master_interface = (self.client_library.fb_get_master_interface)
+        "Firebird API"
         self.fb_get_master_interface.restype = IMaster
         self.fb_get_master_interface.argtypes = []
-        #: Firebird API
         self.fb_get_database_handle = self.client_library.fb_get_database_handle
+        "Firebird API"
         self.fb_get_database_handle.restype = ISC_STATUS
         self.fb_get_database_handle.argtypes = [ISC_STATUS_PTR, FB_API_HANDLE_PTR, IAttachment]
-        #: Firebird API
         self.fb_get_transaction_handle = (self.client_library.fb_get_transaction_handle)
+        "Firebird API"
         self.fb_get_transaction_handle.restype = ISC_STATUS
         self.fb_get_transaction_handle.argtypes = [ISC_STATUS_PTR, FB_API_HANDLE_PTR, ITransaction]
-        #: Firebird API
         self.fb_sqlstate = self.client_library.fb_sqlstate
+        "Firebird API"
         self.fb_sqlstate.restype = None
         self.fb_sqlstate.argtypes = [STRING, ISC_STATUS_PTR]
-        #: Firebird API
         self.fb_shutdown_callback = self.client_library.fb_shutdown_callback
+        "Firebird API"
         self.fb_shutdown_callback.restype = ISC_STATUS
         self.fb_shutdown_callback.argtypes = [ISC_STATUS_PTR,
                                               FB_SHUTDOWN_CALLBACK,
                                               c_int,
                                               c_void_p]
-        #: Firebird API
         self.isc_sqlcode = self.client_library.isc_sqlcode
+        "Firebird API"
         self.isc_sqlcode.restype = ISC_LONG
         self.isc_sqlcode.argtypes = [ISC_STATUS_PTR]
-        #: Firebird API
         self.fb_interpret = self.client_library.fb_interpret
+        "Firebird API"
         self.fb_interpret.restype = ISC_LONG
         self.fb_interpret.argtypes = [STRING, c_uint, POINTER(ISC_STATUS_PTR)]
-        #: Firebird API
         self.isc_array_lookup_bounds = (self.client_library.isc_array_lookup_bounds)
+        "Firebird API"
         self.isc_array_lookup_bounds.restype = ISC_STATUS
         self.isc_array_lookup_bounds.argtypes = [ISC_STATUS_PTR, FB_API_HANDLE_PTR,
                                                  FB_API_HANDLE_PTR, STRING, STRING,
                                                  ISC_ARRAY_DESC_PTR]
-        #: Firebird API
         self.isc_array_put_slice = self.client_library.isc_array_put_slice
+        "Firebird API"
         self.isc_array_put_slice.restype = ISC_STATUS
         self.isc_array_put_slice.argtypes = [ISC_STATUS_PTR, FB_API_HANDLE_PTR,
                                              FB_API_HANDLE_PTR, ISC_QUAD_PTR,
                                              ISC_ARRAY_DESC_PTR, c_void_p, ISC_LONG_PTR]
-        #: Firebird API
         self.isc_array_get_slice = self.client_library.isc_array_get_slice
+        "Firebird API"
         self.isc_array_get_slice.restype = ISC_STATUS
         self.isc_array_get_slice.argtypes = [ISC_STATUS_PTR, FB_API_HANDLE_PTR,
                                              FB_API_HANDLE_PTR, ISC_QUAD_PTR,
@@ -2135,86 +2134,99 @@ class FirebirdAPI:
         # C_isc_event_block(ISC_LONG, POINTER(POINTER(ISC_UCHAR)), POINTER(POINTER(ISC_UCHAR)), ISC_USHORT)
         self.C_isc_event_block = self.P_isc_event_block(('isc_event_block', self.client_library))
         self.P_isc_event_block_args = self.C_isc_event_block.argtypes
-        #: Firebird API
         self.isc_que_events = self.client_library.isc_que_events
+        "Firebird API"
         self.isc_que_events.restype = ISC_STATUS
         self.isc_que_events.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                         POINTER(ISC_LONG), c_short, POINTER(ISC_UCHAR),
                                         ISC_EVENT_CALLBACK, POINTER(ISC_UCHAR)]
-        #: Firebird API
         self.isc_event_counts = self.client_library.isc_event_counts
+        "Firebird API"
         self.isc_event_counts.restype = None
         self.isc_event_counts.argtypes = [POINTER(RESULT_VECTOR), c_short,
                                           POINTER(ISC_UCHAR), POINTER(ISC_UCHAR)]
-        #: Firebird API
         self.isc_cancel_events = self.client_library.isc_cancel_events
+        "Firebird API"
         self.isc_cancel_events.restype = ISC_STATUS
         self.isc_cancel_events.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                            POINTER(ISC_LONG)]
-        #: Firebird API
         self.isc_compile_request = self.client_library.isc_compile_request
+        "Firebird API"
         self.isc_compile_request.restype = ISC_STATUS
         self.isc_compile_request.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                              POINTER(FB_API_HANDLE), c_short, STRING]
-        #: Firebird API
         self.isc_start_request = self.client_library.isc_start_request
+        "Firebird API"
         self.isc_start_request.restype = ISC_STATUS
         self.isc_start_request.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                            POINTER(FB_API_HANDLE), c_short]
-        #: Firebird API
         self.isc_release_request = self.client_library.isc_release_request
+        "Firebird API"
         self.isc_release_request.restype = ISC_STATUS
         self.isc_release_request.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE)]
-        #: Firebird API
         self.isc_receive = self.client_library.isc_receive
+        "Firebird API"
         self.isc_receive.restype = ISC_STATUS
         self.isc_receive.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                      c_short, c_short, c_void_p, c_short]
-        #: Firebird API
         self.isc_start_and_send = self.client_library.isc_start_and_send
+        "Firebird API"
         self.isc_start_and_send.restype = ISC_STATUS
         self.isc_start_and_send.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                             POINTER(FB_API_HANDLE), c_short, c_short,
                                             c_void_p, c_short]
-        #: Firebird API
         self.isc_send = self.client_library.isc_send
+        "Firebird API"
         self.isc_send.restype = ISC_STATUS
         self.isc_send.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                   c_short, c_short, c_void_p, c_short]
-        #: Firebird API
         self.isc_open_blob2 = self.client_library.isc_open_blob2
+        "Firebird API"
         self.isc_open_blob2.restype = ISC_STATUS
         self.isc_open_blob2.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                         POINTER(FB_API_HANDLE), POINTER(FB_API_HANDLE),
                                         POINTER(ISC_QUAD), ISC_USHORT, STRING] # POINTER(ISC_UCHAR)
-        #: Firebird API
         self.isc_blob_info = self.client_library.isc_blob_info
+        "Firebird API"
         self.isc_blob_info.restype = ISC_STATUS
         self.isc_blob_info.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                        c_short, STRING, c_short, POINTER(c_char)]
-        #: Firebird API
         self.isc_create_blob2 = self.client_library.isc_create_blob2
+        "Firebird API"
         self.isc_create_blob2.restype = ISC_STATUS
         self.isc_create_blob2.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                           POINTER(FB_API_HANDLE), POINTER(FB_API_HANDLE),
                                           POINTER(ISC_QUAD), c_short, STRING]
-        #: Firebird API
         self.isc_get_segment = self.client_library.isc_get_segment
+        "Firebird API"
         self.isc_get_segment.restype = ISC_STATUS
         self.isc_get_segment.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                          POINTER(c_ushort), c_ushort, c_void_p]
-        #: Firebird API
         self.isc_put_segment = self.client_library.isc_put_segment
+        "Firebird API"
         self.isc_put_segment.restype = ISC_STATUS
         self.isc_put_segment.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE),
                                          c_ushort, c_void_p]
-        #: Firebird API
         self.isc_close_blob = self.client_library.isc_close_blob
+        "Firebird API"
         self.isc_close_blob.restype = ISC_STATUS
         self.isc_close_blob.argtypes = [POINTER(ISC_STATUS), POINTER(FB_API_HANDLE)]
         # Next netributes are set in types by API_LOADED hook
         self.master = None
         self.util = None
+
+    @property
+    def provider(self) -> FirebirdProvider:
+        """Runtime provider used by this API, available after initialization."""
+        if isinstance(self._provider, _DriverProvider) and self._provider._root is None:
+            raise RuntimeError('Provider metadata is not initialized')
+        return self._provider
+
+    def _initialize_provider(self) -> None:
+        """Complete metadata for the driver's own runtime provider."""
+        if isinstance(self._provider, _DriverProvider):
+            root = self.master.get_config_manager().get_root_directory()
+            self._provider._initialize(root, self.util.get_client_version())
 
     def isc_event_block(self, event_buffer: bytes, result_buffer: bytes, *args) -> int:
         """Convenience wrapper for isc_event_block() API function. Injects variable
@@ -2232,16 +2244,16 @@ def has_api() -> bool:
     """
     return api is not None
 
-def load_api(filename: str | Path | None=None) -> None:
+def load_api(filename: str | Path | FirebirdProvider | None=None) -> None:
     """Initializes bindings to Firebird Client Library unless they are already initialized.
     Called automatically by `get_api()`.
 
     Args:
-        filename: Path to Firebird Client Library.
-        When it's not specified, driver does its best to locate appropriate client library.
+        filename: Client library filename or runtime provider. When omitted, the configured
+            filename is used, or the driver locates a system client library.
 
-    Returns:
-        `FirebirdAPI` instance.
+    A supplied provider sets `FIREBIRD` to its root before loading the client library if
+    the variable is unset or resolves to a different directory.
 
     Hooks:
         Event `HookType.HOOK_API_LOADED`: Executed after api is initialized.
@@ -2251,12 +2263,18 @@ def load_api(filename: str | Path | None=None) -> None:
     if not has_api():
         if filename is None:
             filename = driver_config.fb_client_library.value
-        if filename and not isinstance(filename, Path):
-            filename = Path(filename)
-        _api = FirebirdAPI(filename)
+        if isinstance(filename, str) and not filename:
+            filename = None
+        if filename is None or isinstance(filename, (str, Path)):
+            filename = _DriverProvider(filename)
+        _api = FirebirdAPI(provider=filename)
         setattr(sys.modules[__name__], 'api', _api) # noqa: B010
-        for hook in get_callbacks(APIHook.LOADED, _api):
-            hook(_api)
+        try:
+            for hook in get_callbacks(APIHook.LOADED, _api):
+                hook(_api)
+        except Exception:
+            setattr(sys.modules[__name__], 'api', None) # noqa: B010
+            raise
 
 def get_api() -> FirebirdAPI:
     """Returns Firebird API. Loads the API if needed.

@@ -12,7 +12,7 @@ from contextvars import ContextVar
 from copy import copy
 from typing import TYPE_CHECKING, Any
 
-from matrx_utils import vcprint
+from matrx_utils import supervised_task, vcprint
 
 from matrx_ai.config import UnifiedResponse
 
@@ -44,6 +44,7 @@ from matrx_ai.providers.tool_adaptation import (
     announce_tool_adaptations,
     apply_wire_additions,
     authored_tool_flags,
+    automatic_tool_names,
     restore_tool_flags,
     strip_fetch_instructions,
     tool_surface_names,
@@ -157,8 +158,18 @@ async def _announce_flag_notes(notes: list[str]) -> None:
                     user_message=note,
                 )
             )
-    except Exception as exc:  # noqa: BLE001 — the console banner above already fired
-        vcprint(f"[message flags] notes not emitted: {exc!r}", color="yellow")
+    except Exception as exc:  # noqa: BLE001 — best effort; callers must continue
+        from matrx_utils import capture_error
+
+        await capture_error(
+            exc,
+            kind="provider_flag_note_emit_failed",
+            context={
+                "source_app": "matrx-ai",
+                "source_feature": "providers.unified_client",
+                "code": "message_flag_adjusted",
+            },
+        )
 
 
 def _finish_message_flags(response: Any, plan: Any) -> Any:
@@ -179,7 +190,17 @@ def _finish_message_flags(response: Any, plan: Any) -> Any:
         try:
             import asyncio
 
-            asyncio.get_running_loop().create_task(_announce_flag_notes([note]))
+            asyncio.get_running_loop()
+            supervised_task(
+                _announce_flag_notes([note]),
+                kind="provider_flag_note_emit_failed",
+                name="provider-flag-note-announcement",
+                context={
+                    "source_app": "matrx-ai",
+                    "source_feature": "providers.unified_client",
+                    "code": "message_flag_adjusted",
+                },
+            )
         except RuntimeError:
             pass  # no running loop (sync caller) — the console line above is the record
     return response
@@ -635,6 +656,10 @@ def _strip_tools_for_no_function_calling(
     if caps.supports_function_calling:
         return None
     removed = tool_surface_names(config)
+    # Tools only the automatic layer added (a connected desktop's loader, surface defaults)
+    # are stripped and recorded, but the person is told only when the agent or request
+    # listed a tool: an image agent with no tools never reads "its tools were off".
+    automatic = automatic_tool_names(config)
     if getattr(config, "internal_url_context", None):
         removed.append("internal_url_context")
     # The context-tool instructions in the per-turn channel go with the tools: this model
@@ -652,6 +677,7 @@ def _strip_tools_for_no_function_calling(
         wire_format=wire_format,
         removed=removed,
         reason="This model does not accept tools (no function calling), so every tool was removed.",
+        silent=all(name in automatic for name in removed),
     )
 
 

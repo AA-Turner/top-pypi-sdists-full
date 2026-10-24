@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    version="1.15.0",
+    version="1.16.0",
     author="Paddle and contributors",
     author_email="team-dx@paddle.com",
     description="Paddle's Python SDK for Paddle Billing",
@@ -24,9 +24,9 @@ setup(
     ],
     extras_require={
         "dev": [
-            "pytest>=7.4.4,<9.1.0",
+            "pytest>=7.4.4,<9.2.0",
             "pytest-cov>=4.1,<7.2",
-            "requests-mock~=1.11.0",
+            "requests-mock~=1.12.1",
             "setuptools>=69.0.3",
             "pre-commit>=3.8.0",
             "black>=24.8.0",

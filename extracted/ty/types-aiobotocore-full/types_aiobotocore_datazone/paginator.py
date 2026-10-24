@@ -21,6 +21,7 @@ Usage::
         ListDataSourceRunActivitiesPaginator,
         ListDataSourceRunsPaginator,
         ListDataSourcesPaginator,
+        ListDesignationsPaginator,
         ListDomainUnitsForParentPaginator,
         ListDomainsPaginator,
         ListEntityOwnersPaginator,
@@ -67,6 +68,7 @@ Usage::
         list_data_source_run_activities_paginator: ListDataSourceRunActivitiesPaginator = client.get_paginator("list_data_source_run_activities")
         list_data_source_runs_paginator: ListDataSourceRunsPaginator = client.get_paginator("list_data_source_runs")
         list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+        list_designations_paginator: ListDesignationsPaginator = client.get_paginator("list_designations")
         list_domain_units_for_parent_paginator: ListDomainUnitsForParentPaginator = client.get_paginator("list_domain_units_for_parent")
         list_domains_paginator: ListDomainsPaginator = client.get_paginator("list_domains")
         list_entity_owners_paginator: ListEntityOwnersPaginator = client.get_paginator("list_entity_owners")
@@ -127,6 +129,8 @@ from .type_defs import (
     ListDataSourceRunsOutputTypeDef,
     ListDataSourcesInputPaginateTypeDef,
     ListDataSourcesOutputTypeDef,
+    ListDesignationsInputPaginateTypeDef,
+    ListDesignationsOutputTypeDef,
     ListDomainsInputPaginateTypeDef,
     ListDomainsOutputTypeDef,
     ListDomainUnitsForParentInputPaginateTypeDef,
@@ -207,6 +211,7 @@ __all__ = (
     "ListDataSourceRunActivitiesPaginator",
     "ListDataSourceRunsPaginator",
     "ListDataSourcesPaginator",
+    "ListDesignationsPaginator",
     "ListDomainUnitsForParentPaginator",
     "ListDomainsPaginator",
     "ListEntityOwnersPaginator",
@@ -429,6 +434,27 @@ class ListDataSourcesPaginator(_ListDataSourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListDataSources.html#DataZone.Paginator.ListDataSources.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listdatasourcespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListDesignationsPaginatorBase = AioPaginator[ListDesignationsOutputTypeDef]
+else:
+    _ListDesignationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListDesignationsPaginator(_ListDesignationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListDesignations.html#DataZone.Paginator.ListDesignations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listdesignationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDesignationsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListDesignationsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListDesignations.html#DataZone.Paginator.ListDesignations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listdesignationspaginator)
         """
 
 

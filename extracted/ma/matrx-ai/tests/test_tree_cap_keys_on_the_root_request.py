@@ -1,7 +1,7 @@
 """R38 (Agent Factory review 5 N5-4): every run keeps its own request record, but its
 spend always counts toward its ROOT tree's cap.
 
-44728051ad made every ``run_mandate`` run ``independent_request=True``. The tree-wide
+Every child agent run owns its own turn (the fork mints its request id). The tree-wide
 dollar ceiling (``cost_budget``) was keyed by the run's own ``request_id``, so a mandate
 run inside an agent tree accrued to a fresh, empty accumulator: a parent fanning out
 mandate runs was no longer bounded by ``TREE_COST_CEILING_USD``.
@@ -47,7 +47,7 @@ async def test_a_mandate_run_inside_a_tree_is_capped_by_the_trees_budget(monkeyp
     agent = SimpleNamespace(name="m", config=SimpleNamespace(model="m", metadata={}), source_id=None,
                             source_is_version=False, execute=_spend, request_metadata={"mandate_key": "x.y"})
     result = await run_agent(agent, label="mandate", source_app="t", source_feature="mandate:x.y",  # type: ignore[arg-type]
-                             emit_lifecycle=False, system_run=True, independent_request=True)
+                             emit_lifecycle=False, system_run=True)
     assert result.success
     assert seen["own"] != ROOT  # its own request record (N4-7) …
     assert seen["remaining"] == pytest.approx(1.0)  # … capped by the TREE: 10 − 6 − 3

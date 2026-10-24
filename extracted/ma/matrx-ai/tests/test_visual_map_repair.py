@@ -118,8 +118,9 @@ def test_stops_clean_at_first_zero_and_delivers_that_round():
 
 def test_round_knob_from_the_host_is_obeyed():
     """Naive loop: hard-coded 4 rounds. The knob row says 2."""
-    knobs, missing = knobs_from({"repair_max_rounds": 2, "repair_stall_rounds": 5, "quality": "standard"})
-    assert knobs == RepairKnobs(2, 5, "standard") and missing == []
+    knobs, missing = knobs_from({"repair_max_rounds": 2, "repair_stall_rounds": 5, "quality": "standard",
+                                 "repair_group_max": 3, "repair_model": ""})
+    assert knobs == RepairKnobs(2, 5, "standard", 3, "") and missing == []
     calls: list[dict[str, Any]] = []
     d = FakeDelivery([5, 4, 3, 2, 1])
     out = _run(d, knobs, _fallback(calls))
@@ -131,7 +132,7 @@ def test_missing_knob_rows_are_named_not_silent():
     knobs, missing = knobs_from({"repair_max_rounds": 3})
     assert knobs.max_rounds == 3
     assert knobs.stall_rounds == vmr.DECLARED_KNOBS.stall_rounds
-    assert set(missing) == {"repair_stall_rounds", "quality"}
+    assert set(missing) == {"repair_stall_rounds", "quality", "repair_group_max", "repair_model"}
 
 
 def test_unbound_repair_falls_back_to_the_authoring_model_and_bound_agent_wins():

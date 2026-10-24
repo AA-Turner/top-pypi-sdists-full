@@ -285,6 +285,11 @@ pub(crate) const ENTRIES: &[HostEntry] = &[
         edge: HostEdge::Executor,
     },
     HostEntry {
+        name: "JanitorUsageCheck",
+        kind: HostKind::Class,
+        edge: HostEdge::Executor,
+    },
+    HostEntry {
         name: "run_load_pipeline",
         kind: HostKind::Function,
         edge: HostEdge::Executor,
@@ -827,6 +832,21 @@ pub(crate) const ENTRIES: &[HostEntry] = &[
     HostEntry {
         name: "SqlValueRenderingError",
         kind: HostKind::Exception,
+        edge: HostEdge::Executor,
+    },
+    HostEntry {
+        name: "create_review_schema",
+        kind: HostKind::Function,
+        edge: HostEdge::Executor,
+    },
+    HostEntry {
+        name: "drop_review_schema",
+        kind: HostKind::Function,
+        edge: HostEdge::Executor,
+    },
+    HostEntry {
+        name: "leftover_review_schemas",
+        kind: HostKind::Function,
         edge: HostEdge::Executor,
     },
 ];

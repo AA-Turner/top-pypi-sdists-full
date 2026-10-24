@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.enrichment_input_mapping import EnrichmentInputMapping
@@ -30,13 +30,15 @@ from typing_extensions import Self
 
 class RetrieverTransformConfigOutput(BaseModel):
     """
-    Whole-collection transform: run a retriever pipeline over an UPSTREAM COLLECTION and materialize its paged output as this collection's documents (collection->collection, 1:1, incremental). TS ingestion #11.  Distinct from RetrieverEnrichmentConfig, which is per-document post-processing that references an existing ``retriever_id``. A transform defines the collection's BUILD STEP with an INLINE pipeline (``stages``), so a collection is EITHER extractor-based OR transform-based (validated XOR at create). The pipeline's group_by/reduce stage defines output-document cardinality (the materialized-view semantics); ``write_back_fields`` (optional) defines the output schema, and when absent the reduce output defines it.  Source MUST be a collection (buckets have no retrievers over them); the create path rejects a bucket source with a 422.
+    Whole-collection transform: run a retriever pipeline over this collection's source and write its output as the collection's documents.  Name a saved retriever with ``retriever_id``, and pin its version with ``retriever_version``: the collection keeps running that version after the retriever changes, until a PATCH moves the pin. Inline ``stages`` still work and are deprecated. A collection is either extractor-based or transform-based. The source may be a collection, or a bucket, in which case the transform reads the bucket's objects through its system collection. Re-runs update documents in place: a document's id comes from ``unique_id_field``, the pipeline's group_by field, or the source document's id. ``write_back_fields`` (optional) picks the output fields; without it the pipeline's output defines them.
     """ # noqa: E501
-    stages: Annotated[List[StageConfigOutput], Field(min_length=1)] = Field(description="Inline retriever pipeline run over the source collection. Same stage shape as a retriever's ``stages`` (StageConfig: stage_name, optional stage_type, config:{stage_id, parameters}); stage_id validates against the retriever stage registry. A group_by/reduce stage defines output document cardinality (N source rows -> M output documents).")
+    retriever_id: Optional[StrictStr] = Field(default=None, description="The saved retriever whose pipeline builds this collection. Name it with retriever_version to pin the version: the collection keeps running that version after the retriever is updated, until the pin moves. Give this or stages, not both.")
+    retriever_version: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="The retriever version this collection runs (needs retriever_id). Omitted: the retriever's current version at each run.")
+    stages: Optional[Annotated[List[StageConfigOutput], Field(min_length=1)]] = Field(default=None, description="Deprecated: name a saved retriever with retriever_id instead. Inline retriever pipeline run over the source collection. Same stage shape as a retriever's ``stages`` (StageConfig: stage_name, optional stage_type, config:{stage_id, parameters}); stage_id validates against the retriever stage registry. A group_by/reduce stage defines output document cardinality (N source rows -> M output documents).")
     input_mappings: Optional[List[EnrichmentInputMapping]] = Field(default=None, description="Optional. Map source-collection document fields (or constants) to the pipeline's input parameters. When omitted, the pipeline runs over the source documents directly.")
     write_back_fields: Optional[List[WriteBackFieldMapping]] = Field(default=None, description="Optional. Which pipeline result fields land on the output documents and under what names — this is the collection's output_schema source. When omitted, the reduce/group_by output defines the schema (1:1 passthrough of the pipeline result).")
     unique_id_field: Optional[UniqueIdField] = None
-    __properties: ClassVar[List[str]] = ["stages", "input_mappings", "write_back_fields", "unique_id_field"]
+    __properties: ClassVar[List[str]] = ["retriever_id", "retriever_version", "stages", "input_mappings", "write_back_fields", "unique_id_field"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -113,6 +115,8 @@ class RetrieverTransformConfigOutput(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "retriever_id": obj.get("retriever_id"),
+            "retriever_version": obj.get("retriever_version"),
             "stages": [StageConfigOutput.from_dict(_item) for _item in obj["stages"]] if obj.get("stages") is not None else None,
             "input_mappings": [EnrichmentInputMapping.from_dict(_item) for _item in obj["input_mappings"]] if obj.get("input_mappings") is not None else None,
             "write_back_fields": [WriteBackFieldMapping.from_dict(_item) for _item in obj["write_back_fields"]] if obj.get("write_back_fields") is not None else None,

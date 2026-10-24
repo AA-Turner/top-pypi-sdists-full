@@ -58,7 +58,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        add_objects_to_batch_request: AddObjectsToBatchRequest,
+        add_objects_to_batch_request: Annotated[AddObjectsToBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         skip_validation: Annotated[Optional[StrictBool], Field(description="Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.")] = None,
         _request_timeout: Union[
             None,
@@ -81,7 +81,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param add_objects_to_batch_request: (required)
+        :param add_objects_to_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type add_objects_to_batch_request: AddObjectsToBatchRequest
         :param skip_validation: Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.
         :type skip_validation: bool
@@ -124,8 +124,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -143,7 +145,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        add_objects_to_batch_request: AddObjectsToBatchRequest,
+        add_objects_to_batch_request: Annotated[AddObjectsToBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         skip_validation: Annotated[Optional[StrictBool], Field(description="Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.")] = None,
         _request_timeout: Union[
             None,
@@ -166,7 +168,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param add_objects_to_batch_request: (required)
+        :param add_objects_to_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type add_objects_to_batch_request: AddObjectsToBatchRequest
         :param skip_validation: Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.
         :type skip_validation: bool
@@ -209,8 +211,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -228,7 +232,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        add_objects_to_batch_request: AddObjectsToBatchRequest,
+        add_objects_to_batch_request: Annotated[AddObjectsToBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         skip_validation: Annotated[Optional[StrictBool], Field(description="Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.")] = None,
         _request_timeout: Union[
             None,
@@ -251,7 +255,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param add_objects_to_batch_request: (required)
+        :param add_objects_to_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type add_objects_to_batch_request: AddObjectsToBatchRequest
         :param skip_validation: Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.
         :type skip_validation: bool
@@ -294,8 +298,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -397,7 +403,7 @@ class BucketBatchesApi:
     def bulk_submit_batches_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The bucket to ingest.")],
-        bulk_submit_batches_request: Optional[BulkSubmitBatchesRequest] = None,
+        bulk_submit_batches_request: Annotated[Optional[BulkSubmitBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -417,7 +423,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The bucket to ingest. (required)
         :type bucket_identifier: str
-        :param bulk_submit_batches_request:
+        :param bulk_submit_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type bulk_submit_batches_request: BulkSubmitBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -456,8 +462,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -474,7 +482,7 @@ class BucketBatchesApi:
     def bulk_submit_batches_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The bucket to ingest.")],
-        bulk_submit_batches_request: Optional[BulkSubmitBatchesRequest] = None,
+        bulk_submit_batches_request: Annotated[Optional[BulkSubmitBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -494,7 +502,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The bucket to ingest. (required)
         :type bucket_identifier: str
-        :param bulk_submit_batches_request:
+        :param bulk_submit_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type bulk_submit_batches_request: BulkSubmitBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -533,8 +541,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -551,7 +561,7 @@ class BucketBatchesApi:
     def bulk_submit_batches_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The bucket to ingest.")],
-        bulk_submit_batches_request: Optional[BulkSubmitBatchesRequest] = None,
+        bulk_submit_batches_request: Annotated[Optional[BulkSubmitBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -571,7 +581,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The bucket to ingest. (required)
         :type bucket_identifier: str
-        :param bulk_submit_batches_request:
+        :param bulk_submit_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type bulk_submit_batches_request: BulkSubmitBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -610,8 +620,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -768,8 +780,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -849,8 +863,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -930,8 +946,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1088,8 +1106,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1177,8 +1197,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1266,8 +1288,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1377,7 +1401,7 @@ class BucketBatchesApi:
     ) -> Dict[str, object]:
         """Cancel Tier
 
-        Cancel a single tier within a batch without affecting other tiers. Cancels all Ray and Celery jobs for this tier and marks it CANCELED.
+        Cancel a single tier within a batch without affecting other tiers. Cancels all Ray jobs and queued work for this tier and marks it CANCELED.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -1426,8 +1450,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1462,7 +1488,7 @@ class BucketBatchesApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Cancel Tier
 
-        Cancel a single tier within a batch without affecting other tiers. Cancels all Ray and Celery jobs for this tier and marks it CANCELED.
+        Cancel a single tier within a batch without affecting other tiers. Cancels all Ray jobs and queued work for this tier and marks it CANCELED.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -1511,8 +1537,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1547,7 +1575,7 @@ class BucketBatchesApi:
     ) -> RESTResponseType:
         """Cancel Tier
 
-        Cancel a single tier within a batch without affecting other tiers. Cancels all Ray and Celery jobs for this tier and marks it CANCELED.
+        Cancel a single tier within a batch without affecting other tiers. Cancels all Ray jobs and queued work for this tier and marks it CANCELED.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -1596,8 +1624,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1686,7 +1716,7 @@ class BucketBatchesApi:
     def create_batch_buckets_batches(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_batch_request: CreateBatchRequest,
+        create_batch_request: Annotated[CreateBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         skip_validation: Annotated[Optional[StrictBool], Field(description="Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.")] = None,
         auto_submit: Annotated[Optional[StrictBool], Field(description="Submit the batch for processing immediately after creation. When false (default) the batch is returned in DRAFT status and the caller must POST /submit separately. Symmetric with the auto_process flag on POST /buckets/{id}/objects, and explicit by design — earlier the only way to auto-submit was via the object endpoint, which made batch lifecycle behaviour non-obvious for callers driving the batch endpoint directly. Accepted here (query) or in the JSON body as {\"auto_submit\": true}; the query parameter wins when both are supplied.")] = None,
         trigger_processing: Annotated[Optional[StrictBool], Field(description="Deprecated alias of auto_submit (kept for callers taught by older docs/hints). Accepted in query or JSON body; auto_submit wins when both are supplied.")] = None,
@@ -1709,7 +1739,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_batch_request: (required)
+        :param create_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_batch_request: CreateBatchRequest
         :param skip_validation: Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.
         :type skip_validation: bool
@@ -1757,8 +1787,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1775,7 +1807,7 @@ class BucketBatchesApi:
     def create_batch_buckets_batches_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_batch_request: CreateBatchRequest,
+        create_batch_request: Annotated[CreateBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         skip_validation: Annotated[Optional[StrictBool], Field(description="Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.")] = None,
         auto_submit: Annotated[Optional[StrictBool], Field(description="Submit the batch for processing immediately after creation. When false (default) the batch is returned in DRAFT status and the caller must POST /submit separately. Symmetric with the auto_process flag on POST /buckets/{id}/objects, and explicit by design — earlier the only way to auto-submit was via the object endpoint, which made batch lifecycle behaviour non-obvious for callers driving the batch endpoint directly. Accepted here (query) or in the JSON body as {\"auto_submit\": true}; the query parameter wins when both are supplied.")] = None,
         trigger_processing: Annotated[Optional[StrictBool], Field(description="Deprecated alias of auto_submit (kept for callers taught by older docs/hints). Accepted in query or JSON body; auto_submit wins when both are supplied.")] = None,
@@ -1798,7 +1830,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_batch_request: (required)
+        :param create_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_batch_request: CreateBatchRequest
         :param skip_validation: Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.
         :type skip_validation: bool
@@ -1846,8 +1878,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1864,7 +1898,7 @@ class BucketBatchesApi:
     def create_batch_buckets_batches_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_batch_request: CreateBatchRequest,
+        create_batch_request: Annotated[CreateBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         skip_validation: Annotated[Optional[StrictBool], Field(description="Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.")] = None,
         auto_submit: Annotated[Optional[StrictBool], Field(description="Submit the batch for processing immediately after creation. When false (default) the batch is returned in DRAFT status and the caller must POST /submit separately. Symmetric with the auto_process flag on POST /buckets/{id}/objects, and explicit by design — earlier the only way to auto-submit was via the object endpoint, which made batch lifecycle behaviour non-obvious for callers driving the batch endpoint directly. Accepted here (query) or in the JSON body as {\"auto_submit\": true}; the query parameter wins when both are supplied.")] = None,
         trigger_processing: Annotated[Optional[StrictBool], Field(description="Deprecated alias of auto_submit (kept for callers taught by older docs/hints). Accepted in query or JSON body; auto_submit wins when both are supplied.")] = None,
@@ -1887,7 +1921,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_batch_request: (required)
+        :param create_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_batch_request: CreateBatchRequest
         :param skip_validation: Skip object existence validation. Use this for large batches (>10k objects) or when you're certain all object IDs are valid. Improves performance significantly.
         :type skip_validation: bool
@@ -1935,8 +1969,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2104,8 +2140,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2181,8 +2219,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2258,8 +2298,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2399,8 +2441,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2476,8 +2520,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2553,8 +2599,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2694,8 +2742,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2771,8 +2821,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2848,8 +2900,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2989,8 +3043,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3066,8 +3122,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3143,8 +3201,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3284,8 +3344,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3361,8 +3423,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3438,8 +3502,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3579,8 +3645,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3656,8 +3724,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3733,8 +3803,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3878,8 +3950,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3959,8 +4033,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4040,8 +4116,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4202,8 +4280,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4295,8 +4375,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4388,8 +4470,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4492,7 +4576,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
-        body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost,
+        body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: Annotated[BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4516,7 +4600,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number. (required)
         :type tier_num: int
-        :param body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: (required)
+        :param body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4557,8 +4641,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4577,7 +4663,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
-        body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost,
+        body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: Annotated[BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4601,7 +4687,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number. (required)
         :type tier_num: int
-        :param body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: (required)
+        :param body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4642,8 +4728,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4662,7 +4750,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
-        body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost,
+        body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: Annotated[BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4686,7 +4774,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number. (required)
         :type tier_num: int
-        :param body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: (required)
+        :param body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_heal_tier_v1_buckets_bucket_identifier_batches_batch_id_tiers_tier_num_heal_post: BodyHealTierV1BucketsBucketIdentifierBatchesBatchIdTiersTierNumHealPost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4727,8 +4815,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4828,7 +4918,7 @@ class BucketBatchesApi:
     def list_batches_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        list_batches_request: Optional[ListBatchesRequest] = None,
+        list_batches_request: Annotated[Optional[ListBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4848,7 +4938,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param list_batches_request:
+        :param list_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_batches_request: ListBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4887,8 +4977,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4905,7 +4997,7 @@ class BucketBatchesApi:
     def list_batches_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        list_batches_request: Optional[ListBatchesRequest] = None,
+        list_batches_request: Annotated[Optional[ListBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4925,7 +5017,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param list_batches_request:
+        :param list_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_batches_request: ListBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4964,8 +5056,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4982,7 +5076,7 @@ class BucketBatchesApi:
     def list_batches_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        list_batches_request: Optional[ListBatchesRequest] = None,
+        list_batches_request: Annotated[Optional[ListBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5002,7 +5096,7 @@ class BucketBatchesApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param list_batches_request:
+        :param list_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_batches_request: ListBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5041,8 +5135,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5137,7 +5233,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        patch_batch_request: PatchBatchRequest,
+        patch_batch_request: Annotated[PatchBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5159,7 +5255,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param patch_batch_request: (required)
+        :param patch_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_batch_request: PatchBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5199,8 +5295,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5218,7 +5316,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        patch_batch_request: PatchBatchRequest,
+        patch_batch_request: Annotated[PatchBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5240,7 +5338,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param patch_batch_request: (required)
+        :param patch_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_batch_request: PatchBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5280,8 +5378,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5299,7 +5399,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        patch_batch_request: PatchBatchRequest,
+        patch_batch_request: Annotated[PatchBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5321,7 +5421,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param patch_batch_request: (required)
+        :param patch_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_batch_request: PatchBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5361,8 +5461,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5463,7 +5565,7 @@ class BucketBatchesApi:
         from_tier: Annotated[Optional[StrictInt], Field(description="Resubmit starting from this tier number (0-indexed). Tiers before from_tier are preserved as COMPLETED. Omit to resubmit all tiers from scratch.")] = None,
         auto_submit: Annotated[Optional[StrictBool], Field(description="Auto-submit after the DRAFT reset. DEFAULT TRUE — 'resubmit' means re-run the batch, so one call does both. Pass false to only reset to DRAFT (parked; you must POST /submit before the draft TTL expires or the zombie reaper cancels it). Accepted here (query) or in the JSON body as {\"auto_submit\": false}.")] = None,
         trigger_processing: Annotated[Optional[StrictBool], Field(description="Deprecated alias of auto_submit (kept for callers taught by the old submit-endpoint 400 hint). Accepted in query or JSON body; auto_submit wins when both are supplied.")] = None,
-        request_body: Optional[Dict[str, Any]] = None,
+        request_body: Annotated[Optional[Dict[str, Any]], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5491,7 +5593,7 @@ class BucketBatchesApi:
         :type auto_submit: bool
         :param trigger_processing: Deprecated alias of auto_submit (kept for callers taught by the old submit-endpoint 400 hint). Accepted in query or JSON body; auto_submit wins when both are supplied.
         :type trigger_processing: bool
-        :param request_body:
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5534,8 +5636,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5556,7 +5660,7 @@ class BucketBatchesApi:
         from_tier: Annotated[Optional[StrictInt], Field(description="Resubmit starting from this tier number (0-indexed). Tiers before from_tier are preserved as COMPLETED. Omit to resubmit all tiers from scratch.")] = None,
         auto_submit: Annotated[Optional[StrictBool], Field(description="Auto-submit after the DRAFT reset. DEFAULT TRUE — 'resubmit' means re-run the batch, so one call does both. Pass false to only reset to DRAFT (parked; you must POST /submit before the draft TTL expires or the zombie reaper cancels it). Accepted here (query) or in the JSON body as {\"auto_submit\": false}.")] = None,
         trigger_processing: Annotated[Optional[StrictBool], Field(description="Deprecated alias of auto_submit (kept for callers taught by the old submit-endpoint 400 hint). Accepted in query or JSON body; auto_submit wins when both are supplied.")] = None,
-        request_body: Optional[Dict[str, Any]] = None,
+        request_body: Annotated[Optional[Dict[str, Any]], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5584,7 +5688,7 @@ class BucketBatchesApi:
         :type auto_submit: bool
         :param trigger_processing: Deprecated alias of auto_submit (kept for callers taught by the old submit-endpoint 400 hint). Accepted in query or JSON body; auto_submit wins when both are supplied.
         :type trigger_processing: bool
-        :param request_body:
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5627,8 +5731,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5649,7 +5755,7 @@ class BucketBatchesApi:
         from_tier: Annotated[Optional[StrictInt], Field(description="Resubmit starting from this tier number (0-indexed). Tiers before from_tier are preserved as COMPLETED. Omit to resubmit all tiers from scratch.")] = None,
         auto_submit: Annotated[Optional[StrictBool], Field(description="Auto-submit after the DRAFT reset. DEFAULT TRUE — 'resubmit' means re-run the batch, so one call does both. Pass false to only reset to DRAFT (parked; you must POST /submit before the draft TTL expires or the zombie reaper cancels it). Accepted here (query) or in the JSON body as {\"auto_submit\": false}.")] = None,
         trigger_processing: Annotated[Optional[StrictBool], Field(description="Deprecated alias of auto_submit (kept for callers taught by the old submit-endpoint 400 hint). Accepted in query or JSON body; auto_submit wins when both are supplied.")] = None,
-        request_body: Optional[Dict[str, Any]] = None,
+        request_body: Annotated[Optional[Dict[str, Any]], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5677,7 +5783,7 @@ class BucketBatchesApi:
         :type auto_submit: bool
         :param trigger_processing: Deprecated alias of auto_submit (kept for callers taught by the old submit-endpoint 400 hint). Accepted in query or JSON body; auto_submit wins when both are supplied.
         :type trigger_processing: bool
-        :param request_body:
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5720,8 +5826,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5834,7 +5942,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        retry_batch_request: RetryBatchRequest,
+        retry_batch_request: Annotated[RetryBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5856,7 +5964,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param retry_batch_request: (required)
+        :param retry_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retry_batch_request: RetryBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5896,8 +6004,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5915,7 +6025,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        retry_batch_request: RetryBatchRequest,
+        retry_batch_request: Annotated[RetryBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5937,7 +6047,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param retry_batch_request: (required)
+        :param retry_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retry_batch_request: RetryBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5977,8 +6087,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5996,7 +6108,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        retry_batch_request: RetryBatchRequest,
+        retry_batch_request: Annotated[RetryBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6018,7 +6130,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param retry_batch_request: (required)
+        :param retry_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retry_batch_request: RetryBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6058,8 +6170,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6153,322 +6267,12 @@ class BucketBatchesApi:
 
 
     @validate_call
-    def retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector(
-        self,
-        bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        tier_num: Annotated[StrictInt, Field(description="The tier number to retry (0-based).")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, object]:
-        """Retry Vector Write from Object Storage
-
-        Retry the vector write by reading the tier's processed output from object storage (S3 or GCS). Use when validation detects 'vector_write_failed'. Works on FAILED and COMPLETED_WITH_ERRORS tiers; the write is an idempotent upsert, so documents that already landed are re-upserted unchanged while the missing ones get written.
-
-        :param bucket_identifier: The unique identifier of the bucket. (required)
-        :type bucket_identifier: str
-        :param batch_id: The unique identifier of the batch. (required)
-        :type batch_id: str
-        :param tier_num: The tier number to retry (0-based). (required)
-        :type tier_num: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector_serialize(
-            bucket_identifier=bucket_identifier,
-            batch_id=batch_id,
-            tier_num=tier_num,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector_with_http_info(
-        self,
-        bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        tier_num: Annotated[StrictInt, Field(description="The tier number to retry (0-based).")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, object]]:
-        """Retry Vector Write from Object Storage
-
-        Retry the vector write by reading the tier's processed output from object storage (S3 or GCS). Use when validation detects 'vector_write_failed'. Works on FAILED and COMPLETED_WITH_ERRORS tiers; the write is an idempotent upsert, so documents that already landed are re-upserted unchanged while the missing ones get written.
-
-        :param bucket_identifier: The unique identifier of the bucket. (required)
-        :type bucket_identifier: str
-        :param batch_id: The unique identifier of the batch. (required)
-        :type batch_id: str
-        :param tier_num: The tier number to retry (0-based). (required)
-        :type tier_num: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector_serialize(
-            bucket_identifier=bucket_identifier,
-            batch_id=batch_id,
-            tier_num=tier_num,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector_without_preload_content(
-        self,
-        bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        tier_num: Annotated[StrictInt, Field(description="The tier number to retry (0-based).")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Retry Vector Write from Object Storage
-
-        Retry the vector write by reading the tier's processed output from object storage (S3 or GCS). Use when validation detects 'vector_write_failed'. Works on FAILED and COMPLETED_WITH_ERRORS tiers; the write is an idempotent upsert, so documents that already landed are re-upserted unchanged while the missing ones get written.
-
-        :param bucket_identifier: The unique identifier of the bucket. (required)
-        :type bucket_identifier: str
-        :param batch_id: The unique identifier of the batch. (required)
-        :type batch_id: str
-        :param tier_num: The tier number to retry (0-based). (required)
-        :type tier_num: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector_serialize(
-            bucket_identifier=bucket_identifier,
-            batch_id=batch_id,
-            tier_num=tier_num,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _retry_qdrant_write_buckets_batches_batch_id_tiers_num_vector_serialize(
-        self,
-        bucket_identifier,
-        batch_id,
-        tier_num,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if bucket_identifier is not None:
-            _path_params['bucket_identifier'] = bucket_identifier
-        if batch_id is not None:
-            _path_params['batch_id'] = batch_id
-        if tier_num is not None:
-            _path_params['tier_num'] = tier_num
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'NamespaceHeader', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/buckets/{bucket_identifier}/batches/{batch_id}/tiers/{tier_num}/retry-vector-write',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
     def retry_tier_buckets_batches_batch_id_num(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to retry.")],
-        request_body: Optional[Dict[str, Any]] = None,
+        request_body: Annotated[Optional[Dict[str, Any]], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6492,7 +6296,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to retry. (required)
         :type tier_num: int
-        :param request_body:
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6533,8 +6337,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6553,7 +6359,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to retry.")],
-        request_body: Optional[Dict[str, Any]] = None,
+        request_body: Annotated[Optional[Dict[str, Any]], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6577,7 +6383,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to retry. (required)
         :type tier_num: int
-        :param request_body:
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6618,8 +6424,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6638,7 +6446,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to retry.")],
-        request_body: Optional[Dict[str, Any]] = None,
+        request_body: Annotated[Optional[Dict[str, Any]], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6662,7 +6470,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to retry. (required)
         :type tier_num: int
-        :param request_body:
+        :param request_body: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type request_body: Dict[str, object]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -6703,8 +6511,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6859,8 +6669,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6932,8 +6744,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7005,8 +6819,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7086,7 +6902,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         force: Annotated[Optional[StrictBool], Field(description="Bypass the concurrent batch dedup check. Use when you intentionally want to reprocess the same bucket+collection combination while another batch is in flight.")] = None,
-        submit_batch_request: Optional[SubmitBatchRequest] = None,
+        submit_batch_request: Annotated[Optional[SubmitBatchRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7110,7 +6926,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param force: Bypass the concurrent batch dedup check. Use when you intentionally want to reprocess the same bucket+collection combination while another batch is in flight.
         :type force: bool
-        :param submit_batch_request:
+        :param submit_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type submit_batch_request: SubmitBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7151,8 +6967,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7171,7 +6989,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         force: Annotated[Optional[StrictBool], Field(description="Bypass the concurrent batch dedup check. Use when you intentionally want to reprocess the same bucket+collection combination while another batch is in flight.")] = None,
-        submit_batch_request: Optional[SubmitBatchRequest] = None,
+        submit_batch_request: Annotated[Optional[SubmitBatchRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7195,7 +7013,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param force: Bypass the concurrent batch dedup check. Use when you intentionally want to reprocess the same bucket+collection combination while another batch is in flight.
         :type force: bool
-        :param submit_batch_request:
+        :param submit_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type submit_batch_request: SubmitBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7236,8 +7054,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7256,7 +7076,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         force: Annotated[Optional[StrictBool], Field(description="Bypass the concurrent batch dedup check. Use when you intentionally want to reprocess the same bucket+collection combination while another batch is in flight.")] = None,
-        submit_batch_request: Optional[SubmitBatchRequest] = None,
+        submit_batch_request: Annotated[Optional[SubmitBatchRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7280,7 +7100,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param force: Bypass the concurrent batch dedup check. Use when you intentionally want to reprocess the same bucket+collection combination while another batch is in flight.
         :type force: bool
-        :param submit_batch_request:
+        :param submit_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type submit_batch_request: SubmitBatchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -7321,8 +7141,10 @@ class BucketBatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

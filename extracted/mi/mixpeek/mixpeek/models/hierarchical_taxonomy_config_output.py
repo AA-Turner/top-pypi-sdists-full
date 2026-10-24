@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing_extensions import Annotated
 from mixpeek.models.hierarchical_node_output import HierarchicalNodeOutput
 from mixpeek.models.hierarchy_inference_strategy import HierarchyInferenceStrategy
 from mixpeek.models.input_mapping import InputMapping
@@ -44,7 +45,9 @@ class HierarchicalTaxonomyConfigOutput(BaseModel):
     cluster_overlap_threshold: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.7, description="Minimum overlap ratio to establish parent-child relationship between clusters")
     hierarchical_nodes: Optional[List[HierarchicalNodeOutput]] = Field(default=None, description="Explicit node definitions that either: 1) Define the entire hierarchy (when inference_strategy is None), 2) Add additional nodes to an inferred hierarchy, or 3) Override specific relationships in an inferred hierarchy. Supports true hybrid: infer from some collections, manually add others.")
     step_analytics: Optional[StepAnalyticsConfigOutput] = Field(default=None, description="Optional configuration for step transition analytics. Enables tracking how documents progress through hierarchical taxonomy nodes over time (e.g., content workflow tracking from 'draft' to 'published'). If not provided, only basic assignment events are logged.")
-    __properties: ClassVar[List[str]] = ["taxonomy_type", "retriever_id", "input_mappings", "inference_strategy", "inference_collections", "llm_provider", "llm_model", "llm_prompt_template", "llm_sample_size", "cluster_ids", "cluster_overlap_threshold", "hierarchical_nodes", "step_analytics"]
+    path_field: Optional[StrictStr] = Field(default=None, description="Build the hierarchy from a field each document already carries, instead of from node collections or inference. The field holds the document's path: a delimited string ('footage/2024/q3', split on path_separator) or a list of ancestor ids, root first (['col_a', 'col_b']). One node exists per distinct prefix, with its parent; a document is assigned the deepest node its path names and inherits the nodes above it. Dot paths reach nested fields ('metadata.folder'). Not combined with hierarchical_nodes or inference_strategy.")
+    path_separator: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default='/', description="Separator for a string path_field. Ignored for list values.")
+    __properties: ClassVar[List[str]] = ["taxonomy_type", "retriever_id", "input_mappings", "inference_strategy", "inference_collections", "llm_provider", "llm_model", "llm_prompt_template", "llm_sample_size", "cluster_ids", "cluster_overlap_threshold", "hierarchical_nodes", "step_analytics", "path_field", "path_separator"]
 
     @field_validator('taxonomy_type')
     def taxonomy_type_validate_enum(cls, value):
@@ -146,7 +149,9 @@ class HierarchicalTaxonomyConfigOutput(BaseModel):
             "cluster_ids": obj.get("cluster_ids"),
             "cluster_overlap_threshold": obj.get("cluster_overlap_threshold") if obj.get("cluster_overlap_threshold") is not None else 0.7,
             "hierarchical_nodes": [HierarchicalNodeOutput.from_dict(_item) for _item in obj["hierarchical_nodes"]] if obj.get("hierarchical_nodes") is not None else None,
-            "step_analytics": StepAnalyticsConfigOutput.from_dict(obj["step_analytics"]) if obj.get("step_analytics") is not None else None
+            "step_analytics": StepAnalyticsConfigOutput.from_dict(obj["step_analytics"]) if obj.get("step_analytics") is not None else None,
+            "path_field": obj.get("path_field"),
+            "path_separator": obj.get("path_separator") if obj.get("path_separator") is not None else '/'
         })
         return _obj
 

@@ -21,6 +21,12 @@ the observed.
 
 Fail-open throughout. A watcher that cannot be spawned costs the box its
 explanations and costs the run nothing.
+
+WHEN A PROBE SERVICE RUNS (plan Q5), the run asks it to start the watcher
+instead (`probe.sdk.service_handoff.box_watch`): the service's child, still on
+this interpreter, still in a session of its own, still holding the lease
+itself. A run whose environment holds a credential, or a service that cannot,
+spawns it here as above.
 """
 
 from __future__ import annotations
@@ -83,6 +89,17 @@ def maybe_spawn(directory: Path | str | None = None) -> bool:
             return False
         if already_running(directory):
             return False
+        from probe.sdk import service_handoff
+
+        handed = service_handoff.box_watch(directory)
+        if handed is not None:
+            # A Probe service runs here and starts the watcher as its own
+            # child (plan Q5): the same module on this interpreter, in a
+            # session of its own; the lease is still what keeps it one.
+            # STARTED: one starts now; RUNNING: one holds the lease.
+            from probe.service.protocol import BackgroundState
+
+            return handed == BackgroundState.STARTED
         env = dict(os.environ)
         if directory is not None:
             env["PROBE_BOX_DIR"] = str(directory)

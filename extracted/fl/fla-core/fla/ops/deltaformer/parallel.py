@@ -151,7 +151,7 @@ def parallel_deltaformer_fwd_kernel(
     BLOCK_T: tl.constexpr,
 ):
     pid_c = tl.program_id(axis=0).to(tl.int64)
-    pid_h = tl.program_id(axis=1)
+    pid_h = tl.program_id(axis=1).to(tl.int64)
 
     rowid_block = tl.arange(0, BLOCK_C) + pid_c * BLOCK_C
     colid_block = tl.arange(0, BLOCK_T)
@@ -172,7 +172,8 @@ def parallel_deltaformer_fwd_kernel(
         k = tl.load(k_blk_ptr, mask=m_kv[None, :], other=0.0)
         qk = tl.dot(q, k) * qk_scale
 
-        if kv_i >= T - C:
+        # tiles straddling the T - C boundary need the mask too; prefix columns evaluate to false
+        if kv_i + BLOCK_T > T - C:
             mask = (T - C - kv_i + rowid_block[:, None] - colid_block[None, :] < 1)
             qk = tl.where(mask, -1e6, qk)
 
@@ -188,7 +189,9 @@ def parallel_deltaformer_fwd_kernel(
 
         if kv_i < T - C:
             u_blk_ptr = u_ptr + pid_h * D + o_kv[:, None] * (H * D) + o_d[None, :]
-            u = tl.load(u_blk_ptr, mask=m_kv[:, None], other=0.0)
+            # rows at and past T - C are this launch's own output, not yet written
+            m_u = o_kv < T - C
+            u = tl.load(u_blk_ptr, mask=m_u[:, None], other=0.0)
             acc = tl.dot(p.to(u_ptr.dtype.element_ty), u, acc)
 
     lse = rowmax + tl.math.log2(rowsum)
@@ -242,7 +245,7 @@ def parallel_deltaformer_bwd_kernel_u(
     BLOCK_T: tl.constexpr,
 ):
     pid_c = tl.program_id(axis=0).to(tl.int64)
-    pid_h = tl.program_id(axis=1)
+    pid_h = tl.program_id(axis=1).to(tl.int64)
 
     acc = tl.zeros([BLOCK_C, D], dtype=tl.float32)
 
@@ -291,7 +294,7 @@ def parallel_deltaformer_bwd_kernel_row_sum(
     BLOCK_T: tl.constexpr,
 ):
     pid_c = tl.program_id(axis=0).to(tl.int64)
-    pid_h = tl.program_id(axis=1)
+    pid_h = tl.program_id(axis=1).to(tl.int64)
 
     rowid_block = tl.arange(0, BLOCK_C) + pid_c * BLOCK_C
     colid_block = tl.arange(0, BLOCK_T)
@@ -350,7 +353,7 @@ def parallel_deltaformer_bwd_kernel_qk(
     BLOCK_C: tl.constexpr,
 ):
     pid_c = tl.program_id(axis=0).to(tl.int64)
-    pid_h = tl.program_id(axis=1)
+    pid_h = tl.program_id(axis=1).to(tl.int64)
     block_i = tl.arange(0, BLOCK_C)
 
     acc = tl.zeros([BLOCK_C, D], dtype=tl.float32)

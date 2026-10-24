@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy-History
-Version: 2.1.6
+Version: 2.2.1
 Summary: History tracking extension for SQLAlchemy.
 Author-email: Corridor Platforms <postmaster@corridorplatforms.com>
 License-Expression: Apache-2.0 AND BSD-3-Clause
 Project-URL: Homepage, https://github.com/corridor/sqlalchemy-history
+Project-URL: Documentation, https://corridor.github.io/sqlalchemy-history/
 Project-URL: Repository, https://github.com/corridor/sqlalchemy-history
 Project-URL: Issues, https://github.com/corridor/sqlalchemy-history/issues
 Project-URL: Changelog, https://github.com/corridor/sqlalchemy-history/releases
@@ -12,18 +13,18 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: SQLAlchemy>=2
-Requires-Dist: SQLAlchemy-Utils>=0.30.12
-Requires-Dist: anyio>3
+Requires-Dist: anyio<5,>=4
 Provides-Extra: asyncio
 Requires-Dist: SQLAlchemy[asyncio]>=2; extra == "asyncio"
 Provides-Extra: alembic
@@ -32,12 +33,17 @@ Dynamic: license-file
 
 # SQLAlchemy-History
 
+[![PyPI](https://img.shields.io/badge/PyPI-SQLAlchemy--History-blue?logo=pypi)](https://pypi.org/project/SQLAlchemy-History/)
+[![Documentation](https://img.shields.io/badge/Docs-latest-brightgreen)](https://corridor.github.io/sqlalchemy-history/)
+
+[![Ask DeepWiki](https://img.shields.io/badge/Ask%20DeepWiki-blue?logo=googlegemini&logoColor=white)](https://deepwiki.com/corridor/sqlalchemy-history)
+
 SQLAlchemy-History is a fork of SQLAlchemy-Continuum. It is an auditing
 extension that tracks the history of SQLAlchemy models.
 
 ## Features
 
-- Supports SQLAlchemy 2+ and Python 3.9+
+- Supports SQLAlchemy 2+ and Python 3.10+
 - Tracks history for inserts, deletes, and updates
 - Does not store updates which don't change anything
 - Supports Alembic migrations

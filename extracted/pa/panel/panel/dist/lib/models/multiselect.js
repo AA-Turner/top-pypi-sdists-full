@@ -2,7 +2,6 @@ import { MultiSelect, MultiSelectView } from "@bokehjs/models/widgets/multiselec
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 export class DoubleClickEvent extends ModelEvent {
     option;
-    static __name__ = "DoubleClickEvent";
     constructor(option) {
         super();
         this.option = option;
@@ -15,7 +14,6 @@ export class DoubleClickEvent extends ModelEvent {
     }
 }
 export class CustomMultiSelectView extends MultiSelectView {
-    static __name__ = "CustomMultiSelectView";
     render() {
         super.render();
         for (const option of this.input_el.children) {
@@ -28,7 +26,6 @@ export class CustomMultiSelectView extends MultiSelectView {
     }
 }
 export class CustomMultiSelect extends MultiSelect {
-    static __name__ = "CustomMultiSelect";
     constructor(attrs) {
         super(attrs);
     }

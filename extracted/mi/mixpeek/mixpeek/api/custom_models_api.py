@@ -110,9 +110,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -187,9 +189,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -264,9 +268,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -404,9 +410,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
-            '500': None,
-            '422': "HTTPValidationError",
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
+            '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -481,9 +489,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
-            '500': None,
-            '422': "HTTPValidationError",
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
+            '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -558,9 +568,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
-            '500': None,
-            '422': "HTTPValidationError",
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
+            '500': "ErrorResponse",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -698,9 +710,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -775,9 +789,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -852,9 +868,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -935,7 +953,7 @@ class CustomModelsApi:
         self,
         namespace_id: StrictStr,
         model_id: StrictStr,
-        enable_org_model_request: Optional[EnableOrgModelRequest] = None,
+        enable_org_model_request: Annotated[Optional[EnableOrgModelRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -957,7 +975,7 @@ class CustomModelsApi:
         :type namespace_id: str
         :param model_id: (required)
         :type model_id: str
-        :param enable_org_model_request:
+        :param enable_org_model_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type enable_org_model_request: EnableOrgModelRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -993,12 +1011,14 @@ class CustomModelsApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "EnableOrgModelResponse",
-            '400': None,
+            '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1016,7 +1036,7 @@ class CustomModelsApi:
         self,
         namespace_id: StrictStr,
         model_id: StrictStr,
-        enable_org_model_request: Optional[EnableOrgModelRequest] = None,
+        enable_org_model_request: Annotated[Optional[EnableOrgModelRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1038,7 +1058,7 @@ class CustomModelsApi:
         :type namespace_id: str
         :param model_id: (required)
         :type model_id: str
-        :param enable_org_model_request:
+        :param enable_org_model_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type enable_org_model_request: EnableOrgModelRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1074,12 +1094,14 @@ class CustomModelsApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "EnableOrgModelResponse",
-            '400': None,
+            '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1097,7 +1119,7 @@ class CustomModelsApi:
         self,
         namespace_id: StrictStr,
         model_id: StrictStr,
-        enable_org_model_request: Optional[EnableOrgModelRequest] = None,
+        enable_org_model_request: Annotated[Optional[EnableOrgModelRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1119,7 +1141,7 @@ class CustomModelsApi:
         :type namespace_id: str
         :param model_id: (required)
         :type model_id: str
-        :param enable_org_model_request:
+        :param enable_org_model_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type enable_org_model_request: EnableOrgModelRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1155,12 +1177,14 @@ class CustomModelsApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "EnableOrgModelResponse",
-            '400': None,
+            '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1314,9 +1338,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1391,9 +1417,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1468,9 +1496,11 @@ class CustomModelsApi:
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
-            '404': None,
+            '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1605,8 +1635,10 @@ class CustomModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1678,8 +1710,10 @@ class CustomModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1751,8 +1785,10 @@ class CustomModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1884,8 +1920,10 @@ class CustomModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1957,8 +1995,10 @@ class CustomModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2030,8 +2070,10 @@ class CustomModelsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2197,11 +2239,13 @@ class CustomModelsApi:
             '200': "ModelUploadResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
-            '403': None,
+            '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '409': None,
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
+            '409': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2307,11 +2351,13 @@ class CustomModelsApi:
             '200': "ModelUploadResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
-            '403': None,
+            '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '409': None,
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
+            '409': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2417,11 +2463,13 @@ class CustomModelsApi:
             '200': "ModelUploadResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
-            '403': None,
+            '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '409': None,
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
+            '409': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

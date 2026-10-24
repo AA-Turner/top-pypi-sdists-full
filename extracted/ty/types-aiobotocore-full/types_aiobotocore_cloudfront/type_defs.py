@@ -69,6 +69,7 @@ from .literals import (
     ValidationTokenHostType,
     ViewerMtlsModeType,
     ViewerProtocolPolicyType,
+    VpcIpAddressTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -1963,6 +1964,7 @@ class VpcOriginSummaryTypeDef(TypedDict):
     Arn: str
     OriginEndpointArn: str
     AccountId: NotRequired[str]
+    IpAddressType: NotRequired[VpcIpAddressTypeType]
 
 
 AliasesUnionTypeDef = Union[AliasesTypeDef, AliasesOutputTypeDef]
@@ -2330,6 +2332,7 @@ class VpcOriginEndpointConfigOutputTypeDef(TypedDict):
     HTTPSPort: int
     OriginProtocolPolicy: OriginProtocolPolicyType
     OriginSslProtocols: NotRequired[OriginSslProtocolsOutputTypeDef]
+    IpAddressType: NotRequired[VpcIpAddressTypeType]
 
 
 class CustomizationsOutputTypeDef(TypedDict):
@@ -2659,6 +2662,7 @@ class VpcOriginEndpointConfigTypeDef(TypedDict):
     HTTPSPort: int
     OriginProtocolPolicy: OriginProtocolPolicyType
     OriginSslProtocols: NotRequired[OriginSslProtocolsTypeDef]
+    IpAddressType: NotRequired[VpcIpAddressTypeType]
 
 
 class ParameterDefinitionSchemaTypeDef(TypedDict):

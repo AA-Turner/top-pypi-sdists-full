@@ -1,7 +1,6 @@
 import { View } from "@bokehjs/core/view";
 import { Model } from "@bokehjs/model";
 export class BrowserInfoView extends View {
-    static __name__ = "BrowserInfoView";
     initialize() {
         super.initialize();
         if (window.matchMedia != null) {
@@ -37,7 +36,6 @@ export class BrowserInfoView extends View {
     }
 }
 export class BrowserInfo extends Model {
-    static __name__ = "BrowserInfo";
     static __module__ = "panel.models.browser";
     constructor(attrs) {
         super(attrs);

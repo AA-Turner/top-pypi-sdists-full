@@ -16,7 +16,7 @@ export type ColorMapper = {
     low: number;
     high: number;
 };
-export declare const Interpolation: import("@bokehjs/core/kinds").Kinds.Enum<"fast_linear" | "linear" | "nearest">;
+export declare const Interpolation: import("@bokehjs/core/kinds").Kinds.Enum<"nearest" | "fast_linear" | "linear">;
 export type Interpolation = typeof Interpolation["__type__"];
 export type Annotation = {
     id: string;

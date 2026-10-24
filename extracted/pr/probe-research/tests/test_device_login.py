@@ -288,3 +288,56 @@ def test_a_missing_scutil_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(device.subprocess, "run", _boom)
     assert device._configured_hostnames() == []
+
+
+def _record_start(requests: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/auth/device/code":
+            requests.append(json.loads(request.content))
+            return httpx.Response(201, json=_START)
+        assert request.url.path == "/auth/device/token"
+        return httpx.Response(200, json={"token": "probe_pat_named", "id": "t1", "name": "pod"})
+
+    return handler
+
+
+def test_a_named_token_does_not_take_this_machines_device_slot(monkeypatch) -> None:
+    """`probe token create` mints a token for somewhere else (a pod). Naming
+    this machine's device made the exchange release the machine's own login
+    (a customer's Mac, 2026-10-23), so a named token sends no device."""
+    from probe.sdk import device_identity
+    from probe.sdk.client import Client
+
+    requests: list[dict] = []
+    real = device.device_authorize
+    monkeypatch.setattr(device_identity, "device_instance_id", lambda: "this-mac")
+    monkeypatch.setattr(
+        device,
+        "device_authorize",
+        lambda *a, **kw: real(*a, client=_client(_record_start(requests)), **kw),
+    )
+    client = Client(base_url="https://api.test", token="probe_pat_mine", async_writes=False)
+    try:
+        created = client.create_token("pod", open_browser=False, on_prompt=lambda p: None)
+    finally:
+        client.close()
+
+    assert created["token"] == "probe_pat_named"
+    assert len(requests) == 1
+    assert "device_instance_id" not in requests[0]
+    assert requests[0]["token_name"] == "pod"
+
+
+def test_a_sign_in_still_names_this_machines_device(monkeypatch) -> None:
+    from probe.sdk import device_identity
+
+    requests: list[dict] = []
+    monkeypatch.setattr(device_identity, "device_instance_id", lambda: "this-mac")
+    device.device_authorize(
+        "https://api.test",
+        client=_client(_record_start(requests)),
+        open_browser=False,
+        sleep=lambda s: None,
+    )
+
+    assert requests[0]["device_instance_id"] == "this-mac"

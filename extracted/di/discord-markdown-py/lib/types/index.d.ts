@@ -112,8 +112,4 @@ export type Block = Empty | Heading | List | Quote | Small;
 
 export type NodeType = Inline["type"] | Block["type"];
 
-// Rules with no matching NodeType: they gate a variant of another rule. `dev_link` allows the
-// `dev` URL scheme, e.g. `dev://branch/main`.
-export type GateRule = "dev_link";
-
-export type Rule = Exclude<NodeType, "paragraph" | "text" | "empty"> | GateRule;
+export { Syntax, type SyntaxFlags } from "./syntax.js";

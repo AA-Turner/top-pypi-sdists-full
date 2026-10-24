@@ -19,21 +19,21 @@ from transformers.utils import logging
 
 from fla.layers.utils import (
     get_layer_cache,
-    get_unpad_data,
-    index_first_axis,
     pad_input,
+    repad_hidden_states,
     require_cache_layer_idx,
+    unpad_hidden_states,
     unpad_input,
     update_layer_cache,
 )
 from fla.modules import RMSNorm, RotaryEmbedding, ShortConvolution
 from fla.modules.layernorm_gated import RMSNormGated
-from fla.ops.gla import chunk_gla, fused_chunk_gla, fused_recurrent_gla
+from fla.ops.gla import chunk_gla, fused_recurrent_gla
 
 if TYPE_CHECKING:
     from transformers.processing_utils import Unpack
 
-    from fla.models.utils import Cache
+    from fla.models.cache_utils import Cache
 
 try:
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -97,7 +97,7 @@ class RodimusAttention(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
         self.layer_idx = layer_idx
 
-        assert mode in ['chunk', 'fused_recurrent', 'fused_chunk'], f"Not supported mode `{mode}`."
+        assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
 
         self.gate_proj = nn.Linear(self.hidden_size, self.d_inner, bias=False)
         self.up_proj = nn.Linear(self.hidden_size, self.d_inner, bias=False)
@@ -149,9 +149,7 @@ class RodimusAttention(nn.Module):
         last_state = get_layer_cache(self, past_key_values)
 
         cu_seqlens = kwargs.get('cu_seqlens')
-        if cu_seqlens is None and attention_mask is not None:
-            indices, cu_seqlens, _ = get_unpad_data(attention_mask[:, -q_len:])
-            hidden_states = index_first_axis(rearrange(hidden_states, "b s ... -> (b s) ..."), indices).unsqueeze(0)
+        hidden_states, indices, cu_seqlens = unpad_hidden_states(hidden_states, cu_seqlens, attention_mask, q_len)
 
         hidden_states, final_gate = self.up_proj(hidden_states), self.gate_proj(hidden_states)
 
@@ -197,17 +195,6 @@ class RodimusAttention(nn.Module):
                 output_final_state=use_cache,
                 state_v_first=True,
                 cu_seqlens=cu_seqlens,
-                head_first=False,
-            )
-        elif mode == 'fused_chunk':
-            o, recurrent_state = fused_chunk_gla(
-                q=q,
-                k=k,
-                v=v,
-                g=rt_gate_log,
-                initial_state=recurrent_state,
-                output_final_state=use_cache,
-                head_first=False,
             )
         elif mode == 'chunk':
             q, k, rt_gate_log = map(lambda x: x.to(v.dtype), (q, k, rt_gate_log))
@@ -220,7 +207,6 @@ class RodimusAttention(nn.Module):
                 output_final_state=use_cache,
                 state_v_first=True,
                 cu_seqlens=cu_seqlens,
-                head_first=False,
             )
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
@@ -244,8 +230,7 @@ class RodimusAttention(nn.Module):
         o = self.activation_norm(o, final_gate)
         o = self.down_proj(o)
 
-        if attention_mask is not None:
-            o = pad_input(o.squeeze(0), indices, batch_size, q_len)
+        o = repad_hidden_states(o, indices, batch_size, q_len)
 
         if self.block_type == 'rodimus':
             return o, None, past_key_values
@@ -325,8 +310,8 @@ class SlidingWindowSharedKeyAttention(nn.Module):
             seqlen_offset = past_key_values.get_seq_length(layer_idx)
             max_seqlen = q.shape[1] + seqlen_offset
 
-            if attention_mask is not None:
-                # to deliminate the offsets of padding tokens
+            if cu_seqlens is None and attention_mask is not None:
+                # to eliminate the offsets of padding tokens
                 seqlen_offset = seqlen_offset + attention_mask.sum(-1) - attention_mask.shape[-1]
                 max_seqlen = q.shape[1] + max(seqlen_offset)
 
@@ -341,18 +326,25 @@ class SlidingWindowSharedKeyAttention(nn.Module):
                 recurrent_state, conv_state = None, None
 
             cache_has_content = past_key_values.get_seq_length(layer_idx) > 0
+            attn_state = [k.flatten(-2, -1), v.flatten(-2, -1)]
+            cached_attn_state = past_key_values[layer_idx]['attn_state'] if cache_has_content else None
             k_cached, v_cached = past_key_values.update(
                 recurrent_state=recurrent_state,
                 conv_state=conv_state,
-                attn_state=[k.flatten(-2, -1), v.flatten(-2, -1)],
+                attn_state=attn_state,
                 layer_idx=layer_idx,
                 offset=q_len,
                 cache_kwargs=dict(window_size=self.window_size),
             )['attn_state']
-            if cache_has_content:
-                k, v = k_cached, v_cached
-                k = rearrange(k, '... (h d) -> ... h d', d=self.head_dim)
-                v = rearrange(v, '... (h d) -> ... h d', d=self.head_dim)
+            if self.window_size is not None and q_len > 1 and attention_mask is None and cached_attn_state is not None:
+                k_cached, v_cached = cached_attn_state
+                k = torch.cat([rearrange(k_cached, '... (h d) -> ... h d', d=self.head_dim), k], dim=1)
+                v = torch.cat([rearrange(v_cached, '... (h d) -> ... h d', d=self.head_dim), v], dim=1)
+                k = k[:, -(self.window_size + q_len - 1):]
+                v = v[:, -(self.window_size + q_len - 1):]
+            elif cache_has_content:
+                k = rearrange(k_cached, '... (h d) -> ... h d', d=self.head_dim)
+                v = rearrange(v_cached, '... (h d) -> ... h d', d=self.head_dim)
 
         if flash_attn_func is None:
             raise ImportError("Please install Flash Attention via `pip install flash-attn --no-build-isolation` first")
@@ -360,7 +352,7 @@ class SlidingWindowSharedKeyAttention(nn.Module):
         q, k, v = map(autocast_to_fp16, (q, k, v))
         k = repeat(k, "... h d -> ... (n h) d", n=self.num_heads)
         # Contains at least one padding token in the sequence
-        if attention_mask is not None:
+        if cu_seqlens is None and attention_mask is not None:
             q, (k, v), indices_q, cu_seqlens, max_seq_lens = unpad_input(
                 q=q,
                 states=(k, v),

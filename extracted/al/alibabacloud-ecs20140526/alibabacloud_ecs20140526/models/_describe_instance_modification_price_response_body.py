@@ -13,7 +13,7 @@ class DescribeInstanceModificationPriceResponseBody(DaraModel):
         price_info: main_models.DescribeInstanceModificationPriceResponseBodyPriceInfo = None,
         request_id: str = None,
     ):
-        # The price information, including the price and discount rule details.
+        # The price information, including the price and discount rule information.
         self.price_info = price_info
         # The request ID.
         self.request_id = request_id
@@ -208,6 +208,10 @@ class DescribeInstanceModificationPriceResponseBodyPriceInfoRelatedPriceMarketpl
         trade_price: float = None,
     ):
         # The currency unit.
+        # 
+        # China site: CNY.
+        # 
+        # International site: USD.
         self.currency = currency
         # The discount.
         self.discount_price = discount_price
@@ -264,6 +268,10 @@ class DescribeInstanceModificationPriceResponseBodyPriceInfoPrice(DaraModel):
         trade_price: float = None,
     ):
         # The currency unit. Valid values:
+        # 
+        # - China site: CNY.
+        # 
+        # - International site: USD.
         self.currency = currency
         self.detail_infos = detail_infos
         # The discount.

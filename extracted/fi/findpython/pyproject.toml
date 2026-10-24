@@ -8,19 +8,19 @@ dependencies = [
     "packaging>=20",
     "platformdirs>=4.3.6",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 dynamic = []
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
-version = "0.8.0"
+version = "0.9.0"
 
 [project.license]
 text = "MIT"
@@ -39,18 +39,8 @@ write_template = "__version__ = \"{}\"\n"
 [tool.pdm.build]
 package-dir = "src"
 
-[tool.pdm.dev-dependencies]
-tests = [
-    "pytest",
-]
-
 [tool.pdm.scripts]
 test = "pytest tests"
-
-[tool.black]
-line-length = 90
-include = "\\.pyi?$"
-exclude = "/(\n    \\.eggs\n  | \\.git\n  | \\.hg\n  | \\.mypy_cache\n  | \\.tox\n  | \\.venv\n  | build\n  | dist\n  | src/pythonfinder/_vendor\n)\n"
 
 [tool.ruff]
 line-length = 90
@@ -60,7 +50,7 @@ src = [
 exclude = [
     "tests/fixtures",
 ]
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -89,6 +79,15 @@ known-first-party = [
 [tool.mypy]
 overrides = [
     { module = "_winreg", ignore_missing_imports = true },
+]
+
+[dependency-groups]
+tests = [
+    "pytest",
+]
+lint = [
+    "prek",
+    "ruff==0.17.1",
 ]
 
 [build-system]

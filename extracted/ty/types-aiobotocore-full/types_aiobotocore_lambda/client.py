@@ -352,7 +352,7 @@ class LambdaClient(AioBaseClient):
         """
         Creates an <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html">alias</a>
-        for a Lambda function version.
+        for a Lambda Event Function version.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/create_alias.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#create_alias)
@@ -362,7 +362,8 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[CreateCapacityProviderRequestTypeDef]
     ) -> CreateCapacityProviderResponseTypeDef:
         """
-        Creates a capacity provider that manages compute resources for Lambda functions.
+        Creates a capacity provider that manages compute resources for Lambda Event
+        Functions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/create_capacity_provider.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#create_capacity_provider)
@@ -382,7 +383,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[CreateEventSourceMappingRequestTypeDef]
     ) -> EventSourceMappingConfigurationResponseTypeDef:
         """
-        Creates a mapping between an event source and an Lambda function.
+        Creates a mapping between an event source and an Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/create_event_source_mapping.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#create_event_source_mapping)
@@ -392,7 +393,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[CreateFunctionRequestTypeDef]
     ) -> FunctionConfigurationResponseTypeDef:
         """
-        Creates a Lambda function.
+        Creates a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/create_function.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#create_function)
@@ -412,7 +413,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteAliasRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a Lambda function <a
+        Deletes a Lambda Event Function <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html">alias</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_alias.html)
@@ -455,7 +456,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]
     ) -> DeleteFunctionResponseTypeDef:
         """
-        Deletes a Lambda function.
+        Deletes a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_function.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#delete_function)
@@ -550,7 +551,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[GetAliasRequestTypeDef]
     ) -> AliasConfigurationResponseTypeDef:
         """
-        Returns details about a Lambda function <a
+        Returns details about a Lambda Event Function <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html">alias</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_alias.html)
@@ -661,7 +662,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[GetFunctionConfigurationRequestTypeDef]
     ) -> FunctionConfigurationResponseTypeDef:
         """
-        Returns the version-specific settings of a Lambda function or version.
+        Returns the version-specific settings of a Lambda Event Function or version.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_function_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#get_function_configuration)
@@ -795,7 +796,7 @@ class LambdaClient(AioBaseClient):
 
     async def invoke(self, **kwargs: Unpack[InvocationRequestTypeDef]) -> InvocationResponseTypeDef:
         """
-        Invokes a Lambda function.
+        Invokes a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/invoke.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#invoke)
@@ -815,7 +816,8 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[InvokeWithResponseStreamRequestTypeDef]
     ) -> InvokeWithResponseStreamResponseTypeDef:
         """
-        Configure your Lambda functions to stream response payloads back to clients.
+        Configure your Lambda Event Functions to stream response payloads back to
+        clients.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/invoke_with_response_stream.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#invoke_with_response_stream)
@@ -827,7 +829,7 @@ class LambdaClient(AioBaseClient):
         """
         Returns a list of <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html">aliases</a>
-        for a Lambda function.
+        for a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_aliases.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#list_aliases)
@@ -912,8 +914,8 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[ListFunctionsRequestTypeDef]
     ) -> ListFunctionsResponseTypeDef:
         """
-        Returns a list of Lambda functions, with the version-specific configuration of
-        each.
+        Returns a list of Lambda Event Functions, with the version-specific
+        configuration of each.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_functions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#list_functions)
@@ -1190,7 +1192,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAliasRequestTypeDef]
     ) -> AliasConfigurationResponseTypeDef:
         """
-        Updates the configuration of a Lambda function <a
+        Updates the configuration of a Lambda Event Function <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html">alias</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/update_alias.html)
@@ -1231,7 +1233,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateFunctionCodeRequestTypeDef]
     ) -> FunctionConfigurationResponseTypeDef:
         """
-        Updates a Lambda function's code.
+        Updates a Lambda Event Function's code.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/update_function_code.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#update_function_code)
@@ -1241,7 +1243,7 @@ class LambdaClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateFunctionConfigurationRequestTypeDef]
     ) -> FunctionConfigurationResponseTypeDef:
         """
-        Modify the version-specific settings of a Lambda function.
+        Modifies the version-specific settings of a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/update_function_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#update_function_configuration)

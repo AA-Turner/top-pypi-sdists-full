@@ -68,6 +68,9 @@ from .utils import _lazy
 from .utils._agent_mode import AgentMode as _AgentMode
 from .utils._debug_output import print_event
 from .utils._runner_utils import _notify_run_error
+from .utils.model_name_utils import is_gemini_model
+from .utils.model_name_utils import is_gemini_model_id_check_disabled
+from .workflow._base_node import _walk_static_nodes
 from .workflow._base_node import BaseNode
 
 if TYPE_CHECKING:
@@ -142,6 +145,8 @@ def _find_active_task_scope(session: Session) -> Optional[tuple[str, str]]:
 
   # Pass 2: Walk backward to find the latest active scope that is not finished.
   for event in reversed(live_events):
+    if event.actions and event.actions.compaction:
+      continue
     scope = event.isolation_scope
     if not scope:
       continue
@@ -1381,7 +1386,7 @@ class Runner:
         entrypoint_node=root_agent,
         conversation_id=session_id,
         run_config=run_config,
-    ) as invocation_otel_context:
+    ) as (invocation_otel_context, _):
       async with aclosing(
           _instrumentation.stream_in_scope(
               invocation_otel_context,
@@ -1401,15 +1406,23 @@ class Runner:
   ) -> None:
     """Rewinds the session to before the specified invocation.
 
+    Args:
+      user_id: The user ID of the session.
+      session_id: The session ID of the session.
+      rewind_before_invocation_id: The invocation ID to rewind to before.
+      run_config: Retained for backward compatibility. ``get_session_config``
+        is ignored because rewinds must replay state and artifact deltas from
+        the start of the session history.
+
     Raises:
       InvocationNotFoundError: If rewind_before_invocation_id does not match
         any event in the session.
     """
-    run_config = run_config or RunConfig()
+    if run_config and run_config.get_session_config:
+      logger.warning('rewind_async ignores run_config.get_session_config')
     session = await self._get_or_create_session(
         user_id=user_id,
         session_id=session_id,
-        get_session_config=run_config.get_session_config,
     )
     from .sessions import _rewind_utils
 
@@ -1799,22 +1812,9 @@ class Runner:
     """Returns whether chat-mode root LlmAgent uses the legacy sub-agent picker."""
     from .agents.llm_agent import LlmAgent  # pylint: disable=g-import-not-at-top
 
-    if (
-        not isinstance(self.agent, LlmAgent)
-        or (self.agent.mode or _AgentMode.CHAT) != _AgentMode.CHAT
-    ):
-      return False
-    remote_a2a_agent_class: tuple[Any, ...] = ()
-    try:
-      from .agents.remote_a2a_agent import RemoteA2aAgent  # pylint: disable=g-import-not-at-top
-
-      remote_a2a_agent_class = (RemoteA2aAgent,)
-    except ImportError:
-      pass
-    return not any(
-        isinstance(sa, (LlmAgent,) + remote_a2a_agent_class)
-        and getattr(sa, 'mode', None) == _AgentMode.TASK
-        for sa in self.agent.sub_agents or []
+    return (
+        isinstance(self.agent, LlmAgent)
+        and (self.agent.mode or _AgentMode.CHAT) == _AgentMode.CHAT
     )
 
   def _find_agent_to_run(
@@ -1829,6 +1829,9 @@ class Runner:
     - The root agent.
     - An LlmAgent who replied last and is capable to transfer to any other agent
       in the agent hierarchy.
+
+    An agent inside a task delegation is replaced by the agent that delegated
+    it.
 
     Args:
         session: The session to find the agent for.
@@ -2157,13 +2160,20 @@ class Runner:
 
     if run_config.support_cfc and hasattr(self.agent, 'canonical_model'):
       from .agents.llm_agent import LlmAgent
+      from .models.base_llm import BaseLlm
 
       cfc_agent = cast(LlmAgent, self.agent)
-      model_name = cfc_agent.canonical_model.model
-      if not model_name.startswith('gemini-2'):
+      canonical_model = cfc_agent.canonical_model
+      model_name = canonical_model.model
+      # CFC is served over the live API, so the model must implement connect.
+      supports_cfc = type(canonical_model).connect is not BaseLlm.connect and (
+          is_gemini_model(model_name) or is_gemini_model_id_check_disabled()
+      )
+      if not supports_cfc:
         raise ValueError(
             f'CFC is not supported for model: {model_name} in agent:'
-            f' {cfc_agent.name}'
+            f' {cfc_agent.name}. CFC requires a Gemini model served over the'
+            ' live API, so the model class must implement connect.'
         )
 
     return self._create_invocation_context(
@@ -2237,36 +2247,15 @@ class Runner:
   def _collect_toolset(
       self, root: BaseNode, visited: set[int] | None = None
   ) -> set[BaseToolset]:
+    del visited  # Retained for subclass override compatibility.
     if not isinstance(root, BaseNode):
       return set()
-    if visited is None:
-      visited = set()
-    root_id = id(root)
-    if root_id in visited:
-      return set()
-    visited.add(root_id)
-
     toolsets: set[BaseToolset] = set()
-    if hasattr(root, 'tools'):
-      for tool_union in getattr(root, 'tools', ()) or ():
-        if isinstance(tool_union, BaseToolset):
-          toolsets.add(tool_union)
-    if hasattr(root, 'sub_agents'):
-      for sub_agent in getattr(root, 'sub_agents', ()) or ():
-        toolsets.update(self._collect_toolset(sub_agent, visited))
-    if hasattr(root, 'graph') and getattr(root, 'graph', None):
-      graph = getattr(root, 'graph')
-      nodes = getattr(graph, 'nodes', None)
-      if nodes:
-        node_iter = nodes.values() if isinstance(nodes, dict) else nodes
-        for node in node_iter:
-          toolsets.update(self._collect_toolset(node, visited))
-    if hasattr(root, '_node') and getattr(root, '_node', None):
-      toolsets.update(self._collect_toolset(getattr(root, '_node'), visited))
-    if hasattr(root, '_inner_node') and getattr(root, '_inner_node', None):
-      toolsets.update(
-          self._collect_toolset(getattr(root, '_inner_node'), visited)
-      )
+    for node in _walk_static_nodes(root):
+      if hasattr(node, 'tools'):
+        for tool_union in getattr(node, 'tools', ()) or ():
+          if isinstance(tool_union, BaseToolset):
+            toolsets.add(tool_union)
     return toolsets
 
   async def _cleanup_toolsets(
@@ -2276,6 +2265,7 @@ class Runner:
     if not toolsets_to_close:
       return
 
+    cancelled_error = None
     # This maintains the same task context throughout cleanup
     for toolset in toolsets_to_close:
       cleanup_task = asyncio.create_task(
@@ -2326,24 +2316,46 @@ class Runner:
               type(toolset).__name__,
               close_error,
           )
-        raise
+        cancelled_error = e
       except Exception as e:
         logger.error('Error closing toolset %s: %s', type(toolset).__name__, e)
 
+    if cancelled_error is not None:
+      raise cancelled_error
+
   async def close(self) -> None:
-    """Closes the runner."""
+    """Closes the runner.
+
+    Raises:
+      asyncio.CancelledError: If closing was cancelled. The rest of the cleanup
+        still runs before it is re-raised, even if that cleanup fails.
+      RuntimeError: If one or more plugins failed to close.
+    """
     logger.info('Closing runner...')
-    # Close Toolsets
-    if self.agent is not None:
-      await self._cleanup_toolsets(self._collect_toolset(self.agent))
+    cancelled_error = None
+    try:
+      # Close Toolsets
+      if self.agent is not None:
+        await self._cleanup_toolsets(self._collect_toolset(self.agent))
+    except asyncio.CancelledError as e:
+      cancelled_error = e
 
-    # Close Plugins
-    if self.plugin_manager:
-      await self.plugin_manager.close()
-
-    # Close Session Service
-    if self.session_service:
-      await self.session_service.flush()
+    try:
+      # Close Plugins
+      if self.plugin_manager:
+        await self.plugin_manager.close()
+    except asyncio.CancelledError as e:
+      cancelled_error = e
+    finally:
+      try:
+        # Close Session Service
+        if self.session_service:
+          await self.session_service.flush()
+      except asyncio.CancelledError as e:
+        cancelled_error = e
+      finally:
+        if cancelled_error is not None:
+          raise cancelled_error
 
     logger.info('Runner closed.')
 

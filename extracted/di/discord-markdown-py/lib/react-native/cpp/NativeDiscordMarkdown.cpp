@@ -47,6 +47,18 @@ uint32_t toFuel(std::optional<double> fuel) {
 	return static_cast<uint32_t>(*fuel);
 }
 
+// Converts the JS number from the spec into the C ABI's flags argument.
+//
+// The flags are bits, so this reads them as JavaScript's `>>> 0` would: `~0`, or a mask built
+// with `~`, arrives negative and still means the bits it holds. An absent or non-finite value
+// allows everything.
+uint32_t toFlags(std::optional<double> flags) {
+	if (!flags || !std::isfinite(*flags)) {
+		return DMD_FLAGS_ALL;
+	}
+	return static_cast<uint32_t>(static_cast<int64_t>(*flags));
+}
+
 } // namespace
 
 NativeDiscordMarkdown::NativeDiscordMarkdown(std::shared_ptr<CallInvoker> jsInvoker)
@@ -55,12 +67,13 @@ NativeDiscordMarkdown::NativeDiscordMarkdown(std::shared_ptr<CallInvoker> jsInvo
 std::string NativeDiscordMarkdown::parseToAstString(
 	jsi::Runtime &rt,
 	std::string content,
-	std::optional<std::string> allowedRules,
+	std::optional<double> flags,
 	std::optional<double> fuel) {
 	const ParseResult result(dmd_parse(
-		reinterpret_cast<const uint8_t *>(content.data()), content.size(),
-		allowedRules ? reinterpret_cast<const uint8_t *>(allowedRules->data()) : nullptr,
-		allowedRules ? allowedRules->size() : 0, toFuel(fuel)));
+		reinterpret_cast<const uint8_t *>(content.data()), content.size(), toFlags(flags),
+		toFuel(fuel),
+		// JSON.parse would round 64-bit integers as float64s; src/ast-json.js revives these.
+		/* js_bigints */ true));
 
 	if (!result.ok()) {
 		throw jsi::JSError(rt, result.str());
@@ -70,7 +83,7 @@ std::string NativeDiscordMarkdown::parseToAstString(
 
 std::string NativeDiscordMarkdown::unparseFromAstString(jsi::Runtime &rt, std::string ast) {
 	const ParseResult result(
-		dmd_unparse(reinterpret_cast<const uint8_t *>(ast.data()), ast.size()));
+		dmd_unparse(reinterpret_cast<const uint8_t *>(ast.data()), ast.size(), /* js_bigints */ true));
 
 	if (!result.ok()) {
 		throw jsi::JSError(rt, result.str());

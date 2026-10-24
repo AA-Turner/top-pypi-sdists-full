@@ -47,7 +47,7 @@ class RetrieverAPIKeysApi:
     def create_retriever_key(
         self,
         retriever_id: StrictStr,
-        create_retriever_api_key_request: CreateRetrieverAPIKeyRequest,
+        create_retriever_api_key_request: Annotated[CreateRetrieverAPIKeyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class RetrieverAPIKeysApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param create_retriever_api_key_request: (required)
+        :param create_retriever_api_key_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_retriever_api_key_request: CreateRetrieverAPIKeyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -101,13 +101,15 @@ class RetrieverAPIKeysApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "RetrieverAPIKeyResponse",
+            '200': "RetrieverAPIKeyResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -124,7 +126,7 @@ class RetrieverAPIKeysApi:
     def create_retriever_key_with_http_info(
         self,
         retriever_id: StrictStr,
-        create_retriever_api_key_request: CreateRetrieverAPIKeyRequest,
+        create_retriever_api_key_request: Annotated[CreateRetrieverAPIKeyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -144,7 +146,7 @@ class RetrieverAPIKeysApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param create_retriever_api_key_request: (required)
+        :param create_retriever_api_key_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_retriever_api_key_request: CreateRetrieverAPIKeyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -178,13 +180,15 @@ class RetrieverAPIKeysApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "RetrieverAPIKeyResponse",
+            '200': "RetrieverAPIKeyResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -201,7 +205,7 @@ class RetrieverAPIKeysApi:
     def create_retriever_key_without_preload_content(
         self,
         retriever_id: StrictStr,
-        create_retriever_api_key_request: CreateRetrieverAPIKeyRequest,
+        create_retriever_api_key_request: Annotated[CreateRetrieverAPIKeyRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -221,7 +225,7 @@ class RetrieverAPIKeysApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param create_retriever_api_key_request: (required)
+        :param create_retriever_api_key_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_retriever_api_key_request: CreateRetrieverAPIKeyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -255,13 +259,15 @@ class RetrieverAPIKeysApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "RetrieverAPIKeyResponse",
+            '200': "RetrieverAPIKeyResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -414,8 +420,10 @@ class RetrieverAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -491,8 +499,10 @@ class RetrieverAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -568,8 +578,10 @@ class RetrieverAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -711,8 +723,10 @@ class RetrieverAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -788,8 +802,10 @@ class RetrieverAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -865,8 +881,10 @@ class RetrieverAPIKeysApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

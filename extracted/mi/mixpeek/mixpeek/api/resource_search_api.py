@@ -17,6 +17,8 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field
+from typing_extensions import Annotated
 from mixpeek.models.search_request import SearchRequest
 from mixpeek.models.search_response import SearchResponse
 
@@ -41,7 +43,7 @@ class ResourceSearchApi:
     @validate_call
     def search_resources(
         self,
-        search_request: SearchRequest,
+        search_request: Annotated[SearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -59,7 +61,7 @@ class ResourceSearchApi:
 
         Search across all resource names and IDs within your namespace.      This endpoint performs a case-insensitive search across:     - Buckets (bucket_name, bucket_id)     - Collections (collection_name, collection_id)     - Retrievers (retriever_name, retriever_id)     - Taxonomies (taxonomy_name, taxonomy_id)     - Clusters (cluster_name, cluster_id)     - Namespaces (namespace_name, namespace_id)      Results are sorted by relevance (exact matches first) and creation time (newest first).     Use the resource_types parameter to filter searches to specific resource types.     Pagination is supported via limit and offset parameters.
 
-        :param search_request: (required)
+        :param search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -97,8 +99,10 @@ class ResourceSearchApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -114,7 +118,7 @@ class ResourceSearchApi:
     @validate_call
     def search_resources_with_http_info(
         self,
-        search_request: SearchRequest,
+        search_request: Annotated[SearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -132,7 +136,7 @@ class ResourceSearchApi:
 
         Search across all resource names and IDs within your namespace.      This endpoint performs a case-insensitive search across:     - Buckets (bucket_name, bucket_id)     - Collections (collection_name, collection_id)     - Retrievers (retriever_name, retriever_id)     - Taxonomies (taxonomy_name, taxonomy_id)     - Clusters (cluster_name, cluster_id)     - Namespaces (namespace_name, namespace_id)      Results are sorted by relevance (exact matches first) and creation time (newest first).     Use the resource_types parameter to filter searches to specific resource types.     Pagination is supported via limit and offset parameters.
 
-        :param search_request: (required)
+        :param search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -170,8 +174,10 @@ class ResourceSearchApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -187,7 +193,7 @@ class ResourceSearchApi:
     @validate_call
     def search_resources_without_preload_content(
         self,
-        search_request: SearchRequest,
+        search_request: Annotated[SearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -205,7 +211,7 @@ class ResourceSearchApi:
 
         Search across all resource names and IDs within your namespace.      This endpoint performs a case-insensitive search across:     - Buckets (bucket_name, bucket_id)     - Collections (collection_name, collection_id)     - Retrievers (retriever_name, retriever_id)     - Taxonomies (taxonomy_name, taxonomy_id)     - Clusters (cluster_name, cluster_id)     - Namespaces (namespace_name, namespace_id)      Results are sorted by relevance (exact matches first) and creation time (newest first).     Use the resource_types parameter to filter searches to specific resource types.     Pagination is supported via limit and offset parameters.
 
-        :param search_request: (required)
+        :param search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type search_request: SearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -243,8 +249,10 @@ class ResourceSearchApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

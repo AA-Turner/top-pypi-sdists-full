@@ -6,8 +6,8 @@ import typing as t
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import async_object_session
 from sqlalchemy.orm import aliased, object_session
-from sqlalchemy_utils import get_primary_keys, identity
 
+from sqlalchemy_history._compat.sqlalchemy_utils import get_primary_keys, identity
 from sqlalchemy_history.utils import end_tx_column_name, tx_column_name
 
 
@@ -24,7 +24,7 @@ def parent_identity(obj_or_class) -> tuple:
 
 
 def eqmap(callback, iterable) -> t.Iterator[bool]:
-    for a, b in zip(*map(callback, iterable)):
+    for a, b in zip(*map(callback, iterable), strict=False):
         yield a == b
 
 

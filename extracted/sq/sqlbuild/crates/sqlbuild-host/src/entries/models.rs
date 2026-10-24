@@ -257,6 +257,7 @@ pub enum ExecutorHost {
     JanitorRelationKey,
     JanitorSkippedRelation,
     JanitorSkippedSchema,
+    JanitorUsageCheck,
     RunLoadPipeline,
     LoadCallbacks,
     LoadExecutionResult,
@@ -366,6 +367,9 @@ pub enum ExecutorHost {
     CommandOutputStream,
     OutputRecordPriority,
     SqlValueRenderingError,
+    CreateReviewSchema,
+    DropReviewSchema,
+    LeftoverReviewSchemas,
 }
 
 impl ExecutorHost {

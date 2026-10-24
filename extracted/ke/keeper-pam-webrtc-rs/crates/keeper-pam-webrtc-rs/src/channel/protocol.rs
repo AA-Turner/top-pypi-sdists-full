@@ -362,37 +362,28 @@ impl Channel {
 
         // Handle PythonHandler mode - notify Python and clean up virtual connection
         if self.active_protocol == super::types::ActiveProtocol::PythonHandler {
-            // Notify Python handler of connection closure
-            if let Some(ref tx) = self.python_handler_tx {
-                let msg = super::core::PythonHandlerMessage::ConnectionClosed {
-                    conn_no: target_connection_no,
-                    reason,
-                };
-                if tx.send(msg).await.is_err() {
-                    warn!(
-                        "Channel({}): Failed to send ConnectionClosed to Python handler for conn_no {} (conversation_id: {})",
-                        self.channel_id, target_connection_no, self.conversation_id
-                    );
-                }
-            }
-
-            // Clean up the virtual connection from our state
-            if let super::core::ProtocolLogicState::PythonHandler(ref mut state) =
-                self.protocol_state
+            // Remove before notifying: remote and local-failure closes may race.
+            if let super::core::ProtocolLogicState::PythonHandler(state) = &mut self.protocol_state
             {
-                if state.active_connections.remove(&target_connection_no) {
-                    debug!(
-                        "Channel({}): PythonHandler removed virtual connection {} (remaining: {}, conversation_id: {})",
-                        self.channel_id,
-                        target_connection_no,
-                        state.active_connections.len(),
-                        self.conversation_id
-                    );
-                } else {
-                    debug!(
-                        "Channel({}): PythonHandler conn_no {} was not in active_connections (may have been unconfirmed) (conversation_id: {})",
-                        self.channel_id, target_connection_no, self.conversation_id
-                    );
+                state.active_connections.remove(&target_connection_no);
+            }
+            self.webrtc.failed_connections.insert(target_connection_no);
+            if self
+                .webrtc
+                .notified_connections
+                .insert(target_connection_no)
+            {
+                if let Some(tx) = &self.python_handler_tx {
+                    if tx
+                        .send(super::core::PythonHandlerMessage::ConnectionClosed {
+                            conn_no: target_connection_no,
+                            reason,
+                        })
+                        .await
+                        .is_err()
+                    {
+                        warn!("Python handler close receiver is closed");
+                    }
                 }
             }
 
@@ -1342,6 +1333,8 @@ impl Channel {
                     return Ok(());
                 }
                 state.active_connections.insert(connection_no);
+                self.webrtc.failed_connections.remove(&connection_no);
+                self.webrtc.notified_connections.remove(&connection_no);
                 debug!(
                     "Channel({}): PythonHandler registered virtual connection {} (total active: {}, conversation_id: {})",
                     self.channel_id, connection_no, state.active_connections.len(), self.conversation_id

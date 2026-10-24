@@ -50,7 +50,7 @@ class NotificationsApi:
     @validate_call
     def advance_funnel_stage_notifications(
         self,
-        body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost,
+        body_advance_funnel_stage_v1_notifications_funnel_advance_post: Annotated[BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -68,7 +68,7 @@ class NotificationsApi:
 
         Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.  ``source`` is optional provenance for the stage being advanced, recorded on the analytics event so a stage reached two different ways can be counted separately. It distinguishes a click on sample data from a real upload, and a search of a sample retriever from a search of the caller's own data, which the stage name alone cannot. Ignored for resource-creation stages.
 
-        :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: (required)
+        :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -106,8 +106,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -123,7 +125,7 @@ class NotificationsApi:
     @validate_call
     def advance_funnel_stage_notifications_with_http_info(
         self,
-        body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost,
+        body_advance_funnel_stage_v1_notifications_funnel_advance_post: Annotated[BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -141,7 +143,7 @@ class NotificationsApi:
 
         Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.  ``source`` is optional provenance for the stage being advanced, recorded on the analytics event so a stage reached two different ways can be counted separately. It distinguishes a click on sample data from a real upload, and a search of a sample retriever from a search of the caller's own data, which the stage name alone cannot. Ignored for resource-creation stages.
 
-        :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: (required)
+        :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -179,8 +181,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -196,7 +200,7 @@ class NotificationsApi:
     @validate_call
     def advance_funnel_stage_notifications_without_preload_content(
         self,
-        body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost,
+        body_advance_funnel_stage_v1_notifications_funnel_advance_post: Annotated[BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -214,7 +218,7 @@ class NotificationsApi:
 
         Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.  ``source`` is optional provenance for the stage being advanced, recorded on the analytics event so a stage reached two different ways can be counted separately. It distinguishes a click on sample data from a real upload, and a search of a sample retriever from a search of the caller's own data, which the stage name alone cannot. Ignored for resource-creation stages.
 
-        :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: (required)
+        :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -252,8 +256,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -398,8 +404,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -471,8 +479,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -544,8 +554,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -673,8 +685,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -742,8 +756,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -811,8 +827,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -941,8 +959,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1014,8 +1034,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1087,8 +1109,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1216,8 +1240,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1285,8 +1311,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1354,8 +1382,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1426,287 +1456,6 @@ class NotificationsApi:
 
 
     @validate_call
-    def get_recent_email_sends_notifications(
-        self,
-        limit: Optional[Annotated[int, Field(le=200, strict=True)]] = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, object]:
-        """Get Recent Email Sends
-
-        Get recent emails sent via Resend with delivery status.  Returns a list of sent emails enriched with Resend delivery events (delivered, bounced, complained, etc.) for visibility into the email pipeline.
-
-        :param limit:
-        :type limit: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_recent_email_sends_notifications_serialize(
-            limit=limit,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def get_recent_email_sends_notifications_with_http_info(
-        self,
-        limit: Optional[Annotated[int, Field(le=200, strict=True)]] = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, object]]:
-        """Get Recent Email Sends
-
-        Get recent emails sent via Resend with delivery status.  Returns a list of sent emails enriched with Resend delivery events (delivered, bounced, complained, etc.) for visibility into the email pipeline.
-
-        :param limit:
-        :type limit: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_recent_email_sends_notifications_serialize(
-            limit=limit,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def get_recent_email_sends_notifications_without_preload_content(
-        self,
-        limit: Optional[Annotated[int, Field(le=200, strict=True)]] = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Get Recent Email Sends
-
-        Get recent emails sent via Resend with delivery status.  Returns a list of sent emails enriched with Resend delivery events (delivered, bounced, complained, etc.) for visibility into the email pipeline.
-
-        :param limit:
-        :type limit: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_recent_email_sends_notifications_serialize(
-            limit=limit,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _get_recent_email_sends_notifications_serialize(
-        self,
-        limit,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        # process the query parameters
-        if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/notifications/emails/recent',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
     def get_reminder_preferences_notifications(
         self,
         _request_timeout: Union[
@@ -1761,8 +1510,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1830,8 +1581,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1899,8 +1652,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2029,8 +1784,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2102,8 +1859,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2175,8 +1934,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2262,7 +2023,7 @@ class NotificationsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_notifications_request: Optional[ListNotificationsRequest] = None,
+        list_notifications_request: Annotated[Optional[ListNotificationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2296,7 +2057,7 @@ class NotificationsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_notifications_request:
+        :param list_notifications_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_notifications_request: ListNotificationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2342,8 +2103,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2367,7 +2130,7 @@ class NotificationsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_notifications_request: Optional[ListNotificationsRequest] = None,
+        list_notifications_request: Annotated[Optional[ListNotificationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2401,7 +2164,7 @@ class NotificationsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_notifications_request:
+        :param list_notifications_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_notifications_request: ListNotificationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2447,8 +2210,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2472,7 +2237,7 @@ class NotificationsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_notifications_request: Optional[ListNotificationsRequest] = None,
+        list_notifications_request: Annotated[Optional[ListNotificationsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2506,7 +2271,7 @@ class NotificationsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_notifications_request:
+        :param list_notifications_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_notifications_request: ListNotificationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2552,8 +2317,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2682,7 +2449,7 @@ class NotificationsApi:
     @validate_call
     def mark_all_as_read_notifications(
         self,
-        mark_as_read_request: Optional[MarkAsReadRequest] = None,
+        mark_as_read_request: Annotated[Optional[MarkAsReadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2700,7 +2467,7 @@ class NotificationsApi:
 
         Mark all notifications as read for a user.
 
-        :param mark_as_read_request:
+        :param mark_as_read_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type mark_as_read_request: MarkAsReadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2738,8 +2505,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2755,7 +2524,7 @@ class NotificationsApi:
     @validate_call
     def mark_all_as_read_notifications_with_http_info(
         self,
-        mark_as_read_request: Optional[MarkAsReadRequest] = None,
+        mark_as_read_request: Annotated[Optional[MarkAsReadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2773,7 +2542,7 @@ class NotificationsApi:
 
         Mark all notifications as read for a user.
 
-        :param mark_as_read_request:
+        :param mark_as_read_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type mark_as_read_request: MarkAsReadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2811,8 +2580,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2828,7 +2599,7 @@ class NotificationsApi:
     @validate_call
     def mark_all_as_read_notifications_without_preload_content(
         self,
-        mark_as_read_request: Optional[MarkAsReadRequest] = None,
+        mark_as_read_request: Annotated[Optional[MarkAsReadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2846,7 +2617,7 @@ class NotificationsApi:
 
         Mark all notifications as read for a user.
 
-        :param mark_as_read_request:
+        :param mark_as_read_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type mark_as_read_request: MarkAsReadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2884,8 +2655,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3030,8 +2803,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3103,8 +2878,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3176,8 +2953,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3253,7 +3032,7 @@ class NotificationsApi:
     @validate_call
     def update_preferences_notifications(
         self,
-        update_preferences_request: UpdatePreferencesRequest,
+        update_preferences_request: Annotated[UpdatePreferencesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3271,7 +3050,7 @@ class NotificationsApi:
 
         Update notification preferences for the organization.
 
-        :param update_preferences_request: (required)
+        :param update_preferences_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_preferences_request: UpdatePreferencesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3309,8 +3088,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3326,7 +3107,7 @@ class NotificationsApi:
     @validate_call
     def update_preferences_notifications_with_http_info(
         self,
-        update_preferences_request: UpdatePreferencesRequest,
+        update_preferences_request: Annotated[UpdatePreferencesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3344,7 +3125,7 @@ class NotificationsApi:
 
         Update notification preferences for the organization.
 
-        :param update_preferences_request: (required)
+        :param update_preferences_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_preferences_request: UpdatePreferencesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3382,8 +3163,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3399,7 +3182,7 @@ class NotificationsApi:
     @validate_call
     def update_preferences_notifications_without_preload_content(
         self,
-        update_preferences_request: UpdatePreferencesRequest,
+        update_preferences_request: Annotated[UpdatePreferencesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3417,7 +3200,7 @@ class NotificationsApi:
 
         Update notification preferences for the organization.
 
-        :param update_preferences_request: (required)
+        :param update_preferences_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_preferences_request: UpdatePreferencesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3455,8 +3238,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3545,7 +3330,7 @@ class NotificationsApi:
     @validate_call
     def update_reminder_preferences_notifications(
         self,
-        update_reminder_preferences_request: UpdateReminderPreferencesRequest,
+        update_reminder_preferences_request: Annotated[UpdateReminderPreferencesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3563,7 +3348,7 @@ class NotificationsApi:
 
         Update reminder/nudge email preferences for the organization.  You can update individual preferences without affecting others: - enabled: Master toggle for all reminder emails - onboarding_nudges: Funnel progression nudges - engagement_reminders: Re-engagement emails for inactivity - feature_tips: Helpful tips and inspiration - quiet_hours_start/end: Hours (0-23 UTC) when no emails are sent
 
-        :param update_reminder_preferences_request: (required)
+        :param update_reminder_preferences_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_reminder_preferences_request: UpdateReminderPreferencesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3601,8 +3386,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3618,7 +3405,7 @@ class NotificationsApi:
     @validate_call
     def update_reminder_preferences_notifications_with_http_info(
         self,
-        update_reminder_preferences_request: UpdateReminderPreferencesRequest,
+        update_reminder_preferences_request: Annotated[UpdateReminderPreferencesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3636,7 +3423,7 @@ class NotificationsApi:
 
         Update reminder/nudge email preferences for the organization.  You can update individual preferences without affecting others: - enabled: Master toggle for all reminder emails - onboarding_nudges: Funnel progression nudges - engagement_reminders: Re-engagement emails for inactivity - feature_tips: Helpful tips and inspiration - quiet_hours_start/end: Hours (0-23 UTC) when no emails are sent
 
-        :param update_reminder_preferences_request: (required)
+        :param update_reminder_preferences_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_reminder_preferences_request: UpdateReminderPreferencesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3674,8 +3461,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3691,7 +3480,7 @@ class NotificationsApi:
     @validate_call
     def update_reminder_preferences_notifications_without_preload_content(
         self,
-        update_reminder_preferences_request: UpdateReminderPreferencesRequest,
+        update_reminder_preferences_request: Annotated[UpdateReminderPreferencesRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3709,7 +3498,7 @@ class NotificationsApi:
 
         Update reminder/nudge email preferences for the organization.  You can update individual preferences without affecting others: - enabled: Master toggle for all reminder emails - onboarding_nudges: Funnel progression nudges - engagement_reminders: Re-engagement emails for inactivity - feature_tips: Helpful tips and inspiration - quiet_hours_start/end: Hours (0-23 UTC) when no emails are sent
 
-        :param update_reminder_preferences_request: (required)
+        :param update_reminder_preferences_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_reminder_preferences_request: UpdateReminderPreferencesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3747,8 +3536,10 @@ class NotificationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

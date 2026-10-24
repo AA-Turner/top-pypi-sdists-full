@@ -22,6 +22,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.restore_report import RestoreReport
+from mixpeek.models.snapshot_copy_out import SnapshotCopyOut
 from mixpeek.models.snapshot_manifest import SnapshotManifest
 from mixpeek.models.snapshot_status import SnapshotStatus
 from mixpeek.models.snapshot_type import SnapshotType
@@ -39,6 +40,7 @@ class SnapshotModel(BaseModel):
     snapshot_type: SnapshotType
     status: Optional[SnapshotStatus] = None
     created_at: Optional[datetime] = None
+    dispatch_at: Optional[datetime] = Field(default=None, description="When the snapshot's work was due to start (created_at plus any dispatch stagger)")
     completed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     schema_version: Optional[StrictInt] = 1
@@ -47,10 +49,12 @@ class SnapshotModel(BaseModel):
     manifest: Optional[SnapshotManifest] = None
     error: Optional[StrictStr] = None
     task_id: Optional[StrictStr] = None
-    include_vectors: Optional[StrictBool] = Field(default=True, description="False for metadata-only daily snapshots whose vectors are covered by the shard representative's export.")
+    include_vectors: Optional[StrictBool] = Field(default=True, description="False for a metadata-only snapshot, which holds the namespace's records but no vector points; restoring it writes no vectors.")
     vector_shard_key: Optional[StrictStr] = None
+    copy_out: Optional[SnapshotCopyOut] = Field(default=None, description="The copy of this snapshot in the plane's backup bucket")
+    imported_from: Optional[Dict[str, Any]] = Field(default=None, description="For an imported snapshot, the bucket and prefix it was copied from and the source snapshot's id")
     last_restore: Optional[RestoreReport] = Field(default=None, description="Outcome of the most recent restore FROM this snapshot (what was restored vs skipped); null if never restored.")
-    __properties: ClassVar[List[str]] = ["snapshot_id", "namespace_id", "namespace_name", "internal_id", "snapshot_type", "status", "created_at", "completed_at", "expires_at", "schema_version", "s3_prefix", "s3_objects_copied", "manifest", "error", "task_id", "include_vectors", "vector_shard_key", "last_restore"]
+    __properties: ClassVar[List[str]] = ["snapshot_id", "namespace_id", "namespace_name", "internal_id", "snapshot_type", "status", "created_at", "dispatch_at", "completed_at", "expires_at", "schema_version", "s3_prefix", "s3_objects_copied", "manifest", "error", "task_id", "include_vectors", "vector_shard_key", "copy_out", "imported_from", "last_restore"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,6 +98,9 @@ class SnapshotModel(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of manifest
         if self.manifest:
             _dict['manifest'] = self.manifest.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of copy_out
+        if self.copy_out:
+            _dict['copy_out'] = self.copy_out.to_dict()
         # override the default output from pydantic by calling `to_dict()` of last_restore
         if self.last_restore:
             _dict['last_restore'] = self.last_restore.to_dict()
@@ -116,6 +123,7 @@ class SnapshotModel(BaseModel):
             "snapshot_type": obj.get("snapshot_type"),
             "status": obj.get("status"),
             "created_at": obj.get("created_at"),
+            "dispatch_at": obj.get("dispatch_at"),
             "completed_at": obj.get("completed_at"),
             "expires_at": obj.get("expires_at"),
             "schema_version": obj.get("schema_version") if obj.get("schema_version") is not None else 1,
@@ -126,6 +134,8 @@ class SnapshotModel(BaseModel):
             "task_id": obj.get("task_id"),
             "include_vectors": obj.get("include_vectors") if obj.get("include_vectors") is not None else True,
             "vector_shard_key": obj.get("vector_shard_key"),
+            "copy_out": SnapshotCopyOut.from_dict(obj["copy_out"]) if obj.get("copy_out") is not None else None,
+            "imported_from": obj.get("imported_from"),
             "last_restore": RestoreReport.from_dict(obj["last_restore"]) if obj.get("last_restore") is not None else None
         })
         return _obj

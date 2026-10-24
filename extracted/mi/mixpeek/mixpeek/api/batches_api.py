@@ -63,7 +63,7 @@ class BatchesApi:
     ) -> TaskResponse:
         """Cancel Batch
 
-        Cancel a submitted/processing batch by ID without requiring the bucket_id. Cancels all associated Ray and Celery jobs, releases queue slots, and marks the batch as CANCELLED.
+        Cancel a submitted/processing batch by ID without requiring the bucket_id. Cancels all associated Ray jobs and queued work, releases queue slots, and marks the batch as CANCELLED.
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
@@ -106,8 +106,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -140,7 +142,7 @@ class BatchesApi:
     ) -> ApiResponse[TaskResponse]:
         """Cancel Batch
 
-        Cancel a submitted/processing batch by ID without requiring the bucket_id. Cancels all associated Ray and Celery jobs, releases queue slots, and marks the batch as CANCELLED.
+        Cancel a submitted/processing batch by ID without requiring the bucket_id. Cancels all associated Ray jobs and queued work, releases queue slots, and marks the batch as CANCELLED.
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
@@ -183,8 +185,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -217,7 +221,7 @@ class BatchesApi:
     ) -> RESTResponseType:
         """Cancel Batch
 
-        Cancel a submitted/processing batch by ID without requiring the bucket_id. Cancels all associated Ray and Celery jobs, releases queue slots, and marks the batch as CANCELLED.
+        Cancel a submitted/processing batch by ID without requiring the bucket_id. Cancels all associated Ray jobs and queued work, releases queue slots, and marks the batch as CANCELLED.
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
@@ -260,8 +264,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -398,8 +404,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -471,8 +479,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -544,8 +554,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -673,8 +685,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -742,8 +756,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -811,8 +827,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -885,7 +903,7 @@ class BatchesApi:
     @validate_call
     def list_all_batches(
         self,
-        list_batches_request: Optional[ListBatchesRequest] = None,
+        list_batches_request: Annotated[Optional[ListBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -903,7 +921,7 @@ class BatchesApi:
 
         List batches across the organization. The X-Namespace header narrows the list to that namespace, exactly like every other namespaced endpoint; omit it for the org-wide view. `namespace_id` in the request body also works (and wins ties when it agrees with the header; a conflicting header + body is a 400). Other body filters: `status`, `bucket_id`, `collection_id`.
 
-        :param list_batches_request:
+        :param list_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_batches_request: ListBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -941,8 +959,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -958,7 +978,7 @@ class BatchesApi:
     @validate_call
     def list_all_batches_with_http_info(
         self,
-        list_batches_request: Optional[ListBatchesRequest] = None,
+        list_batches_request: Annotated[Optional[ListBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -976,7 +996,7 @@ class BatchesApi:
 
         List batches across the organization. The X-Namespace header narrows the list to that namespace, exactly like every other namespaced endpoint; omit it for the org-wide view. `namespace_id` in the request body also works (and wins ties when it agrees with the header; a conflicting header + body is a 400). Other body filters: `status`, `bucket_id`, `collection_id`.
 
-        :param list_batches_request:
+        :param list_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_batches_request: ListBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1014,8 +1034,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1031,7 +1053,7 @@ class BatchesApi:
     @validate_call
     def list_all_batches_without_preload_content(
         self,
-        list_batches_request: Optional[ListBatchesRequest] = None,
+        list_batches_request: Annotated[Optional[ListBatchesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1049,7 +1071,7 @@ class BatchesApi:
 
         List batches across the organization. The X-Namespace header narrows the list to that namespace, exactly like every other namespaced endpoint; omit it for the org-wide view. `namespace_id` in the request body also works (and wins ties when it agrees with the header; a conflicting header + body is a 400). Other body filters: `status`, `bucket_id`, `collection_id`.
 
-        :param list_batches_request:
+        :param list_batches_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_batches_request: ListBatchesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1087,8 +1109,10 @@ class BatchesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -57,6 +57,7 @@ from .literals import (
     SoftwareDeploymentStatusType,
     StackAttributeType,
     StackErrorCodeType,
+    StorageConnectorAuthenticationType,
     StorageConnectorTypeType,
     StreamViewType,
     ThemeStateType,
@@ -1560,6 +1561,7 @@ class StackTypeDef(TypedDict):
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionOutputTypeDef]
     AgentAccessConfig: NotRequired[AgentAccessConfigOutputTypeDef]
+    StorageConnectorAuthentication: NotRequired[StorageConnectorAuthenticationType]
 
 
 ContentRedirectionUnionTypeDef = Union[ContentRedirectionTypeDef, ContentRedirectionOutputTypeDef]
@@ -1839,6 +1841,7 @@ class CreateStackRequestTypeDef(TypedDict):
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
     AgentAccessConfig: NotRequired[AgentAccessConfigUnionTypeDef]
+    StorageConnectorAuthentication: NotRequired[StorageConnectorAuthenticationType]
 
 
 class UpdateStackRequestTypeDef(TypedDict):
@@ -1857,3 +1860,4 @@ class UpdateStackRequestTypeDef(TypedDict):
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
     AgentAccessConfig: NotRequired[AgentAccessConfigForUpdateTypeDef]
+    StorageConnectorAuthentication: NotRequired[StorageConnectorAuthenticationType]

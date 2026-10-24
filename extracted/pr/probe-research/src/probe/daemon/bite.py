@@ -45,7 +45,7 @@ from importlib import resources
 from pathlib import Path
 
 from probe.daemon import toolset
-from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Kind
+from probe.daemon.events import PEER_TOOL, READER_SOURCE, REQUEST_SOURCE, Kind
 from probe.daemon.store import BEFORE_DAEMON_BITE, StoredEvent, Store
 
 CHARS_PER_TOKEN = 4
@@ -150,6 +150,11 @@ def render(ev: StoredEvent, *, calls: dict[str, StoredEvent] | None = None) -> s
         # is a preview; `session op=open` shows the rest.
         if ev.stream == NOTICE_STREAM:
             return f"[daemon notice · {ev.event_id}] {ev.text}"
+        if ev.tool == PEER_TOOL:
+            # Another agent's message (`events.PEER_TOOL`): who sent it is in `command`,
+            # its text is the message alone. A preview, like a harness line.
+            sender = f" · {ev.command}" if ev.command else ""
+            return f"[peer agent{sender} · {ev.event_id}] {_cap(ev.text, HARNESS_SHOWN_CHARS, ev)}"
         return f"[harness · {ev.event_id}] {_cap(ev.text, HARNESS_SHOWN_CHARS, ev)}"
     if k == Kind.FILE_CHANGE:
         return f"[file changed · {ev.event_id}] {_cap(ev.text, FILE_SHOWN_CHARS, ev)}"

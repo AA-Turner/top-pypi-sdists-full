@@ -97,6 +97,11 @@ class ProtocolDelegationDispatchPort(Protocol):
         # carries it inline on the command (OMN-17427) and refuses a spec that
         # points at the caller's workspace, which the lane cannot read.
         named_tests: BaseModel | None = None,
+        # OMN-19448 / omnimarket#4252: consumer trace and queue-wait context.
+        # Defaulted, per the note above, so a consumer that never passes them
+        # keeps working.
+        trace_id: UUID | None = None,
+        queue_wait_ms: int | None = None,
     ) -> dict[str, object]: ...
 
 

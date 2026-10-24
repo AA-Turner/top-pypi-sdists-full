@@ -39,6 +39,12 @@ nor is anything under it: the page is telling the user it can't be reached
 right now (a sign-in modal over the page), and a click there would land on
 the overlay.
 
+An enabled interactive control another element is painted over at its
+centre (a side drawer that is not a modal, a sticky header) is marked
+``covered``: a pointer click lands on what is on top, so the control is not
+the target a user sees there. A control's own label on top, or anything
+inside the control, does not count.
+
 A radio or checkbox drawn over by its own native ``<label>`` (a custom
 control: the real input is invisible and the label, or its ``::before``, is
 painted on top) cannot take a pointer click, since the label intercepts it.
@@ -49,7 +55,7 @@ ref grounds on it (clicking a label activates its control). Disabled
 controls, other overlays and a control that is itself on top are left alone.
 
 This module only ANNOTATES the captured ``AxNode`` trees in place
-(``clickable``, ``dom_hint``, ``display_name``, ``via_label``); the
+(``clickable``, ``dom_hint``, ``display_name``, ``via_label``, ``covered``); the
 serializer decides what to render. It never raises and never changes a tree
 when the snapshot fails, so the doc falls back to exactly today's output.
 """
@@ -264,6 +270,7 @@ class ActionableStats:
     tagged: int = 0
     hinted: int = 0
     via_label: int = 0
+    covered: int = 0
     errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -275,6 +282,7 @@ class ActionableStats:
             "tagged": self.tagged,
             "hinted": self.hinted,
             "via_label": self.via_label,
+            "covered": self.covered,
             "errors": list(self.errors),
         }
 
@@ -477,6 +485,33 @@ def _covering_label(node: Any, fact: _DomFacts, facts: dict[int, _DomFacts], ax_
     return ax_by_id.get(doc.backend_ids[label])
 
 
+def _is_covered(fact: _DomFacts, facts: dict[int, _DomFacts]) -> bool:
+    """Whether another element is what sits on top at the control's centre.
+
+    Not covered: nothing is painted there, the top node is the control or
+    inside it (its text, its UA parts), the control is inside it, or it is
+    the control's own ``<label>`` (clicking a label reaches its control).
+    """
+    doc = fact.doc
+    if doc is None:
+        return False
+    centre = doc.centre(fact.node_index)
+    if centre is None:
+        return False
+    top = doc.top_at(*centre)
+    if top is None or doc.is_inside(top, fact.node_index) or doc.is_inside(fact.node_index, top):
+        return False
+    label = doc.enclosing_label(top)
+    label_fact = facts.get(doc.backend_ids[label]) if label is not None and label < len(doc.backend_ids) else None
+    if label_fact is not None:
+        if "for" in label_fact.attrs:
+            if fact.attrs.get("id") and label_fact.attrs["for"] == fact.attrs["id"]:
+                return False
+        elif doc.is_inside(fact.node_index, label):
+            return False
+    return True
+
+
 def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats) -> None:
     """Set ``clickable`` / ``dom_hint`` / ``display_name`` on ``tree``'s nodes.
 
@@ -489,11 +524,14 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
       ``dom_hint`` only, so it can be told apart and grepped.
     - An enabled radio/checkbox covered by its own native label:
       ``via_label`` = that label's AX node.
+    - Any other enabled interactive-role node another element is painted
+      over at its centre: ``covered``.
     """
 
     ax_backend_ids: set[int] = set()
     ax_by_id: dict[int, Any] = {}
     checkables: list[tuple[Any, _DomFacts]] = []
+    controls: list[tuple[Any, _DomFacts]] = []
 
     def collect(node: Any) -> None:
         if node.backend_dom_node_id:
@@ -531,6 +569,8 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
             tag_text_of_unattached_parent(node)
         elif fact is not None and fact.tag != _TEXT_TAG and role not in _NEVER_ACTIONABLE_ROLES and fact.tag not in _NEVER_ACTIONABLE_TAGS:
             if role in INTERACTIVE_ROLES:
+                if not node.disabled:
+                    controls.append((node, fact))
                 if role in _CHECKABLE_ROLES and not node.disabled:
                     checkables.append((node, fact))
                 if not (node.name or "").strip():
@@ -566,6 +606,11 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
         if label is not None:
             node.via_label = label
             stats.via_label += 1
+
+    for node, fact in controls[:_MAX_COVER_CHECKS]:
+        if node.via_label is None and _is_covered(fact, facts):
+            node.covered = True
+            stats.covered += 1
 
 
 async def _snapshot(session: Any) -> dict[str, Any]:

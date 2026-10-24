@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 use super::{FULL_SEALS, Region};
 use crate::Result;
 use std::{
@@ -109,23 +110,6 @@ fn flock(start: usize, len: usize, region: Region) -> libc::flock {
     }
 }
 
-/// Frees `[off, off+span)`'s pages; the file keeps its size.
-pub fn punch(fd: BorrowedFd<'_>, off: u64, span: u64) -> Result<()> {
-    // SAFETY: punching a hole in a memfd the caller holds.
-    let rc = unsafe {
-        libc::fallocate(
-            fd.as_raw_fd(),
-            libc::FALLOC_FL_PUNCH_HOLE | libc::FALLOC_FL_KEEP_SIZE,
-            off as libc::off_t,
-            span as libc::off_t,
-        )
-    };
-    if rc != 0 {
-        return Err(io::Error::last_os_error().into());
-    }
-    Ok(())
-}
-
 /// A new open file description of the file behind `fd`: a dup would share `fd`'s, and with it
 /// its locks.
 pub fn reopen(fd: BorrowedFd<'_>, write: bool) -> Result<OwnedFd> {
@@ -194,35 +178,4 @@ pub fn held(dev: u64, ino: u64) -> Result<bool> {
         }
     }
     Ok(false)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A file is held while any process has it open, here or in a child, and not after.
-    #[test]
-    fn a_file_is_held_while_any_process_has_it_open() {
-        use std::os::unix::process::CommandExt;
-        let file = std::fs::File::from(memfd_named("held-test").unwrap());
-        let identity = file.metadata().unwrap();
-        let (dev, ino) = (identity.dev(), identity.ino());
-        assert!(held(dev, ino).unwrap());
-        let fd = file.as_raw_fd();
-        let mut command = std::process::Command::new("sleep");
-        command.arg("1000");
-        // SAFETY: only async-signal-safe fcntl on a descriptor this test keeps open.
-        unsafe {
-            command.pre_exec(move || match libc::fcntl(fd, libc::F_SETFD, 0) {
-                0 => Ok(()),
-                _ => Err(io::Error::last_os_error()),
-            });
-        }
-        let mut child = command.spawn().unwrap();
-        drop(file);
-        assert!(held(dev, ino).unwrap(), "the child's descriptor holds it");
-        child.kill().unwrap();
-        child.wait().unwrap();
-        assert!(!held(dev, ino).unwrap());
-    }
 }

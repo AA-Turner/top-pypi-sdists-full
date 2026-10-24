@@ -58,7 +58,7 @@ class AgentSessionsApi:
     @validate_call
     def create_session_agents(
         self,
-        create_session_request: CreateSessionRequest,
+        create_session_request: Annotated[CreateSessionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -76,7 +76,7 @@ class AgentSessionsApi:
 
         Create a new agent session.  A session represents a stateful conversation with an AI agent that can call tools to search data, filter results, and perform multi-step reasoning.  Args:     request: FastAPI request with tenant context     payload: Session creation request  Returns:     CreateSessionResponse with session metadata  Example:     ```bash     curl -X POST http://localhost:8000/v1/agents/sessions \\       -H \"Authorization: Bearer {api_key}\" \\       -H \"X-Namespace: {namespace_id}\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"agent_config\": {           \"model\": \"claude-3-5-sonnet-20241022\",           \"temperature\": 0.7,           \"available_tools\": [\"search_retrievers\", \"execute_retriever\"]         },         \"quotas\": {           \"max_messages\": 100,           \"max_tokens_total\": 100000         }       }'     ```
 
-        :param create_session_request: (required)
+        :param create_session_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_session_request: CreateSessionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -114,8 +114,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -131,7 +133,7 @@ class AgentSessionsApi:
     @validate_call
     def create_session_agents_with_http_info(
         self,
-        create_session_request: CreateSessionRequest,
+        create_session_request: Annotated[CreateSessionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -149,7 +151,7 @@ class AgentSessionsApi:
 
         Create a new agent session.  A session represents a stateful conversation with an AI agent that can call tools to search data, filter results, and perform multi-step reasoning.  Args:     request: FastAPI request with tenant context     payload: Session creation request  Returns:     CreateSessionResponse with session metadata  Example:     ```bash     curl -X POST http://localhost:8000/v1/agents/sessions \\       -H \"Authorization: Bearer {api_key}\" \\       -H \"X-Namespace: {namespace_id}\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"agent_config\": {           \"model\": \"claude-3-5-sonnet-20241022\",           \"temperature\": 0.7,           \"available_tools\": [\"search_retrievers\", \"execute_retriever\"]         },         \"quotas\": {           \"max_messages\": 100,           \"max_tokens_total\": 100000         }       }'     ```
 
-        :param create_session_request: (required)
+        :param create_session_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_session_request: CreateSessionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -187,8 +189,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -204,7 +208,7 @@ class AgentSessionsApi:
     @validate_call
     def create_session_agents_without_preload_content(
         self,
-        create_session_request: CreateSessionRequest,
+        create_session_request: Annotated[CreateSessionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -222,7 +226,7 @@ class AgentSessionsApi:
 
         Create a new agent session.  A session represents a stateful conversation with an AI agent that can call tools to search data, filter results, and perform multi-step reasoning.  Args:     request: FastAPI request with tenant context     payload: Session creation request  Returns:     CreateSessionResponse with session metadata  Example:     ```bash     curl -X POST http://localhost:8000/v1/agents/sessions \\       -H \"Authorization: Bearer {api_key}\" \\       -H \"X-Namespace: {namespace_id}\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"agent_config\": {           \"model\": \"claude-3-5-sonnet-20241022\",           \"temperature\": 0.7,           \"available_tools\": [\"search_retrievers\", \"execute_retriever\"]         },         \"quotas\": {           \"max_messages\": 100,           \"max_tokens_total\": 100000         }       }'     ```
 
-        :param create_session_request: (required)
+        :param create_session_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_session_request: CreateSessionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -260,8 +264,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -351,7 +357,7 @@ class AgentSessionsApi:
     @validate_call
     def detect_intent_agents_sessions(
         self,
-        detect_intent_request: DetectIntentRequest,
+        detect_intent_request: Annotated[DetectIntentRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -369,7 +375,7 @@ class AgentSessionsApi:
 
         Detect user intent from natural language request.  This endpoint analyzes a user's request to determine whether they want to: - Execute queries on existing data (execution mode) - Create new resources/infrastructure (setup mode) - Or if the request is ambiguous and needs clarification  It performs keyword analysis and checks existing collections to provide intelligent classification and recommendations.  Args:     request: FastAPI request with tenant context     payload: Intent detection request with user's input  Returns:     IntentClassification with detected intent and recommendations  Example:     ```bash     curl -X POST http://localhost:8000/v1/agents/intent/detect \\       -H \"Authorization: Bearer {api_key}\" \\       -H \"X-Namespace: {namespace_id}\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"user_request\": \"I want to search videos by faces\",         \"include_collection_analysis\": true       }'     ```
 
-        :param detect_intent_request: (required)
+        :param detect_intent_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type detect_intent_request: DetectIntentRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -407,8 +413,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -424,7 +432,7 @@ class AgentSessionsApi:
     @validate_call
     def detect_intent_agents_sessions_with_http_info(
         self,
-        detect_intent_request: DetectIntentRequest,
+        detect_intent_request: Annotated[DetectIntentRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -442,7 +450,7 @@ class AgentSessionsApi:
 
         Detect user intent from natural language request.  This endpoint analyzes a user's request to determine whether they want to: - Execute queries on existing data (execution mode) - Create new resources/infrastructure (setup mode) - Or if the request is ambiguous and needs clarification  It performs keyword analysis and checks existing collections to provide intelligent classification and recommendations.  Args:     request: FastAPI request with tenant context     payload: Intent detection request with user's input  Returns:     IntentClassification with detected intent and recommendations  Example:     ```bash     curl -X POST http://localhost:8000/v1/agents/intent/detect \\       -H \"Authorization: Bearer {api_key}\" \\       -H \"X-Namespace: {namespace_id}\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"user_request\": \"I want to search videos by faces\",         \"include_collection_analysis\": true       }'     ```
 
-        :param detect_intent_request: (required)
+        :param detect_intent_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type detect_intent_request: DetectIntentRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -480,8 +488,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -497,7 +507,7 @@ class AgentSessionsApi:
     @validate_call
     def detect_intent_agents_sessions_without_preload_content(
         self,
-        detect_intent_request: DetectIntentRequest,
+        detect_intent_request: Annotated[DetectIntentRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -515,7 +525,7 @@ class AgentSessionsApi:
 
         Detect user intent from natural language request.  This endpoint analyzes a user's request to determine whether they want to: - Execute queries on existing data (execution mode) - Create new resources/infrastructure (setup mode) - Or if the request is ambiguous and needs clarification  It performs keyword analysis and checks existing collections to provide intelligent classification and recommendations.  Args:     request: FastAPI request with tenant context     payload: Intent detection request with user's input  Returns:     IntentClassification with detected intent and recommendations  Example:     ```bash     curl -X POST http://localhost:8000/v1/agents/intent/detect \\       -H \"Authorization: Bearer {api_key}\" \\       -H \"X-Namespace: {namespace_id}\" \\       -H \"Content-Type: application/json\" \\       -d '{         \"user_request\": \"I want to search videos by faces\",         \"include_collection_analysis\": true       }'     ```
 
-        :param detect_intent_request: (required)
+        :param detect_intent_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type detect_intent_request: DetectIntentRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -553,8 +563,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -708,8 +720,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -789,8 +803,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -870,8 +886,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1014,8 +1032,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1087,8 +1107,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1160,8 +1182,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1246,7 +1270,7 @@ class AgentSessionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sessions_request: Optional[ListSessionsRequest] = None,
+        list_sessions_request: Annotated[Optional[ListSessionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1280,7 +1304,7 @@ class AgentSessionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sessions_request:
+        :param list_sessions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sessions_request: ListSessionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1326,8 +1350,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1351,7 +1377,7 @@ class AgentSessionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sessions_request: Optional[ListSessionsRequest] = None,
+        list_sessions_request: Annotated[Optional[ListSessionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1385,7 +1411,7 @@ class AgentSessionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sessions_request:
+        :param list_sessions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sessions_request: ListSessionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1431,8 +1457,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1456,7 +1484,7 @@ class AgentSessionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_sessions_request: Optional[ListSessionsRequest] = None,
+        list_sessions_request: Annotated[Optional[ListSessionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1490,7 +1518,7 @@ class AgentSessionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_sessions_request:
+        :param list_sessions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_sessions_request: ListSessionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1536,8 +1564,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1723,8 +1753,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1796,8 +1828,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1869,8 +1903,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1950,7 +1986,7 @@ class AgentSessionsApi:
     def patch_session_agents(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        patch_session_request: PatchSessionRequest,
+        patch_session_request: Annotated[PatchSessionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1970,7 +2006,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param patch_session_request: (required)
+        :param patch_session_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_session_request: PatchSessionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2009,8 +2045,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2027,7 +2065,7 @@ class AgentSessionsApi:
     def patch_session_agents_with_http_info(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        patch_session_request: PatchSessionRequest,
+        patch_session_request: Annotated[PatchSessionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2047,7 +2085,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param patch_session_request: (required)
+        :param patch_session_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_session_request: PatchSessionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2086,8 +2124,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2104,7 +2144,7 @@ class AgentSessionsApi:
     def patch_session_agents_without_preload_content(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        patch_session_request: PatchSessionRequest,
+        patch_session_request: Annotated[PatchSessionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2124,7 +2164,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param patch_session_request: (required)
+        :param patch_session_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_session_request: PatchSessionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2163,8 +2203,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2259,7 +2301,7 @@ class AgentSessionsApi:
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
         confirmation_id: Annotated[StrictStr, Field(description="Confirmation ID")],
-        confirmation_request: ConfirmationRequest,
+        confirmation_request: Annotated[ConfirmationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2281,7 +2323,7 @@ class AgentSessionsApi:
         :type session_id: str
         :param confirmation_id: Confirmation ID (required)
         :type confirmation_id: str
-        :param confirmation_request: (required)
+        :param confirmation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirmation_request: ConfirmationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2321,8 +2363,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2340,7 +2384,7 @@ class AgentSessionsApi:
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
         confirmation_id: Annotated[StrictStr, Field(description="Confirmation ID")],
-        confirmation_request: ConfirmationRequest,
+        confirmation_request: Annotated[ConfirmationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2362,7 +2406,7 @@ class AgentSessionsApi:
         :type session_id: str
         :param confirmation_id: Confirmation ID (required)
         :type confirmation_id: str
-        :param confirmation_request: (required)
+        :param confirmation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirmation_request: ConfirmationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2402,8 +2446,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2421,7 +2467,7 @@ class AgentSessionsApi:
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
         confirmation_id: Annotated[StrictStr, Field(description="Confirmation ID")],
-        confirmation_request: ConfirmationRequest,
+        confirmation_request: Annotated[ConfirmationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2443,7 +2489,7 @@ class AgentSessionsApi:
         :type session_id: str
         :param confirmation_id: Confirmation ID (required)
         :type confirmation_id: str
-        :param confirmation_request: (required)
+        :param confirmation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirmation_request: ConfirmationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2483,8 +2529,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2581,7 +2629,7 @@ class AgentSessionsApi:
     def send_message_agents_sessions(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        send_message_request: SendMessageRequest,
+        send_message_request: Annotated[SendMessageRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2601,7 +2649,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param send_message_request: (required)
+        :param send_message_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type send_message_request: SendMessageRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2640,8 +2688,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2658,7 +2708,7 @@ class AgentSessionsApi:
     def send_message_agents_sessions_with_http_info(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        send_message_request: SendMessageRequest,
+        send_message_request: Annotated[SendMessageRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2678,7 +2728,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param send_message_request: (required)
+        :param send_message_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type send_message_request: SendMessageRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2717,8 +2767,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2735,7 +2787,7 @@ class AgentSessionsApi:
     def send_message_agents_sessions_without_preload_content(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        send_message_request: SendMessageRequest,
+        send_message_request: Annotated[SendMessageRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2755,7 +2807,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param send_message_request: (required)
+        :param send_message_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type send_message_request: SendMessageRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2794,8 +2846,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2889,7 +2943,7 @@ class AgentSessionsApi:
     def submit_feedback_agents_sessions(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        submit_feedback_request: SubmitFeedbackRequest,
+        submit_feedback_request: Annotated[SubmitFeedbackRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2909,7 +2963,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param submit_feedback_request: (required)
+        :param submit_feedback_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type submit_feedback_request: SubmitFeedbackRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2948,8 +3002,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2966,7 +3022,7 @@ class AgentSessionsApi:
     def submit_feedback_agents_sessions_with_http_info(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        submit_feedback_request: SubmitFeedbackRequest,
+        submit_feedback_request: Annotated[SubmitFeedbackRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2986,7 +3042,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param submit_feedback_request: (required)
+        :param submit_feedback_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type submit_feedback_request: SubmitFeedbackRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3025,8 +3081,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3043,7 +3101,7 @@ class AgentSessionsApi:
     def submit_feedback_agents_sessions_without_preload_content(
         self,
         session_id: Annotated[StrictStr, Field(description="Session ID")],
-        submit_feedback_request: SubmitFeedbackRequest,
+        submit_feedback_request: Annotated[SubmitFeedbackRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3063,7 +3121,7 @@ class AgentSessionsApi:
 
         :param session_id: Session ID (required)
         :type session_id: str
-        :param submit_feedback_request: (required)
+        :param submit_feedback_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type submit_feedback_request: SubmitFeedbackRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3102,8 +3160,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3252,8 +3312,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3325,8 +3387,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3398,8 +3462,10 @@ class AgentSessionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

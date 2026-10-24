@@ -2192,7 +2192,8 @@ impl PyTubeRegistry {
     ///
     /// # Returns
     /// * Ok(()) if the message was queued successfully
-    /// * Err if the outbound queue is not initialized or full
+    /// * Err if the payload exceeds MAX_FRAME_LEN, the route is closed/missing,
+    ///   or the outbound queue is not initialized/full/closed
     fn send_handler_data(
         &self,
         _py: Python<'_>,
@@ -2201,9 +2202,10 @@ impl PyTubeRegistry {
         data: &[u8],
     ) -> PyResult<()> {
         use crate::channel::core::PythonHandlerOutbound;
-        use crate::python::handler_task::queue_outbound_message;
+        use crate::python::handler_task::{queue_outbound_message, validate_handler_payload_len};
 
         let data_len = data.len();
+        validate_handler_payload_len(data_len).map_err(PyRuntimeError::new_err)?;
 
         debug!(
             "send_handler_data called (conversation_id: {}, conn_no: {}, data_len: {})",
@@ -2219,10 +2221,7 @@ impl PyTubeRegistry {
 
         // Queue the message (non-blocking)
         queue_outbound_message(msg).map_err(|e| {
-            error!(
-                "send_handler_data: Failed to queue message (conversation_id: {}, error: {})",
-                conversation_id, e
-            );
+            error!("send_handler_data: queue admission failed");
             PyRuntimeError::new_err(format!("Failed to queue handler data: {e}"))
         })?;
 
@@ -2373,5 +2372,29 @@ impl Drop for PyTubeRegistry {
             // Python process termination will clean up runtime automatically
             // For explicit shutdown, call registry.shutdown_runtime() before process exit
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oversized_handler_send_returns_runtime_error_before_route_lookup() {
+        Python::initialize();
+        Python::attach(|py| {
+            // Avoid the registry destructor's global cleanup in this isolated test.
+            let registry = PyTubeRegistry {
+                explicit_cleanup_called: AtomicBool::new(true),
+            };
+            let data = vec![0; crate::tube_protocol::MAX_FRAME_LEN + 1];
+            let error = registry
+                .send_handler_data(py, "nonexistent-handler-route", 1, &data)
+                .unwrap_err();
+            assert!(error.is_instance_of::<PyRuntimeError>(py));
+            assert!(error
+                .to_string()
+                .contains("Handler payload exceeds maximum frame length"));
+        });
     }
 }

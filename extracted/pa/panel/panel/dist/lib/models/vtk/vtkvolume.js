@@ -1,7 +1,6 @@
 import { AbstractVTKPlot, AbstractVTKView } from "./vtklayout";
 import { Interpolation, vtkns, data2VTKImageData, hexToRGB, vtkLutToMapper, } from "./util";
 export class VTKVolumePlotView extends AbstractVTKView {
-    static __name__ = "VTKVolumePlotView";
     _controllerWidget;
     _vtk_image_data;
     connect_signals() {
@@ -337,7 +336,6 @@ export class VTKVolumePlotView extends AbstractVTKView {
     }
 }
 export class VTKVolumePlot extends AbstractVTKPlot {
-    static __name__ = "VTKVolumePlot";
     constructor(attrs) {
         super(attrs);
     }

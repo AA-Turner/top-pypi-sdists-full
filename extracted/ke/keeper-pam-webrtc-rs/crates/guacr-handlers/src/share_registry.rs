@@ -6,9 +6,14 @@
 //
 // See crates/guacr/docs/SESSION_SHARING.md for the full design.
 
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 use once_cell::sync::Lazy;
 use std::sync::Arc;
+use tokio::sync::watch;
+
+use crate::session_sharing::{
+    self, SessionCancellation, SessionGeneration, SessionHandle, SessionSubscription,
+};
 use uuid::Uuid;
 
 // ── Privilege bitfield ────────────────────────────────────────────────────────
@@ -47,6 +52,18 @@ impl Participant {
     }
 }
 
+#[derive(Debug)]
+struct ParticipantEntry {
+    participant: Participant,
+    ended: watch::Sender<bool>,
+}
+
+impl ParticipantEntry {
+    fn new(participant: Participant) -> Self {
+        let (ended, _) = watch::channel(false);
+        Self { participant, ended }
+    }
+}
 // ── ShareSession ─────────────────────────────────────────────────────────────
 
 #[derive(Debug)]
@@ -54,9 +71,12 @@ pub struct ShareSession {
     /// Session ID that owns this share (for cleanup correlation).
     pub session_id: String,
     /// GUID → participant map.
-    participants: DashMap<Uuid, Participant>,
+    participants: DashMap<Uuid, ParticipantEntry>,
     /// The owner's participant GUID.
     pub owner_guid: Uuid,
+    ended: watch::Sender<bool>,
+    frame_generation: Option<SessionGeneration>,
+    lifecycle: parking_lot::Mutex<()>,
 }
 
 impl ShareSession {
@@ -70,11 +90,17 @@ impl ShareSession {
             passthrough: Vec::new(),
         };
         let participants = DashMap::new();
-        participants.insert(owner_guid, owner);
+        participants.insert(owner_guid, ParticipantEntry::new(owner));
+        let (ended, _) = watch::channel(false);
+        let frame_generation =
+            session_sharing::lookup(&session_id).map(|handle| handle.generation());
         let session = Self {
             session_id,
             participants,
             owner_guid,
+            ended,
+            frame_generation,
+            lifecycle: parking_lot::Mutex::new(()),
         };
         (session, owner_guid)
     }
@@ -86,43 +112,61 @@ impl ShareSession {
         privileges: u8,
         passthrough: Vec<u8>,
     ) -> Uuid {
+        let _lifecycle = self.lifecycle.lock();
         let guid = Uuid::new_v4();
-        self.participants.insert(
-            guid,
-            Participant {
+        if self.is_live() {
+            self.participants.insert(
                 guid,
-                display_name,
-                privileges,
-                status: ParticipantStatus::Pending,
-                passthrough,
-            },
-        );
+                ParticipantEntry::new(Participant {
+                    guid,
+                    display_name,
+                    privileges,
+                    status: ParticipantStatus::Pending,
+                    passthrough,
+                }),
+            );
+        }
         guid
     }
 
     /// Accept a viewer join — moves Pending → Connected.
     /// Returns Err if GUID not found, already connected, or already disconnected.
     pub fn accept_join(&self, guid: Uuid) -> Result<Participant, &'static str> {
+        let _lifecycle = self.lifecycle.lock();
+        if !self.is_live() {
+            return Err("Session expired");
+        }
         let mut entry = self
             .participants
             .get_mut(&guid)
             .ok_or("GUID not found or session expired")?;
-        if entry.status != ParticipantStatus::Pending {
+        if !self.is_live() {
+            return Err("Session expired");
+        }
+        if entry.participant.status != ParticipantStatus::Pending {
             return Err("GUID already used or already connected");
         }
-        entry.status = ParticipantStatus::Connected;
-        Ok(entry.clone())
+        if entry.participant.privileges & PRIV_VIEW == 0 || *entry.ended.borrow() {
+            return Err("No view privilege");
+        }
+        entry.participant.status = ParticipantStatus::Connected;
+        Ok(entry.participant.clone())
     }
 
     /// Revoke a pending or connected participant by GUID.
     pub fn revoke(&self, guid: Uuid) {
-        self.participants.remove(&guid);
+        if let Some((_, entry)) = self.participants.remove(&guid) {
+            entry.ended.send_replace(true);
+        }
     }
 
     /// Update privileges for a participant.
     pub fn set_privileges(&self, guid: Uuid, new_privileges: u8) -> bool {
         if let Some(mut p) = self.participants.get_mut(&guid) {
-            p.privileges = new_privileges;
+            p.participant.privileges = new_privileges;
+            if new_privileges & PRIV_VIEW == 0 {
+                p.ended.send_replace(true);
+            }
             true
         } else {
             false
@@ -137,18 +181,64 @@ impl ShareSession {
     /// change privileges mid-session, and a cached snapshot would let a viewer
     /// keep control/drawing after it was taken away.
     pub fn get_privileges(&self, guid: Uuid) -> Option<u8> {
-        self.participants.get(&guid).map(|p| p.privileges)
+        if !self.is_live() {
+            return None;
+        }
+        self.participants
+            .get(&guid)
+            .map(|p| p.participant.privileges)
     }
 
     /// Snapshot of all participants (for broadcast to viewers).
     pub fn participant_list(&self) -> Vec<Participant> {
-        self.participants.iter().map(|e| e.clone()).collect()
+        self.participants
+            .iter()
+            .map(|e| e.participant.clone())
+            .collect()
     }
 
     /// Mark a participant disconnected (but keep their slot for audit).
     pub fn mark_disconnected(&self, guid: Uuid) {
         if let Some(mut p) = self.participants.get_mut(&guid) {
-            p.status = ParticipantStatus::Disconnected;
+            p.participant.status = ParticipantStatus::Disconnected;
+            p.ended.send_replace(true);
+        }
+    }
+
+    pub(crate) fn cancellation(&self) -> SessionCancellation {
+        SessionCancellation::subscribe(&self.ended)
+    }
+
+    pub(crate) fn participant_cancellation(&self, guid: Uuid) -> Option<SessionCancellation> {
+        self.participants
+            .get(&guid)
+            .map(|p| SessionCancellation::subscribe(&p.ended))
+    }
+
+    fn is_live(&self) -> bool {
+        !*self.ended.borrow()
+            && self
+                .frame_generation
+                .as_ref()
+                .is_none_or(SessionGeneration::is_live)
+    }
+
+    pub(crate) fn subscribe_frames(
+        &self,
+        update: bytes::Bytes,
+    ) -> Option<(SessionSubscription, Option<bytes::Bytes>)> {
+        if !self.is_live() {
+            return None;
+        }
+        self.frame_generation.as_ref()?.subscribe_viewer(update)
+    }
+
+    fn end(&self) {
+        let _lifecycle = self.lifecycle.lock();
+        self.ended.send_replace(true);
+        for mut p in self.participants.iter_mut() {
+            p.participant.status = ParticipantStatus::Disconnected;
+            p.ended.send_replace(true);
         }
     }
 }
@@ -168,18 +258,66 @@ pub fn create_share_session(
     let (session, owner_guid) =
         ShareSession::new(session_id.to_string(), owner_name, owner_privileges);
     let session = Arc::new(session);
-    SHARE_REGISTRY.insert(session_id.to_string(), Arc::clone(&session));
+    publish_share_session(&session);
     (session, owner_guid)
+}
+
+/// Admission is checked while holding the destination entry. An old captured
+/// generation cannot replace/end a fresh share before discovering it is stale.
+fn publish_share_session(session: &Arc<ShareSession>) -> bool {
+    let previous = match SHARE_REGISTRY.entry(session.session_id.clone()) {
+        Entry::Occupied(mut entry) => {
+            if !session.is_live()
+                || (session.frame_generation.is_none() && entry.get().frame_generation.is_some())
+            {
+                drop(entry);
+                session.end();
+                return false;
+            }
+            Some(entry.insert(Arc::clone(session)))
+        }
+        Entry::Vacant(entry) => {
+            if !session.is_live() {
+                drop(entry);
+                session.end();
+                return false;
+            }
+            entry.insert(Arc::clone(session));
+            None
+        }
+    };
+    // Never hold a registry guard while taking the participant lifecycle lock.
+    if let Some(previous) = previous {
+        previous.end();
+    }
+    true
 }
 
 /// Look up the share session for a session_id.
 pub fn get_share_session(session_id: &str) -> Option<Arc<ShareSession>> {
-    SHARE_REGISTRY.get(session_id).map(|e| Arc::clone(&e))
+    SHARE_REGISTRY
+        .get(session_id)
+        .filter(|e| e.is_live())
+        .map(|e| Arc::clone(&e))
 }
 
 /// Remove the share session and invalidate all pending GUIDs.
 pub fn remove_share_session(session_id: &str) {
-    SHARE_REGISTRY.remove(session_id);
+    if let Some((_, session)) = SHARE_REGISTRY.remove(session_id) {
+        session.end();
+    }
+}
+
+/// Retire only the share bound to this frame owner, never a replacement share.
+pub(crate) fn retire_frame_share(session_id: &str, handle: &SessionHandle) {
+    if let Some((_, share)) = SHARE_REGISTRY.remove_if(session_id, |_, share| {
+        share
+            .frame_generation
+            .as_ref()
+            .is_some_and(|generation| generation.matches(handle))
+    }) {
+        share.end();
+    }
 }
 
 /// Look up a share session by GUID (for viewer join — O(n) scan across sessions).
@@ -187,163 +325,75 @@ pub fn remove_share_session(session_id: &str) {
 pub fn find_session_by_guid(guid: Uuid) -> Option<Arc<ShareSession>> {
     SHARE_REGISTRY
         .iter()
-        .find(|e| e.participants.contains_key(&guid))
+        .find(|e| e.is_live() && e.participants.contains_key(&guid))
         .map(|e| Arc::clone(&e))
 }
 
+// private-type test, cannot move to src/tests/: stages private capture/publication separately.
 #[cfg(test)]
-mod tests {
+mod publication_tests {
     use super::*;
+    use bytes::Bytes;
 
-    fn session_id() -> String {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static CTR: AtomicU64 = AtomicU64::new(0);
-        format!("$test-share-{}", CTR.fetch_add(1, Ordering::Relaxed))
-    }
-
-    #[test]
-    fn test_create_and_get() {
-        let id = session_id();
-        let (session, _owner) = create_share_session(&id, "Alice".into(), PRIV_VIEW | PRIV_CONTROL);
-        assert_eq!(session.participant_list().len(), 1);
-        assert!(get_share_session(&id).is_some());
-        remove_share_session(&id);
-        assert!(get_share_session(&id).is_none());
-    }
-
-    #[test]
-    fn test_invitation_lifecycle() {
-        let id = session_id();
-        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW | PRIV_CONTROL);
-
-        let guid = session.add_invitation("Bob".into(), PRIV_VIEW, vec![]);
-        assert_eq!(session.participant_list().len(), 2);
-
-        // Accept
-        let p = session.accept_join(guid).unwrap();
-        assert_eq!(p.status, ParticipantStatus::Connected);
-
-        // Can't join twice
-        assert!(session.accept_join(guid).is_err());
-
-        remove_share_session(&id);
-    }
-
-    #[test]
-    fn test_revoke_pending() {
-        let id = session_id();
-        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
-        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW, vec![]);
-        session.revoke(guid);
-        assert!(session.accept_join(guid).is_err());
-        remove_share_session(&id);
-    }
-
-    #[test]
-    fn test_privilege_change() {
-        let id = session_id();
-        let (session, owner_guid) =
-            create_share_session(&id, "Owner".into(), PRIV_VIEW | PRIV_CONTROL);
-        session.set_privileges(owner_guid, PRIV_VIEW);
-        let p = session
-            .participant_list()
-            .into_iter()
-            .find(|p| p.guid == owner_guid)
-            .unwrap();
-        assert_eq!(p.privileges, PRIV_VIEW);
-        assert!(!p.has_privilege(PRIV_CONTROL));
-        remove_share_session(&id);
-    }
-
-    #[test]
-    fn test_find_by_guid() {
-        let id = session_id();
-        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
-        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW, vec![]);
-
-        let found = find_session_by_guid(guid);
-        assert!(found.is_some());
-        assert_eq!(found.unwrap().session_id, id);
-
-        let not_found = find_session_by_guid(Uuid::new_v4());
-        assert!(not_found.is_none());
-
-        remove_share_session(&id);
-    }
-
-    #[test]
-    fn test_get_privileges_reflects_revocation() {
-        let id = session_id();
-        let (session, _owner) = create_share_session(&id, "Owner".into(), PRIV_VIEW | PRIV_CONTROL);
-        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW | PRIV_CONTROL, vec![]);
-        session.accept_join(guid).unwrap();
-        assert_eq!(session.get_privileges(guid), Some(PRIV_VIEW | PRIV_CONTROL));
-        assert!(session.set_privileges(guid, PRIV_VIEW));
-        let privs = session
-            .get_privileges(guid)
-            .expect("participant still present");
-        assert_eq!(
-            privs & PRIV_CONTROL,
-            0,
-            "PRIV_CONTROL must be gone after revoke"
-        );
-        assert_eq!(privs & PRIV_VIEW, PRIV_VIEW, "PRIV_VIEW retained");
-        remove_share_session(&id);
-    }
-
-    #[test]
-    fn test_get_privileges_none_after_full_revoke() {
-        let id = session_id();
-        let (session, _) = create_share_session(&id, "Owner".into(), PRIV_VIEW);
-        let guid = session.add_invitation("Viewer".into(), PRIV_VIEW | PRIV_CONTROL, vec![]);
-        session.accept_join(guid).unwrap();
-        session.revoke(guid);
-        assert_eq!(session.get_privileges(guid), None);
-        remove_share_session(&id);
-    }
-
-    // Regression: forward_viewer_input() must return false if the owner's handler
-    // never registered a viewer_input channel. Without registering the channel,
-    // viewers with PRIV_CONTROL can send key/mouse events but they are silently
-    // dropped. The owner's select! loop never receives them.
-    //
-    // This test proves the current buggy state (forward returns false before wiring)
-    // and validates the fix (forward returns true and delivers bytes after wiring).
-    #[test]
-    fn test_viewer_input_forwarding_requires_channel_registration() {
-        use crate::session_sharing::{self, ViewerInput};
-        use bytes::Bytes;
-
-        let id = session_id();
-        // Register as if we're the owner handler calling session_sharing::register().
-        let handle = session_sharing::register(&id).unwrap();
-
-        let input = || ViewerInput {
-            bytes: Bytes::from_static(b"4.key,1.1,1.0;"),
-            guid: uuid::Uuid::nil(),
-            display_name: "Viewer".into(),
-        };
-
-        // Before set_viewer_input_channel: forward_viewer_input returns false.
-        let dropped = !handle.forward_viewer_input(input());
-        assert!(
-            dropped,
-            "input must be dropped when no channel is registered"
-        );
-
-        // Wire the channel (what the owner handler must do at session start).
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ViewerInput>();
-        handle.set_viewer_input_channel(tx);
-
-        // After wiring: forward_viewer_input returns true and the bytes arrive.
-        let delivered = handle.forward_viewer_input(input());
-        assert!(
-            delivered,
-            "input must be delivered after channel is registered"
-        );
-        let received = rx.try_recv().expect("bytes must arrive on channel");
-        assert_eq!(received.bytes.as_ref(), b"4.key,1.1,1.0;");
-
+    #[tokio::test]
+    async fn stale_capture_publication_preserves_fresh_share_guid_and_output() {
+        let id = format!("$stale-share-publication-{}", Uuid::new_v4());
+        let old_frame = session_sharing::register(&id).unwrap();
+        let (stale, _) = ShareSession::new(id.clone(), "Stale Owner".into(), PRIV_VIEW);
+        let stale = Arc::new(stale);
+        let stale_guid = stale.add_invitation("Stale Viewer".into(), PRIV_VIEW, vec![]);
+        // Controlled interleaving: capture A, end A, publish B, then publish stale A.
         session_sharing::deregister(&id);
+        let fresh_frame = session_sharing::register(&id).unwrap();
+        let (fresh, _) = create_share_session(&id, "Fresh Owner".into(), PRIV_VIEW);
+        let fresh_guid = fresh.add_invitation("Fresh Viewer".into(), PRIV_VIEW, vec![]);
+        assert!(!publish_share_session(&stale));
+        assert!(Arc::ptr_eq(&get_share_session(&id).unwrap(), &fresh));
+        assert!(find_session_by_guid(stale_guid).is_none());
+        assert!(Arc::ptr_eq(
+            &find_session_by_guid(fresh_guid).unwrap(),
+            &fresh
+        ));
+        assert!(stale.accept_join(stale_guid).is_err());
+        let params =
+            std::collections::HashMap::from([("share_guid".into(), fresh_guid.to_string())]);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+        let (input_tx, input_rx) = tokio::sync::mpsc::channel(4);
+        let viewer = crate::share_viewer::check_viewer_join(
+            &params,
+            &tx,
+            input_rx,
+            "fresh-viewer-transport",
+        );
+        tokio::pin!(viewer);
+        let accepted = tokio::select! {
+            result = viewer.as_mut() => panic!("fresh viewer failed to join: {result:?}"),
+            accepted = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv()) => accepted.unwrap().unwrap(),
+        };
+        assert_eq!(
+            guacr_protocol::GuacamoleParser::parse_instruction(&accepted)
+                .unwrap()
+                .opcode,
+            "share_join_accepted"
+        );
+        let output = Bytes::from_static(b"fresh-generation-output");
+        fresh_frame.broadcast(output.clone());
+        let delivered = tokio::select! {
+            result = viewer.as_mut() => panic!("fresh viewer ended before output: {result:?}"),
+            delivered = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv()) => delivered.unwrap().unwrap(),
+        };
+        assert_eq!(delivered, output);
+        session_sharing::deregister_owner(&id, &old_frame);
+        assert!(Arc::ptr_eq(&get_share_session(&id).unwrap(), &fresh));
+        session_sharing::deregister(&id);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_secs(1), viewer)
+                .await
+                .unwrap()
+                .unwrap()
+                .is_ok()
+        );
+        assert!(input_tx.is_closed());
+        remove_share_session(&id);
     }
 }

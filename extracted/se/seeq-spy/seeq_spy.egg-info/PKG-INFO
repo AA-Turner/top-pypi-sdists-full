@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seeq-spy
-Version: 202.19
+Version: 202.20
 Summary: Easy-to-use Python interface for Seeq
 Author-email: Seeq Corporation <support@seeq.com>
 License: Seeq Python Library – License File
@@ -434,6 +434,8 @@ Requires-Dist: python-dateutil>=2.7.3
 Requires-Dist: pytz>=2020.1
 Requires-Dist: requests>=2.22.0
 Requires-Dist: urllib3>=1.21.1
+Provides-Extra: keychain
+Requires-Dist: keyring>=23.0.0; extra == "keychain"
 Provides-Extra: widgets
 Requires-Dist: ipython>=7.6.1; extra == "widgets"
 Requires-Dist: ipywidgets>=7.6.0; extra == "widgets"
@@ -480,6 +482,7 @@ Requires-Dist: ipython>=7.6.1; extra == "all"
 Requires-Dist: Mako>=1.1.0; extra == "all"
 Requires-Dist: seeq-data-lab-env-mgr>=0.1.0; extra == "all"
 Requires-Dist: jupyter_client>=7.2.0; extra == "all"
+Requires-Dist: keyring>=23.0.0; extra == "all"
 
 The **seeq-spy** Python module is the recommended programming interface for interacting with the Seeq Server.
 

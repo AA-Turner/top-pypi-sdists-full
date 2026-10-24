@@ -1,12 +1,15 @@
+use crate::lint_text::_helpers::format_bodies::unwrapped_expression;
 use crate::lint_text::_helpers::sites::site_pattern;
 use crate::lint_text::_helpers::sql_diagnostics::interpolation_text_at;
 use crate::lint_text::constants::SITE_START_BYTES;
 use crate::lint_text::errors::LintTextError;
 use crate::lint_text::main::format_sql_bodies::format_sql_bodies;
+use crate::lint_text::main::frame_sql_macro_expression::frame_sql_macro_expression;
 use crate::lint_text::main::lint_sql_bodies::lint_sql_bodies;
 use crate::lint_text::main::neutralize_audit_parameters::neutralize_audit_parameters;
 use crate::lint_text::main::neutralize_context_interpolation::neutralize_context_interpolation;
 use crate::lint_text::main::neutralize_interpolation::neutralize_interpolation;
+use crate::lint_text::main::neutralize_sql_macro_parameters::neutralize_sql_macro_parameters;
 use crate::lint_text::main::reject_inline_suppressions::reject_inline_suppressions;
 use crate::lint_text::main::restore_interpolation::restore_interpolation;
 use crate::lint_text::models::{ExpansionSpan, FormatFile, LintSqlBody, LintSqlOptions};
@@ -14,6 +17,7 @@ use crate::lint_text::tests::helpers::directive_finding;
 use crate::lint_text::tests::test_types::{
     Finding, FormatBodiesTestCase, LintBodiesTestCase, NeutralizeTestCase, ParameterTestCase,
     RestoreTestCase, SitePatternTestCase, SuppressionTestCase, TokenAtTestCase,
+    UnwrappedExpressionTestCase,
 };
 
 const SUPPRESSED_FILE: &str =
@@ -60,13 +64,13 @@ fn given_authored_sql_when_neutralizing_then_sites_use_character_offsets()
     let test_cases = [
         NeutralizeTestCase {
             description: "reference, macro call and template",
-            body: "select @m(a, ')') from __ref('o') where x > ${v}",
+            body: "select @py.m(a, ')') from __ref('o') where x > ${v}",
             formatting: false,
             expected_text: "select __sqb_lint_0__ from __sqb_lint_1__ where x > __sqb_lint_2__",
             expected_sites: vec![
-                ("@m(a, ')')", 7, 17),
-                ("__ref('o')", 23, 33),
-                ("${v}", 44, 48),
+                ("@py.m(a, ')')", 7, 20),
+                ("__ref('o')", 26, 36),
+                ("${v}", 47, 51),
             ],
         },
         NeutralizeTestCase {
@@ -132,9 +136,27 @@ fn given_generated_parameters_when_neutralizing_then_only_bare_parameters_are_re
     let test_cases = [
         ParameterTestCase {
             description: "quoted and raw audit parameters, but not calls or doubled at-signs",
-            body: "select * from @this where @column < 0 and @'kind' = @f(1) and @@x",
+            body: "select * from @this where @column < 0 and @'kind' = @py.f(1) and @@x",
             neutralize: neutralize_audit_parameters,
-            expected_text: "select * from __sqlbuild_audit_parameter_0__ where __sqlbuild_audit_parameter_1__ < 0 and '__sqlbuild_audit_parameter_2__' = @f(1) and @@x",
+            expected_text: "select * from __sqlbuild_audit_parameter_0__ where __sqlbuild_audit_parameter_1__ < 0 and '__sqlbuild_audit_parameter_2__' = @py.f(1) and @@x",
+        },
+        ParameterTestCase {
+            description: "SQL macro parameters followed by words and a parenthesis",
+            body: "@value IS NULL OR TRIM(@value) = ''",
+            neutralize: neutralize_sql_macro_parameters,
+            expected_text: "__sqlbuild_macro_parameter_0__ IS NULL OR TRIM(__sqlbuild_macro_parameter_1__) = ''",
+        },
+        ParameterTestCase {
+            description: "SQL macro parameters before IN and a parenthesised predicate",
+            body: "CASE WHEN @x IN ('a', 'b') THEN 1 END + CASE WHEN @x IS NULL AND (@y IS NULL) THEN 1 END",
+            neutralize: neutralize_sql_macro_parameters,
+            expected_text: "CASE WHEN __sqlbuild_macro_parameter_0__ IN ('a', 'b') THEN 1 END + CASE WHEN __sqlbuild_macro_parameter_1__ IS NULL AND (__sqlbuild_macro_parameter_2__ IS NULL) THEN 1 END",
+        },
+        ParameterTestCase {
+            description: "SQL macro calls, enum references and quoted text keep their at-signs",
+            body: "@sql.other(@v) + @enum(\"s\").A + LENGTH('@v') + @@x",
+            neutralize: neutralize_sql_macro_parameters,
+            expected_text: "@sql.other(__sqlbuild_macro_parameter_0__) + @enum(\"s\").A + LENGTH('@v') + @@x",
         },
         ParameterTestCase {
             description: "context interpolation in hooks",
@@ -193,13 +215,13 @@ fn given_character_offset_when_reading_token_then_only_site_starts_have_tokens()
     let test_cases = [
         TokenAtTestCase {
             description: "a macro call after a multibyte character",
-            body: "é @m(x) y",
+            body: "é @py.m(x) y",
             start: 2,
-            expected_token: Some("@m(x)"),
+            expected_token: Some("@py.m(x)"),
         },
         TokenAtTestCase {
             description: "a plain character",
-            body: "é @m(x) y",
+            body: "é @py.m(x) y",
             start: 0,
             expected_token: None,
         },
@@ -323,10 +345,10 @@ fn given_sql_files_when_formatting_bodies_then_sites_and_fixture_ceremony_surviv
         FormatBodiesTestCase {
             description: "a model body with a reference and a macro",
             relative_parts: Some(vec!["models".to_string(), "orders.sql".to_string()]),
-            contents: "MODEL (description \"d\");\nselect a, @m('x') as m from __ref('o')\n",
+            contents: "MODEL (description \"d\");\nselect a, @py.m('x') as m from __ref('o')\n",
             expected_formatted: vec![(
                 0,
-                "MODEL (description \"d\");\nSELECT\n  a,\n  @m('x') AS m\nFROM __ref('o')\n"
+                "MODEL (description \"d\");\nSELECT\n  a,\n  @py.m('x') AS m\nFROM __ref('o')\n"
                     .to_string(),
             )],
             expected_fault_lines: vec![],
@@ -404,18 +426,18 @@ fn given_expanded_bodies_when_linting_then_findings_map_to_authored_lines() {
         },
         LintBodiesTestCase {
             description: "a finding inside generated SQL points at the interpolation token",
-            contents: "select a from t where @isnull()\n",
+            contents: "select a from t where @py.isnull()\n",
             body: LintSqlBody {
                 lint_text: "select a from t where a = null".to_string(),
                 passes: vec![vec![ExpansionSpan {
                     source_start: 22,
-                    source_end: 31,
+                    source_end: 34,
                     output_start: 22,
                     output_end: 30,
                 }]],
                 ..LintSqlBody::default()
             },
-            expected_findings: vec![("SQBRSQL001", 1, 23, Some((1, 32)))],
+            expected_findings: vec![("SQBRSQL001", 1, 23, Some((1, 35)))],
         },
     ];
 
@@ -423,6 +445,151 @@ fn given_expanded_bodies_when_linting_then_findings_map_to_authored_lines() {
         let options = LintSqlOptions {
             dialect: "duckdb".to_string(),
             enabled_rules: Some(vec!["SQBRSQL001".to_string(), "SQBRSQL005".to_string()]),
+            max_literal_length: 100,
+            max_ranking_order_by: 5,
+            ..LintSqlOptions::default()
+        };
+
+        let result = lint_sql_bodies(&[test_case.body], &[test_case.contents], &options);
+        let findings: Vec<Finding<'_>> = result
+            .iter()
+            .map(|finding| {
+                (
+                    finding.code.as_str(),
+                    finding.line,
+                    finding.column,
+                    finding.end,
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            findings, test_case.expected_findings,
+            "{}",
+            test_case.description
+        );
+    }
+}
+
+#[test]
+fn given_a_formatted_expression_select_when_unwrapping_then_strings_keep_their_lines() {
+    let test_cases = [
+        UnwrappedExpressionTestCase {
+            description: "the expression is dedented one level",
+            formatted: "SELECT\n  ROUND(\n    @v,\n    2\n  )",
+            expected_expression: Some("ROUND(\n  @v,\n  2\n)"),
+        },
+        UnwrappedExpressionTestCase {
+            description: "lines inside a multi-line string literal are not dedented",
+            formatted: "SELECT\n  CONCAT(\n    'first\n    second',\n    @v\n  )",
+            expected_expression: Some("CONCAT(\n  'first\n    second',\n  @v\n)"),
+        },
+        UnwrappedExpressionTestCase {
+            description: "text that is not a select is not an expression",
+            formatted: "WITH a AS (SELECT 1)",
+            expected_expression: None,
+        },
+    ];
+
+    for test_case in test_cases {
+        let unwrapped: Option<String> = unwrapped_expression(test_case.formatted);
+
+        assert_eq!(
+            unwrapped.as_deref(),
+            test_case.expected_expression,
+            "{}",
+            test_case.description
+        );
+    }
+}
+
+#[test]
+fn given_sql_macro_bodies_when_linting_then_frames_and_generated_comments_are_not_judged() {
+    let parenthesised = frame_sql_macro_expression("((x) IS NULL AND (x) IS NULL) OR TRIM(x) = ''");
+    let null_comparison = frame_sql_macro_expression("x = NULL OR y;\n");
+    let test_cases = [
+        LintBodiesTestCase {
+            description: "an expression body opening with two parentheses parses as a SELECT",
+            contents: "((x) IS NULL AND (x) IS NULL) OR TRIM(x) = ''\n",
+            body: LintSqlBody {
+                lint_text: parenthesised.text,
+                passes: vec![parenthesised.pass],
+                expression_frame: Some(parenthesised.frame),
+                ..LintSqlBody::default()
+            },
+            expected_findings: vec![],
+        },
+        LintBodiesTestCase {
+            description: "a finding in a framed expression maps to the body, none to the frame",
+            contents: "x = NULL OR y;\n",
+            body: LintSqlBody {
+                lint_text: null_comparison.text,
+                passes: vec![null_comparison.pass],
+                expression_frame: Some(null_comparison.frame),
+                ..LintSqlBody::default()
+            },
+            expected_findings: vec![("SQBRSQL001", 1, 3, Some((1, 4)))],
+        },
+        LintBodiesTestCase {
+            description: "comments a macro expansion generated are not judged in the caller",
+            contents: "SELECT a, NOT @sql.m(b) AS c FROM t\n",
+            body: LintSqlBody {
+                lint_text: "SELECT a, NOT -- why\nCONTAINS(b, /* sign */ '@') AS c FROM t"
+                    .to_string(),
+                passes: vec![vec![ExpansionSpan {
+                    source_start: 14,
+                    source_end: 23,
+                    output_start: 14,
+                    output_end: 50,
+                }]],
+                ..LintSqlBody::default()
+            },
+            expected_findings: vec![("SQBRSQL034", 1, 1, Some((1, 7)))],
+        },
+        LintBodiesTestCase {
+            description: "comments a Python macro generated are judged in the caller",
+            contents: "SELECT a, NOT @py.m(b)  AS c FROM t\n",
+            body: LintSqlBody {
+                lint_text: "SELECT a, NOT -- why\nCONTAINS(b, /* sign */ '@') AS c FROM t"
+                    .to_string(),
+                passes: vec![vec![ExpansionSpan {
+                    source_start: 14,
+                    source_end: 23,
+                    output_start: 14,
+                    output_end: 50,
+                }]],
+                ..LintSqlBody::default()
+            },
+            expected_findings: vec![
+                ("SQBRSQL034", 1, 1, Some((1, 7))),
+                ("SQBRSQL033", 1, 11, Some((1, 14))),
+                ("SQBRSQL033", 1, 15, Some((1, 23))),
+            ],
+        },
+        LintBodiesTestCase {
+            description: "the same comments authored in the caller are judged",
+            contents: "SELECT a, NOT -- why\nCONTAINS(b, /* sign */ '@') AS c FROM t\n",
+            body: LintSqlBody {
+                lint_text: "SELECT a, NOT -- why\nCONTAINS(b, /* sign */ '@') AS c FROM t"
+                    .to_string(),
+                ..LintSqlBody::default()
+            },
+            expected_findings: vec![
+                ("SQBRSQL034", 1, 1, Some((1, 7))),
+                ("SQBRSQL033", 1, 11, Some((1, 14))),
+                ("SQBRSQL033", 2, 11, Some((2, 12))),
+            ],
+        },
+    ];
+
+    for test_case in test_cases {
+        let options = LintSqlOptions {
+            dialect: "duckdb".to_string(),
+            enabled_rules: Some(
+                ["SQBRSQL001", "SQBRSQL022", "SQBRSQL033", "SQBRSQL034"]
+                    .map(str::to_string)
+                    .to_vec(),
+            ),
             max_literal_length: 100,
             max_ranking_order_by: 5,
             ..LintSqlOptions::default()

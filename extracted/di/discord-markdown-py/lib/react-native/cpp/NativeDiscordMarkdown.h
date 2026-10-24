@@ -15,13 +15,14 @@ public:
 	explicit NativeDiscordMarkdown(std::shared_ptr<CallInvoker> jsInvoker);
 
 	// Parses markdown synchronously and returns the AST as a JSON string; throws a JS error
-	// if the parser rejects the content. `allowedRules` is an optional JSON array of rule
-	// names, matching the wasm binding. `fuel` optionally bounds how much work the parse may
-	// do, defaulting to the parser's own budget; exhausting it throws like any other rejection.
+	// if the parser rejects the content. `flags` optionally picks the syntax to parse, a bit per
+	// syntax as `discord_markdown_c.h` names them, defaulting to all of it. `fuel` optionally
+	// bounds how much work the parse may do, defaulting to the parser's own budget; exhausting
+	// it throws like any other rejection.
 	std::string parseToAstString(
 		jsi::Runtime &rt,
 		std::string content,
-		std::optional<std::string> allowedRules,
+		std::optional<double> flags,
 		std::optional<double> fuel);
 
 	// Turns a JSON AST back into the markdown it came from; throws a JS error if the AST is

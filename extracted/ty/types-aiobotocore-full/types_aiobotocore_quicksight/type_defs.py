@@ -138,6 +138,7 @@ from .literals import (
     GeospatialLayerTypeType,
     GeospatialMapNavigationType,
     GeospatialSelectedPointStyleType,
+    HierarchyFilterMatchOperatorType,
     HistogramBinTypeType,
     HorizontalTextAlignmentType,
     IconType,
@@ -916,6 +917,10 @@ __all__ = (
     "DefaultFormattingTypeDef",
     "DefaultFreeFormLayoutConfigurationTypeDef",
     "DefaultGridLayoutConfigurationTypeDef",
+    "DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef",
+    "DefaultHierarchyFilterDropDownControlOptionsTypeDef",
+    "DefaultHierarchyFilterListControlOptionsOutputTypeDef",
+    "DefaultHierarchyFilterListControlOptionsTypeDef",
     "DefaultInteractiveLayoutConfigurationTypeDef",
     "DefaultNewSheetConfigurationTypeDef",
     "DefaultPaginatedLayoutConfigurationTypeDef",
@@ -1423,6 +1428,18 @@ __all__ = (
     "HeatMapSortConfigurationTypeDef",
     "HeatMapVisualOutputTypeDef",
     "HeatMapVisualTypeDef",
+    "HierarchyFilterDropDownControlDisplayOptionsTypeDef",
+    "HierarchyFilterDropDownControlOutputTypeDef",
+    "HierarchyFilterDropDownControlTypeDef",
+    "HierarchyFilterLevelTypeDef",
+    "HierarchyFilterListControlDisplayOptionsTypeDef",
+    "HierarchyFilterListControlOutputTypeDef",
+    "HierarchyFilterListControlSearchOptionsTypeDef",
+    "HierarchyFilterListControlTypeDef",
+    "HierarchyFilterNodeOutputTypeDef",
+    "HierarchyFilterNodeTypeDef",
+    "HierarchyFilterOutputTypeDef",
+    "HierarchyFilterTypeDef",
     "HistogramAggregatedFieldWellsOutputTypeDef",
     "HistogramAggregatedFieldWellsTypeDef",
     "HistogramBinOptionsTypeDef",
@@ -1755,6 +1772,7 @@ __all__ = (
     "OAuthClientApplicationTypeDef",
     "OAuthClientCredentialsTypeDef",
     "OAuthParametersTypeDef",
+    "OneDriveClientCredentialsTypeDef",
     "OneDriveParametersTypeDef",
     "OracleParametersTypeDef",
     "OutputColumnNameOverrideTypeDef",
@@ -2080,12 +2098,14 @@ __all__ = (
     "SemanticTypeOutputTypeDef",
     "SemanticTypeTypeDef",
     "SeriesItemTypeDef",
+    "ServiceAccountCredentialsTypeDef",
     "ServiceNowParametersTypeDef",
     "SessionTagTypeDef",
     "SetParameterValueConfigurationOutputTypeDef",
     "SetParameterValueConfigurationTypeDef",
     "ShapeConditionalFormatOutputTypeDef",
     "ShapeConditionalFormatTypeDef",
+    "SharePointClientCredentialsTypeDef",
     "SharePointParametersTypeDef",
     "SharedColumnSemanticMetadataOutputTypeDef",
     "SharedColumnSemanticMetadataTypeDef",
@@ -3700,6 +3720,10 @@ class CapabilitiesTypeDef(TypedDict):
     CreateAndUpdateBeeAction: NotRequired[CapabilityStateType]
     ShareBeeAction: NotRequired[CapabilityStateType]
     UseBeeAction: NotRequired[CapabilityStateType]
+    GongAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateGongAction: NotRequired[CapabilityStateType]
+    ShareGongAction: NotRequired[CapabilityStateType]
+    UseGongAction: NotRequired[CapabilityStateType]
     Topic: NotRequired[CapabilityStateType]
     EditVisualWithQ: NotRequired[CapabilityStateType]
     BuildCalculatedFieldWithQ: NotRequired[CapabilityStateType]
@@ -3726,6 +3750,186 @@ class CapabilitiesTypeDef(TypedDict):
     ScheduleTrigger: NotRequired[CapabilityStateType]
     InboundEmailTrigger: NotRequired[CapabilityStateType]
     QuickEventTrigger: NotRequired[CapabilityStateType]
+    FileDataSource: NotRequired[CapabilityStateType]
+    CreateFileDataSource: NotRequired[CapabilityStateType]
+    UpdateFileDataSource: NotRequired[CapabilityStateType]
+    ShareFileDataSource: NotRequired[CapabilityStateType]
+    S3DataSource: NotRequired[CapabilityStateType]
+    CreateS3DataSource: NotRequired[CapabilityStateType]
+    UpdateS3DataSource: NotRequired[CapabilityStateType]
+    ShareS3DataSource: NotRequired[CapabilityStateType]
+    S3AnalyticsDataSource: NotRequired[CapabilityStateType]
+    CreateS3AnalyticsDataSource: NotRequired[CapabilityStateType]
+    UpdateS3AnalyticsDataSource: NotRequired[CapabilityStateType]
+    ShareS3AnalyticsDataSource: NotRequired[CapabilityStateType]
+    S3TablesDataSource: NotRequired[CapabilityStateType]
+    CreateS3TablesDataSource: NotRequired[CapabilityStateType]
+    UpdateS3TablesDataSource: NotRequired[CapabilityStateType]
+    ShareS3TablesDataSource: NotRequired[CapabilityStateType]
+    AthenaDataSource: NotRequired[CapabilityStateType]
+    CreateAthenaDataSource: NotRequired[CapabilityStateType]
+    UpdateAthenaDataSource: NotRequired[CapabilityStateType]
+    ShareAthenaDataSource: NotRequired[CapabilityStateType]
+    RdsDataSource: NotRequired[CapabilityStateType]
+    CreateRdsDataSource: NotRequired[CapabilityStateType]
+    UpdateRdsDataSource: NotRequired[CapabilityStateType]
+    ShareRdsDataSource: NotRequired[CapabilityStateType]
+    RedshiftAutoDiscoveredDataSource: NotRequired[CapabilityStateType]
+    CreateRedshiftAutoDiscoveredDataSource: NotRequired[CapabilityStateType]
+    UpdateRedshiftAutoDiscoveredDataSource: NotRequired[CapabilityStateType]
+    ShareRedshiftAutoDiscoveredDataSource: NotRequired[CapabilityStateType]
+    RedshiftManualDataSource: NotRequired[CapabilityStateType]
+    CreateRedshiftManualDataSource: NotRequired[CapabilityStateType]
+    UpdateRedshiftManualDataSource: NotRequired[CapabilityStateType]
+    ShareRedshiftManualDataSource: NotRequired[CapabilityStateType]
+    OpenSearchDataSource: NotRequired[CapabilityStateType]
+    CreateOpenSearchDataSource: NotRequired[CapabilityStateType]
+    UpdateOpenSearchDataSource: NotRequired[CapabilityStateType]
+    ShareOpenSearchDataSource: NotRequired[CapabilityStateType]
+    TimestreamDataSource: NotRequired[CapabilityStateType]
+    CreateTimestreamDataSource: NotRequired[CapabilityStateType]
+    UpdateTimestreamDataSource: NotRequired[CapabilityStateType]
+    ShareTimestreamDataSource: NotRequired[CapabilityStateType]
+    AuroraDataSource: NotRequired[CapabilityStateType]
+    CreateAuroraDataSource: NotRequired[CapabilityStateType]
+    UpdateAuroraDataSource: NotRequired[CapabilityStateType]
+    ShareAuroraDataSource: NotRequired[CapabilityStateType]
+    MySqlDataSource: NotRequired[CapabilityStateType]
+    CreateMySqlDataSource: NotRequired[CapabilityStateType]
+    UpdateMySqlDataSource: NotRequired[CapabilityStateType]
+    ShareMySqlDataSource: NotRequired[CapabilityStateType]
+    PostgreSqlDataSource: NotRequired[CapabilityStateType]
+    CreatePostgreSqlDataSource: NotRequired[CapabilityStateType]
+    UpdatePostgreSqlDataSource: NotRequired[CapabilityStateType]
+    SharePostgreSqlDataSource: NotRequired[CapabilityStateType]
+    OracleDataSource: NotRequired[CapabilityStateType]
+    CreateOracleDataSource: NotRequired[CapabilityStateType]
+    UpdateOracleDataSource: NotRequired[CapabilityStateType]
+    ShareOracleDataSource: NotRequired[CapabilityStateType]
+    SqlServerDataSource: NotRequired[CapabilityStateType]
+    CreateSqlServerDataSource: NotRequired[CapabilityStateType]
+    UpdateSqlServerDataSource: NotRequired[CapabilityStateType]
+    ShareSqlServerDataSource: NotRequired[CapabilityStateType]
+    MariaDbDataSource: NotRequired[CapabilityStateType]
+    CreateMariaDbDataSource: NotRequired[CapabilityStateType]
+    UpdateMariaDbDataSource: NotRequired[CapabilityStateType]
+    ShareMariaDbDataSource: NotRequired[CapabilityStateType]
+    SnowflakeDataSource: NotRequired[CapabilityStateType]
+    CreateSnowflakeDataSource: NotRequired[CapabilityStateType]
+    UpdateSnowflakeDataSource: NotRequired[CapabilityStateType]
+    ShareSnowflakeDataSource: NotRequired[CapabilityStateType]
+    GoogleBigQueryDataSource: NotRequired[CapabilityStateType]
+    CreateGoogleBigQueryDataSource: NotRequired[CapabilityStateType]
+    UpdateGoogleBigQueryDataSource: NotRequired[CapabilityStateType]
+    ShareGoogleBigQueryDataSource: NotRequired[CapabilityStateType]
+    DatabricksDataSource: NotRequired[CapabilityStateType]
+    CreateDatabricksDataSource: NotRequired[CapabilityStateType]
+    UpdateDatabricksDataSource: NotRequired[CapabilityStateType]
+    ShareDatabricksDataSource: NotRequired[CapabilityStateType]
+    StarburstDataSource: NotRequired[CapabilityStateType]
+    CreateStarburstDataSource: NotRequired[CapabilityStateType]
+    UpdateStarburstDataSource: NotRequired[CapabilityStateType]
+    ShareStarburstDataSource: NotRequired[CapabilityStateType]
+    TrinoDataSource: NotRequired[CapabilityStateType]
+    CreateTrinoDataSource: NotRequired[CapabilityStateType]
+    UpdateTrinoDataSource: NotRequired[CapabilityStateType]
+    ShareTrinoDataSource: NotRequired[CapabilityStateType]
+    ImpalaDataSource: NotRequired[CapabilityStateType]
+    CreateImpalaDataSource: NotRequired[CapabilityStateType]
+    UpdateImpalaDataSource: NotRequired[CapabilityStateType]
+    ShareImpalaDataSource: NotRequired[CapabilityStateType]
+    TeradataDataSource: NotRequired[CapabilityStateType]
+    CreateTeradataDataSource: NotRequired[CapabilityStateType]
+    UpdateTeradataDataSource: NotRequired[CapabilityStateType]
+    ShareTeradataDataSource: NotRequired[CapabilityStateType]
+    PrestoDataSource: NotRequired[CapabilityStateType]
+    CreatePrestoDataSource: NotRequired[CapabilityStateType]
+    UpdatePrestoDataSource: NotRequired[CapabilityStateType]
+    SharePrestoDataSource: NotRequired[CapabilityStateType]
+    SparkDataSource: NotRequired[CapabilityStateType]
+    CreateSparkDataSource: NotRequired[CapabilityStateType]
+    UpdateSparkDataSource: NotRequired[CapabilityStateType]
+    ShareSparkDataSource: NotRequired[CapabilityStateType]
+    ExasolDataSource: NotRequired[CapabilityStateType]
+    CreateExasolDataSource: NotRequired[CapabilityStateType]
+    UpdateExasolDataSource: NotRequired[CapabilityStateType]
+    ShareExasolDataSource: NotRequired[CapabilityStateType]
+    Db2DataSource: NotRequired[CapabilityStateType]
+    CreateDb2DataSource: NotRequired[CapabilityStateType]
+    UpdateDb2DataSource: NotRequired[CapabilityStateType]
+    ShareDb2DataSource: NotRequired[CapabilityStateType]
+    SapHanaDataSource: NotRequired[CapabilityStateType]
+    CreateSapHanaDataSource: NotRequired[CapabilityStateType]
+    UpdateSapHanaDataSource: NotRequired[CapabilityStateType]
+    ShareSapHanaDataSource: NotRequired[CapabilityStateType]
+    DenodoDataSource: NotRequired[CapabilityStateType]
+    CreateDenodoDataSource: NotRequired[CapabilityStateType]
+    UpdateDenodoDataSource: NotRequired[CapabilityStateType]
+    ShareDenodoDataSource: NotRequired[CapabilityStateType]
+    DremioDataSource: NotRequired[CapabilityStateType]
+    CreateDremioDataSource: NotRequired[CapabilityStateType]
+    UpdateDremioDataSource: NotRequired[CapabilityStateType]
+    ShareDremioDataSource: NotRequired[CapabilityStateType]
+    SalesforceDataSource: NotRequired[CapabilityStateType]
+    CreateSalesforceDataSource: NotRequired[CapabilityStateType]
+    UpdateSalesforceDataSource: NotRequired[CapabilityStateType]
+    ShareSalesforceDataSource: NotRequired[CapabilityStateType]
+    RadiantDataSource: NotRequired[CapabilityStateType]
+    CreateRadiantDataSource: NotRequired[CapabilityStateType]
+    UpdateRadiantDataSource: NotRequired[CapabilityStateType]
+    ShareRadiantDataSource: NotRequired[CapabilityStateType]
+    PayPalDataSource: NotRequired[CapabilityStateType]
+    CreatePayPalDataSource: NotRequired[CapabilityStateType]
+    UpdatePayPalDataSource: NotRequired[CapabilityStateType]
+    SharePayPalDataSource: NotRequired[CapabilityStateType]
+    SquareDataSource: NotRequired[CapabilityStateType]
+    CreateSquareDataSource: NotRequired[CapabilityStateType]
+    UpdateSquareDataSource: NotRequired[CapabilityStateType]
+    ShareSquareDataSource: NotRequired[CapabilityStateType]
+    GitHubDataSource: NotRequired[CapabilityStateType]
+    CreateGitHubDataSource: NotRequired[CapabilityStateType]
+    UpdateGitHubDataSource: NotRequired[CapabilityStateType]
+    ShareGitHubDataSource: NotRequired[CapabilityStateType]
+    TwitterDataSource: NotRequired[CapabilityStateType]
+    CreateTwitterDataSource: NotRequired[CapabilityStateType]
+    UpdateTwitterDataSource: NotRequired[CapabilityStateType]
+    ShareTwitterDataSource: NotRequired[CapabilityStateType]
+    JiraDataSource: NotRequired[CapabilityStateType]
+    CreateJiraDataSource: NotRequired[CapabilityStateType]
+    UpdateJiraDataSource: NotRequired[CapabilityStateType]
+    ShareJiraDataSource: NotRequired[CapabilityStateType]
+    ServiceNowDataSource: NotRequired[CapabilityStateType]
+    CreateServiceNowDataSource: NotRequired[CapabilityStateType]
+    UpdateServiceNowDataSource: NotRequired[CapabilityStateType]
+    ShareServiceNowDataSource: NotRequired[CapabilityStateType]
+    AdobeAnalyticsDataSource: NotRequired[CapabilityStateType]
+    CreateAdobeAnalyticsDataSource: NotRequired[CapabilityStateType]
+    UpdateAdobeAnalyticsDataSource: NotRequired[CapabilityStateType]
+    ShareAdobeAnalyticsDataSource: NotRequired[CapabilityStateType]
+    GoogleAnalyticsDataSource: NotRequired[CapabilityStateType]
+    CreateGoogleAnalyticsDataSource: NotRequired[CapabilityStateType]
+    UpdateGoogleAnalyticsDataSource: NotRequired[CapabilityStateType]
+    ShareGoogleAnalyticsDataSource: NotRequired[CapabilityStateType]
+    GoogleSheetsDataSource: NotRequired[CapabilityStateType]
+    CreateGoogleSheetsDataSource: NotRequired[CapabilityStateType]
+    UpdateGoogleSheetsDataSource: NotRequired[CapabilityStateType]
+    ShareGoogleSheetsDataSource: NotRequired[CapabilityStateType]
+    DocumentDbDataSource: NotRequired[CapabilityStateType]
+    CreateDocumentDbDataSource: NotRequired[CapabilityStateType]
+    UpdateDocumentDbDataSource: NotRequired[CapabilityStateType]
+    ShareDocumentDbDataSource: NotRequired[CapabilityStateType]
+    MongoDbDataSource: NotRequired[CapabilityStateType]
+    CreateMongoDbDataSource: NotRequired[CapabilityStateType]
+    UpdateMongoDbDataSource: NotRequired[CapabilityStateType]
+    ShareMongoDbDataSource: NotRequired[CapabilityStateType]
+    MongoAtlasDataSource: NotRequired[CapabilityStateType]
+    CreateMongoAtlasDataSource: NotRequired[CapabilityStateType]
+    UpdateMongoAtlasDataSource: NotRequired[CapabilityStateType]
+    ShareMongoAtlasDataSource: NotRequired[CapabilityStateType]
+    DynamoDbDataSource: NotRequired[CapabilityStateType]
+    CreateDynamoDbDataSource: NotRequired[CapabilityStateType]
+    UpdateDynamoDbDataSource: NotRequired[CapabilityStateType]
+    ShareDynamoDbDataSource: NotRequired[CapabilityStateType]
 
 
 class CapacityBytesRangeFilterTypeDef(TypedDict):
@@ -4373,6 +4577,22 @@ class OAuthClientCredentialsTypeDef(TypedDict):
     Username: NotRequired[str]
 
 
+class OneDriveClientCredentialsTypeDef(TypedDict):
+    KmsKeyArn: str
+    CertThumbprint: str
+
+
+class ServiceAccountCredentialsTypeDef(TypedDict):
+    AdminAccountEmail: str
+    ServiceAccountPrivateKey: str
+    ClientEmail: str
+
+
+class SharePointClientCredentialsTypeDef(TypedDict):
+    KmsKeyArn: str
+    CertThumbprint: str
+
+
 class WebProxyCredentialsTypeDef(TypedDict):
     WebProxyUsername: str
     WebProxyPassword: str
@@ -4385,12 +4605,6 @@ DataSourceErrorInfoTypeDef = TypedDict(
         "Message": NotRequired[str],
     },
 )
-
-
-class DatabricksParametersTypeDef(TypedDict):
-    Host: str
-    Port: int
-    SqlEndpointPath: str
 
 
 class ExasolParametersTypeDef(TypedDict):
@@ -5675,6 +5889,10 @@ class GroupSearchFilterTypeDef(TypedDict):
 
 class GutterStyleTypeDef(TypedDict):
     Show: NotRequired[bool]
+
+
+class HierarchyFilterListControlSearchOptionsTypeDef(TypedDict):
+    Visibility: NotRequired[VisibilityType]
 
 
 class IAMPolicyAssignmentSummaryTypeDef(TypedDict):
@@ -7189,6 +7407,24 @@ class FilterOperationSelectedFieldsConfigurationTypeDef(TypedDict):
     SelectedFields: NotRequired[Sequence[str]]
     SelectedFieldOptions: NotRequired[Literal["ALL_FIELDS"]]
     SelectedColumns: NotRequired[Sequence[ColumnIdentifierTypeDef]]
+
+
+class HierarchyFilterLevelTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+
+
+class HierarchyFilterNodeOutputTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+    ParentValue: NotRequired[str]
+    HierarchyValues: NotRequired[list[str]]
+    Children: NotRequired[list[dict[str, Any]]]
+
+
+class HierarchyFilterNodeTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+    ParentValue: NotRequired[str]
+    HierarchyValues: NotRequired[Sequence[str]]
+    Children: NotRequired[Sequence[Mapping[str, Any]]]
 
 
 class NumericEqualityDrillDownFilterTypeDef(TypedDict):
@@ -11374,6 +11610,14 @@ class DescribeOAuthClientApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DatabricksParametersTypeDef(TypedDict):
+    Host: str
+    Port: int
+    SqlEndpointPath: str
+    AuthenticationType: NotRequired[AuthenticationTypeType]
+    OAuthParameters: NotRequired[OAuthParametersTypeDef]
+
+
 class SnowflakeParametersTypeDef(TypedDict):
     Host: str
     Database: str
@@ -13303,6 +13547,17 @@ class DropDownControlDisplayOptionsTypeDef(TypedDict):
     InfoIconLabelOptions: NotRequired[SheetControlInfoIconLabelOptionsTypeDef]
 
 
+class HierarchyFilterDropDownControlDisplayOptionsTypeDef(TypedDict):
+    TitleOptions: NotRequired[LabelOptionsTypeDef]
+    InfoIconLabelOptions: NotRequired[SheetControlInfoIconLabelOptionsTypeDef]
+
+
+class HierarchyFilterListControlDisplayOptionsTypeDef(TypedDict):
+    TitleOptions: NotRequired[LabelOptionsTypeDef]
+    InfoIconLabelOptions: NotRequired[SheetControlInfoIconLabelOptionsTypeDef]
+    SearchOptions: NotRequired[HierarchyFilterListControlSearchOptionsTypeDef]
+
+
 class LegendOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     Title: NotRequired[LabelOptionsTypeDef]
@@ -14972,6 +15227,46 @@ DefaultFilterListControlOptionsTypeDef = TypedDict(
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
     },
 )
+DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef = TypedDict(
+    "DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+DefaultHierarchyFilterDropDownControlOptionsTypeDef = TypedDict(
+    "DefaultHierarchyFilterDropDownControlOptionsTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+DefaultHierarchyFilterListControlOptionsOutputTypeDef = TypedDict(
+    "DefaultHierarchyFilterListControlOptionsOutputTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+DefaultHierarchyFilterListControlOptionsTypeDef = TypedDict(
+    "DefaultHierarchyFilterListControlOptionsTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
 FilterDropDownControlOutputTypeDef = TypedDict(
     "FilterDropDownControlOutputTypeDef",
     {
@@ -15026,6 +15321,58 @@ FilterListControlTypeDef = TypedDict(
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterDropDownControlOutputTypeDef = TypedDict(
+    "HierarchyFilterDropDownControlOutputTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterDropDownControlTypeDef = TypedDict(
+    "HierarchyFilterDropDownControlTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterListControlOutputTypeDef = TypedDict(
+    "HierarchyFilterListControlOutputTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterListControlTypeDef = TypedDict(
+    "HierarchyFilterListControlTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
         "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
@@ -15698,6 +16045,8 @@ class DefaultFilterControlOptionsOutputTypeDef(TypedDict):
     DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
     DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
     DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
+    DefaultHierarchyList: NotRequired[DefaultHierarchyFilterListControlOptionsOutputTypeDef]
+    DefaultHierarchyDropdown: NotRequired[DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef]
 
 
 class DefaultFilterControlOptionsTypeDef(TypedDict):
@@ -15708,6 +16057,8 @@ class DefaultFilterControlOptionsTypeDef(TypedDict):
     DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
     DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
     DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
+    DefaultHierarchyList: NotRequired[DefaultHierarchyFilterListControlOptionsTypeDef]
+    DefaultHierarchyDropdown: NotRequired[DefaultHierarchyFilterDropDownControlOptionsTypeDef]
 
 
 FilterControlOutputTypeDef = TypedDict(
@@ -15721,6 +16072,8 @@ FilterControlOutputTypeDef = TypedDict(
         "Slider": NotRequired[FilterSliderControlTypeDef],
         "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
         "CrossSheet": NotRequired[FilterCrossSheetControlOutputTypeDef],
+        "HierarchyList": NotRequired[HierarchyFilterListControlOutputTypeDef],
+        "HierarchyDropdown": NotRequired[HierarchyFilterDropDownControlOutputTypeDef],
     },
 )
 FilterControlTypeDef = TypedDict(
@@ -15734,6 +16087,8 @@ FilterControlTypeDef = TypedDict(
         "Slider": NotRequired[FilterSliderControlTypeDef],
         "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
         "CrossSheet": NotRequired[FilterCrossSheetControlTypeDef],
+        "HierarchyList": NotRequired[HierarchyFilterListControlTypeDef],
+        "HierarchyDropdown": NotRequired[HierarchyFilterDropDownControlTypeDef],
     },
 )
 ParameterControlOutputTypeDef = TypedDict(
@@ -16470,6 +16825,9 @@ class DataSourceCredentialsTypeDef(TypedDict):
     KeyPairCredentials: NotRequired[KeyPairCredentialsTypeDef]
     WebProxyCredentials: NotRequired[WebProxyCredentialsTypeDef]
     OAuthClientCredentials: NotRequired[OAuthClientCredentialsTypeDef]
+    ServiceAccountCredentials: NotRequired[ServiceAccountCredentialsTypeDef]
+    SharePointClientCredentials: NotRequired[SharePointClientCredentialsTypeDef]
+    OneDriveClientCredentials: NotRequired[OneDriveClientCredentialsTypeDef]
 
 
 class SheetImageTypeDef(TypedDict):
@@ -16777,6 +17135,16 @@ class CategoryInnerFilterOutputTypeDef(TypedDict):
     DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
 
 
+class HierarchyFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    HierarchyLevels: list[HierarchyFilterLevelTypeDef]
+    NullOption: FilterNullOptionType
+    MatchOperator: HierarchyFilterMatchOperatorType
+    HierarchyTree: NotRequired[HierarchyFilterNodeOutputTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+
 class NumericEqualityFilterOutputTypeDef(TypedDict):
     FilterId: str
     Column: ColumnIdentifierTypeDef
@@ -16859,6 +17227,16 @@ class CategoryFilterTypeDef(TypedDict):
 class CategoryInnerFilterTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     Configuration: CategoryFilterConfigurationTypeDef
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+
+class HierarchyFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    HierarchyLevels: Sequence[HierarchyFilterLevelTypeDef]
+    NullOption: FilterNullOptionType
+    MatchOperator: HierarchyFilterMatchOperatorType
+    HierarchyTree: NotRequired[HierarchyFilterNodeTypeDef]
     DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
 
 
@@ -18228,6 +18606,7 @@ class FilterOutputTypeDef(TypedDict):
     RelativeDatesFilter: NotRequired[RelativeDatesFilterOutputTypeDef]
     TopBottomFilter: NotRequired[TopBottomFilterOutputTypeDef]
     NestedFilter: NotRequired[NestedFilterOutputTypeDef]
+    HierarchyFilter: NotRequired[HierarchyFilterOutputTypeDef]
 
 
 class FilterTypeDef(TypedDict):
@@ -18239,6 +18618,7 @@ class FilterTypeDef(TypedDict):
     RelativeDatesFilter: NotRequired[RelativeDatesFilterTypeDef]
     TopBottomFilter: NotRequired[TopBottomFilterTypeDef]
     NestedFilter: NotRequired[NestedFilterTypeDef]
+    HierarchyFilter: NotRequired[HierarchyFilterTypeDef]
 
 
 LogicalTableUnionTypeDef = Union[LogicalTableTypeDef, LogicalTableOutputTypeDef]

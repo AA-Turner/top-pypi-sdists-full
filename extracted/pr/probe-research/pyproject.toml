@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.290.1"
+version = "0.301.0"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -204,6 +204,15 @@ markers = [
     # passed on a re-run.
     # tests/test_tui_isolation.py fails on an unmarked one.
     "tui: renders a terminal frame; must run serially, alone on the box",
+    # A sub-second wall-clock bound on a real spawned service. agent-ci runs these
+    # after its `-n 2` pass, serially in the same shard: sharing two cores with
+    # another worker took the 300 ms socket test to 551 and 767 ms, and the 0.8 s
+    # keep-alive exit to 0.82 s, on code that starts in 89 ms here (2026-10-23).
+    "realtime: a sub-second wall-clock bound on a real spawned process; agent-ci runs it alone after the parallel pass",
+    # tests/test_service_release_smoke.py (plan D22): installs released CLIs from
+    # PyPI. Skipped unless PROBE_RELEASE_SMOKE=1, which only agent-ci's
+    # `release-smoke` job sets.
+    "release_smoke: installs released CLIs from PyPI; agent-ci's release-smoke job only (PROBE_RELEASE_SMOKE=1)",
 ]
 # Puts the repo root on sys.path so `from tests.conftest import ...` resolves under a
 # bare `pytest` (CI, editors, `make test`) and not only under `python -m pytest`, which

@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class DocumentLineageStep(BaseModel):
     """
-    One processing hop in a document's history.  Nothing emits these yet. `DocumentLineage.lineage_chain` is hardcoded to an empty list in the controller, so this model exists to give that list an element type rather than to describe data anyone has seen.
+    One processing step in a document's history: the document one collection produced on the way from the root object to the traced one.
     """ # noqa: E501
     collection_id: Optional[StrictStr] = Field(default=None, description="Collection that performed this step.")
     feature_extractor_id: Optional[StrictStr] = Field(default=None, description="Extractor that produced the document at this step.")

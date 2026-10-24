@@ -18,7 +18,7 @@ from fla.utils import check_shared_mem
     'IS_VARLEN': lambda args: args['cu_seqlens'] is not None,
     'USE_GATE': lambda args: args['g_cumsum'] is not None,
 })
-@triton.jit(do_not_specialize=['T'])
+@triton.jit(do_not_specialize=['T', 'NUM_BLOCKS'])
 def parallel_path_bwd_dq_kernel(
     q,
     k,
@@ -46,22 +46,22 @@ def parallel_path_bwd_dq_kernel(
     BK: tl.constexpr,
     BV: tl.constexpr,
     S: tl.constexpr,  # aka larger chunk size
-    NUM_BLOCKS: tl.constexpr,
+    NUM_BLOCKS,
     IS_VARLEN: tl.constexpr,
     USE_GATE: tl.constexpr,
 ):
-    i_t, i_nh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_nh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_n, i_hq = i_nh // HQ, i_nh % HQ
     i_h = i_hq // G
 
     if IS_VARLEN:
         i_n, i_t = tl.load(indices + i_t * 2).to(tl.int32), tl.load(indices + i_t * 2 + 1).to(tl.int64)
-        boh_large = tl.load(split_offsets + i_n).to(tl.int32)
+        boh_large = tl.load(split_offsets + i_n).to(tl.int64)
         bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = (eos - bos).to(tl.int32)
     else:
         bos, eos = (i_n * T).to(tl.int64), (i_n * T + T).to(tl.int64)
-        boh_large = i_n * tl.cdiv(T, S)
+        boh_large = (i_n * tl.cdiv(T, S)).to(tl.int64)
     o_t = i_t * BT + tl.arange(0, BT)
     m_t = o_t < T
     o_d = tl.arange(0, BK)
@@ -133,7 +133,7 @@ def parallel_path_bwd_dq_kernel(
             b_v = tl.load(p_v, mask=m_k[:, None] & (o_v[None, :] < V), other=0.0)
             b_dp = tl.dot(b_do, tl.trans(b_v).to(b_do.dtype))
             b_dA = (b_dp - b_delta[:, None]) * b_A * scale
-            b_dq += tl.dot(b_dA.to(b_k.dtype), b_k)
+            b_dq = tl.dot(b_dA.to(b_k.dtype), b_k, b_dq)
             if USE_GATE:
                 b_dg_cumsum_q += tl.sum(b_dA, axis=1)
 

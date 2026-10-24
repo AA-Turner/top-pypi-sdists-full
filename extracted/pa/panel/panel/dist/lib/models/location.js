@@ -1,7 +1,6 @@
 import { View } from "@bokehjs/core/view";
 import { Model } from "@bokehjs/model";
 export class LocationView extends View {
-    static __name__ = "LocationView";
     _hash_listener;
     _idle_ready = false;
     _pending_url = null;
@@ -85,7 +84,6 @@ export class LocationView extends View {
     }
 }
 export class Location extends Model {
-    static __name__ = "Location";
     static __module__ = "panel.models.location";
     constructor(attrs) {
         super(attrs);

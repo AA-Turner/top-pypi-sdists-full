@@ -229,6 +229,7 @@ def _section_result(
             "mode": "section",
             "total_chars": len(body.body),
         },
+        output_kind="skill_tool_result",
     )
 
 
@@ -267,6 +268,7 @@ async def _set_result(
             "skipped": skipped,
             "hint": "A skill set. Read a member with skill(action='get', skill_id=<member skill_id>).",
         },
+        output_kind="skill_tool_result",
     )
 
 
@@ -377,6 +379,7 @@ async def skill_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                             "skill(action='get', skill_id=..., section=<number or id>)."
                         ),
                     },
+                    output_kind="skill_tool_result",
                 )
             # No headings to navigate by — fall through to plain paging.
 

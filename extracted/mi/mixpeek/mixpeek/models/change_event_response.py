@@ -35,8 +35,9 @@ class ChangeEventResponse(BaseModel):
     resource_type: StrictStr = Field(description="First segment of event_type.")
     operation: StrictStr = Field(description="insert | update | delete | other.")
     payload: Optional[Dict[str, Any]] = Field(default=None, description="Shape is PER-EVENT-TYPE, not a stable contract — it mirrors whatever the originating call site already passes to WebhookClient.emit() for this event_type, and that shape may change independently of this endpoint's own versioning.")
+    trace_id: Optional[StrictStr] = Field(default=None, description="Trace of the request that made the change. Look it up in the trace backend to see that request. Null for changes recorded before trace ids were stored, or made outside any trace.")
     created_at: datetime
-    __properties: ClassVar[List[str]] = ["seq", "cursor", "namespace_id", "event_type", "resource_type", "operation", "payload", "created_at"]
+    __properties: ClassVar[List[str]] = ["seq", "cursor", "namespace_id", "event_type", "resource_type", "operation", "payload", "trace_id", "created_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,6 +97,7 @@ class ChangeEventResponse(BaseModel):
             "resource_type": obj.get("resource_type"),
             "operation": obj.get("operation"),
             "payload": obj.get("payload"),
+            "trace_id": obj.get("trace_id"),
             "created_at": obj.get("created_at")
         })
         return _obj

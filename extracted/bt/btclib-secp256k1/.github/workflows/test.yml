@@ -9,12 +9,19 @@ name: test
 # release. os-ubuntu.yml's header is the argument for the split; the numbers
 # behind it are here, next to the jobs they were measured on.
 #
-# **The wheel builds for all six images stay here**, and that is the line
+# **The wheel builds for every image stay here**, and that is the line
 # this file draws against the sentinels: the release publishes the
 # artifacts of this run, so a wheel not built here is a wheel not on PyPI.
 # They are not what stretched a run either -- the four macOS wheel jobs
 # finished at 24.6 minutes against the 23.5 of the ubuntu-latest build
 # beside them. Four macOS jobs queue; thirty-one contended.
+#
+# A pull request and a push to main build the wheels of every image but
+# one: the x86_64 macOS image, macos-26-intel, builds on a release and a
+# dispatch, and check-dist refuses those runs unless its wheels are there.
+# Section 10 of the organization standard in btclib-org/.github says why,
+# and CONTRIBUTING.md's *What gates a merge, and what only reports* says
+# how this tree applies it.
 #
 # macOS was where the wait first showed, and the split is a measurement
 # rather than a preference. Over six pull request runs of this workflow,
@@ -221,7 +228,7 @@ jobs:
       # reads it as one unbreakable word and its 100-column rule
       # (allow-non-breakable-words) does not fire on it
       prose-pattern: |-
-        ^(CHANGELOG|CLAUDE|CONTRIBUTING|RELEASE_NOTES|RELEASING|REPOSITORY|REVIEWING|SECURITY)\.md$|^\.github/[^/]*\.md$|^\.github/mutation/[^/]*\.toml$|^\.secrets\..*baseline$
+        ^(AGENTS|CHANGELOG|CONTRIBUTING|RELEASE_NOTES|RELEASING|REPOSITORY|REVIEWING|SECURITY)\.md$|^\.github/[^/]*\.md$|^\.github/mutation/[^/]*\.toml$|^\.secrets\..*baseline$
 
   # coverage is a property of the python wrapper layer, not of the
   # platform: measuring it once is enough, and the fail_under ratchet in
@@ -277,7 +284,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           # the wheels of the test group, not the extension: the root
           # project is installed editable, so its build hook (and the
@@ -410,7 +417,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -477,8 +484,8 @@ jobs:
         # of their own. The vendored library is built with CMake
         # everywhere, provisioned as a build requirement: no runner needs
         # a toolchain installed by hand.
-        # Actions drops x86_64 macOS in August 2027, after which no runner
-        # can build a macosx x86_64 wheel at all
+        # Section 10 of the organization standard in btclib-org/.github
+        # says when the x86_64 macOS images leave
         os:
           - ubuntu-latest
           - ubuntu-24.04-arm
@@ -486,6 +493,14 @@ jobs:
           - macos-latest
           - windows-latest
           - windows-11-arm
+        # a pull request and a push to main build no x86_64 macOS wheel:
+        # see the header. github.event_name and github.ref_type are the
+        # caller's in a called workflow, and a release is a push of a tag,
+        # so it never excludes it
+        exclude: >-
+          ${{ fromJSON((github.event_name == 'pull_request'
+          || github.event_name == 'push' && github.ref_type == 'branch')
+          && '[{"os": "macos-26-intel"}]' || '[]') }}
 
     needs: changes
     steps:
@@ -510,7 +525,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       # skipped on every trigger but a release rehearsal: the inputs
       # context is empty unless this workflow was called, and an empty
@@ -537,7 +552,7 @@ jobs:
       # tree this builds whichever path the run took, and the flag asserts
       # that agreement instead of skipping it (btclib-org/.github#128)
       #
-      # what a pull request has to answer about any of these images is
+      # what a pull request has to answer about each image it builds is
       # whether this tree still builds there, and that is answered by the
       # first wheel: the toolchain, the CMake build of the vendored
       # library and the cffi extension are what differ per platform, and
@@ -552,18 +567,21 @@ jobs:
       # interpreters is asked nowhere -- os-ubuntu.yml's header carries
       # that trade and what answers the rest of the question instead.
       #
-      # A push to main, a release and a rehearsal all build everything --
-      # in a called workflow github.event_name is the caller's, which is
-      # never pull_request -- so the interpreters this does not reach on a
-      # branch are reached by the run that follows the merge, and the
-      # release publishes nothing this shortcut has touched
+      # A push to main builds every interpreter on the images it runs, and
+      # a release and a rehearsal build every interpreter on every image,
+      # macos-26-intel included -- in a called workflow github.event_name
+      # is the caller's, which is never pull_request -- so the
+      # interpreters this does not reach on a branch are reached by the
+      # run that follows the merge, and by the release on macos-26-intel,
+      # and the release publishes nothing this shortcut has touched
       #
       # cp311 is the floor requires-python declares, and building it is
       # what lets a pull request reach the standard library of the patch
       # release cibuildwheel pins that interpreter to on the macOS and
       # Windows images. A newer interpreter alone leaves that to the push
-      # to main, so a keyword absent from that patch passes a pull request
-      # and fails there -- #529 is that failure, on 3.10.11.
+      # to main, and to the release for the x86_64 macOS image, so a
+      # keyword absent from that patch passes a pull request and fails
+      # there -- #529 is that failure, on 3.10.11.
       #
       # cp315t is the free-threaded build of the interpreter
       # .python-version pins, and the second pattern selects it on every
@@ -642,6 +660,11 @@ jobs:
         # ubuntu-latest/macos-26-intel are x86_64,
         # ubuntu-24.04-arm/macos-latest are arm64
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-26-intel, macos-latest]
+        # see build-cibuildwheel
+        exclude: >-
+          ${{ fromJSON((github.event_name == 'pull_request'
+          || github.event_name == 'push' && github.ref_type == 'branch')
+          && '[{"os": "macos-26-intel"}]' || '[]') }}
 
     needs: changes
     steps:
@@ -658,7 +681,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       # see build-cibuildwheel
       - name: Make the version unique for TestPyPI (rehearsal only)
@@ -674,8 +697,8 @@ jobs:
       # (CMAKE_OSX_DEPLOYMENT_TARGET defaults to it), so the vendored
       # library is built for the floor its tag then claims. 11.0 is where
       # arm64 macOS starts; 10.13 is what cibuildwheel gives the static
-      # x86_64 wheels of CPython 3.12 and later, and the Xcode of the
-      # macOS 26 image still compiles for it
+      # x86_64 wheels of cp312 and cp313, and the Xcode of the macOS 26
+      # image still compiles for it
       - name: Set the macOS deployment target
         if: runner.os == 'macOS'
         # the expression is a step env var rather than text spliced into
@@ -762,7 +785,7 @@ jobs:
 
       - name: Setup uv
         if: ${{ !inputs.use-signed-dist }}
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       # what the build below and the normalizer after it both read.
       # hatchling's sdist writer honours this when it is set and falls
@@ -939,7 +962,8 @@ jobs:
       # pytest-cov beside pytest for the reason [tool.cibuildwheel]'s
       # test-requires names: addopts carries --cov, and an interpreter
       # without the plugin answers "unrecognized arguments: --cov" and
-      # collects nothing. pathspec and typing_extensions for the reasons
+      # collects nothing, and pytest-xdist for the same reason, addopts
+      # carrying -n. pathspec and typing_extensions for the reasons
       # pyproject.toml's `test` group gives, and named here because this
       # job installs the sdist into an interpreter of its own: neither
       # that group nor test-requires reaches it, so this is the third
@@ -948,7 +972,7 @@ jobs:
       - name: Install from sdist
         shell: bash
         run: |
-          python -m pip install -U pip pytest pytest-cov pathspec typing-extensions
+          python -m pip install -U pip pytest pytest-cov pytest-xdist pathspec typing-extensions
           python -m pip install --verbose dist/*.tar.gz
 
       # this job's matrix carries windows-latest and windows-11-arm, the
@@ -990,7 +1014,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       # see build-cibuildwheel
       - name: Make the version unique for TestPyPI (rehearsal only)
@@ -1048,7 +1072,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           # the wheels of the check group, the three tools below among
           # them, keyed on uv.lock
@@ -1069,6 +1093,28 @@ jobs:
 
       - name: Show distributions
         run: ls -l dist
+
+      # the matrices above leave macos-26-intel out of a pull request and
+      # a push to main, and nowhere else. The release publishes what they
+      # built, and a cell that went missing from a run would read as a
+      # pass, so a release and a dispatch refuse a dist without both a
+      # static and a dynamic x86_64 macOS wheel. The guard reads no
+      # github.ref_type, unlike the exclusion: a misreading of it must
+      # not skip the check that would catch it. Only release.yml's call
+      # sets use-signed-dist. The dynamic wheel is universal2, and the
+      # deployment target 10.13 that build-dynamic sets on macos-26-intel
+      # alone tells it from the 11.0 one of macos-latest
+      - name: Check the x86_64 macOS wheels were built (release and dispatch)
+        if: ${{ inputs.use-signed-dist || github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          static=(dist/*-cp3*-macosx_*_x86_64.whl)
+          dynamic=(dist/*-py3-none-macosx_10_13_universal2.whl)
+          if [ ${#static[@]} -eq 0 ] || [ ${#dynamic[@]} -eq 0 ]; then
+            echo "::error::dist lacks a static or a dynamic x86_64 macOS wheel"
+            exit 1
+          fi
 
       # dist holds the wheels this workflow built beside the sdist, and
       # the build job printed the digest of the sdist alone
@@ -1096,10 +1142,10 @@ jobs:
       # what check-wheel-contents cannot phrase without also refusing the
       # compiled artifact this project's wheels legitimately carry outside
       # any package tree: docs/source/package-content-policy.md has the
-      # three questions this answers and why check-wheel-contents --package
+      # questions this answers and why check-wheel-contents --package
       # is not one flag away from asking them here. --no-project, so it
       # runs on the interpreter uv already fetched and installs nothing
-      - name: Check what the wheels contain
+      - name: Check what the wheels contain and how they were built
         run: |
           uv run --no-project --python 3.15 \
             .github/scripts/verify_wheel_contents.py dist/*.whl

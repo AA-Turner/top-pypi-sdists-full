@@ -34,11 +34,15 @@ export declare class ReactiveESMView extends HTMLBoxView {
     _stale_children: boolean;
     _mounted: Map<string, Set<string>>;
     _update_children_chain: Promise<void>;
+    _layout_pending: boolean;
+    _proxy_methods: Map<string, (...args: any[]) => any>;
+    _last_size: [number, number] | null;
     initialize(): void;
     lazy_initialize(): Promise<void>;
     stylesheets(): StyleSheetLike[];
     connect_signals(): void;
     disconnect_signals(): void;
+    _dispatch_event(data: unknown): void;
     _on_mounted(): void;
     /**
      * Bokeh walks the whole view tree from `r_after_render`, but ESM components
@@ -65,17 +69,42 @@ export declare class ReactiveESMView extends HTMLBoxView {
     render_error(error: SyntaxError): void;
     render(): void;
     get is_managed(): boolean;
+    /**
+     * Renders a child without laying it out and schedules a single layout pass
+     * instead. Children mount one at a time (e.g. once per React
+     * `componentDidMount`), and a child's `compute_layout` lays out, and so
+     * measures, the whole tree; doing that per child is quadratic in the
+     * number of children.
+     */
+    render_child(view: DOMView): void;
+    /**
+     * Lays out once all synchronous work queued in the current task (such as
+     * a React commit mounting every child) has run. A pass that happens in the
+     * meantime, e.g. `_on_mounted`'s, makes the scheduled one a no-op.
+     */
+    schedule_layout(): void;
     compute_layout(): void;
     protected _update_bbox(): boolean;
     after_rendered(): void;
     render_esm(): void;
     render_children(): void;
     has_finished(): boolean;
+    /**
+     * Each notification makes the root walk the whole tree in `has_finished`,
+     * and every component and child reports finishing separately, so loading
+     * N components would walk the tree N times. Notifications issued in the
+     * same task are coalesced into one per root.
+     */
+    notify_finished(): void;
     invalidate_layout(): void;
     remove(): void;
     after_resize(): void;
     after_layout(): void;
-    protected _lookup_child(child_view: UIElementView): string | null;
+    /**
+     * Maps each child model to the name of the children property holding it,
+     * built once per update pass rather than searched per child view.
+     */
+    protected _child_names(): Map<UIElement, string>;
     /**
      * A children property can trigger more than one update pass for the same
      * change, e.g. the property change signal and the manual render policy path
@@ -88,6 +117,10 @@ export declare class ReactiveESMView extends HTMLBoxView {
      * passes makes the later one a no-op instead of a competing build.
      */
     update_children(): Promise<void>;
+    /**
+     * Groups newly created child views by the children property they belong to.
+     */
+    protected _group_new_views(created: Set<UIElementView>): Map<string, UIElementView[]>;
     protected _update_children_pass(): Promise<void>;
     on_child_render(child: string, callback: (new_views: UIElementView[]) => void): void;
     remove_on_child_render(child: string, callback?: (new_views: UIElementView[]) => void): void;
@@ -120,21 +153,42 @@ export declare class ReactiveESM extends HTMLBox {
     render_module: Promise<any> | null;
     sucrase_transforms: Transform[];
     _destroyer: any | null;
-    _esm_watchers: any;
-    _event_callbacks: Map<(data: unknown) => void, (data: unknown) => void>;
+    _esm_watchers: Map<string, {
+        view: ReactiveESMView | null;
+        orig: any;
+        cb: any;
+        signal: any;
+    }[]>;
+    _event_views: Set<ReactiveESMView>;
     constructor(attrs?: Partial<ReactiveESM.Attrs>);
     initialize(): void;
     connect_signals(): void;
+    /**
+     * Resolves a possibly dotted property path to the property's change
+     * signal and the model owning it, falling back to the component model's
+     * own properties.
+     */
+    protected _resolve_watch(prop: string): {
+        target: any;
+        name: string;
+        signal: any;
+    } | null;
     watch(view: ReactiveESMView | null, prop: string, cb: any, force?: boolean): void;
     unwatch(view: ReactiveESMView | null, prop: string, cb: any): boolean;
     disconnect_watchers(view: ReactiveESMView): void;
-    protected _declare_importmap(): void;
+    protected _declare_importmap(): Promise<void>;
     protected _run_initializer(initialize: (props: any) => any): void;
     destroy(): void;
     init_module(): void;
-    protected _render_code(): string;
-    protected get _render_cache_key(): string;
+    /**
+     * The module whose `default.render(view)` renders a view of this model.
+     */
+    protected _render_module(): Promise<any>;
+    protected _cached_module(key: string, load: () => Promise<any>): Promise<any>;
+    get resolved_render_module(): any | null;
+    protected _import_source(code: string): Promise<any>;
     compile(): string | null;
+    get _module_cache_key(): string;
     recompile(): Promise<void>;
     static __module__: string;
 }

@@ -99,8 +99,10 @@ class CollectionLifecycleApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -172,8 +174,10 @@ class CollectionLifecycleApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -245,8 +249,10 @@ class CollectionLifecycleApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -324,7 +330,7 @@ class CollectionLifecycleApi:
     def transition_lifecycle(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Collection ID or name")],
-        transition_lifecycle_request: TransitionLifecycleRequest,
+        transition_lifecycle_request: Annotated[TransitionLifecycleRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -344,7 +350,7 @@ class CollectionLifecycleApi:
 
         :param collection_identifier: Collection ID or name (required)
         :type collection_identifier: str
-        :param transition_lifecycle_request: (required)
+        :param transition_lifecycle_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type transition_lifecycle_request: TransitionLifecycleRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -383,8 +389,10 @@ class CollectionLifecycleApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -401,7 +409,7 @@ class CollectionLifecycleApi:
     def transition_lifecycle_with_http_info(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Collection ID or name")],
-        transition_lifecycle_request: TransitionLifecycleRequest,
+        transition_lifecycle_request: Annotated[TransitionLifecycleRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -421,7 +429,7 @@ class CollectionLifecycleApi:
 
         :param collection_identifier: Collection ID or name (required)
         :type collection_identifier: str
-        :param transition_lifecycle_request: (required)
+        :param transition_lifecycle_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type transition_lifecycle_request: TransitionLifecycleRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -460,8 +468,10 @@ class CollectionLifecycleApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -478,7 +488,7 @@ class CollectionLifecycleApi:
     def transition_lifecycle_without_preload_content(
         self,
         collection_identifier: Annotated[StrictStr, Field(description="Collection ID or name")],
-        transition_lifecycle_request: TransitionLifecycleRequest,
+        transition_lifecycle_request: Annotated[TransitionLifecycleRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -498,7 +508,7 @@ class CollectionLifecycleApi:
 
         :param collection_identifier: Collection ID or name (required)
         :type collection_identifier: str
-        :param transition_lifecycle_request: (required)
+        :param transition_lifecycle_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type transition_lifecycle_request: TransitionLifecycleRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -537,8 +547,10 @@ class CollectionLifecycleApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

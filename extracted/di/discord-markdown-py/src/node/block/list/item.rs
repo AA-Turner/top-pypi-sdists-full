@@ -5,11 +5,11 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::Grammar,
 	node::{
 		Element, Elements, Sequence,
 		block::{inline_block, list::indent},
 	},
+	scope::Scope,
 	span::{Span, WithSpan},
 	unparse::Unparse,
 };
@@ -75,7 +75,7 @@ where
 		let context = context.clone();
 		let (data, first_content) =
 			// TODO: verify that InlineBlockRule is correct here (possibly should be BlockRule)
-			map(inline_block(context.clone().with_grammar(Grammar::Block)), Element::Paragraph).span().parse_complete(data)?;
+			map(inline_block(context.clone().with_scope(Scope::Block)), Element::Paragraph).span().parse_complete(data)?;
 
 		fold_many0(
 			preceded(
@@ -87,7 +87,7 @@ where
 					map(
 						preceded(
 							indent(item_indent),
-							inline_block(context.with_grammar(Grammar::Block)),
+							inline_block(context.with_scope(Scope::Block)),
 						),
 						Element::Paragraph,
 					)
@@ -111,7 +111,6 @@ where
 /// ```
 /// # use discord_markdown::{
 /// #    node::Element,
-/// #    rule::RuleSet,
 /// #    node::block::list::item::{Item, item},
 /// # };
 /// # use nom::Parser;

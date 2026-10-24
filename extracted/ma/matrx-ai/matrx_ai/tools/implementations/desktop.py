@@ -55,6 +55,14 @@ from matrx_ai.tools.arg_models.desktop_args import (
     ShellJobArgs,
 )
 from matrx_ai.tools.implementations.filesystem import _proxy_error, _resolve_sandbox_path
+from matrx_ai.tools.kinds.desktop import (
+    DesktopClipboardReadResult,
+    DesktopClipboardWriteResult,
+    DesktopProcessKillResult,
+    DesktopProcessListResult,
+    DesktopProcessPortsResult,
+    DesktopTranscribeResult,
+)
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
 #: The transcript's segments shown to the model (the full text is always returned).
@@ -101,18 +109,22 @@ async def desktop_transcribe(args: dict[str, Any], ctx: ToolContext) -> ToolResu
             exc, tool_name="desktop_transcribe", call_id=ctx.call_id, started_at=started_at
         )
     segments = result.get("segments") or []
+    legacy_output = {
+        "text": result.get("text", ""),
+        "language": result.get("language"),
+        "duration_s": result.get("duration_s"),
+        "model": result.get("model"),
+        "elapsed_ms": result.get("elapsed_ms"),
+        "segments": segments[:SEGMENTS_SHOWN],
+        "segments_total": len(segments),
+        "path": params["path"],
+    }
+    model = DesktopTranscribeResult
+    typed_output = model.model_validate({"__kind": model.kind_slug, **legacy_output})
     return ToolResult(
         success=True,
-        output={
-            "text": result.get("text", ""),
-            "language": result.get("language"),
-            "duration_s": result.get("duration_s"),
-            "model": result.get("model"),
-            "elapsed_ms": result.get("elapsed_ms"),
-            "segments": segments[:SEGMENTS_SHOWN],
-            "segments_total": len(segments),
-            "path": params["path"],
-        },
+        output=typed_output.model_dump(mode="json", by_alias=True, exclude_unset=True),
+        output_kind=model.kind_slug,
         started_at=started_at,
         completed_at=time.time(),
         tool_name="desktop_transcribe",
@@ -161,9 +173,17 @@ async def desktop_process(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _proxy_error(
             exc, tool_name="desktop_process", call_id=ctx.call_id, started_at=started_at
         )
+    legacy_output = {"action": parsed.action, **result}
+    model = {
+        "list": DesktopProcessListResult,
+        "ports": DesktopProcessPortsResult,
+        "kill": DesktopProcessKillResult,
+    }[parsed.action]
+    typed_output = model.model_validate({"__kind": model.kind_slug, **legacy_output})
     return ToolResult(
         success=True,
-        output={"action": parsed.action, **result},
+        output=typed_output.model_dump(mode="json", by_alias=True, exclude_unset=True),
+        output_kind=model.kind_slug,
         started_at=started_at,
         completed_at=time.time(),
         tool_name="desktop_process",
@@ -191,9 +211,13 @@ async def desktop_clipboard(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return _proxy_error(
             exc, tool_name="desktop_clipboard", call_id=ctx.call_id, started_at=started_at
         )
+    legacy_output = {"action": parsed.action, **result}
+    model = DesktopClipboardReadResult if parsed.action == "read" else DesktopClipboardWriteResult
+    typed_output = model.model_validate({"__kind": model.kind_slug, **legacy_output})
     return ToolResult(
         success=True,
-        output={"action": parsed.action, **result},
+        output=typed_output.model_dump(mode="json", by_alias=True, exclude_unset=True),
+        output_kind=model.kind_slug,
         started_at=started_at,
         completed_at=time.time(),
         tool_name="desktop_clipboard",

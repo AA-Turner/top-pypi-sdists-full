@@ -657,14 +657,16 @@ def register_generated_tools(mcp, _get_client):
         include_status_counts: bool = False,
         page: int | None = None,
         limit: int | None = None,
+        cursor: str | None = None,
         profile_ids: str | None = None,
         per_profile: int | None = None,
     ) -> str:
         """List accounts
 
             Returns connected accounts. Only includes accounts within the plan limit by default. Follower data requires analytics add-on.
-            Supports optional server-side pagination via page/limit params. When omitted, returns all accounts (backward-compatible).
-            page and limit must be supplied together; out-of-range page/limit values are rejected with 400 rather than silently clamped.
+            Supports optional server-side pagination. When omitted, returns all accounts (backward-compatible).
+            Cursor paging: send `limit` alone for the first page, then pass `pagination.nextCursor` back as `cursor` until it is null. Pages are ordered by account id, so accounts added or removed between calls never shift a page. Cannot be combined with `page`, `sort` or `perProfile`.
+            Offset paging: send `page` and `limit` together. Out-of-range page/limit values are rejected with 400 rather than silently clamped.
 
             Args:
                 profile_id: Filter accounts by profile ID. Must be a valid ObjectId.
@@ -672,7 +674,7 @@ def register_generated_tools(mcp, _get_client):
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
                 category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, social = every other platform.
-                sort: Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
+                sort: Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
                 exclude_hidden: When true, leaves out accounts the dashboard does not show as connections: posting
@@ -683,15 +685,16 @@ def register_generated_tools(mcp, _get_client):
         `true` or `false` in any letter case; any other value returns 400.
                 include_sandbox: When true, appends the shared WhatsApp sandbox account and the iMessage sandbox account
         to the list when they are active, honouring `platform` but no other filter. Ignored on
-        a paginated request (page/limit) and together with `perProfile`. Accepts `true` or
+        a paginated request (page, limit or cursor) and together with `perProfile`. Accepts `true` or
         `false` in any letter case; any other value returns 400.
                 include_status_counts: When true, the response carries `statusCounts`: how many accounts match every other
         filter of the request (with `status` lifted) in total and how many of those need a
         reconnection. Accepts `true` or `false` in any letter case; any other value returns 400.
-                page: Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
-                limit: Page size. Must be provided together with page; sending only one of the two returns 400.
+                page: Page number (1-based) for offset paging. Requires limit; omit page, limit and cursor for all accounts.
+                limit: Page size. With page, an offset page; alone or with cursor, a cursor page.
+                cursor: Opaque cursor from a previous response's `pagination.nextCursor`; returns the next page of `limit` accounts (500 when limit is omitted). A cursor we cannot parse returns 400. Cannot be combined with page.
                 profile_ids: Comma-separated profile IDs (up to 50) to preview, together with perProfile. The response then also carries `profileTotals`.
-                per_profile: Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page and limit."""
+                per_profile: Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page, limit or cursor."""
         client = _get_client()
         try:
             response = client.accounts.list_accounts(
@@ -708,6 +711,7 @@ def register_generated_tools(mcp, _get_client):
                 include_status_counts=include_status_counts,
                 page=page,
                 limit=limit,
+                cursor=cursor,
                 profile_ids=profile_ids,
                 per_profile=per_profile,
             )
@@ -729,6 +733,8 @@ def register_generated_tools(mcp, _get_client):
         from_date: str | None = None,
         to_date: str | None = None,
         granularity: Literal["daily", "weekly", "monthly"] = "daily",
+        limit: int | None = None,
+        cursor: str | None = None,
     ) -> str:
         """Get follower stats
 
@@ -740,7 +746,9 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Filter by profile ID
             from_date: Start date in YYYY-MM-DD format (defaults to 30 days ago)
             to_date: End date in YYYY-MM-DD format (defaults to today)
-            granularity: Data aggregation level"""
+            granularity: Data aggregation level
+            limit: Accounts per page, ordered by account id. Send it to page through accounts; the response then carries `pagination.nextCursor`. Without limit or cursor every matching account is returned.
+            cursor: Opaque cursor from a previous response's `pagination.nextCursor`; returns the next page of `limit` accounts (25 when limit is omitted). A cursor we cannot parse returns 400."""
         client = _get_client()
         try:
             response = client.accounts.get_follower_stats(
@@ -749,6 +757,8 @@ def register_generated_tools(mcp, _get_client):
                 from_date=from_date,
                 to_date=to_date,
                 granularity=granularity,
+                limit=limit,
+                cursor=cursor,
             )
             return _format_response(response)
         except Exception as e:
@@ -2011,25 +2021,22 @@ def register_generated_tools(mcp, _get_client):
 
         Converts a LinkedIn profile or company URL to a URN for @mentions in posts.
 
-        How to use LinkedIn @mentions (2-step workflow):
-
-        1. Call this endpoint with the LinkedIn profile/company URL to get the mention URN and format.
-        2. Embed the returned mentionFormat (e.g. @[Vincent Jong](urn:li:person:xxx)) directly in your post's content field.
+        You usually do not need this endpoint. Put the profile or company URL inside `@[...]` in the post `content` (for example `@[https://www.linkedin.com/in/vincentjong]`) and the post resolves it for you, using LinkedIn's own name. Use this endpoint to preview what a URL resolves to, or to get ready-made `@[Name](urn)` markup, which still works in `content` and is published exactly as written.
 
         Example:
-        - Resolve: GET /v1/accounts/{id}/linkedin-mentions?url=linkedin.com/in/vincentjong&displayName=Vincent Jong
+        - Resolve: GET /v1/accounts/{id}/linkedin-mentions?url=linkedin.com/in/vincentjong
         - Returns: mentionFormat: \"@[Vincent Jong](urn:li:person:xxx)\"
         - Use in post content: \"Great talk with @[Vincent Jong](urn:li:person:xxx) today!\"
 
-        Important: The mentions array field in POST /v1/posts is stored for reference only and does NOT trigger @mentions on LinkedIn. You must embed the mention format directly in the content text.
+        Important: The mentions array field in POST /v1/posts is stored for reference only and does NOT trigger @mentions on LinkedIn. Write the mention in the content text.
 
         Requirements:
-        - Person mentions require the LinkedIn account to be admin of at least one organization: both endpoints that resolve a profile URL to a member URN take an organization you administer. ...
+        - Resolving a profile URL to a person mention requires the LinkedIn account to be admin of at least one ...
 
         Args:
             account_id: The LinkedIn account ID (required)
             url: LinkedIn profile URL, company URL, or vanity name. (required)
-            display_name: Exact display name as shown on LinkedIn. Required for person mentions to be clickable. Optional for org mentions."""
+            display_name: Deprecated: omit it. When sent for a person it overrides the mention text, and LinkedIn renders the mention only if it is exactly the person's first name, last name or full name (case-sensitive). When omitted the real name is read from LinkedIn. Ignored for org mentions, which always use the organization's LinkedIn name."""
         client = _get_client()
         try:
             response = client.accounts.get_linked_in_mentions(
@@ -5412,6 +5419,41 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Remove users from audience",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_audiences_remove_users_from_ad_audience(
+        audience_id: str, users: list[dict[str, Any]] | None
+    ) -> str:
+        """Remove users from audience
+
+        Removes customer emails and phone numbers from a Meta customer list audience. Same body as
+        `POST /v1/ads/audiences/{audienceId}/users`: send plaintext rows, they are normalized and
+        SHA256-hashed server-side exactly like an upload, so a row removes the person it added.
+
+        Meta only, customer_list only. Every other platform returns 422 with code `feature_not_available`,
+        and every other audience type returns 422. Max 10,000 users per request. Meta applies the removal
+        asynchronously, so the audience size does not drop immediately.
+
+        Platforms: meta
+
+        Args:
+            audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)
+            users: Each item is an object with keys: email (string); phone (string) (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_audiences.remove_users_from_ad_audience(
+                audience_id=audience_id, users=users
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Replace audience companies",
             readOnlyHint=False,
             destructiveHint=True,
@@ -7077,6 +7119,18 @@ def register_generated_tools(mcp, _get_client):
             "reddit",
         ]
         | None = None,
+        status: Literal[
+            "active",
+            "paused",
+            "pending_review",
+            "rejected",
+            "completed",
+            "cancelled",
+            "error",
+        ]
+        | None = None,
+        page: int = 1,
+        limit: int = 500,
         live: bool = False,
     ) -> str:
         """List ad sets
@@ -7088,14 +7142,14 @@ def register_generated_tools(mcp, _get_client):
         directly, independent of the `ads` rollup GET /v1/ads/tree uses, so a
         newly created standalone ad group with no ad yet (POST /v1/ads/ad-sets,
         Google only) is visible here even though it is invisible in the tree
-        until an ad joins it via `adSetId` on POST /v1/ads/create. Returns at most 500
-        rows, newest first.
+        until an ad joins it via `adSetId` on POST /v1/ads/create. Rows come newest first
+        (by platform creation time, then id, so pages never overlap), 500 per page unless `limit`
+        says otherwise; `pagination.total` counts every matching ad set and `page` reaches the
+        rest.
 
         **This list is SYNCED, not live** (refreshed by background sync, see below). Each row also
         carries the ad set's config (`targeting`, `bidStrategy`, `bidAmount`, `optimizationGoal`,
-        `billingEvent`, `promotedObject`), so `?accountId=...&adAccountId=act_...` returns the config of
-        every ad set of an ad account in one call, without a `campaignId`. To read
-        budgets, status, targeting, promoted object and bid strategy of every campaign and ...
+        `billingEvent`, `promotedObject`), so `?accountId=...&adAccountId=act_...` returns the ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
@@ -7105,6 +7159,9 @@ def register_generated_tools(mcp, _get_client):
             campaign_id: Platform campaign ID
             ad_set_id: Platform ad set ID
             platform
+            status: Filter by the ad set's stored `status`, the value each row returns. A live read does not change it. Rows whose `status` is null match no filter.
+            page
+            limit
             live: Read the on/off switches live from the platform instead of returning the synced values. The fresh values are stored (so later reads return them too) and the response carries `statusReadAt`, the time of the read. At most 20 platform objects are read per request. Where a read fails (credentials, platform error, no reader on that platform), the stored values come back with `statusReadAt: null`. See "Status freshness" in the operation description. On X the budget is read live in the same read: on GET /v1/ads/{adId} `budget`, `adSetBudget`, `campaignBudget` and `budgetLevel` are the line item and campaign budgets X holds now (stored like the switches); on the ad set and campaign listings `budget` is the one that line item or campaign holds now (returned, not stored); a row whose budget the other level holds keeps its synced `budget`."""
         client = _get_client()
         try:
@@ -7114,6 +7171,9 @@ def register_generated_tools(mcp, _get_client):
                 campaign_id=campaign_id,
                 ad_set_id=ad_set_id,
                 platform=platform,
+                status=status,
+                page=page,
+                limit=limit,
                 live=live,
             )
             return _format_response(response)
@@ -8396,9 +8456,7 @@ def register_generated_tools(mcp, _get_client):
 
         Returns the review verdict of every Upgraded Smart+ ad of one TikTok advertiser, with each creative's verdict, in one paginated read. Use it to refresh reviews periodically: one call (plus its pages) per advertiser per refresh, instead of `GET /v1/ads/{adId}/tiktok-smart-plus-review` per ad.
 
-        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`; the listing is cached for 5 minutes) and reads `/smart_plus/ad/review_info/` for up to 100 Smart+ ads per call, across ad groups, one call after another. A full refresh of N Smart+ ads costs about `ceil(N / 100)` listing calls and `ceil(N / 100)` review calls on TikTok. Each review is cached for 10 minutes per connection, advertiser and Smart+ ad, shared with the single-ad read, so cached reviews are served without calling TikTok and `readAt` can be up to 10 minutes old.
-
-        TikTok's review endpoint has a strict quota of its own. When it is over quota (or Zernio is holding review reads ...
+        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`; the listing is cached for 10 minutes) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size. ...
 
         Platforms: tiktok
 
@@ -11452,7 +11510,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Per-creative performance inside TikTok Smart+ ads
 
-        Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. A row is identified by `smartPlusAdId` + `materialId` at `level=ad` and by `adGroupId` + `materialId` at `level=adGroup`; each appears once across all pages. Rows are sorted by `spend` descending, then the Smart+ ad or ad group id, then `materialId`, and the full result is cached for 10 minutes per account, advertiser and query, so pages read within that window are consistent and `totalRows` counts distinct rows. The result can hold more rows ...
+        Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. A row is identified by `smartPlusAdId` + `materialId` at `level=ad` and by `adGroupId` + `materialId` at `level=adGroup`; each appears once across all pages. Rows are sorted by `spend` descending, then the Smart+ ad or ad group id, then `materialId`, and the full result is cached for 10 minutes per account, advertiser and query, so pages read within that window are consistent and `totalRows` counts distinct rows. When the result spans more than ...
 
         Platforms: tiktok
 
@@ -13356,6 +13414,45 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.analytics.get_facebook_post_reactions(
                 account_id=account_id, post_id=post_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the posts a Facebook Page is tagged in",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_list_facebook_tagged_posts(
+        account_id: str, limit: int = 25, cursor: str | None = None
+    ) -> str:
+        """List the posts a Facebook Page is tagged in
+
+        Returns the public posts where other people or Pages tagged the connected
+        Facebook Page, as Meta returns them from the Page's `tagged` edge.
+
+        Cursor-paginated: pass `nextCursor` from the previous response as
+        `cursor` to read the next page. `nextCursor` is null when there are no
+        more pages. Meta does not say whether a page is the last one, so the
+        final page can come back empty with `nextCursor` null.
+
+        Works for `facebook` accounts with a Page selected. Meta needs the
+        `pages_read_user_content` permission on the connection: a connection
+        made without it gets Meta's refusal back as `platform_api_error`, and
+        reconnecting the account grants it.
+
+        Args:
+            account_id: The ID of a connected Facebook account. (required)
+            limit: Page size.
+            cursor: The `nextCursor` of the previous page."""
+        client = _get_client()
+        try:
+            response = client.analytics.list_facebook_tagged_posts(
+                account_id=account_id, limit=limit, cursor=cursor
             )
             return _format_response(response)
         except Exception as e:
@@ -20343,6 +20440,7 @@ def register_generated_tools(mcp, _get_client):
         welcome_theme: str | None = None,
         logo_url: str | None = None,
         language: Literal["en", "es", "pt-BR"] | None = None,
+        handoff: bool = False,
     ) -> str:
         """Get OAuth connect URL
 
@@ -20547,7 +20645,8 @@ def register_generated_tools(mcp, _get_client):
                 welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button reads Connecting for about a second and then sends the user on to the platform's own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.
                 welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine`, `consentLine` and `statusLine` (up to 200 each, `statusLine` being the line above the button), `buttonLabel` (up to 30, the label of the link the button becomes if the redirect stalls); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor` (the button), `accentColor` (the header gradient, built as a scale of that colour, and the icons), `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
                 logo_url: Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
-                language: Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`."""
+                language: Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`.
+                handoff: Let the user finish on their phone. When `true`, the response also carries `handoff`: show `handoff.url` as a QR code in your app (any QR library), the user scans it and the welcome screen opens on the phone, already carrying this connect, so they log in to the platform there without signing in to anything else. The phone ends on a Zernio result screen telling them to go back to their computer. Learn the outcome by polling `GET /v1/connect/handoffs/{handoffId}` (every 2 to 5 seconds is fine) or from the `account.connected` webhook. Shows the welcome screen with your branding parameters or saved settings. Cannot be combined with `welcome=false`, `headless=true`, `signup`, `redirect=true` or `redirect_url` (400 `INVALID_FIELD_VALUE`). `handoff.url` works for 30 minutes. When the account is re-enabled straight away the response carries `account` instead, as without `handoff`."""
         client = _get_client()
         try:
             response = client.connect.get_connect_url(
@@ -20569,6 +20668,7 @@ def register_generated_tools(mcp, _get_client):
                 welcome_theme=welcome_theme,
                 logo_url=logo_url,
                 language=language,
+                handoff=handoff,
             )
             return _format_response(response)
         except Exception as e:
@@ -21363,6 +21463,28 @@ def register_generated_tools(mcp, _get_client):
                 pending_data_token=pending_data_token,
                 redirect_url=redirect_url,
             )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a phone handoff",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_connect_handoff(handoff_id: str) -> str:
+        """Get a phone handoff
+
+        Where a connect started with `handoff=true` on `GET /v1/connect/{platform}` stands: `waiting` until the QR code is scanned, `opened` once the phone opened it, then `connected` with the new accounts or `failed` with the error the flow ended on (the same `error` codes as the redirect flow). `expired` when nobody opened the QR code within its 30 minutes. Poll it every 2 to 5 seconds while your QR code is shown, and stop once it is `connected`, `failed` or `expired`. Readable for 60 minutes after it was created, then 404, as is a handoff created by another workspace.
+
+        Args:
+            handoff_id: `handoff.id` from the connect response. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.get_connect_handoff(handoff_id=handoff_id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -27014,6 +27136,22 @@ def register_generated_tools(mcp, _get_client):
         scope: Literal["all", "profiles"],
         profile_ids: list[str] | None = None,
         role: Literal["admin", "member", "billing_admin", "viewer"] = "member",
+        disabled_resource_groups: list[
+            Literal[
+                "publishing",
+                "engagement",
+                "messages",
+                "contacts",
+                "analytics",
+                "ads",
+                "telephony",
+                "accounts",
+                "billing",
+                "webhooks",
+                "commerce",
+            ]
+        ]
+        | None = None,
         read_only: bool | None = None,
     ) -> str:
         """Create invite token
@@ -27028,11 +27166,16 @@ def register_generated_tools(mcp, _get_client):
             scope: 'all' grants access to all profiles, 'profiles' restricts to specific profiles (required)
             profile_ids: Required if scope is 'profiles'. Array of profile IDs to grant access to.
             role: Org role granted to the invitee. Defaults to 'member'. 'admin' can manage the team (invite/remove members, change roles and access) and billing, but not ownership transfer or account deletion. 'billing_admin' (displayed as Billing Manager) manages billing only. 'viewer' creates a read-only member who can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
+            disabled_resource_groups: Resource groups the invitee may not use once they join (the same groups as restricted API keys). Their dashboard hides those sections and every API request into a disabled group, with any credential they hold, is refused with 403. Omitted or empty means full access. Groups the caller lacks themselves are always added.
             read_only: Deprecated. Use role 'viewer' instead. When true, the invite is created with role 'viewer'. Cannot be combined with role 'billing_admin' or 'admin'."""
         client = _get_client()
         try:
             response = client.invites.create_invite_token(
-                scope=scope, profile_ids=profile_ids, role=role, read_only=read_only
+                scope=scope,
+                profile_ids=profile_ids,
+                role=role,
+                disabled_resource_groups=disabled_resource_groups,
+                read_only=read_only,
             )
             return _format_response(response)
         except Exception as e:
@@ -27196,7 +27339,7 @@ def register_generated_tools(mcp, _get_client):
 
         Creates a lead form on a Facebook Page or LinkedIn Company Page to collect contact details from ads.
 
-        The form content goes inside `platformSpecificData` for both platforms (the shape is selected by the accountId's platform). Meta: created on the connected Facebook Page (POST /{page-id}/leadgen_forms), where `accountId` may be the `metaads` ads connection (its Page comes from the Facebook account linked to the same profile), an Instagram account (the Page its ads run under: its own linked Page, else the Facebook or business-login Meta ads account on the same profile) or the Facebook account itself; the old top-level Meta fields (questions, thankYou*, contextCard, …) are DEPRECATED but still accepted while platformSpecificData is absent; mixing both shapes is a 400. LinkedIn: created on the ad account's Company Page. NOT idempotent: a retry creates a second form. Meta prefilled question types (EMAIL, PHONE, FULL_NAME, …) must omit label/key; CUSTOM questions require both. LinkedIn ...
+        The form content goes inside `platformSpecificData` for both platforms (the shape is selected by the accountId's platform). Meta: created on the connected Facebook Page (POST /{page-id}/leadgen_forms), where `accountId` may be the `metaads` ads connection (its Page comes from the Facebook account linked to the same profile), an Instagram account (the Page its ads run under: its own linked Page, else the Facebook or business-login Meta ads account on the same profile) or the Facebook account itself; the old top-level Meta fields (questions, thankYou*, contextCard, …) are DEPRECATED but still accepted while platformSpecificData is absent; mixing both shapes is a 400. thankYouEnableMessenger, isPhoneSmsVerifyEnabled and customDisclaimer are accepted only inside platformSpecificData (top-level is a 400). LinkedIn: created on the ad account's Company Page. NOT idempotent: a retry creates ...
 
         Platforms: meta, linkedin
 
@@ -27214,7 +27357,7 @@ def register_generated_tools(mcp, _get_client):
             thank_you_button_type: Deprecated: use platformSpecificData.thankYouButtonType.
             thank_you_website_url: Deprecated: use platformSpecificData.thankYouWebsiteUrl.
             is_optimized_for_quality: Deprecated: use platformSpecificData.isOptimizedForQuality.
-            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed). Object with keys: questions (list of objects with keys type, key, label, options, inline_context, required); privacyPolicyLinkText (string); followUpActionUrl (string); locale (string); thankYouTitle (string); thankYouBody (string); thankYouButtonText (string); thankYouButtonType (string); thankYouWebsiteUrl (string); thankYouEnableMessenger (boolean) - Adds a 'Continue in Messenger' option to the thank-you page (Meta thank_you_page.enable_messenger), so the lead can carry on chatting with the Page. Set ...; isOptimizedForQuality (boolean) - Set true for a higher-intent form (adds a review step before submit).; isPhoneSmsVerifyEnabled (boolean) - Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE ...; blockDisplayForNonTargetedViewer (boolean); questionPageCustomHeadline (string); contextCard (object with keys title, content, style, buttonText, coverPhoto); customDisclaimer (object with keys title, body, checkboxes) - Consent section with checkboxes (Meta custom_disclaimer). Each lead's answers come back on the lead, and a lead_received workflow only messages leads that ..."""
+            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed). Object with keys: questions (list of objects with keys type, key, label, options, inline_context, required); privacyPolicyLinkText (string); followUpActionUrl (string); locale (string); thankYouTitle (string); thankYouBody (string); thankYouButtonText (string); thankYouButtonType (string) - Meta thank_you_page.button_type. Defaults to VIEW_WEBSITE. Meta rejects MESSAGE_BUSINESS on thank-you pages with (#100) This button type is not yet supported ...; thankYouWebsiteUrl (string); thankYouEnableMessenger (boolean) - Sent as Meta thank_you_page.enable_messenger (boolean). Accepted only inside platformSpecificData: a top-level thankYouEnableMessenger is a 400.; isOptimizedForQuality (boolean) - Set true for a higher-intent form (adds a review step before submit).; isPhoneSmsVerifyEnabled (boolean) - Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE ...; blockDisplayForNonTargetedViewer (boolean); questionPageCustomHeadline (string); contextCard (object with keys title, content, style, buttonText, coverPhoto); customDisclaimer (object with keys title, body, checkboxes) - Consent section with checkboxes (Meta custom_disclaimer). Each lead's answers come back on the lead, and a lead_received workflow only messages leads that ..."""
         client = _get_client()
         try:
             response = client.lead_gen.create_lead_form(
@@ -27639,8 +27782,9 @@ def register_generated_tools(mcp, _get_client):
           own posts are never listed, even when they contain its @handle. Their text is read from Instagram
           in the background after the first request, so `content` can be empty on the first read. Pass
           `mediaId` and `commentId` to `POST /v1/inbox/mentions/reply` to answer one.
-
-        Requires Inbox addon.
+        - **Facebook**: post mentions (someone tags the Page in a post) and comment mentions (someone tags
+          it in a comment), delivered by the Page `mention` webhook with their text. Comments on the Page's
+          own posts and anything the Page wrote itself are never listed. Facebook mentions ...
 
         Args:
             account_id: Filter by account ID
@@ -30230,6 +30374,7 @@ def register_generated_tools(mcp, _get_client):
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        phone_number: str | None = None,
         pre_order: bool | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
@@ -30266,6 +30411,7 @@ def register_generated_tools(mcp, _get_client):
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
             area_code: Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
+            phone_number: Exact number to order, in E.164, taken from GET /v1/phone-numbers/available. It is ordered as is or the request fails with 409 code phone_number_unavailable; another number is never substituted and a pre-order is never placed. Requires quantity 1 (or omitted). Omit to let the carrier pick a number in the area.
             pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area. Without areaCode it accepts the pre-order a previous submit offered with 409 code area_pre_order_available (a geographic-match country whose address area has no stock): resend the same body with preOrder true and the order is placed for that area. A whole pair with no stock is pre-ordered without either flag.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
@@ -30283,6 +30429,7 @@ def register_generated_tools(mcp, _get_client):
                 reuse_option_id=reuse_option_id,
                 reuse_from=reuse_from,
                 area_code=area_code,
+                phone_number=phone_number,
                 pre_order=pre_order,
                 end_user_first_name=end_user_first_name,
                 end_user_last_name=end_user_last_name,
@@ -31176,21 +31323,13 @@ def register_generated_tools(mcp, _get_client):
 
             See each platform's schema for media constraints.
 
-            ## Scheduling
+            ## LinkedIn @mentions
 
-            Pick one of:
-
-            - `scheduledFor`: publish at the scheduled time
-            - `publishNow: true`: publish synchronously, inside this request
-            - `queuedFromProfile`: publish in the profile's next queue slot
-
-            With none of them and `isDraft` unset, the post is saved as a draft. `platforms` is required unless the post is a draft.
-
-            Precedence: `isDraft: true` wins over `publishNow` and `scheduledFor` (the post is saved, never published), and `publishNow: true` wins over `scheduledFor`. A `scheduledFor` already ...
+            Put the profile or company URL inside `@[...]` in `content`, or in a LinkedIn entry's `customContent`: `@[https://www.linkedin.com/in/jane-doe]` or `@[https://www.linkedin.com/company/acme]`. The post is published with LinkedIn's real name and link, and no lookup call is needed first. Custom text is optional, as in `@[Jane](https://www.linkedin.com/in/jane-doe)`: for a person it must be the first name, last name or full name, for a company the exact company name, both case-sensitive. ...
 
             Args:
                 title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
-                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
+                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts. LinkedIn @mentions: write @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme] in the text (see the operation description).
                 media_items: Media attached to every platform in the request (a platform entry can override it with `customMedia`). Each entry needs a publicly reachable HTTPS `url`; `type` (image, video, gif, document) is inferred from the URL extension when omitted and a `type` that contradicts the extension is rejected with 400. Upload files with `POST /v1/media/presign` first; per-platform size, duration and format limits are listed on each platform schema. Each item is an object with keys: type (one of: image, video, gif, document); url (string) - A media item with a null, missing or empty url is dropped.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image, applied on every platform that supports it: Instagram (feed images only, not Reels/Stories), Facebook, Threads, X ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, regular video uploads, and LinkedIn video posts. Max ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Sent to YouTube, Facebook videos, LinkedIn, X and ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override. When set, this content is used instead of the top-level post content for this platform. Useful for tailoring captions per ...; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. When omitted, the top-level scheduledFor is used.; platformSpecificData (object with keys article, replyToTweetId, quoteTweetId, replySettings, threadItems, poll, longVideo, geoRestriction, paidPartnership, madeWithAi, sensitiveMedia, mediaTaggedUsers)
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. An ISO 8601 value with a `Z` or offset (`2026-01-15T10:00:00Z`, `2026-01-15T11:00:00+01:00`) is taken as-is; a value without one (`2026-01-15T10:00:00` or `2026-01-15 10:00`) is read as local time in `timezone`. A value already in the past is published synchronously in the same request. Ignored when `publishNow` is true.
@@ -31201,7 +31340,7 @@ def register_generated_tools(mcp, _get_client):
                 timezone: IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset, and stored on the post. Has no effect on values that already carry one. When omitted, the post takes its profile's `timezone` (the queue's profile for a queued post, else the profile its accounts share), and UTC when there is none or the accounts sit on profiles with different timezones. An unknown name returns 400 when `scheduledFor` is set.
                 tags: Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed.
                 hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.
-                mentions: Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field.
+                mentions: Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, write them in the post content, for example @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme].
                 crossposting_enabled: Stored on the post and echoed back on reads. Publishing does not branch on it: every entry in `platforms` is published regardless, so treat it as a label for your own tooling.
                 metadata: Free-form key/value pairs of your own, stored on the post and returned on reads and in webhook payloads. Zernio also writes the bookkeeping keys `usageCounted`, `usageRefunded` and `hidden` into this object; do not set them, and they are stripped from webhook payloads.
                 tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator receives an inbox notification to complete ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when videoCoverImageUrl ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. The image is ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only: the business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Accounts connected through the TikTok for Business app and ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
@@ -31303,6 +31442,13 @@ def register_generated_tools(mcp, _get_client):
 
         Non-draft updates run the same per-platform validation as post creation (media requirements, platform-specific
         field rules, etc.) against the resulting platforms, returning 400 on failure.
+
+        ## LinkedIn @mentions
+
+        Profile and company URLs written as `@[https://www.linkedin.com/in/jane-doe]` or
+        `@[Jane](https://www.linkedin.com/company/acme)` in the `content` or LinkedIn `customContent` you send are
+        resolved to LinkedIn's name and link, exactly as on `POST /v1/posts` (see Create post for the rules). Only what
+        the request sends is looked up: an update of ...
 
         Args:
             post_id: (required)
@@ -39546,7 +39692,15 @@ def register_generated_tools(mcp, _get_client):
     def whatsapp_send_whats_app_conversion(
         account_id: str,
         event_name: Literal[
-            "LeadSubmitted", "Purchase", "AddToCart", "InitiateCheckout", "ViewContent"
+            "LeadSubmitted",
+            "QualifiedLead",
+            "Purchase",
+            "AddToCart",
+            "InitiateCheckout",
+            "ViewContent",
+            "OrderCreated",
+            "OrderCanceled",
+            "OrderReturned",
         ],
         event_id: str,
         event_time: float | None = None,
@@ -39562,8 +39716,9 @@ def register_generated_tools(mcp, _get_client):
         """Send WhatsApp conversion event
 
             Forward a WhatsApp Business Messaging conversion event (`LeadSubmitted`,
-            `Purchase`, `AddToCart`, `InitiateCheckout`, `ViewContent`) to Meta's
-            Conversions API with `action_source = business_messaging` and
+            `QualifiedLead`, `Purchase`, `AddToCart`, `InitiateCheckout`,
+            `ViewContent`, `OrderCreated`, `OrderCanceled`, `OrderReturned`) to
+            Meta's Conversions API with `action_source = business_messaging` and
             `messaging_channel = whatsapp`. The endpoint looks up the originating
             CTWA click ID (`ctwa_clid`) captured on the first inbound message of
             the conversation and replays it on every event so Meta can attribute
@@ -39576,15 +39731,12 @@ def register_generated_tools(mcp, _get_client):
             The WABA ID (already set automatically at connect time) is forwarded as
             `user_data.whatsapp_business_account_id`, which is the per-channel
             attribution identifier Meta requires for WhatsApp events. No Facebook
-            Page ID is needed (that field is the Messenger-branch identifier).
-
-            Identify the conversation by either `conversationId` ...
+            Page ID is needed (that field is the Messenger-branch ...
 
             Args:
                 account_id: WhatsApp SocialAccount ID. (required)
-                event_name: Live-verified allowlist of event names accepted by Meta's
-        CAPI for Business Messaging (Graph API v25.0). Other
-        standard pixel events including `Lead`,
+                event_name: Event names accepted by Meta's CAPI for Business
+        Messaging. Other standard pixel events including `Lead`,
         `CompleteRegistration`, `Subscribe`, `Schedule`, `Contact`,
         `StartTrial`, `AddPaymentInfo`, `Search`, and
         `SubmitApplication` are rejected with subcode 2804066
@@ -39592,7 +39744,11 @@ def register_generated_tools(mcp, _get_client):
         `action_source = business_messaging` events. Custom event
         names are also rejected.
 
-        Use `LeadSubmitted` (NOT `Lead`) for lead-style conversions.
+        Use `LeadSubmitted` (NOT `Lead`) when a lead comes in and
+        `QualifiedLead` once your team qualifies it. `OrderCreated`,
+        `OrderCanceled` and `OrderReturned` track an order placed in
+        the chat; send `value` and `currency` with them (and with
+        `Purchase`) to report the order amount.
          (required)
                 event_time: Unix seconds. Defaults to the time of the request when
         omitted. Meta's attribution window is 7 days from click;
@@ -41133,6 +41289,7 @@ def register_generated_tools(mcp, _get_client):
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        phone_number: str | None = None,
         pre_order: bool | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
@@ -41170,6 +41327,7 @@ def register_generated_tools(mcp, _get_client):
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
             area_code: Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
+            phone_number: Exact number to order, in E.164, taken from GET /v1/whatsapp/phone-numbers/available. It is ordered as is or the request fails with 409 code phone_number_unavailable; another number is never substituted and a pre-order is never placed. Requires quantity 1 (or omitted). Omit to let the carrier pick a number in the area.
             pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area. Without areaCode it accepts the pre-order a previous submit offered with 409 code area_pre_order_available (a geographic-match country whose address area has no stock): resend the same body with preOrder true and the order is placed for that area. A whole pair with no stock is pre-ordered without either flag.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
@@ -41187,6 +41345,7 @@ def register_generated_tools(mcp, _get_client):
                 reuse_option_id=reuse_option_id,
                 reuse_from=reuse_from,
                 area_code=area_code,
+                phone_number=phone_number,
                 pre_order=pre_order,
                 end_user_first_name=end_user_first_name,
                 end_user_last_name=end_user_last_name,

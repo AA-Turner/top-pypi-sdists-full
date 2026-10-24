@@ -14,19 +14,29 @@ export declare class ScrollLatestEvent extends ModelEvent {
 export declare class FeedView extends ColumnView {
     model: Feed;
     _intersection_observer: IntersectionObserver;
+    protected _visibility_pending: boolean;
+    protected _visibility_listener: boolean;
+    protected _latest_pending: boolean;
     _last_visible: UIElementView | null;
     _rendered: boolean;
     _sync: boolean;
     _reference: number | null;
     _reference_view: UIElementView | null;
+    protected _children_update: Promise<void> | null;
+    protected _latest_scroll_pending: boolean;
+    protected _latest_last: string | null;
     initialize(): void;
     connect_signals(): void;
     get node_map(): any;
     update_children(): Promise<void>;
+    _scroll_to_latest_children(): void;
+    protected _rebuild_children(): Promise<void>;
     build_child_views(): Promise<UIElementView[]>;
     _update_layout(): void;
     render(): void;
+    _reobserve_children(): void;
     trigger_auto_scroll(): void;
+    _land_latest_scroll(): boolean;
     after_render(): void;
 }
 export declare namespace Feed {

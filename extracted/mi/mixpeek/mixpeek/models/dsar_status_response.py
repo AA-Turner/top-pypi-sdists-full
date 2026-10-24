@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -32,7 +32,9 @@ class DSARStatusResponse(BaseModel):
     status: StrictStr
     requested_at: StrictStr
     completed_at: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["request_id", "type", "status", "requested_at", "completed_at"]
+    erased: Optional[Dict[str, StrictInt]] = Field(default=None, description="For a finished deletion: records erased, by resource type, including stored_files and vector_indexes.")
+    kept: Optional[Dict[str, StrictInt]] = Field(default=None, description="For a finished deletion: records kept on purpose, by resource type (billing records and audit trails).")
+    __properties: ClassVar[List[str]] = ["request_id", "type", "status", "requested_at", "completed_at", "erased", "kept"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +91,9 @@ class DSARStatusResponse(BaseModel):
             "type": obj.get("type"),
             "status": obj.get("status"),
             "requested_at": obj.get("requested_at"),
-            "completed_at": obj.get("completed_at")
+            "completed_at": obj.get("completed_at"),
+            "erased": obj.get("erased"),
+            "kept": obj.get("kept")
         })
         return _obj
 

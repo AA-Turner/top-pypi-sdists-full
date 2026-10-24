@@ -2,7 +2,6 @@ import { div } from "@bokehjs/core/dom";
 import { HTMLBox, HTMLBoxView } from "./layout";
 import { ID } from "./util";
 export class AcePlotView extends HTMLBoxView {
-    static __name__ = "AcePlotView";
     _editor;
     _langTools;
     _modelist;
@@ -137,7 +136,6 @@ export class AcePlotView extends HTMLBoxView {
     }
 }
 export class AcePlot extends HTMLBox {
-    static __name__ = "AcePlot";
     constructor(attrs) {
         super(attrs);
     }

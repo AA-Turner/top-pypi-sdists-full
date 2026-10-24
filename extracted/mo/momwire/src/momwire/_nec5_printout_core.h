@@ -344,6 +344,60 @@ void linspace3(const double *a, const double *b, int64_t num, std::vector<double
 // elements; a 1-D result has `os_p` 0); with a host table, `_lapack.matmul`.
 void np_matmul(const NumpyLinalg &np, const Op &a, const Op &b, cd *out, int64_t os_m,
                int64_t os_p);
+// `_serve._pattern` + `_pattern_rows` for one RP card in free space or over
+// a ground at z = 0, over `element_currents(coeffs)`'s
+// midpoints and moments ((n, 3) row-major): the NEC-5 seam's row builder,
+// which the NEC-4.2 slot shares (momwire#1607 B4a, B5a). `rq` carries no
+// range (the NEC-4.2 slot applies its own). Throws `PrintoutDecline` where
+// the builder declines.
+struct PatternRow {
+    double theta = 0, phi = 0, vert = 0, hor = 0, total = 0, axial = 0, tilt = 0;
+    std::string sense;
+    double et_mag = 0, et_deg = 0, ep_mag = 0, ep_deg = 0;
+};
+struct PatternBlock {
+    std::vector<PatternRow> rows;
+    bool has_average = false;
+    double average_power_gain = 0, solid_angle_pi = 0, power_radiated_4pi = 0;
+    bool directive = false;
+};
+// `ground`: 0 free space, 1 a perfect ground, 2 a finite one (the Fresnel
+// image, `eps_r` / `sigma`).
+PatternBlock far_pattern(const Request &rq, const std::vector<double> &mid,
+                         const std::vector<cd> &moment, int ground, double eps_r, double sigma,
+                         double frequency_mhz, double wavelength, double p_in, double p_radiated);
+// `DeckSolver._composed(reducer, y, z_load, wavelength, driven)` over the
+// seam's network solve: `y_eff` with the series loads folded in (`y` itself
+// when none), the flat network with `held` held, and `reduced_ports(...,
+// driven)`: V_applied, the structure current and the source current. The
+// cards' TL lengths are resolved. Throws `PrintoutDecline` where it declines.
+struct NetState {
+    std::vector<cd> v_applied, i_port, i_source;
+};
+NetState composed(const std::vector<SeamCard> &cards, const CMat &y, const std::vector<cd> &z_load,
+                  const std::vector<cd> &voltages, const std::vector<int64_t> &held,
+                  const std::vector<int64_t> &driven, double wavelength, const NumpyLinalg &np);
+// `grid_points(coordinates, counts, origin, step)` of an NE / NH request:
+// (n, 3) row-major, in the order its table prints them.
+std::vector<double> near_grid(const Request &rq);
+// `element_currents(coeffs, subdiv)` over a walk and a basis' sampler.
+ElementCurrents element_currents_sub(const std::vector<WireWalk> &walk, const CurrentSampler &sampler,
+                                     int64_t subdiv);
+// `near_field_at` + `near_field_block` at `points` (`near_grid(rq)`) over
+// `element_currents(coeffs, subdiv=8)`: `ground` 0 free space, 1 a perfect
+// ground's image, 2 the composing (Sommerfeld) ground, whose eps~ is
+// `(eps_r, -sigma / (omega * eps0))`, all at z = 0. Throws `PrintoutDecline`
+// where the readout declines.
+struct NearRow {
+    double point[3] = {0, 0, 0}, mag[3] = {0, 0, 0}, deg[3] = {0, 0, 0};
+};
+struct NearBlock {
+    std::vector<NearRow> rows;
+    bool magnetic = false;
+};
+NearBlock near_field(const Request &rq, const std::vector<double> &points, const ElementCurrents &el,
+                     double k, double radius, int ground, double eps_r, double sigma, double omega,
+                     double eps0);
 
 }  // namespace replay
 

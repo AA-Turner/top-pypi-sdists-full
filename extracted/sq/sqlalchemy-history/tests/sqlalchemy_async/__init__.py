@@ -1,10 +1,10 @@
 import contextlib
-import os
+import typing as t
 from copy import copy
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, close_all_sessions, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession, async_sessionmaker, close_all_sessions
 from sqlalchemy.orm import DeclarativeBase, column_property, configure_mappers, relationship
 
 from sqlalchemy_history import (
@@ -16,25 +16,23 @@ from sqlalchemy_history import (
 )
 from sqlalchemy_history.plugins import TransactionChangesPlugin, TransactionMetaPlugin
 from sqlalchemy_history.transaction import TransactionFactory
-from tests import QueryPool, get_dns_from_driver
+from tests import QueryPool
 
 
 class AsyncTestCase:
     versioning_strategy = "subquery"
     transaction_column_name = "transaction_id"
     end_transaction_column_name = "end_transaction_id"
-    composite_pk = False
     plugins = [TransactionChangesPlugin(), TransactionMetaPlugin()]
     transaction_cls = TransactionFactory()
     user_cls = None
     should_create_models = True
     async_database_url = "sqlite+aiosqlite:///:memory:"
 
-    @property
-    def options(self):
+    def get_default_versioning_options(self, decl_base):
         return {
             "create_models": self.should_create_models,
-            "base_classes": (self.Model,),
+            "base_classes": (decl_base,),
             "strategy": self.versioning_strategy,
             "support_async": True,
             "transaction_column_name": self.transaction_column_name,
@@ -42,62 +40,65 @@ class AsyncTestCase:
         }
 
     @pytest.fixture
-    async def setup_declarative_base(self):
+    def versioning_options(self, decl_base):
+        return self.get_default_versioning_options(decl_base)
+
+    @pytest.fixture
+    async def decl_base(self):
         class Base(AsyncAttrs, DeclarativeBase):
             pass
 
-        self.Model = Base
-        yield
-        del self.Model
+        return Base
 
     @pytest.fixture
-    async def setup_versioning(self, setup_declarative_base):
-        make_versioned(options=self.options, plugins=self.plugins)
+    async def setup_versioning(self, versioning_options):
+        make_versioned(options=versioning_options, plugins=self.plugins)
         versioning_manager.transaction_cls = self.transaction_cls
         versioning_manager.user_cls = self.user_cls
 
-    @pytest.fixture
-    async def setup_engine(self, setup_versioning, anyio_backend):
-        if "DB" not in os.environ:  # pragma: no cover
-            # NOTE: We set DB environment variable explicitly if someone has not provided as this value
-            #       is used to skip other test cases and if one doesn't specifiy this value tests starts
-            #       breaking. We don't cover this in coverage as our CI always
-            #       specifies DB variable
-            os.environ["DB"] = "sqlite"
-        self.driver = os.environ.get("DB")
-        self.engine = create_async_engine(get_dns_from_driver(self.driver, mode="async"))
-        yield
-        await self.engine.dispose()
-
-    @pytest.fixture
-    async def setup_models(self, setup_engine):
-        self.create_models()
+    @pytest.fixture(autouse=True)
+    async def setup_models(self, setup_versioning, decl_base, versioning_options):
+        self.create_models(decl_base=decl_base, versioning_options=versioning_options)
         configure_mappers()
 
-    @pytest.fixture
-    async def setup_tables(self, setup_models):
         if hasattr(self, "Article"):
             with contextlib.suppress(ClassNotVersioned):
                 self.ArticleVersion = version_class(self.Article)
         if hasattr(self, "Tag"):
             with contextlib.suppress(ClassNotVersioned):
                 self.TagVersion = version_class(self.Tag)
-        await self.create_tables()
+
         yield
-        await self.drop_tables()
 
-    async def create_tables(self):
-        async with self.engine.begin() as conn:
-            await conn.run_sync(self.Model.metadata.create_all)
+        uow_leaks = versioning_manager.units_of_work
+        session_map_leaks = versioning_manager.session_connection_map
 
-    async def drop_tables(self):
-        async with self.engine.begin() as conn:
-            await conn.run_sync(self.Model.metadata.drop_all)
+        remove_versioning()
+        QueryPool.queries = []
+        versioning_manager.reset()
+        await close_all_sessions()
 
-    def create_models(self):
-        class Article(self.Model):
+        assert not uow_leaks
+        assert not session_map_leaks
+
+    @pytest.fixture
+    async def setup_tables(self, setup_models, async_engine, decl_base):
+        await self.create_tables(async_engine, decl_base)
+        yield
+        await self.drop_tables(async_engine, decl_base)
+
+    async def create_tables(self, async_engine, decl_base):
+        async with async_engine.begin() as conn:
+            await conn.run_sync(decl_base.metadata.create_all)
+
+    async def drop_tables(self, async_engine, decl_base):
+        async with async_engine.begin() as conn:
+            await conn.run_sync(decl_base.metadata.drop_all)
+
+    def create_models(self, decl_base, versioning_options):
+        class Article(decl_base):
             __tablename__ = "article"
-            __versioned__ = copy(self.options)
+            __versioned__ = copy(versioning_options)
 
             id = sa.Column(
                 sa.Integer, sa.Sequence(f"{__tablename__}_seq", start=1), autoincrement=True, primary_key=True
@@ -108,9 +109,9 @@ class AsyncTestCase:
 
             fulltext_content = column_property(name + content + description)
 
-        class Tag(self.Model):
+        class Tag(decl_base):
             __tablename__ = "tag"
-            __versioned__ = copy(self.options)
+            __versioned__ = copy(versioning_options)
 
             id = sa.Column(
                 sa.Integer, sa.Sequence(f"{__tablename__}_seq", start=1), autoincrement=True, primary_key=True
@@ -122,33 +123,22 @@ class AsyncTestCase:
         self.Article = Article
         self.Tag = Tag
 
-    @pytest.fixture(autouse=True)
-    async def setup_session(self, setup_tables):
-        SessionLocal = async_sessionmaker(bind=self.engine, autoflush=False, expire_on_commit=False)
-        self.session = SessionLocal()
-        yield
-        await self.session.rollback()
-        uow_leaks = versioning_manager.units_of_work
-        session_map_leaks = versioning_manager.session_connection_map
-
-        remove_versioning()
-        QueryPool.queries = []
-        versioning_manager.reset()
-
-        await close_all_sessions()
-        self.session.expunge_all()
-
-        assert not uow_leaks
-        assert not session_map_leaks
+    @pytest.fixture
+    async def async_session(self, setup_tables, async_engine) -> t.AsyncIterator[AsyncSession]:
+        session_factory = async_sessionmaker(bind=async_engine, autoflush=False, expire_on_commit=False)
+        async with session_factory() as session:
+            yield session
+            await session.rollback()
+            session.expunge_all()
 
     # Helper functions
 
-    async def versions(self, parent):
-        return (await self.session.scalars(parent.versions.select())).all()
+    async def versions(self, session, parent):
+        return (await session.scalars(parent.versions.select())).all()
 
-    async def ordered_versions(self, version_model):
+    async def ordered_versions(self, session, versioning_options, version_model):
         return (
-            await self.session.scalars(
-                sa.select(version_model).order_by(getattr(version_model, self.options["transaction_column_name"]))
+            await session.scalars(
+                sa.select(version_model).order_by(getattr(version_model, versioning_options["transaction_column_name"]))
             )
         ).all()

@@ -108,7 +108,8 @@ class PyTorchXLARunner(process.ProcessRunner):
                 "Please use a python script as the entry-point"
             )
         if entrypoint_type is _entry_point_type.PYTHON_PROGRAM:
-            return self._pytorch_xla_command() + [self._user_entry_point] + self._args
+            entry_point = process.validate_entry_point(self._user_entry_point)
+            return self._pytorch_xla_command() + [entry_point] + self._args
         else:
             raise errors.SMTrainingCompilerConfigurationError(
                 "Distributed Training through PT-XLA is only supported for Python scripts. "

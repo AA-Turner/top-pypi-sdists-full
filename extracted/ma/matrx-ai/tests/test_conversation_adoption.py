@@ -365,6 +365,80 @@ async def test_a_live_start_claim_blocks_adoption(monkeypatch):
     assert conversation.update_calls == []  # the live run keeps its conversation
 
 
+def _claimed_by(user_id: str, request_id: str, *, door_published: bool = False):
+    from datetime import UTC, datetime
+
+    row = _shell(user_id)
+    row.last_request_status = gate.CONVERSATION_START_CLAIM_STATUS
+    row.last_request_id = request_id
+    row.updated_at = datetime.now(UTC)
+    row.metadata = {gate.DOOR_PUBLISHED_FOR_REQUEST_KEY: request_id} if door_published else {}
+    return row
+
+
+@pytest.mark.asyncio
+async def test_a_claim_this_request_published_is_its_own(monkeypatch):
+    """A server door publishes the row before handing its id to a client (2026-10-24: a repair
+    run's chat opened as "We couldn't find this conversation" while the turn prepared the box).
+    The turn arrives with the request id the claim names: that is the start proceeding."""
+    conversation_id, user_id, request_id = str(uuid4()), str(uuid4()), str(uuid4())
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+
+    await _adopt(
+        conversation_id,
+        user_id,
+        {"title": "x", "last_request_id": request_id},
+        _claimed_by(user_id, request_id, door_published=True),
+    )
+    assert conversation.update_calls[0][1]["last_request_id"] == request_id
+
+
+@pytest.mark.asyncio
+async def test_a_repeated_client_request_id_is_not_an_own_claim(monkeypatch):
+    """A client may send its own X-Request-Id, so a double-submit can repeat one. Without the
+    server door's birth mark the claim stays somebody else's: the ordinary retryable 409."""
+    conversation_id, user_id, request_id = str(uuid4()), str(uuid4()), str(uuid4())
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+
+    with pytest.raises(gate.ConversationRunInFlightError):
+        await _adopt(
+            conversation_id, user_id, {"title": "x", "last_request_id": request_id}, _claimed_by(user_id, request_id)
+        )
+    assert conversation.update_calls == []
+
+
+@pytest.mark.parametrize("incoming", [str(uuid4()), None])
+@pytest.mark.asyncio
+async def test_another_requests_live_claim_still_blocks(monkeypatch, incoming):
+    conversation_id, user_id = str(uuid4()), str(uuid4())
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+
+    kwargs = {"title": "x"} | ({"last_request_id": incoming} if incoming else {})
+    with pytest.raises(gate.ConversationRunInFlightError):
+        await _adopt(conversation_id, user_id, kwargs, _claimed_by(user_id, str(uuid4()), door_published=True))
+    assert conversation.update_calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_shell_under_the_parent_this_start_declares_is_the_same_child(monkeypatch):
+    conversation_id, user_id, parent = str(uuid4()), str(uuid4()), str(uuid4())
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+
+    child = _shell(user_id)
+    child.parent_conversation_id = parent
+    await _adopt(conversation_id, user_id, {"title": "x", "parent_conversation_id": parent}, child)
+    assert conversation.update_calls
+
+    other = _shell(user_id)
+    other.parent_conversation_id = parent
+    with pytest.raises(gate.ConversationGateError, match="parent_conversation_id"):
+        await _adopt(conversation_id, user_id, {"title": "x", "parent_conversation_id": str(uuid4())}, other)
+
+
 @pytest.mark.asyncio
 async def test_a_stale_claim_does_not_burn_the_id_forever(monkeypatch):
     """A crashed run must not keep an id hostage — that is the whole defect."""

@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class AdhocExecutionSummary(BaseModel):
     """
-    Summary of an ad-hoc retriever execution from ClickHouse.  Provides high-level execution metadata for ad-hoc retrievers without full document results. Used for listing and filtering execution history.
+    Summary of an ad-hoc retriever execution from the analytics store.  Provides high-level execution metadata for ad-hoc retrievers without full document results. Used for listing and filtering execution history.
     """ # noqa: E501
     execution_id: StrictStr = Field(description="Unique execution identifier.")
     execution_mode: StrictStr = Field(description="Execution mode ('adhoc').")

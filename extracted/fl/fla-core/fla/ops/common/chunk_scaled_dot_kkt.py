@@ -9,7 +9,7 @@ import torch
 import triton
 import triton.language as tl
 
-from fla.ops.backends import dispatch
+from fla.backends import dispatch
 from fla.ops.utils import prepare_chunk_indices
 from fla.ops.utils.op import exp2
 from fla.utils import autotune_cache_kwargs
@@ -50,7 +50,7 @@ def chunk_scaled_dot_kkt_fwd_kernel(
     i_b, i_h = i_bh // HV, i_bh % HV
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -65,7 +65,7 @@ def chunk_scaled_dot_kkt_fwd_kernel(
         o_k = i_k * BK + tl.arange(0, BK)
         p_k = k + (bos*H + i_h // (HV // H)) * K + o_t[:, None] * (H*K) + o_k[None, :]
         b_k = tl.load(p_k, mask=m_t[:, None] & (o_k < K)[None, :], other=0.0)
-        b_A += tl.dot(b_k, tl.trans(b_k))
+        b_A = tl.dot(b_k, tl.trans(b_k), b_A)
 
     if USE_G:
         p_g = g + bos*HV + i_h + o_t * HV

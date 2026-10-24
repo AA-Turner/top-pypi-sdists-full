@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalice
-Version: 1.33.0
+Version: 1.34.0
 Summary: Microframework
 Home-page: https://github.com/aws/chalice
 Author: James Saryerwinnie
@@ -17,13 +17,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: click<9.0,>=7
-Requires-Dist: botocore<2.0.0,>=1.14.0
+Requires-Dist: botocore<2.0.0,>=1.21.51
 Requires-Dist: six<2.0.0,>=1.10.0
-Requires-Dist: pip<26.2,>=9
+Requires-Dist: pip<26.3,>=9
 Requires-Dist: jmespath<2.0.0,>=0.9.3
 Requires-Dist: pyyaml<7.0.0,>=5.3.1
 Requires-Dist: inquirer<4.0.0,>=3.0.0
@@ -173,7 +174,7 @@ Quickstart
 In this tutorial, you'll use the ``chalice`` command line utility
 to create and deploy a basic REST API.  This quickstart uses Python 3.10,
 but AWS Chalice supports all versions of Python supported by AWS Lambda,
-which includes Python 3.10 through Python 3.14.
+which includes Python 3.10 through Python 3.15.
 
 To install Chalice, we'll first create and activate a virtual environment
 in python3.10::

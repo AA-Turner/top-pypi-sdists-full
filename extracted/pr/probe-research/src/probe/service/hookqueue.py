@@ -61,6 +61,7 @@ from pathlib import Path
 
 from . import hookhosts, paths
 from .protocol import HOOK_LANES, MAX_HOOK_QUEUE_ITEM, RpcError, need_hook_queue
+from .watch import Family
 
 #: Events waiting at once, at most (`hooks/dispatch.py` MAX_QUEUED).
 MAX_QUEUED = 128
@@ -157,8 +158,13 @@ class HookQueue:
     holds the service); the lock guards the folder's names, and is never held
     while an event runs."""
 
-    def __init__(self, log, *, folder: Path | None = None, version: str = "", warm=None, changed=None) -> None:
+    def __init__(
+        self, log, *, folder: Path | None = None, version: str = "", warm=None, changed=None,
+        incident=lambda *args, **kwargs: None,
+    ) -> None:
         self.log = log
+        #: The service's watch (`watch.Watch.note`): an event that did not finish (plan B2).
+        self.incident = incident
         self.folder = folder
         self.version = version
         #: Called with a plugin folder whose event ran as a fresh process: its
@@ -334,6 +340,8 @@ class HookQueue:
                         self._run_one(item)
                     except Exception as exc:  # noqa: BLE001 -- one event never stops the rest
                         self.log(f"queued hook event {item['id']} failed: {exc!r}")
+                        self.incident(Family.HOOK, "raised", None, {"lane": item["lane"], "error": repr(exc)[:500]},
+                                      env=item["env"])
                 with self._lock:
                     self._pending = max(self._pending - 1, 0)
             if not moved:
@@ -404,6 +412,11 @@ class HookQueue:
                     self.warm(request["root"])
         if answer.get("timed_out") or answer.get("exit_code") is None:
             self.log(f"queued hook event {item['id']} ({item['lane']}) did not finish: via {answer.get('via')}")
+            # One event of `hook` (3 in 15 min are a report, plan B2); its exit
+            # code is never one (2 is a Stop message delivered).
+            self.incident(Family.HOOK, "did_not_finish", None, {
+                "lane": item["lane"], "via": answer.get("via"), "timed_out": bool(answer.get("timed_out")),
+            }, env=item["env"])  # the event's own: its opt-out counts
 
     def _prune(self) -> None:
         """Marks and claims past TOMBSTONE_S, and temporary files a dispatcher left."""

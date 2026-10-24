@@ -774,7 +774,9 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # "Do not call Probe for" names outside facts (cloud quotas, GPU capacity, vendor docs) (10-14)
     # 47 / 45bb6064ee2b: DAEMON_POINTER_BODY says the agent can look at its own runs by id
     # (`probe run get`, `probe metrics plot`); the daemon does all other reads and writes (10-22)
-    assert (agent_rules.POINTER_VERSION, digest) == (47, "45bb6064ee2b"), (
+    # 48 / 6a63c4370595: both bodies' FEEDBACK sections gained `probe doctor --send`
+    # (a diagnostic report to the Probe team, daemon crash logs plan B4, 10-23)
+    assert (agent_rules.POINTER_VERSION, digest) == (48, "6a63c4370595"), (
         "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

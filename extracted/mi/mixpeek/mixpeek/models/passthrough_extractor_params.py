@@ -20,16 +20,19 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.vector_field_spec import VectorFieldSpec
 from typing import Optional, Set
 from typing_extensions import Self
 
 class PassthroughExtractorParams(BaseModel):
     """
-    Parameters for passthrough extractor.  Minimal configuration - just passes data through with canonicalization.
+    Parameters for passthrough extractor.  Minimal configuration - just passes data through with canonicalization. With ``vector_fields`` set, each row of a JSONL or Parquet object becomes its own document carrying the row's precomputed vectors.
     """ # noqa: E501
     extractor_type: Optional[StrictStr] = Field(default='passthrough_extractor', description="Discriminator field for parameter type identification.")
     preserve_metadata: Optional[StrictBool] = Field(default=True, description="Preserve source object metadata in output document.")
-    __properties: ClassVar[List[str]] = ["extractor_type", "preserve_metadata"]
+    vector_fields: Optional[List[VectorFieldSpec]] = Field(default=None, description="Precomputed vectors to store from a JSONL or Parquet object. When set, every row of the object becomes its own document: the row's other fields are stored on the document, and each listed vector is stored under its own vector index, searchable with a raw vector in a feature_search stage. Leave empty to store one document per object.")
+    row_format: Optional[StrictStr] = Field(default=None, description="Format of the object when vector_fields is set. Leave unset to read it from the object's file extension (.jsonl or .ndjson for JSONL, .parquet for Parquet).")
+    __properties: ClassVar[List[str]] = ["extractor_type", "preserve_metadata", "vector_fields", "row_format"]
 
     @field_validator('extractor_type')
     def extractor_type_validate_enum(cls, value):
@@ -39,6 +42,16 @@ class PassthroughExtractorParams(BaseModel):
 
         if value not in set(['passthrough_extractor']):
             raise ValueError("must be one of enum values ('passthrough_extractor')")
+        return value
+
+    @field_validator('row_format')
+    def row_format_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['jsonl', 'parquet']):
+            raise ValueError("must be one of enum values ('jsonl', 'parquet')")
         return value
 
     model_config = ConfigDict(
@@ -80,6 +93,13 @@ class PassthroughExtractorParams(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in vector_fields (list)
+        _items = []
+        if self.vector_fields:
+            for _item_vector_fields in self.vector_fields:
+                if _item_vector_fields:
+                    _items.append(_item_vector_fields.to_dict())
+            _dict['vector_fields'] = _items
         return _dict
 
     @classmethod
@@ -93,7 +113,9 @@ class PassthroughExtractorParams(BaseModel):
 
         _obj = cls.model_validate({
             "extractor_type": obj.get("extractor_type") if obj.get("extractor_type") is not None else 'passthrough_extractor',
-            "preserve_metadata": obj.get("preserve_metadata") if obj.get("preserve_metadata") is not None else True
+            "preserve_metadata": obj.get("preserve_metadata") if obj.get("preserve_metadata") is not None else True,
+            "vector_fields": [VectorFieldSpec.from_dict(_item) for _item in obj["vector_fields"]] if obj.get("vector_fields") is not None else None,
+            "row_format": obj.get("row_format")
         })
         return _obj
 

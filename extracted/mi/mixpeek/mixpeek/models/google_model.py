@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class GoogleModel(str, Enum):
     """
-    Google Gemini model identifiers for LLM generation.  Gemini models excel at multimodal understanding with best-in-class video support. All models support text, images, video, audio, and PDFs.  Values:     GEMINI_2_5_FLASH_LITE: Gemini 2.5 Flash Lite model (recommended, stable GA)         - Use for: Fastest generation, cost-effective multimodal         - Context: 1M tokens         - Multimodal: Text, images, video, audio, PDFs         - When to use: Default choice for all Gemini use cases      GEMINI_2_5_PRO: Gemini 2.5 Pro model         - Use for: Higher quality reasoning, complex tasks         - Context: 1M tokens      GEMINI_2_5_FLASH: Gemini 2.5 Flash model         - Kept for backward compatibility.      GEMINI_3_1_FLASH_LITE: Alias for gemini-2.5-flash-lite (backwards compat)         - Note: gemini-3.1-flash-lite does NOT exist in Google's API.           This value is mapped to gemini-2.5-flash-lite at runtime.
+    Google Gemini model identifiers for LLM generation.  Gemini models excel at multimodal understanding with best-in-class video support. All models support text, images, video, audio, and PDFs.  Values:     GEMINI_3_5_FLASH_LITE: Gemini 3.5 Flash Lite model (recommended, the default)         - Use for: Fastest generation, cost-effective multimodal         - Context: 1M tokens         - Multimodal: Text, images, video, audio, PDFs         - When to use: Default choice for all Gemini use cases      GEMINI_2_5_FLASH_LITE: Gemini 2.5 Flash Lite model         - Kept so stored configs that name it still validate. The Gemini           developer API no longer serves it to new keys; Vertex does.      GEMINI_2_5_PRO: Gemini 2.5 Pro model         - Use for: Higher quality reasoning, complex tasks         - Context: 1M tokens      GEMINI_2_5_FLASH: Gemini 2.5 Flash model         - Kept for backward compatibility.      GEMINI_3_1_FLASH_LITE: Gemini 3.1 Flash-Lite model         - Use for: Fast, low-cost generation on the 3.1 generation
     """
 
     """
@@ -31,6 +31,7 @@ class GoogleModel(str, Enum):
     GEMINI_MINUS_2_DOT_5_MINUS_FLASH = 'gemini-2.5-flash'
     GEMINI_MINUS_2_DOT_5_MINUS_PRO = 'gemini-2.5-pro'
     GEMINI_MINUS_3_DOT_1_MINUS_FLASH_MINUS_LITE = 'gemini-3.1-flash-lite'
+    GEMINI_MINUS_3_DOT_5_MINUS_FLASH_MINUS_LITE = 'gemini-3.5-flash-lite'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

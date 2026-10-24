@@ -4,7 +4,6 @@ import { DEFAULT_FORMATTERS } from "@bokehjs/core/util/templating";
 import { NumericalSlider, NumericalSliderView } from "@bokehjs/models/widgets/sliders/numerical_slider";
 import { isString } from "@bokehjs/core/util/types";
 export class DatetimeSliderView extends NumericalSliderView {
-    static __name__ = "DatetimeSliderView";
     behaviour = "tap";
     connected = [true, false];
     _calc_to() {
@@ -22,7 +21,6 @@ export class DatetimeSliderView extends NumericalSliderView {
     }
 }
 export class DatetimeSlider extends NumericalSlider {
-    static __name__ = "DatetimeSlider";
     constructor(attrs) {
         super(attrs);
     }

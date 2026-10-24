@@ -10,7 +10,7 @@ Last Updated: 13/02/2026
 """
 
 # Read version dynamically
-__version__ = "1.1.13"
+__version__ = "1.2.0"
 
 # --- Core Classes ---
 from .core import (

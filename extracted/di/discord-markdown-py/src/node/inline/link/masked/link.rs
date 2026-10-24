@@ -18,7 +18,7 @@ use crate::{
 	span::{TraceOk, TraceParse},
 };
 
-use super::{Grammar, auto, has_no_link, verify_url};
+use super::{Scope, auto, has_no_link, verify_url};
 
 /// Parse a masked link title.
 ///
@@ -90,7 +90,7 @@ pub fn segment<'ctx, 'data, E>(
 where
 	E: ParseError<'data> + 'ctx,
 {
-	let link_grammar = context.clone().with_grammar(Grammar::MaskedLinkLink);
+	let link_grammar = context.clone().with_scope(Scope::MaskedLinkLink);
 	SegmentParser {
 		context,
 		link_grammar,

@@ -32,9 +32,9 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-BASE_URL = 'https://api.jolpi.ca/ergast/f1'
+BASE_URL = "https://api.jolpi.ca/ergast/f1"
 TIMEOUT = 5.0
-HEADERS = {'User-Agent': f'FastF1/{__version_short__}'}
+HEADERS = {"User-Agent": f"FastF1/{__version_short__}"}
 
 
 class ErgastResponseMixin:
@@ -44,8 +44,8 @@ class ErgastResponseMixin:
     All Ergast response objects provide the methods that are implemented by
     this Mixin.
     """
-    _internal_names = ['_response_headers', '_query_filters',
-                       '_query_metadata', '_selectors']
+    _internal_names = ["_response_headers", "_query_filters",
+                       "_query_metadata", "_selectors"]
 
     def __init__(self, *args, response_headers: dict, query_filters: dict,
                  metadata: dict, selectors: dict, **kwargs):
@@ -70,16 +70,16 @@ class ErgastResponseMixin:
         """Indicates if the response contains all available results for the
         request that is associated with it."""
         # if offset is non-zero, data is missing at the beginning
-        if int(self._response_headers.get('offset', 0)) != 0:
+        if int(self._response_headers.get("offset", 0)) != 0:
             return False
 
         # can only be complete if limit >= total
         return (int(self._response_headers.get("limit", 0))
                 >= int(self._response_headers.get("total", 0)))
 
-    def get_next_result_page(self) -> Union['ErgastSimpleResponse',
-                                            'ErgastMultiResponse',
-                                            'ErgastRawResponse']:
+    def get_next_result_page(self) -> Union["ErgastSimpleResponse",
+                                            "ErgastMultiResponse",
+                                            "ErgastRawResponse"]:
         """Returns the next page of results within the limit that was specified
         in the request that is associated with this response.
 
@@ -92,16 +92,16 @@ class ErgastResponseMixin:
         if n_last >= int(self._response_headers.get("total", 0)):
             raise ValueError("No more data after this response.")
 
-        return self._ergast_constructor()._build_default_result(  # noqa: access to builtin
+        return self._ergast_constructor()._build_default_result(
             **self._query_metadata,
             selectors=self._selectors,
             limit=int(self._response_headers.get("limit")),
             offset=n_last
         )
 
-    def get_prev_result_page(self) -> Union['ErgastSimpleResponse',
-                                            'ErgastMultiResponse',
-                                            'ErgastRawResponse']:
+    def get_prev_result_page(self) -> Union["ErgastSimpleResponse",
+                                            "ErgastMultiResponse",
+                                            "ErgastRawResponse"]:
         """Returns the previous page of results within the limit that was
         specified in the request that is associated with this response.
 
@@ -116,7 +116,7 @@ class ErgastResponseMixin:
         limit = int(self._response_headers.get("limit", 0))
         new_offset = max(n_first - limit, 0)
 
-        return self._ergast_constructor()._build_default_result(  # noqa: access to builtin
+        return self._ergast_constructor()._build_default_result(
             **self._query_metadata,
             selectors=self._selectors,
             limit=int(self._response_headers.get("limit")),
@@ -140,7 +140,7 @@ class ErgastResultFrame(BaseDataFrame):
         auto_cast: Determines if values are automatically cast to the most
             appropriate data type from their original string representation
     """
-    _internal_names = BaseDataFrame._internal_names + ['base_class_view']
+    _internal_names = BaseDataFrame._internal_names + ["base_class_view"]
     _internal_names_set = set(_internal_names)
 
     def __init__(self, data=None, *,
@@ -161,7 +161,7 @@ class ErgastResultFrame(BaseDataFrame):
         for i in range(len(data)):
             _, data[i] = cls._flatten_element(data[i], category, cast)
 
-        if (finalizer := category.get('finalize')) is not None:
+        if (finalizer := category.get("finalize")) is not None:
             data = finalizer(data)
 
         return data
@@ -172,12 +172,12 @@ class ErgastResultFrame(BaseDataFrame):
 
         # call the categories associated flattening method on the data
         # (operations on 'nested' and 'flat' are inplace, therefore no return)
-        category['method'](nested, category, flat, cast=cast)
+        category["method"](nested, category, flat, cast=cast)
 
         # recursively step into subcategories; updated the flattened result
         # dict with the result from the renaming of the subcategory values
-        for subcategory in category['sub']:
-            if (subname := subcategory['name']) not in nested:
+        for subcategory in category["sub"]:
+            if (subname := subcategory["name"]) not in nested:
                 continue
             _, subflat = cls._flatten_element(
                 nested[subname], subcategory, cast
@@ -197,7 +197,6 @@ class ErgastResultSeries(BaseSeries):
 
     Currently, no extra functionality is implemented.
     """
-    pass
 
 
 class ErgastRawResponse(ErgastResponseMixin, list):
@@ -233,14 +232,13 @@ class ErgastRawResponse(ErgastResponseMixin, list):
         # has the same structure. Iterate over all elements and call the
         # recursive _auto_cast method to convert data types
         query_result = copy.deepcopy(query_result)  # TODO: efficiency?
-        query_result = cls._auto_cast(query_result, category)
-        return query_result
+        return cls._auto_cast(query_result, category)
 
     @classmethod
     def _auto_cast(cls, data, category):
         # data types can be dict or list where list then contains dicts and
         # requires iterating over each entry separately
-        if category['type'] is list:
+        if category["type"] is list:
             for i in range(len(data)):
                 data[i] = cls._auto_cast_item(data[i], category)
         else:
@@ -251,14 +249,14 @@ class ErgastRawResponse(ErgastResponseMixin, list):
     @classmethod
     def _auto_cast_item(cls, data, category):
         # convert datatypes for all known elements
-        for name, mapping in category['map'].items():
+        for name, mapping in category["map"].items():
             if name not in data:
                 continue
-            data[name] = mapping['type'](data[name])
+            data[name] = mapping["type"](data[name])
 
         # recursively step into known subcategories and convert data types
-        for subcategory in category['sub']:
-            if (subname := subcategory['name']) not in data:
+        for subcategory in category["sub"]:
+            if (subname := subcategory["name"]) not in data:
                 continue
             subcast = cls._auto_cast(data[subname], subcategory)
             data[subname] = subcast
@@ -423,7 +421,7 @@ class Ergast:
     """
 
     def __init__(self,
-                 result_type: Literal['raw', 'pandas'] = 'pandas',
+                 result_type: Literal["raw", "pandas"] = "pandas",
                  auto_cast: bool = True,
                  limit: int | None = None):
         self._default_result_type = result_type
@@ -433,8 +431,8 @@ class Ergast:
     @staticmethod
     def _build_url(
             endpoint: str,
-            season: Literal['current'] | int = None,
-            round: Literal['last'] | int = None,
+            season: Literal["current"] | int = None,
+            round: Literal["last"] | int = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -446,7 +444,7 @@ class Ergast:
             stop_number: int | None = None,
             standings_position: int | None = None
     ) -> str:
-        selectors = list()
+        selectors = []
 
         if season is not None:
             selectors.append(f"/{season}")
@@ -461,49 +459,49 @@ class Ergast:
         # therefore, if the specifier is defined, do not add the endpoint
         # string additionally
         if driver is not None:
-            if endpoint == 'drivers':
+            if endpoint == "drivers":
                 endpoint = f"drivers/{driver}"
             else:
                 selectors.append(f"/drivers/{driver}")
 
         if constructor is not None:
-            if endpoint == 'constructors':
+            if endpoint == "constructors":
                 endpoint = f"constructors/{constructor}"
             else:
                 selectors.append(f"/constructors/{constructor}")
 
         if circuit is not None:
-            if endpoint == 'circuits':
+            if endpoint == "circuits":
                 endpoint = f"circuits/{circuit}"
             else:
                 selectors.append(f"/circuits/{circuit}")
 
         if status is not None:
-            if endpoint == 'status':
+            if endpoint == "status":
                 endpoint = f"status/{status}"
             else:
                 selectors.append(f"/status/{status}")
 
         if standings_position is not None:
-            if endpoint == 'driverStandings':
+            if endpoint == "driverStandings":
                 endpoint = f"driverStandings/{standings_position}"
-            elif endpoint == 'constructorStandings':
+            elif endpoint == "constructorStandings":
                 endpoint = f"constructorStandings/{standings_position}"
 
         if results_position is not None:
-            if endpoint in ('results', 'qualifying', 'sprint'):
+            if endpoint in ("results", "qualifying", "sprint"):
                 endpoint = f"{endpoint}/{results_position}"
             else:
                 selectors.append(f"/results/{results_position}")
 
         if lap_number is not None:
-            if endpoint == 'laps':
+            if endpoint == "laps":
                 endpoint = f"laps/{lap_number}"
             else:
                 selectors.append(f"/laps/{lap_number}")
 
         if stop_number is not None:
-            if endpoint == 'pitstops':
+            if endpoint == "pitstops":
                 endpoint = f"pitstops/{stop_number}"
             else:
                 selectors.append(f"/pitstops/{stop_number}")
@@ -520,7 +518,7 @@ class Ergast:
                                timeout=TIMEOUT)
         if r.status_code == 200:
             try:
-                return json.loads(r.content.decode('utf-8'))
+                return json.loads(r.content.decode("utf-8"))
             except Exception as exc:
                 Cache.delete_response(url)  # don't keep a corrupted response
                 raise exceptions.ErgastJsonError(
@@ -539,7 +537,7 @@ class Ergast:
             table: str,
             category: dict,
             subcategory: dict | None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"],
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None,
@@ -550,21 +548,21 @@ class Ergast:
         # type was selected for the response data format.
 
         url = cls._build_url(endpoint, **selectors)
-        params = {'limit': limit, 'offset': offset}
+        params = {"limit": limit, "offset": offset}
 
         # get response and split it into individual parts
         resp = cls._get(url, params)
-        resp = resp['MRData']
+        resp = resp["MRData"]
         body = resp.pop(table)
         # response headers remain in response
-        query_result = body.pop(category['name'])
+        query_result = body.pop(category["name"])
         # query filters remain in body
 
-        query_metadata = {'endpoint': endpoint, 'table': table,
-                          'category': category, 'subcategory': subcategory,
-                          'result_type': result_type, 'auto_cast': auto_cast}
+        query_metadata = {"endpoint": endpoint, "table": table,
+                          "category": category, "subcategory": subcategory,
+                          "result_type": result_type, "auto_cast": auto_cast}
 
-        if result_type == 'raw':
+        if result_type == "raw":
             return ErgastRawResponse(
                 response_headers=resp, query_filters=body,
                 metadata=query_metadata, selectors=selectors,
@@ -572,34 +570,31 @@ class Ergast:
                 auto_cast=auto_cast
             )
 
-        if result_type == 'pandas':
-            # result element description remains in query result
-            result_element_data = list()
-            if subcategory is not None:
-                for i in range(len(query_result)):
-                    result_element_data.append(
-                        query_result[i].pop(subcategory['name'])
-                    )
-                return ErgastMultiResponse(
-                    response_headers=resp, query_filters=body,
-                    metadata=query_metadata, selectors=selectors,
-                    response_description=query_result,
-                    response_data=result_element_data,
-                    category=category, subcategory=subcategory,
-                    auto_cast=auto_cast
-                )
-            else:
-                return ErgastSimpleResponse(
-                    response_headers=resp, query_filters=body,
-                    metadata=query_metadata, selectors=selectors,
-                    response=query_result, category=category,
-                    auto_cast=auto_cast
-                )
+        # result_type = "pandas"
+        if subcategory is not None:
+            result_element_data = [
+                query_result[i].pop(subcategory["name"])
+                for i in range(len(query_result))
+            ]
+            return ErgastMultiResponse(
+                response_headers=resp, query_filters=body,
+                metadata=query_metadata, selectors=selectors,
+                response_description=query_result,
+                response_data=result_element_data,
+                category=category, subcategory=subcategory,
+                auto_cast=auto_cast
+            )
+        return ErgastSimpleResponse(
+            response_headers=resp, query_filters=body,
+            metadata=query_metadata, selectors=selectors,
+            response=query_result, category=category,
+            auto_cast=auto_cast
+        )
 
     def _build_default_result(
             self, *,
             selectors: dict,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             **kwargs
@@ -632,7 +627,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -666,16 +661,16 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='seasons',
-                                          table='SeasonTable',
+        return self._build_default_result(endpoint="seasons",
+                                          table="SeasonTable",
                                           category=API.Seasons,
                                           subcategory=None,
                                           result_type=result_type,
@@ -686,8 +681,8 @@ class Ergast:
 
     def get_race_schedule(
             self,
-            season: Literal['current'] | int,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -695,7 +690,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -731,18 +726,18 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='races',
-                                          table='RaceTable',
+        return self._build_default_result(endpoint="races",
+                                          table="RaceTable",
                                           category=API.Races_Schedule,
                                           subcategory=None,
                                           result_type=result_type,
@@ -753,8 +748,8 @@ class Ergast:
 
     def get_driver_info(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -762,7 +757,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -798,18 +793,18 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='drivers',
-                                          table='DriverTable',
+        return self._build_default_result(endpoint="drivers",
+                                          table="DriverTable",
                                           category=API.Drivers,
                                           subcategory=None,
                                           result_type=result_type,
@@ -820,8 +815,8 @@ class Ergast:
 
     def get_constructor_info(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -829,7 +824,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -865,18 +860,18 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
         return self._build_default_result(endpoint="constructors",
-                                          table='ConstructorTable',
+                                          table="ConstructorTable",
                                           category=API.Constructors,
                                           subcategory=None,
                                           result_type=result_type,
@@ -887,15 +882,15 @@ class Ergast:
 
     def get_circuits(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             constructor: str | None = None,
             driver: str | None = None,
             grid_position: int | None = None,
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -930,17 +925,17 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='circuits',
-                                          table='CircuitTable',
+        return self._build_default_result(endpoint="circuits",
+                                          table="CircuitTable",
                                           category=API.Circuits,
                                           subcategory=None,
                                           result_type=result_type,
@@ -951,8 +946,8 @@ class Ergast:
 
     def get_finishing_status(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -960,7 +955,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -996,18 +991,18 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='status',
-                                          table='StatusTable',
+        return self._build_default_result(endpoint="status",
+                                          table="StatusTable",
                                           category=API.Status,
                                           subcategory=None,
                                           result_type=result_type,
@@ -1024,8 +1019,8 @@ class Ergast:
     # needs to be represented by multiple DataFrame-like objects
     def get_race_results(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -1033,7 +1028,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -1070,18 +1065,18 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='results',
-                                          table='RaceTable',
+        return self._build_default_result(endpoint="results",
+                                          table="RaceTable",
                                           category=API.Races_RaceResults,
                                           subcategory=API.RaceResults,
                                           result_type=result_type,
@@ -1092,8 +1087,8 @@ class Ergast:
 
     def get_qualifying_results(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
@@ -1101,7 +1096,7 @@ class Ergast:
             results_position: int | None = None,
             fastest_rank: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -1138,18 +1133,18 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'fastest_rank': fastest_rank,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "fastest_rank": fastest_rank,
+                     "status": status}
 
-        return self._build_default_result(endpoint='qualifying',
-                                          table='RaceTable',
+        return self._build_default_result(endpoint="qualifying",
+                                          table="RaceTable",
                                           category=API.Races_QualifyingResults,
                                           subcategory=API.QualifyingResults,
                                           result_type=result_type,
@@ -1160,15 +1155,15 @@ class Ergast:
 
     def get_sprint_results(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             circuit: str | None = None,
             constructor: str | None = None,
             driver: str | None = None,
             grid_position: int | None = None,
             results_position: int | None = None,
             status: str | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -1204,17 +1199,17 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'circuit': circuit,
-                     'constructor': constructor,
-                     'driver': driver,
-                     'grid_position': grid_position,
-                     'results_position': results_position,
-                     'status': status}
+        selectors = {"season": season,
+                     "round": round,
+                     "circuit": circuit,
+                     "constructor": constructor,
+                     "driver": driver,
+                     "grid_position": grid_position,
+                     "results_position": results_position,
+                     "status": status}
 
-        return self._build_default_result(endpoint='sprint',
-                                          table='RaceTable',
+        return self._build_default_result(endpoint="sprint",
+                                          table="RaceTable",
                                           category=API.Races_SprintResults,
                                           subcategory=API.SprintResults,
                                           result_type=result_type,
@@ -1225,11 +1220,11 @@ class Ergast:
 
     def get_driver_standings(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             driver: str | None = None,
             standings_position: int | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -1260,13 +1255,13 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'driver': driver,
-                     'standings_position': standings_position}
+        selectors = {"season": season,
+                     "round": round,
+                     "driver": driver,
+                     "standings_position": standings_position}
 
-        return self._build_default_result(endpoint='driverStandings',
-                                          table='StandingsTable',
+        return self._build_default_result(endpoint="driverStandings",
+                                          table="StandingsTable",
                                           category=API.StandingsLists_Driver,
                                           subcategory=API.DriverStandings,
                                           result_type=result_type,
@@ -1277,11 +1272,11 @@ class Ergast:
 
     def get_constructor_standings(
             self,
-            season: Literal['current'] | int | None = None,
-            round: Literal['last'] | int | None = None,
+            season: Literal["current"] | int | None = None,
+            round: Literal["last"] | int | None = None,
             constructor: str | None = None,
             standings_position: int | None = None,
-            result_type: Literal['pandas', 'raw'] | None = None,
+            result_type: Literal["pandas", "raw"] | None = None,
             auto_cast: bool | None = None,
             limit: int | None = None,
             offset: int | None = None
@@ -1313,14 +1308,14 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'constructor': constructor,
-                     'standings_position': standings_position}
+        selectors = {"season": season,
+                     "round": round,
+                     "constructor": constructor,
+                     "standings_position": standings_position}
 
         return self._build_default_result(
-            endpoint='constructorStandings',
-            table='StandingsTable',
+            endpoint="constructorStandings",
+            table="StandingsTable",
             category=API.StandingsLists_Constructor,
             subcategory=API.ConstructorStandings,
             result_type=result_type,
@@ -1331,11 +1326,11 @@ class Ergast:
         )
 
     def get_lap_times(self,
-                      season: Literal['current'] | int,
-                      round: Literal['last'] | int,
+                      season: Literal["current"] | int,
+                      round: Literal["last"] | int,
                       lap_number: int | None = None,
                       driver: str | None = None,
-                      result_type: Literal['pandas', 'raw'] | None = None,
+                      result_type: Literal["pandas", "raw"] | None = None,
                       auto_cast: bool | None = None,
                       limit: int | None = None,
                       offset: int | None = None
@@ -1366,13 +1361,13 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'driver': driver,
-                     'lap_number': lap_number}
+        selectors = {"season": season,
+                     "round": round,
+                     "driver": driver,
+                     "lap_number": lap_number}
 
-        return self._build_default_result(endpoint='laps',
-                                          table='RaceTable',
+        return self._build_default_result(endpoint="laps",
+                                          table="RaceTable",
                                           category=API.Races_Laps,
                                           subcategory=API.Laps,
                                           result_type=result_type,
@@ -1382,12 +1377,12 @@ class Ergast:
                                           selectors=selectors)
 
     def get_pit_stops(self,
-                      season: Literal['current'] | int,
-                      round: Literal['last'] | int,
+                      season: Literal["current"] | int,
+                      round: Literal["last"] | int,
                       stop_number: int | None = None,
                       lap_number: int | None = None,
                       driver: str | None = None,
-                      result_type: Literal['pandas', 'raw'] | None = None,
+                      result_type: Literal["pandas", "raw"] | None = None,
                       auto_cast: bool | None = None,
                       limit: int | None = None,
                       offset: int | None = None
@@ -1420,14 +1415,14 @@ class Ergast:
             :class:`~interface.ErgastRawResponse`, depending on the
             ``result_type`` parameter
         """
-        selectors = {'season': season,
-                     'round': round,
-                     'driver': driver,
-                     'lap_number': lap_number,
-                     'stop_number': stop_number}
+        selectors = {"season": season,
+                     "round": round,
+                     "driver": driver,
+                     "lap_number": lap_number,
+                     "stop_number": stop_number}
 
-        return self._build_default_result(endpoint='pitstops',
-                                          table='RaceTable',
+        return self._build_default_result(endpoint="pitstops",
+                                          table="RaceTable",
                                           category=API.Races_PitStops,
                                           subcategory=API.PitStops,
                                           result_type=result_type,

@@ -24,6 +24,57 @@ async fn create_test_peer_connection() -> WebRTCPeerConnection {
     .expect("Failed to create test peer connection")
 }
 
+#[test]
+fn remote_receive_limit_uses_application_section_and_rfc_defaults() {
+    use crate::webrtc_core::{remote_message_size, NATIVE_MAX_MESSAGE_SIZE};
+    assert_eq!(
+        remote_message_size(
+            "m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=max-message-size:4096\r\n"
+        ),
+        4096
+    );
+    assert_eq!(
+        remote_message_size(
+            "m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=max-message-size:0\r\n"
+        ),
+        NATIVE_MAX_MESSAGE_SIZE
+    );
+    assert_eq!(
+        remote_message_size(
+            "m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=max-message-size:262144\r\n"
+        ),
+        NATIVE_MAX_MESSAGE_SIZE
+    );
+    assert_eq!(remote_message_size("m=video 9 UDP/TLS/RTP/SAVPF 96\r\na=max-message-size:1\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=sctp-port:5000\r\n"), NATIVE_MAX_MESSAGE_SIZE);
+}
+
+#[tokio::test]
+async fn offers_advertise_actual_native_receive_capacity() {
+    for trickle in [true, false] {
+        let pc = WebRTCPeerConnection::new(
+            None,
+            trickle,
+            false,
+            None,
+            format!("size-offer-{trickle}"),
+            None,
+            None,
+            "ms16.5.0".into(),
+            false,
+        )
+        .await
+        .unwrap();
+        pc.peer_connection
+            .create_data_channel("control", None)
+            .await
+            .unwrap();
+        let sdp = pc.create_description_with_checks(true).await.unwrap();
+        assert!(sdp.lines().any(|line| line == "a=max-message-size:65535"));
+        assert!(!sdp.lines().any(|line| line == "a=max-message-size:262144"));
+        pc.close().await.unwrap();
+    }
+}
+
 #[tokio::test]
 async fn test_keepalive_start_and_stop() {
     let pc = create_test_peer_connection().await;

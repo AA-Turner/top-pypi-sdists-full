@@ -1,6 +1,7 @@
 use url::Url;
 
-use crate::rule::{Rule, RuleSet};
+#[cfg(doc)]
+use crate::context::Options;
 
 /// A URL scheme this parser accepts, and the rules a URL carrying it must satisfy.
 pub trait Scheme {
@@ -10,14 +11,14 @@ pub trait Scheme {
 	/// Whether `url`, which need not carry this scheme, is a valid URL under it.
 	fn validate(&self, url: &Url) -> bool;
 
-	/// The [`Rule`] a caller must allow for a URL to carry this scheme, if any.
-	fn rule(&self) -> Option<Rule> {
-		None
+	/// Whether a caller must enable [`Options::dev_links`] for a URL to carry this scheme.
+	fn needs_dev_links(&self) -> bool {
+		false
 	}
 
-	/// Whether `rules` permits this scheme.
-	fn allowed_by(&self, rules: RuleSet) -> bool {
-		self.rule().is_none_or(|rule| rules.contains(rule))
+	/// Whether this scheme is allowed, given [`Options::dev_links`].
+	fn allowed_by(&self, dev_links: bool) -> bool {
+		dev_links || !self.needs_dev_links()
 	}
 }
 
@@ -57,7 +58,7 @@ impl Scheme for Contact {
 
 /// The `dev` scheme, which addresses a fixed set of client surfaces rather than a host.
 ///
-/// Gated on [`Rule::DevLink`]: the surfaces it reaches only exist in some clients.
+/// Gated on [`Options::dev_links`]: the surfaces it reaches only exist in some clients.
 pub struct Dev;
 
 impl Scheme for Dev {
@@ -75,8 +76,8 @@ impl Scheme for Dev {
 				.is_some_and(|domain| VALID_DEV_DOMAINS.contains(&domain))
 	}
 
-	fn rule(&self) -> Option<Rule> {
-		Some(Rule::DevLink)
+	fn needs_dev_links(&self) -> bool {
+		true
 	}
 }
 

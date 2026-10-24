@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable
+from urllib.parse import urlencode
 
 if TYPE_CHECKING:
     from mixpeek._client.client import Mixpeek
@@ -132,7 +133,7 @@ class NamespaceDocuments(_Resource):
 
 
 class Namespaces(_Resource):
-    """Manage namespaces (Qdrant collections)."""
+    """Manage namespaces."""
 
     # namespace_id is a real body field on the namespaces API (create's
     # recovery/migration override), not a scoping shorthand.
@@ -1068,3 +1069,47 @@ class Tasks(_Resource):
     def delete(self, task_id: str) -> dict[str, Any]:
         """Kill / cancel a running task."""
         return self._request("DELETE", f"/tasks/{task_id}")
+
+
+class Batches(_Resource):
+    """Read a bucket batch's status, ingest-accounting audit, and failed rows.
+
+    ``audit`` returns the ingest-accounting fields (``all_balanced``,
+    ``has_lost_objects``) a production ingest should assert on after
+    ``collections.trigger``, without hand-building the request yourself.
+    """
+
+    def get(self, bucket_identifier: str, batch_id: str) -> dict[str, Any]:
+        """Get a batch's status and progress."""
+        return self._request(
+            "GET", f"/buckets/{bucket_identifier}/batches/{batch_id}"
+        )
+
+    def audit(self, bucket_identifier: str, batch_id: str) -> dict[str, Any]:
+        """Get a batch's ingest-accounting audit (all_balanced, has_lost_objects)."""
+        return self._request(
+            "GET", f"/buckets/{bucket_identifier}/batches/{batch_id}/audit"
+        )
+
+    def failed_documents(
+        self,
+        bucket_identifier: str,
+        batch_id: str,
+        *,
+        tier_num: int | None = None,
+        collection_id: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List documents that failed processing within a batch."""
+        params: dict[str, Any] = {
+            "tier_num": tier_num,
+            "collection_id": collection_id,
+            "limit": limit,
+            "offset": offset,
+        }
+        query = {k: v for k, v in params.items() if v is not None}
+        path = f"/buckets/{bucket_identifier}/batches/{batch_id}/failed-documents"
+        if query:
+            path = f"{path}?{urlencode(query)}"
+        return self._request("GET", path)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.7.0.16
+Version: 1.7.0.17
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -728,7 +728,7 @@ Requires-Dist: tableschema<2.0.0,>=1.20.2; extra == "s3-slim"
 Requires-Dist: ujson<6.0.0,>=5.12.1; extra == "s3-slim"
 Requires-Dist: wcmatch<11.0.0; extra == "s3-slim"
 Provides-Extra: sac
-Requires-Dist: Authlib<2.0.0,>=1.6.11; extra == "sac"
+Requires-Dist: Authlib<2.0.0,>=1.9.0; extra == "sac"
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "sac"
 Requires-Dist: requests<3.0.0; extra == "sac"
 Provides-Extra: sagemaker
@@ -897,7 +897,7 @@ Requires-Dist: sqlglot[c]==30.12.0; extra == "vertica"
 Requires-Dist: sqlparse<1.0.0,>=0.6.0; extra == "vertica"
 Provides-Extra: all
 Requires-Dist: aerospike<20.0.0,>=15.0.0; extra == "all"
-Requires-Dist: Authlib<2.0.0,>=1.6.11; extra == "all"
+Requires-Dist: Authlib<2.0.0,>=1.9.0; extra == "all"
 Requires-Dist: azure-core<2.0.0,>=1.38.0; extra == "all"
 Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "all"
 Requires-Dist: azure-mgmt-datafactory<10.0.0,>=9.0.0; extra == "all"
@@ -1020,7 +1020,7 @@ Requires-Dist: aerospike<20.0.0,>=15.0.0; extra == "dev"
 Requires-Dist: aiohttp<4; extra == "dev"
 Requires-Dist: anyio<5.0.0,>=4.14.2; extra == "dev"
 Requires-Dist: atlassian-python-api<5.0.0,>=3.41.0; extra == "dev"
-Requires-Dist: Authlib<2.0.0,>=1.6.11; extra == "dev"
+Requires-Dist: Authlib<2.0.0,>=1.9.0; extra == "dev"
 Requires-Dist: avro-gen3==0.7.16; extra == "dev"
 Requires-Dist: avro<1.13,>=1.11.3; extra == "dev"
 Requires-Dist: azure-core<2.0.0,>=1.38.0; extra == "dev"
@@ -1215,7 +1215,7 @@ Requires-Dist: aerospike<20.0.0,>=15.0.0; extra == "docs"
 Requires-Dist: aiohttp<4; extra == "docs"
 Requires-Dist: anyio<5.0.0,>=4.14.2; extra == "docs"
 Requires-Dist: atlassian-python-api<5.0.0,>=3.41.0; extra == "docs"
-Requires-Dist: Authlib<2.0.0,>=1.6.11; extra == "docs"
+Requires-Dist: Authlib<2.0.0,>=1.9.0; extra == "docs"
 Requires-Dist: avro-gen3==0.7.16; extra == "docs"
 Requires-Dist: avro<1.13,>=1.11.3; extra == "docs"
 Requires-Dist: azure-core<2.0.0,>=1.38.0; extra == "docs"

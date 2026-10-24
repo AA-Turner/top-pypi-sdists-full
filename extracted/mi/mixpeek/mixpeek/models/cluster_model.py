@@ -38,6 +38,7 @@ class ClusterModel(BaseModel):
     Cluster metadata stored in MongoDB.
     """ # noqa: E501
     collection_ids: Optional[Annotated[List[StrictStr], Field(min_length=1)]] = Field(default=None, description="Collections to cluster together")
+    source_cluster_ids: Optional[Annotated[List[StrictStr], Field(min_length=1)]] = Field(default=None, description="Makes this a composite cluster: it groups the centroids of these clusters' runs instead of documents. Each id must be a vector cluster in this namespace with the same feature_uris as this one. Executing a composite cluster without a mode runs mode 'composite' over the newest completed run of each source cluster, one per partition (a partition is a run's filters). Vector clusters only.")
     cluster_name: Optional[StrictStr] = Field(default=None, description="Optional human-friendly name for the clustering job")
     description: Optional[StrictStr] = Field(default=None, description="Optional description of the cluster, stored with it")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional user-defined metadata for the cluster")
@@ -61,7 +62,7 @@ class ClusterModel(BaseModel):
     last_run_id: Optional[StrictStr] = Field(default=None, description="Run ID of the most recent successful clustering execution. Used to retrieve execution results.")
     created_at: Optional[datetime] = Field(default=None, description="When the cluster was created")
     updated_at: Optional[datetime] = Field(default=None, description="When the cluster was last updated")
-    __properties: ClassVar[List[str]] = ["collection_ids", "cluster_name", "description", "metadata", "cluster_type", "vector_config", "attribute_config", "filters", "llm_labeling", "enrich_source_collection", "source_enrichment_config", "auto_execute_on_batch", "auto_execute_min_documents", "auto_execute_cooldown_seconds", "cluster_id", "parquet_path", "members_key", "num_clusters", "cluster_stats", "status", "task_id", "last_run_id", "created_at", "updated_at"]
+    __properties: ClassVar[List[str]] = ["collection_ids", "source_cluster_ids", "cluster_name", "description", "metadata", "cluster_type", "vector_config", "attribute_config", "filters", "llm_labeling", "enrich_source_collection", "source_enrichment_config", "auto_execute_on_batch", "auto_execute_min_documents", "auto_execute_cooldown_seconds", "cluster_id", "parquet_path", "members_key", "num_clusters", "cluster_stats", "status", "task_id", "last_run_id", "created_at", "updated_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -133,6 +134,7 @@ class ClusterModel(BaseModel):
 
         _obj = cls.model_validate({
             "collection_ids": obj.get("collection_ids"),
+            "source_cluster_ids": obj.get("source_cluster_ids"),
             "cluster_name": obj.get("cluster_name"),
             "description": obj.get("description"),
             "metadata": obj.get("metadata"),

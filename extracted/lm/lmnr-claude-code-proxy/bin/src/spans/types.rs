@@ -102,7 +102,6 @@ impl PendingSpawningTool {
                 span_ids_path: self.hierarchy.span_ids_path.clone(),
                 span_path: self.hierarchy.span_path.clone(),
             },
-            start_time_unix_nano: self.start_time_unix_nano,
         }
     }
 }
@@ -114,7 +113,6 @@ pub struct NestedContext {
     pub parent_tool_type: SpawningToolType,
     pub prompt: String,
     pub hierarchy: SpanHierarchy,
-    pub start_time_unix_nano: u64,
 }
 
 impl NestedContext {
@@ -131,11 +129,6 @@ impl NestedContext {
     /// Convenience accessor for span_path
     pub fn span_path(&self) -> &Vec<String> {
         &self.hierarchy.span_path
-    }
-
-    /// Convenience accessor for trace_id_bytes
-    pub fn trace_id_bytes(&self) -> &Vec<u8> {
-        &self.hierarchy.trace_id_bytes
     }
 }
 

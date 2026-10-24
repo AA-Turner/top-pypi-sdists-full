@@ -23,12 +23,16 @@ from .oxml import (
     HwpxOxmlParagraph,
     HwpxOxmlSection,
     HwpxOxmlTable,
+    PictureGlow,
+    PictureReflection,
+    PictureShadow,
     Style,
 )
 from .opc.package import (
     HwpxPackage,
 )
 from .oxml.namespaces import register_owpml_namespaces
+from .oxml.table_sizes import new_table_width
 from .mutation_report import Fallback, Mode, MutationReport
 from .quality import QualityPolicy, SavePipeline, VisualCompleteReport
 from .templates import blank_document_bytes
@@ -585,6 +589,7 @@ class HwpxDocument(_LegacyFacade):
             self, section, section_index, caller="add_table"
         )
         section_index = None
+        new_table_width(width, cols)  # checked before a paragraph or a border fill is added
         resolved_border_fill: str | int | None = border_fill_id_ref
         if resolved_border_fill is None:
             resolved_border_fill = self._root.ensure_basic_border_fill()
@@ -624,6 +629,17 @@ class HwpxDocument(_LegacyFacade):
         width_mm: float | None = None,
         height_mm: float | None = None,
         align: str | None = None,
+        brightness: int = 0,
+        contrast: int = 0,
+        effect: str = "REAL_PIC",
+        alpha: int = 0,
+        line_color: str | None = None,
+        line_width: int = 33,
+        crop: tuple[int, int, int, int] | None = None,
+        shadow: PictureShadow | None = None,
+        glow: PictureGlow | None = None,
+        soft_edge: int | None = None,
+        reflection: PictureReflection | None = None,
         para_pr_id_ref: str | int | None = None,
         style: int | str | Style | None = None,
         style_id_ref: str | int | None = None,
@@ -631,7 +647,14 @@ class HwpxDocument(_LegacyFacade):
         run_attributes: dict[str, str] | None = None,
         **extra_attrs: str,
     ) -> HwpxOxmlInlineObject:
-        """Embed image data and place a picture object in a new paragraph."""
+        """Embed image data and place a picture object in a new paragraph.
+
+        *brightness* and *contrast* (-100 to 100), *effect* (``REAL_PIC``, ``GRAY_SCALE`` or ``BLACK_WHITE``) and
+        *alpha* (transparency, 0 opaque to 255 not drawn) adjust the image; *line_color* (with *line_width*,
+        HWPUNIT) gives it a solid border. *crop* ``(left, top, right, bottom)`` cuts that much (HWPUNIT) from the
+        sides of the *width* x *height* picture, keeping its scale. *shadow* (``hwpx.oxml.PictureShadow``) and *glow*
+        (``hwpx.oxml.PictureGlow``) draw a shadow and a glow; *soft_edge* (HWPUNIT) fades its edge and *reflection*
+        (``hwpx.oxml.PictureReflection``) reflects it below."""
 
         style_id_ref = self._resolve_style_ref(style, style_id_ref, caller="add_picture")
         section = _resolve.resolve_section(
@@ -649,6 +672,17 @@ class HwpxDocument(_LegacyFacade):
             width_mm=width_mm,
             height_mm=height_mm,
             align=align,
+            brightness=brightness,
+            contrast=contrast,
+            effect=effect,
+            alpha=alpha,
+            line_color=line_color,
+            line_width=line_width,
+            crop=crop,
+            shadow=shadow,
+            glow=glow,
+            soft_edge=soft_edge,
+            reflection=reflection,
             para_pr_id_ref=para_pr_id_ref,
             style_id_ref=style_id_ref,
             char_pr_id_ref=char_pr_id_ref,

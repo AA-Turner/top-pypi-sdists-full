@@ -14,15 +14,8 @@ export declare class EChartsView extends HTMLBoxView {
     container: HTMLDivElement;
     _chart: any;
     _callbacks: Array<any>[];
-    _loading_interval: ReturnType<typeof setInterval> | null;
-    _loading_timeout: ReturnType<typeof setTimeout> | null;
-    _loading_el: HTMLDivElement | null;
     connect_signals(): void;
     render(): void;
-    _show_loading(): void;
-    _hide_loading(): void;
-    _await_echarts(): void;
-    _clear_loading_timer(): void;
     _init_chart(): void;
     remove(): void;
     after_layout(): void;

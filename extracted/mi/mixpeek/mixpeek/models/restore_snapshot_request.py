@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.restore_point import RestorePoint
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,8 +28,11 @@ class RestoreSnapshotRequest(BaseModel):
     """
     RestoreSnapshotRequest
     """ # noqa: E501
-    target_namespace_name: Optional[StrictStr] = Field(default=None, description="Name for the restored namespace. If omitted, restores in-place (deletes current data and replaces with snapshot data).")
-    __properties: ClassVar[List[str]] = ["target_namespace_name"]
+    target_namespace_name: Optional[StrictStr] = Field(default=None, description="Name for the restored namespace. If omitted, restores in-place (deletes current data and replaces with snapshot data), which requires confirm_in_place.")
+    confirm_in_place: Optional[StrictBool] = Field(default=False, description="Required to restore in place (no target_namespace_name): the namespace's current data is deleted and replaced by the snapshot's. While the restore runs the namespace is read-only; writes are refused with a 409 to retry after it completes.")
+    restore_point: Optional[RestorePoint] = None
+    isolated: Optional[StrictBool] = Field(default=False, description="Restore beside the source onto a temporary vector shard of its own instead of the plane's shared one. Requires target_namespace_name. The copy is for checking or measuring a restore: its shard stops after six hours, and deleting the copy's namespace stops it sooner. One isolated copy runs at a time; a second request while one is up is refused naming the namespace that holds it.")
+    __properties: ClassVar[List[str]] = ["target_namespace_name", "confirm_in_place", "restore_point", "isolated"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -69,6 +73,9 @@ class RestoreSnapshotRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of restore_point
+        if self.restore_point:
+            _dict['restore_point'] = self.restore_point.to_dict()
         return _dict
 
     @classmethod
@@ -81,7 +88,10 @@ class RestoreSnapshotRequest(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "target_namespace_name": obj.get("target_namespace_name")
+            "target_namespace_name": obj.get("target_namespace_name"),
+            "confirm_in_place": obj.get("confirm_in_place") if obj.get("confirm_in_place") is not None else False,
+            "restore_point": RestorePoint.from_dict(obj["restore_point"]) if obj.get("restore_point") is not None else None,
+            "isolated": obj.get("isolated") if obj.get("isolated") is not None else False
         })
         return _obj
 

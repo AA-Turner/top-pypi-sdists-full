@@ -4827,8 +4827,12 @@ def test_a_failed_plugin_update_is_recorded(isolate, monkeypatch):
     monkeypatch.setattr(
         upgrading.updater,
         "update_plugin",
+        # INSTALLED before the run: with nothing installed before or after,
+        # there was nothing to update, which is no failure
+        # (`updater.nothing_installed`).
         lambda target: _plugin_result(
-            confirmed=False, after=None, message="`claude plugin update` did not complete"
+            confirmed=False, before="0.7.0", after=None,
+            message="`claude plugin update` did not complete",
         ),
     )
 

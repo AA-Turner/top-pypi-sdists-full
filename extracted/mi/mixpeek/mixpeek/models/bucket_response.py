@@ -22,7 +22,9 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.batch_statistics import BatchStatistics
+from mixpeek.models.bucket_destination import BucketDestination
 from mixpeek.models.bucket_schema_output import BucketSchemaOutput
+from mixpeek.models.ingest_filter import IngestFilter
 from mixpeek.models.storage_class import StorageClass
 from mixpeek.models.storage_statistics import StorageStatistics
 from mixpeek.models.task_status_enum import TaskStatusEnum
@@ -40,7 +42,9 @@ class BucketResponse(BaseModel):
     bucket_schema: Optional[BucketSchemaOutput] = Field(default=None, description="Schema definition for objects in this bucket")
     unique_key: Optional[UniqueKeyConfig] = Field(default=None, description="Unique key configuration for this bucket (if configured)")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the bucket")
-    storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier for this bucket's objects: standard | nearline | coldline | archive. Provider-agnostic (GCS STANDARD/NEARLINE/COLDLINE/ARCHIVE; S3/MinIO STANDARD/STANDARD_IA/GLACIER). NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct/presigned uploads and retroactive re-tiering of existing objects are in progress. None = provider default.")
+    storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier for this bucket's objects: standard | nearline | coldline | archive. Provider-agnostic (GCS STANDARD/NEARLINE/COLDLINE/ARCHIVE; S3/MinIO STANDARD/STANDARD_IA/GLACIER_IR; archive is refused on S3, whose archive classes need a restore before a read). NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct/presigned uploads and retroactive re-tiering of existing objects are in progress. None = provider default.")
+    destination: Optional[BucketDestination] = Field(default=None, description="Write this bucket's extraction outputs to your own storage instead of Mixpeek's: a storage connection with write access and a prefix. None keeps outputs in Mixpeek's storage.")
+    ingest_filter: Optional[IngestFilter] = Field(default=None, description="A pinned saved retriever every candidate object a sync brings in (an RTSP segment, a connector file) runs through before it is committed. A sync's own ingest_filter wins over its bucket's. Kept objects carry the filter's record (execution id included) in their ingest_filter field; dropped ones are never stored and are counted on the sync job by reason. None means no filter.")
     object_count: StrictInt = Field(description="Number of objects in the bucket")
     failed_object_count: Optional[StrictInt] = Field(default=0, description="Objects that permanently failed to become documents. They stay lifecycle_state=active and are counted in object_count, so without this a bucket where nothing can process reads as healthy.")
     total_size_bytes: StrictInt = Field(description="Total size of all objects in the bucket in bytes")
@@ -53,7 +57,7 @@ class BucketResponse(BaseModel):
     batch_stats: Optional[BatchStatistics] = Field(default=None, description="Batch statistics for this bucket (calculated asynchronously, stored in DB)")
     storage_stats: Optional[StorageStatistics] = Field(default=None, description="Storage statistics for this bucket (calculated asynchronously, stored in DB)")
     source_adapter: Optional[Dict[str, Any]] = Field(default=None, description="Source adapter configuration for inbound webhook-driven ingestion")
-    __properties: ClassVar[List[str]] = ["bucket_id", "bucket_name", "description", "bucket_schema", "unique_key", "metadata", "storage_class", "object_count", "failed_object_count", "total_size_bytes", "created_at", "updated_at", "last_upload_at", "stats_updated_at", "status", "is_locked", "batch_stats", "storage_stats", "source_adapter"]
+    __properties: ClassVar[List[str]] = ["bucket_id", "bucket_name", "description", "bucket_schema", "unique_key", "metadata", "storage_class", "destination", "ingest_filter", "object_count", "failed_object_count", "total_size_bytes", "created_at", "updated_at", "last_upload_at", "stats_updated_at", "status", "is_locked", "batch_stats", "storage_stats", "source_adapter"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -100,6 +104,12 @@ class BucketResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of unique_key
         if self.unique_key:
             _dict['unique_key'] = self.unique_key.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of destination
+        if self.destination:
+            _dict['destination'] = self.destination.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of ingest_filter
+        if self.ingest_filter:
+            _dict['ingest_filter'] = self.ingest_filter.to_dict()
         # override the default output from pydantic by calling `to_dict()` of batch_stats
         if self.batch_stats:
             _dict['batch_stats'] = self.batch_stats.to_dict()
@@ -125,6 +135,8 @@ class BucketResponse(BaseModel):
             "unique_key": UniqueKeyConfig.from_dict(obj["unique_key"]) if obj.get("unique_key") is not None else None,
             "metadata": obj.get("metadata"),
             "storage_class": obj.get("storage_class"),
+            "destination": BucketDestination.from_dict(obj["destination"]) if obj.get("destination") is not None else None,
+            "ingest_filter": IngestFilter.from_dict(obj["ingest_filter"]) if obj.get("ingest_filter") is not None else None,
             "object_count": obj.get("object_count"),
             "failed_object_count": obj.get("failed_object_count") if obj.get("failed_object_count") is not None else 0,
             "total_size_bytes": obj.get("total_size_bytes"),

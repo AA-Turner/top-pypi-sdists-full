@@ -262,7 +262,7 @@ ChangeClaimAction = Literal["proceed", "force", "disclose"]
 
 
 def successful_write_tools(
-    tool_call_history: list["ToolCallUsage"] | None,
+    tool_call_history: list[ToolCallUsage] | None,
     write_tools: frozenset[str],
 ) -> tuple[str, ...]:
     """Names of tools this turn called SUCCESSFULLY that count as writes.
@@ -286,18 +286,74 @@ def successful_write_tools(
     return tuple(names)
 
 
+#: Host-authored user turns that are a TURN BOUNDARY rather than a mid-loop notice.
+#: Every other host-authored user turn is a gate's notice inside the same turn.
+_TURN_OPENING_REASONS = frozenset({"agent_opening"})
+
+
+def _field(block: Any, key: str) -> Any:
+    return block.get(key) if isinstance(block, dict) else getattr(block, key, None)
+
+
+def _is_turn_boundary(message: Any) -> bool:
+    """A user-role message that opened the turn: words (a person's, or the host's opening)."""
+    if _field(message, "role") != "user":
+        return False
+    if not any(_field(b, "type") == "text" for b in (_field(message, "content") or [])):
+        return False  # a user-role message carrying only tool results is mid-turn
+    meta = _field(message, "metadata") or {}
+    if meta.get("authored_by") == "host" and meta.get("authored_reason") not in _TURN_OPENING_REASONS:
+        return False  # a gate's notice (change_claim_gate, loop guard …) is inside the turn
+    return True
+
+
+def successful_writes_in_turn(messages: Any, write_tools: frozenset[str]) -> tuple[str, ...]:
+    """Names of write tools whose results THIS TURN's messages hold as successful.
+
+    THE DEFECT THIS CLOSES (design-system board, live 2026-10-22, conversation
+    8e6dae76): the agent wrote 58 rows, then called a CLIENT-run tool
+    (``board_update_tile``); the client's result resumed the run as a NEW request whose
+    ``tool_call_history`` starts empty. The final reply described the writes, the gate
+    read only the resumed request's ledger, found none, and forced a turn — the person
+    saw "No changes were made in this turn" after a full build. The turn's earlier
+    segments live in the message list (every tool result, with ``is_error``), so the
+    gate reads them back to the turn's opening as well.
+    """
+    names: list[str] = []
+    for message in reversed(list(messages or [])):
+        if _is_turn_boundary(message):
+            break
+        for block in _field(message, "content") or []:
+            if _field(block, "type") != "tool_result" or _field(block, "is_error"):
+                continue
+            name = str(_field(block, "name") or "")
+            if not name or (write_tools and name not in write_tools):
+                continue
+            if name not in names:
+                names.append(name)
+    return tuple(reversed(names))
+
+
 def evaluate_change_claims(
     policy: AuthoringPolicy | None,
-    tool_call_history: list["ToolCallUsage"] | None,
+    tool_call_history: list[ToolCallUsage] | None,
     assistant_text: str,
+    messages: Any = None,
 ) -> ChangeClaimReport | None:
-    """The predicate, from durable facts only. None when there is no gate here."""
+    """The predicate, from durable facts only. None when there is no gate here.
+
+    ``messages`` (the run's message list) adds the writes of this turn's earlier
+    request segments — a run resumed by a client-run tool starts a fresh ledger.
+    """
     if policy is None:
         return None
     claims = find_change_claims(assistant_text)
     if not claims:
         return None
     wrote_names = successful_write_tools(tool_call_history, policy.write_tools)
+    for name in successful_writes_in_turn(messages, policy.write_tools):
+        if name not in wrote_names:
+            wrote_names = (*wrote_names, name)
     return ChangeClaimReport(
         policy=policy,
         claims=claims,
@@ -351,4 +407,5 @@ __all__ = [
     "evaluate_change_claims",
     "find_change_claims",
     "successful_write_tools",
+    "successful_writes_in_turn",
 ]

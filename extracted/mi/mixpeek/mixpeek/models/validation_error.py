@@ -18,22 +18,22 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from mixpeek.models.validation_error_loc_inner import ValidationErrorLocInner
+from mixpeek.models.shared_namespaces_migrations_models_resource_type import SharedNamespacesMigrationsModelsResourceType
 from typing import Optional, Set
 from typing_extensions import Self
 
 class ValidationError(BaseModel):
     """
-    ValidationError
+    Validation error for pre-flight checks.
     """ # noqa: E501
-    loc: List[ValidationErrorLocInner]
-    msg: StrictStr
-    type: StrictStr
-    input: Optional[Any] = None
-    ctx: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[List[str]] = ["loc", "msg", "type", "input", "ctx"]
+    error_code: StrictStr = Field(description="Error code")
+    message: StrictStr = Field(description="Human-readable error message")
+    resource_id: Optional[StrictStr] = Field(default=None, description="Related resource ID")
+    resource_type: Optional[SharedNamespacesMigrationsModelsResourceType] = Field(default=None, description="Resource type")
+    severity: Optional[StrictStr] = Field(default='error', description="Severity: error or warning")
+    __properties: ClassVar[List[str]] = ["error_code", "message", "resource_id", "resource_type", "severity"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,18 +74,6 @@ class ValidationError(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in loc (list)
-        _items = []
-        if self.loc:
-            for _item_loc in self.loc:
-                if _item_loc:
-                    _items.append(_item_loc.to_dict())
-            _dict['loc'] = _items
-        # set to None if input (nullable) is None
-        # and model_fields_set contains the field
-        if self.input is None and "input" in self.model_fields_set:
-            _dict['input'] = None
-
         return _dict
 
     @classmethod
@@ -98,11 +86,11 @@ class ValidationError(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "loc": [ValidationErrorLocInner.from_dict(_item) for _item in obj["loc"]] if obj.get("loc") is not None else None,
-            "msg": obj.get("msg"),
-            "type": obj.get("type"),
-            "input": obj.get("input"),
-            "ctx": obj.get("ctx")
+            "error_code": obj.get("error_code"),
+            "message": obj.get("message"),
+            "resource_id": obj.get("resource_id"),
+            "resource_type": obj.get("resource_type"),
+            "severity": obj.get("severity") if obj.get("severity") is not None else 'error'
         })
         return _obj
 

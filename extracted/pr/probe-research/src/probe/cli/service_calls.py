@@ -13,11 +13,18 @@
                         sees it without a lock-file scan
     refresh_manifest()  the every-command version check: the service refreshes
                         a stale manifest cache instead of a detached child
+    start_import()      an approved import's worker: started and watched by
+                        the service (it survives this CLI, and `service.status`
+                        lists it) instead of detached from this process
+    (`probe wizard`'s actions go through `action.run`: `wizard_service`)
 
 Each one never STARTS the service (an agent session, the desktop app or
 `probe service start` does), is bounded by a short timeout, never raises, and
 returns "no answer" when no service answers -- or one from before its method,
 or on Windows, where none runs -- and the caller then does what it did before.
+What runs work on this process's behalf (`start_import`, the wizard) also
+asks only when the service would run THIS CLI (`same_cli`): a checkout's or a
+project venv's `probe` keeps running its own code.
 The service is on this machine (a Unix socket in a folder only this user can
 write): none of this is a network call, and with no socket file there (no
 service runs) no socket is even opened.
@@ -42,6 +49,12 @@ MANIFEST_TIMEOUT_S = 0.5
 FINISH_WAIT_S = 5.0
 #: ... and how long the call may take beyond that.
 FINISH_TIMEOUT_S = 2.0
+#: An import's start: a folder check and a process start on the service's side.
+IMPORT_TIMEOUT_S = 3.0
+#: `import.start` carries the environment as `hooks.run` does (at most
+#: `protocol.MAX_HOOK_ENV` variables of `MAX_HOOK_ENV_VALUE` each), and the
+#: request within one wire line; past either, the worker starts here.
+_MAX_REQUEST_BYTES = 900 * 1024
 
 #: What a person is told when no service runs.
 STARTS_WITH = "it starts with the next coding-agent session, or run `probe service start`"
@@ -84,6 +97,60 @@ def _reachable() -> bool:
         return True
 
 
+def same_cli() -> bool:
+    """Would the service's children run THIS CLI? Its `probe.core.run` and
+    workers run `runtime.json`'s interpreter (the uv tool env's, which a CLI
+    there records at every start): this process's own, or not. A checkout's,
+    a project venv's or an ephemeral `npx` CLI is not, and does its work
+    itself, with its own code."""
+    try:
+        import sys
+
+        from probe.service import client
+
+        recorded = client.runtime_python()
+    except Exception:  # noqa: BLE001
+        return False
+    return recorded is not None and os.path.abspath(recorded) == os.path.abspath(sys.executable)
+
+
+#: What shapes a wizard run but a request's `context` cannot carry, beside the
+#: credentials (`protocol.CREDENTIAL_ENV`): the MCP a configure writes, the
+#: workspace and project it reads (`probe.sdk.config`'s env table).
+WIZARD_LOCAL_ENV = ("PROBE_MCP_URL", "PROBE_WORKSPACE", "PROBE_PROJECT")
+
+
+def carries_credential() -> bool:
+    """Does this process hold a credential (`protocol.CREDENTIAL_ENV`) the
+    service's children cannot be given? Then the CLI config's stored token is
+    not what it would use, and the work stays here."""
+    from probe.service.protocol import CREDENTIAL_ENV
+
+    return any(os.environ.get(name) for name in CREDENTIAL_ENV)
+
+
+def wizard_stays_here() -> bool:
+    """`carries_credential`, or a setting a wizard run reads from the
+    environment that the service's child would not see (`WIZARD_LOCAL_ENV`)."""
+    return carries_credential() or any(os.environ.get(name) for name in WIZARD_LOCAL_ENV)
+
+
+def context() -> dict:
+    """This process's `protocol.CONTEXT_ENV` variables (and the coding agents'
+    session ids), as a request's `context`: the child the service runs reads
+    the same config, state and agent folders and reaches the network the same way."""
+    from probe.service.protocol import CONTEXT_ENV
+
+    names = set(CONTEXT_ENV)
+    try:
+        from probe.harness import get_registry
+
+        names |= {h.session_env for h in get_registry().all() if h.session_env}
+    except Exception:  # noqa: BLE001 -- a context without the session ids still works
+        pass
+    return {name: os.environ[name] for name in sorted(names) if os.environ.get(name)}
+
+
 # -- view ------------------------------------------------------------------------
 
 
@@ -97,9 +164,11 @@ def _blank(reach: Reach, error: str | None = None) -> dict:
         "state": None,
         "started_at": None,
         "sessions": [],
+        "harnesses": [],
         "recorders": [],
         "hook_hosts": [],
         "runs": [],
+        "imports": [],
         "update": dict.fromkeys(
             (
                 "enabled",
@@ -130,6 +199,46 @@ def _rows(items: object, keys: dict) -> list[dict]:
     return [{name: _of(item.get(name), kind) for name, kind in keys.items()} for item in items if isinstance(item, dict)]
 
 
+#: A session's delivery receipts (`session.list`, `probe.service.receipts`, D29).
+RECEIPT_KEYS = {
+    "last_line": int, "received_bytes": int, "received_at": (int, float), "pending_bytes": int,
+    "pending_lines": int, "pending_batch": bool, "finalized": bool, "retrying": bool, "scope": dict,
+}
+#: The same per agent and account (`session.list`'s `harnesses`).
+HARNESS_KEYS = {
+    "harness": str, "scope": dict, "sessions": int, "alive": int, "received_at": (int, float),
+    "pending_bytes": int, "pending_lines": int, "pending_batches": int,
+}
+#: A receipt's `scope`: whose account it is (`protocol.RECEIPT_SCOPE_FIELDS`).
+SCOPE_KEYS = {"backend": str, "customer": str}
+
+
+def _cut(item: object, keys: dict) -> dict | None:
+    """`item` cut to `keys` (`name: kind`), or None when it is not an object;
+    a `scope` in it cut to SCOPE_KEYS too."""
+    if not isinstance(item, dict):
+        return None
+    out = {name: _of(item.get(name), kind) for name, kind in keys.items()}
+    if "scope" in out:
+        out["scope"] = _cut(out["scope"], SCOPE_KEYS) if keys is not SCOPE_KEYS else out["scope"]
+    return out
+
+
+def _sessions(listing: object) -> list[dict]:
+    rows = listing.get("sessions") if isinstance(listing, dict) else None
+    out = _rows(rows, {"sid": str, "harness": str, "mode": str, "alive": bool})
+    if isinstance(rows, list):
+        # A service from before receipts lists none: each row's is null then.
+        for row, raw in zip(out, (item for item in rows if isinstance(item, dict))):
+            row["receipts"] = _cut(raw.get("receipts"), RECEIPT_KEYS)
+    return out
+
+
+def _harnesses(listing: object) -> list[dict]:
+    found = listing.get("harnesses") if isinstance(listing, dict) else None
+    return [_cut(row, HARNESS_KEYS) for row in found if isinstance(row, dict)] if isinstance(found, list) else []
+
+
 def _filled(status: dict, listing: object) -> dict:
     out = _blank(Reach.ANSWERED)
     number = (int, float)
@@ -138,13 +247,12 @@ def _filled(status: dict, listing: object) -> dict:
         pid=_of(status.get("pid"), int),
         state=_of(status.get("state"), str),
         started_at=_of(status.get("started_at"), number),
-        sessions=_rows(
-            listing.get("sessions") if isinstance(listing, dict) else None,
-            {"sid": str, "harness": str, "mode": str, "alive": bool},
-        ),
+        sessions=_sessions(listing),
+        harnesses=_harnesses(listing),
         recorders=_rows(status.get("recorders"), {"sid": str, "alive": bool, "last": str, "failures": int}),
         hook_hosts=_rows(status.get("hook_hosts"), {"root": str, "pid": int}),
         runs=_rows(status.get("runs"), {"run": str, "pid": int, "since": number}),
+        imports=_rows(status.get("imports"), {"job_id": str, "pid": int, "since": number}),
     )
     update = status.get("update")
     if isinstance(update, dict):
@@ -242,6 +350,9 @@ def summary(view_: dict | None) -> str:
     runs = view_.get("runs") or []
     if runs:
         parts.append(_count(len(runs), "run") + " in flight")
+    imports = view_.get("imports") or []
+    if imports:
+        parts.append(_count(len(imports), "import") + " running")
     update = view_.get("update") or {}
     if update.get("in_progress"):
         parts.append(f"updating now ({update.get('step') or 'starting'})")
@@ -278,6 +389,11 @@ class Finished:
     finished: list[str] = field(default_factory=list)
     unfinished: list[str] = field(default_factory=list)
     error: str | None = None
+    #: The service takes no work from this caller (a sandbox: `caller.sandboxed`),
+    #: and said what it records instead (`service.status`, `session.list`).
+    refused: bool = False
+    #: Then: the sessions of this agent it still records (none: nothing to stop).
+    still_recording: list[str] = field(default_factory=list)
 
 
 def finish_recorders(harness: str, *, wait: float | None = None) -> Finished | None:
@@ -291,7 +407,7 @@ def finish_recorders(harness: str, *, wait: float | None = None) -> Finished | N
     if not _reachable():
         return None
     from probe.service import client
-    from probe.service.protocol import ErrorCode
+    from probe.service.protocol import ErrorCode, RefusedReason
 
     try:
         answer = client.finish_recorders(
@@ -303,6 +419,9 @@ def finish_recorders(harness: str, *, wait: float | None = None) -> Finished | N
     except client.ServiceError as exc:
         if exc.code == ErrorCode.UNKNOWN_METHOD:
             return _older_service()
+        data = exc.data if isinstance(exc.data, dict) else {}
+        if exc.code == ErrorCode.REFUSED and data.get("reason") == RefusedReason.SANDBOXED:
+            return _refused_here(harness)
         return Finished(error=f"the Probe service refused ({exc.message or exc.code})")
     except Exception as exc:  # noqa: BLE001 -- a timeout, a broken connection: not confirmed
         return Finished(error=f"the Probe service did not answer ({type(exc).__name__})")
@@ -312,6 +431,39 @@ def finish_recorders(harness: str, *, wait: float | None = None) -> Finished | N
     return Finished(
         [s for s in finished if isinstance(s, str)], [s for s in unfinished if isinstance(s, str)]
     )
+
+
+def _refused_here(harness: str) -> Finished:
+    """The service takes no work from this caller (it runs in a sandbox, or
+    with no_new_privs: `caller.sandboxed`), so it will not stop a recorder on
+    this one's say -- and asking again from here never changes that. What it
+    records is still readable (`service.status` and `session.list` are READ):
+    `refused` with the sessions of `harness` it still records, none when it
+    records none (then there is nothing to stop)."""
+    from probe.service import client
+    from probe.service.protocol import Method
+
+    try:
+        status = client.call(Method.STATUS, client_version=_version(), timeout=FINISH_TIMEOUT_S)
+        listing = client.call(Method.SESSION_LIST, client_version=_version(), timeout=FINISH_TIMEOUT_S)
+    except Exception as exc:  # noqa: BLE001
+        return Finished(error=f"the Probe service takes no requests from inside a sandbox and did not say what "
+                              f"it records ({type(exc).__name__})")
+    sessions = listing.get("sessions") if isinstance(listing, dict) else None
+    registered = {s.get("sid"): s.get("harness") for s in sessions or [] if isinstance(s, dict)}
+    recorders = status.get("recorders") if isinstance(status, dict) else None
+    mine = []
+    for rec in recorders or []:
+        if not isinstance(rec, dict) or not rec.get("alive"):
+            continue
+        # As the service matches them (`finish_harness`): the agent its
+        # `session.record` named, else its registration's. Neither known (a
+        # service from before the field, the registration already gone): it
+        # may be this agent's, and is named rather than claimed off.
+        named = rec.get("harness") or registered.get(rec.get("sid"))
+        if named is None or named == harness:
+            mine.append(rec.get("sid"))
+    return Finished(refused=True, still_recording=[s for s in mine if isinstance(s, str)])
 
 
 def _older_service() -> Finished:
@@ -367,6 +519,41 @@ def release_run(run_id: str, owner: dict | None) -> None:
         client.release_run(run_id, owner, client_version=_version(), timeout=HOLD_TIMEOUT_S)
     except Exception:  # noqa: BLE001 -- the hold goes with this process
         pass
+
+
+# -- import jobs -------------------------------------------------------------------------
+
+
+def start_import(job_id: str, directory: str, attempt: int, env: dict) -> dict | None:
+    """Ask the service to start (and watch) an approved import's worker with
+    `env` (the environment this CLI would have given it). `{pid,
+    start_time}` of the worker the service runs for the job -- just started,
+    or already running there -- else None: start it here, as before (no
+    service, an older one, another CLI's code, a refusal, no answer)."""
+    if not _reachable() or not same_cli():
+        return None
+    try:
+        import json
+
+        from probe.service import client
+        from probe.service.protocol import MAX_HOOK_ENV, MAX_HOOK_ENV_VALUE
+
+        if len(env) > MAX_HOOK_ENV or any(len(v) > MAX_HOOK_ENV_VALUE or "\0" in v for v in env.values()):
+            return None
+        if len(json.dumps(env)) > _MAX_REQUEST_BYTES:
+            return None
+        answer = client.start_import(
+            job_id, directory, attempt, env, client_version=_version(), timeout=IMPORT_TIMEOUT_S
+        )
+    except Exception:  # noqa: BLE001 -- no service, an older one (-32601), a refusal, a timeout
+        return None
+    # `running`: the service runs this job's worker for THIS attempt already
+    # (a repeat of the same start); never a previous attempt's, still exiting.
+    if answer.get("started") is True or answer.get("reason") == "running":
+        pid, start = answer.get("pid"), answer.get("start_time")
+        if isinstance(pid, int) and not isinstance(pid, bool) and pid > 1:
+            return {"pid": pid, "start_time": start if isinstance(start, str) else ""}
+    return None
 
 
 # -- the manifest ----------------------------------------------------------------------

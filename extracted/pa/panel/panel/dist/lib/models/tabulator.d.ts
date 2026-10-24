@@ -1,16 +1,17 @@
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import type { StyleSheetLike } from "@bokehjs/core/dom";
 import type * as p from "@bokehjs/core/properties";
+import { Model } from "@bokehjs/model";
 import type { LayoutDOM } from "@bokehjs/models/layouts/layout_dom";
 import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
-import { TableColumn } from "@bokehjs/models/widgets/tables";
 import type { Attrs } from "@bokehjs/core/types";
 import { HTMLBox, HTMLBoxView } from "./layout";
 export declare class TableEditEvent extends ModelEvent {
     readonly column: string;
     readonly row: number;
-    readonly pre: boolean;
-    constructor(column: string, row: number, pre: boolean);
+    readonly value?: unknown | undefined;
+    readonly old?: unknown | undefined;
+    constructor(column: string, row: number, value?: unknown | undefined, old?: unknown | undefined);
     protected get event_values(): Attrs;
 }
 export declare class CellClickEvent extends ModelEvent {
@@ -32,6 +33,7 @@ export declare class DataTabulatorView extends HTMLBoxView {
     columns: Map<string, any>;
     container: HTMLDivElement | null;
     _tabulator_cell_updating: boolean;
+    _pending_old_values: Map<string, any>;
     _updating_page: boolean;
     _updating_expanded: boolean;
     _updating_sort: boolean;
@@ -44,16 +46,23 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _lastHorizontalScrollbarLeftPosition: number;
     _applied_styles: boolean;
     _building: boolean;
+    _pending_data: boolean;
     _redrawing: boolean;
     /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
     _resize_pending: boolean;
     _resize_flush: Promise<void> | null;
     _restore_scroll: boolean | "horizontal" | "vertical";
     _updating_scroll: boolean;
+    _pending_scroll_restores: number;
+    _restored_scroll: {
+        top: number;
+        left: number;
+    };
     _is_scrolling: boolean;
     _automatic_page_size: boolean;
     _last_after_resize_el_width: number | null;
     _last_after_resize_el_height: number | null;
+    _fonts_loaded: (() => void) | null;
     connect_signals(): void;
     get groupBy(): boolean | ((data: any) => string);
     get sorters(): any[];
@@ -75,7 +84,18 @@ export declare class DataTabulatorView extends HTMLBoxView {
     setCSSClasses(el: HTMLDivElement): void;
     remove(): void;
     render(): void;
+    /**
+     * Column widths are measured from the rendered text, so a web font that
+     * finishes loading after the table was built leaves them too narrow.
+     */
+    watch_fonts(): void;
+    unwatch_fonts(): void;
     style_redraw(): void;
+    /**
+     * The table stays hidden until it is built and its stylesheets have settled,
+     * otherwise its unstyled, unmeasured layout flashes before the final one.
+     */
+    setVisibility(): void;
     tableInit(): void;
     init_callbacks(): void;
     tableBuilt(): void;
@@ -93,13 +113,13 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _update_expand(cell: any): void;
     getData(): any[];
     getColumns(): any;
+    _get_formatter(formatter: any): any;
     renderEditor(column: any, cell: any, onRendered: any, success: any, cancel: any): any;
     setData(): Promise<void>;
     addData(): void;
     postUpdate(): void;
     updateOrAddData(): void;
     setFrozen(): void;
-    setVisibility(): void;
     updatePage(pageno: number): void;
     setGroupBy(): void;
     setSorters(): void;
@@ -117,13 +137,30 @@ export declare class DataTabulatorView extends HTMLBoxView {
     cellEdited(cell: any): void;
 }
 export declare const TableLayout: import("@bokehjs/core/kinds").Kinds.Enum<"fit_data" | "fit_data_fill" | "fit_data_stretch" | "fit_data_table" | "fit_columns">;
+export declare namespace TabulatorColumn {
+    type Attrs = p.AttrsOf<Props>;
+    type Props = Model.Props & {
+        field: p.Property<string>;
+        title: p.Property<string | null>;
+        width: p.Property<number>;
+        formatter: p.Property<any>;
+        editor: p.Property<any>;
+    };
+}
+export interface TabulatorColumn extends TabulatorColumn.Attrs {
+}
+export declare class TabulatorColumn extends Model {
+    properties: TabulatorColumn.Props;
+    constructor(attrs?: Partial<TabulatorColumn.Attrs>);
+    static __module__: string;
+}
 export declare namespace DataTabulator {
     type Attrs = p.AttrsOf<Props>;
     type Props = HTMLBox.Props & {
         aggregators: p.Property<any>;
         buttons: p.Property<any>;
         children: p.Property<Map<number, LayoutDOM>>;
-        columns: p.Property<TableColumn[]>;
+        columns: p.Property<TabulatorColumn[]>;
         configuration: p.Property<any>;
         download: p.Property<boolean>;
         editable: p.Property<boolean>;

@@ -52,7 +52,7 @@ class TaxonomyAnalyticsApi:
     def analyze_transition_paths_taxonomies_taxonomy_id_analytics(
         self,
         taxonomy_id: StrictStr,
-        path_analysis_request: PathAnalysisRequest,
+        path_analysis_request: Annotated[PathAnalysisRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -72,7 +72,7 @@ class TaxonomyAnalyticsApi:
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
-        :param path_analysis_request: (required)
+        :param path_analysis_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type path_analysis_request: PathAnalysisRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -111,8 +111,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -129,7 +131,7 @@ class TaxonomyAnalyticsApi:
     def analyze_transition_paths_taxonomies_taxonomy_id_analytics_with_http_info(
         self,
         taxonomy_id: StrictStr,
-        path_analysis_request: PathAnalysisRequest,
+        path_analysis_request: Annotated[PathAnalysisRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -149,7 +151,7 @@ class TaxonomyAnalyticsApi:
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
-        :param path_analysis_request: (required)
+        :param path_analysis_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type path_analysis_request: PathAnalysisRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -188,8 +190,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -206,7 +210,7 @@ class TaxonomyAnalyticsApi:
     def analyze_transition_paths_taxonomies_taxonomy_id_analytics_without_preload_content(
         self,
         taxonomy_id: StrictStr,
-        path_analysis_request: PathAnalysisRequest,
+        path_analysis_request: Annotated[PathAnalysisRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -226,7 +230,7 @@ class TaxonomyAnalyticsApi:
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
-        :param path_analysis_request: (required)
+        :param path_analysis_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type path_analysis_request: PathAnalysisRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -265,8 +269,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -360,7 +366,7 @@ class TaxonomyAnalyticsApi:
     def compute_step_transitions_taxonomies_taxonomy_id_analytics(
         self,
         taxonomy_id: StrictStr,
-        step_transition_request: StepTransitionRequest,
+        step_transition_request: Annotated[StepTransitionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -380,7 +386,7 @@ class TaxonomyAnalyticsApi:
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
-        :param step_transition_request: (required)
+        :param step_transition_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type step_transition_request: StepTransitionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -419,8 +425,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -437,7 +445,7 @@ class TaxonomyAnalyticsApi:
     def compute_step_transitions_taxonomies_taxonomy_id_analytics_with_http_info(
         self,
         taxonomy_id: StrictStr,
-        step_transition_request: StepTransitionRequest,
+        step_transition_request: Annotated[StepTransitionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -457,7 +465,7 @@ class TaxonomyAnalyticsApi:
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
-        :param step_transition_request: (required)
+        :param step_transition_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type step_transition_request: StepTransitionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -496,8 +504,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -514,7 +524,7 @@ class TaxonomyAnalyticsApi:
     def compute_step_transitions_taxonomies_taxonomy_id_analytics_without_preload_content(
         self,
         taxonomy_id: StrictStr,
-        step_transition_request: StepTransitionRequest,
+        step_transition_request: Annotated[StepTransitionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -534,7 +544,7 @@ class TaxonomyAnalyticsApi:
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
-        :param step_transition_request: (required)
+        :param step_transition_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type step_transition_request: StepTransitionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -573,8 +583,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -727,8 +739,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -804,8 +818,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -881,8 +897,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -979,7 +997,7 @@ class TaxonomyAnalyticsApi:
     ) -> AvailableStepsResponse:
         """Get Available Steps
 
-        Get all available steps for a taxonomy and collection.  This endpoint discovers what steps exist in your analytics data by querying the ClickHouse taxonomy_events table. Use this before querying transitions or paths to understand what step values you can use.  **Use Cases:** - Discover available steps before querying analytics - Validate step names (avoid typos in from_step/to_step) - See which steps have the most events - Check data freshness (first_seen/last_seen timestamps)  **Example Usage:** ```python # 1. Get available steps GET /v1/taxonomies/tax_sales/analytics/available-steps?collection_id=col_emails  # Response: {     \"taxonomy_id\": \"tax_sales\",     \"collection_id\": \"col_emails\",     \"total_events\": 5432,     \"total_sequences\": 1000,     \"steps\": [         {\"step_key\": \"inquiry\", \"event_count\": 1000, ...},         {\"step_key\": \"followup\", \"event_count\": 450, ...},         {\"step_key\": \"closed_won\", \"event_count\": 350, ...}     ] }  # 2. Use discovered steps in transition query POST /v1/taxonomies/tax_sales/analytics/transitions {     \"collection_id\": \"col_emails\",     \"from_step\": \"inquiry\",      # From available steps     \"to_step\": \"closed_won\"      # From available steps } ```  Args:     request: FastAPI request object (contains tenant context)     taxonomy_id: Taxonomy ID to query     collection_id: Collection ID for filtering events  Returns:     AvailableStepsResponse with all steps sorted by event count (descending)  Raises:     NotFoundError: If taxonomy not found     ValidationError: If unable to query ClickHouse
+        Get all available steps for a taxonomy and collection.  This endpoint discovers what steps exist in your analytics data by querying the taxonomy_events analytics collection. Use this before querying transitions or paths to understand what step values you can use.  **Use Cases:** - Discover available steps before querying analytics - Validate step names (avoid typos in from_step/to_step) - See which steps have the most events - Check data freshness (first_seen/last_seen timestamps)  **Example Usage:** ```python # 1. Get available steps GET /v1/taxonomies/tax_sales/analytics/available-steps?collection_id=col_emails  # Response: {     \"taxonomy_id\": \"tax_sales\",     \"collection_id\": \"col_emails\",     \"total_events\": 5432,     \"total_sequences\": 1000,     \"steps\": [         {\"step_key\": \"inquiry\", \"event_count\": 1000, ...},         {\"step_key\": \"followup\", \"event_count\": 450, ...},         {\"step_key\": \"closed_won\", \"event_count\": 350, ...}     ] }  # 2. Use discovered steps in transition query POST /v1/taxonomies/tax_sales/analytics/transitions {     \"collection_id\": \"col_emails\",     \"from_step\": \"inquiry\",      # From available steps     \"to_step\": \"closed_won\"      # From available steps } ```  Args:     request: FastAPI request object (contains tenant context)     taxonomy_id: Taxonomy ID to query     collection_id: Collection ID for filtering events  Returns:     AvailableStepsResponse with all steps sorted by event count (descending)  Raises:     NotFoundError: If taxonomy not found     ValidationError: If unable to query the analytics store
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
@@ -1022,8 +1040,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1056,7 +1076,7 @@ class TaxonomyAnalyticsApi:
     ) -> ApiResponse[AvailableStepsResponse]:
         """Get Available Steps
 
-        Get all available steps for a taxonomy and collection.  This endpoint discovers what steps exist in your analytics data by querying the ClickHouse taxonomy_events table. Use this before querying transitions or paths to understand what step values you can use.  **Use Cases:** - Discover available steps before querying analytics - Validate step names (avoid typos in from_step/to_step) - See which steps have the most events - Check data freshness (first_seen/last_seen timestamps)  **Example Usage:** ```python # 1. Get available steps GET /v1/taxonomies/tax_sales/analytics/available-steps?collection_id=col_emails  # Response: {     \"taxonomy_id\": \"tax_sales\",     \"collection_id\": \"col_emails\",     \"total_events\": 5432,     \"total_sequences\": 1000,     \"steps\": [         {\"step_key\": \"inquiry\", \"event_count\": 1000, ...},         {\"step_key\": \"followup\", \"event_count\": 450, ...},         {\"step_key\": \"closed_won\", \"event_count\": 350, ...}     ] }  # 2. Use discovered steps in transition query POST /v1/taxonomies/tax_sales/analytics/transitions {     \"collection_id\": \"col_emails\",     \"from_step\": \"inquiry\",      # From available steps     \"to_step\": \"closed_won\"      # From available steps } ```  Args:     request: FastAPI request object (contains tenant context)     taxonomy_id: Taxonomy ID to query     collection_id: Collection ID for filtering events  Returns:     AvailableStepsResponse with all steps sorted by event count (descending)  Raises:     NotFoundError: If taxonomy not found     ValidationError: If unable to query ClickHouse
+        Get all available steps for a taxonomy and collection.  This endpoint discovers what steps exist in your analytics data by querying the taxonomy_events analytics collection. Use this before querying transitions or paths to understand what step values you can use.  **Use Cases:** - Discover available steps before querying analytics - Validate step names (avoid typos in from_step/to_step) - See which steps have the most events - Check data freshness (first_seen/last_seen timestamps)  **Example Usage:** ```python # 1. Get available steps GET /v1/taxonomies/tax_sales/analytics/available-steps?collection_id=col_emails  # Response: {     \"taxonomy_id\": \"tax_sales\",     \"collection_id\": \"col_emails\",     \"total_events\": 5432,     \"total_sequences\": 1000,     \"steps\": [         {\"step_key\": \"inquiry\", \"event_count\": 1000, ...},         {\"step_key\": \"followup\", \"event_count\": 450, ...},         {\"step_key\": \"closed_won\", \"event_count\": 350, ...}     ] }  # 2. Use discovered steps in transition query POST /v1/taxonomies/tax_sales/analytics/transitions {     \"collection_id\": \"col_emails\",     \"from_step\": \"inquiry\",      # From available steps     \"to_step\": \"closed_won\"      # From available steps } ```  Args:     request: FastAPI request object (contains tenant context)     taxonomy_id: Taxonomy ID to query     collection_id: Collection ID for filtering events  Returns:     AvailableStepsResponse with all steps sorted by event count (descending)  Raises:     NotFoundError: If taxonomy not found     ValidationError: If unable to query the analytics store
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
@@ -1099,8 +1119,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1133,7 +1155,7 @@ class TaxonomyAnalyticsApi:
     ) -> RESTResponseType:
         """Get Available Steps
 
-        Get all available steps for a taxonomy and collection.  This endpoint discovers what steps exist in your analytics data by querying the ClickHouse taxonomy_events table. Use this before querying transitions or paths to understand what step values you can use.  **Use Cases:** - Discover available steps before querying analytics - Validate step names (avoid typos in from_step/to_step) - See which steps have the most events - Check data freshness (first_seen/last_seen timestamps)  **Example Usage:** ```python # 1. Get available steps GET /v1/taxonomies/tax_sales/analytics/available-steps?collection_id=col_emails  # Response: {     \"taxonomy_id\": \"tax_sales\",     \"collection_id\": \"col_emails\",     \"total_events\": 5432,     \"total_sequences\": 1000,     \"steps\": [         {\"step_key\": \"inquiry\", \"event_count\": 1000, ...},         {\"step_key\": \"followup\", \"event_count\": 450, ...},         {\"step_key\": \"closed_won\", \"event_count\": 350, ...}     ] }  # 2. Use discovered steps in transition query POST /v1/taxonomies/tax_sales/analytics/transitions {     \"collection_id\": \"col_emails\",     \"from_step\": \"inquiry\",      # From available steps     \"to_step\": \"closed_won\"      # From available steps } ```  Args:     request: FastAPI request object (contains tenant context)     taxonomy_id: Taxonomy ID to query     collection_id: Collection ID for filtering events  Returns:     AvailableStepsResponse with all steps sorted by event count (descending)  Raises:     NotFoundError: If taxonomy not found     ValidationError: If unable to query ClickHouse
+        Get all available steps for a taxonomy and collection.  This endpoint discovers what steps exist in your analytics data by querying the taxonomy_events analytics collection. Use this before querying transitions or paths to understand what step values you can use.  **Use Cases:** - Discover available steps before querying analytics - Validate step names (avoid typos in from_step/to_step) - See which steps have the most events - Check data freshness (first_seen/last_seen timestamps)  **Example Usage:** ```python # 1. Get available steps GET /v1/taxonomies/tax_sales/analytics/available-steps?collection_id=col_emails  # Response: {     \"taxonomy_id\": \"tax_sales\",     \"collection_id\": \"col_emails\",     \"total_events\": 5432,     \"total_sequences\": 1000,     \"steps\": [         {\"step_key\": \"inquiry\", \"event_count\": 1000, ...},         {\"step_key\": \"followup\", \"event_count\": 450, ...},         {\"step_key\": \"closed_won\", \"event_count\": 350, ...}     ] }  # 2. Use discovered steps in transition query POST /v1/taxonomies/tax_sales/analytics/transitions {     \"collection_id\": \"col_emails\",     \"from_step\": \"inquiry\",      # From available steps     \"to_step\": \"closed_won\"      # From available steps } ```  Args:     request: FastAPI request object (contains tenant context)     taxonomy_id: Taxonomy ID to query     collection_id: Collection ID for filtering events  Returns:     AvailableStepsResponse with all steps sorted by event count (descending)  Raises:     NotFoundError: If taxonomy not found     ValidationError: If unable to query the analytics store
 
         :param taxonomy_id: (required)
         :type taxonomy_id: str
@@ -1176,8 +1198,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1331,8 +1355,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1420,8 +1446,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1509,8 +1537,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1667,8 +1697,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1744,8 +1776,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1821,8 +1855,10 @@ class TaxonomyAnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

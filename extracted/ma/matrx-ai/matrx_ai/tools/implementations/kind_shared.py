@@ -86,6 +86,8 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
         "@/components/official/icons/IconResolver",
         "@/components/agent-copy/CopyButtons",
         "@/components/agent-copy/CopyForAiButton",
+        "@ai-matrx/rich-content/copy/ContentActions",
+        "@ai-matrx/rich-content/kind-kit/OperationResult",
         "@/components/Markdown",
         "@/components/markdown",
         "@/components/mardown",  # accepted typo variant — FE maps it too

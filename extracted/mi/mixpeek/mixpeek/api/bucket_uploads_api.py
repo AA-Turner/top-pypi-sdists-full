@@ -17,7 +17,7 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictBool, StrictStr
+from pydantic import Field, StrictBool, StrictStr, field_validator
 from typing import Any, Optional
 from typing_extensions import Annotated
 from mixpeek.models.batch_confirm_request import BatchConfirmRequest
@@ -55,7 +55,8 @@ class BucketUploadsApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
         upload_id: Annotated[StrictStr, Field(description="The unique identifier of the upload")],
         var_async: Annotated[Optional[StrictBool], Field(description="Process confirmation asynchronously (recommended for files >= 100MB)")] = None,
-        confirm_upload_request: Optional[ConfirmUploadRequest] = None,
+        policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.")] = None,
+        confirm_upload_request: Annotated[Optional[ConfirmUploadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -71,7 +72,7 @@ class BucketUploadsApi:
     ) -> ConfirmUploadResponse:
         """Confirm Upload
 
-        Verify S3 upload completion and create bucket object.      After uploading to S3 using the presigned URL, call this endpoint to:     1. Verify the file exists in S3     2. Validate ETag and file size (if provided)     3. Create bucket object (default, unless create_object_on_confirm=false)     4. Update upload status to COMPLETED      **Sync vs Async**:     - Files < 100MB: Processed synchronously (~100ms)     - Files >= 100MB or async=true: Processed asynchronously (returns task_id)      **Duplicate Detection**:     - If file hash matches existing upload, marks as duplicate     - References original object_id if available
+        Verify S3 upload completion and create bucket object.      After uploading to S3 using the presigned URL, call this endpoint to:     1. Verify the file exists in S3     2. Validate ETag and file size (if provided)     3. Create bucket object (default, unless create_object_on_confirm=false)     4. Update upload status to COMPLETED      **Processing**: the created object is PENDING and is not processed by     confirmation. Add it to a batch and submit the batch to start processing,     or set `auto_submit_batch=true` on this request to create and submit a     batch for the new object in the same call.      **Sync vs Async**:     - Files < 100MB: Processed synchronously (~100ms)     - Files >= 100MB or async=true: Processed asynchronously (returns task_id)      **Duplicate Detection**:     - If file hash matches existing upload, marks as duplicate     - References original object_id if available      **Unique Keys**:     - If the bucket has a unique_key, the object is created under an insertion       policy: `?policy=insert|update|upsert` on this request, else the bucket's       `unique_key.default_policy`. With neither, confirmation returns 422.
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
@@ -79,7 +80,9 @@ class BucketUploadsApi:
         :type upload_id: str
         :param var_async: Process confirmation asynchronously (recommended for files >= 100MB)
         :type var_async: bool
-        :param confirm_upload_request:
+        :param policy: Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.
+        :type policy: str
+        :param confirm_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type confirm_upload_request: ConfirmUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -107,6 +110,7 @@ class BucketUploadsApi:
             bucket_identifier=bucket_identifier,
             upload_id=upload_id,
             var_async=var_async,
+            policy=policy,
             confirm_upload_request=confirm_upload_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -120,8 +124,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -140,7 +146,8 @@ class BucketUploadsApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
         upload_id: Annotated[StrictStr, Field(description="The unique identifier of the upload")],
         var_async: Annotated[Optional[StrictBool], Field(description="Process confirmation asynchronously (recommended for files >= 100MB)")] = None,
-        confirm_upload_request: Optional[ConfirmUploadRequest] = None,
+        policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.")] = None,
+        confirm_upload_request: Annotated[Optional[ConfirmUploadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -156,7 +163,7 @@ class BucketUploadsApi:
     ) -> ApiResponse[ConfirmUploadResponse]:
         """Confirm Upload
 
-        Verify S3 upload completion and create bucket object.      After uploading to S3 using the presigned URL, call this endpoint to:     1. Verify the file exists in S3     2. Validate ETag and file size (if provided)     3. Create bucket object (default, unless create_object_on_confirm=false)     4. Update upload status to COMPLETED      **Sync vs Async**:     - Files < 100MB: Processed synchronously (~100ms)     - Files >= 100MB or async=true: Processed asynchronously (returns task_id)      **Duplicate Detection**:     - If file hash matches existing upload, marks as duplicate     - References original object_id if available
+        Verify S3 upload completion and create bucket object.      After uploading to S3 using the presigned URL, call this endpoint to:     1. Verify the file exists in S3     2. Validate ETag and file size (if provided)     3. Create bucket object (default, unless create_object_on_confirm=false)     4. Update upload status to COMPLETED      **Processing**: the created object is PENDING and is not processed by     confirmation. Add it to a batch and submit the batch to start processing,     or set `auto_submit_batch=true` on this request to create and submit a     batch for the new object in the same call.      **Sync vs Async**:     - Files < 100MB: Processed synchronously (~100ms)     - Files >= 100MB or async=true: Processed asynchronously (returns task_id)      **Duplicate Detection**:     - If file hash matches existing upload, marks as duplicate     - References original object_id if available      **Unique Keys**:     - If the bucket has a unique_key, the object is created under an insertion       policy: `?policy=insert|update|upsert` on this request, else the bucket's       `unique_key.default_policy`. With neither, confirmation returns 422.
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
@@ -164,7 +171,9 @@ class BucketUploadsApi:
         :type upload_id: str
         :param var_async: Process confirmation asynchronously (recommended for files >= 100MB)
         :type var_async: bool
-        :param confirm_upload_request:
+        :param policy: Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.
+        :type policy: str
+        :param confirm_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type confirm_upload_request: ConfirmUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -192,6 +201,7 @@ class BucketUploadsApi:
             bucket_identifier=bucket_identifier,
             upload_id=upload_id,
             var_async=var_async,
+            policy=policy,
             confirm_upload_request=confirm_upload_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -205,8 +215,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -225,7 +237,8 @@ class BucketUploadsApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
         upload_id: Annotated[StrictStr, Field(description="The unique identifier of the upload")],
         var_async: Annotated[Optional[StrictBool], Field(description="Process confirmation asynchronously (recommended for files >= 100MB)")] = None,
-        confirm_upload_request: Optional[ConfirmUploadRequest] = None,
+        policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.")] = None,
+        confirm_upload_request: Annotated[Optional[ConfirmUploadRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -241,7 +254,7 @@ class BucketUploadsApi:
     ) -> RESTResponseType:
         """Confirm Upload
 
-        Verify S3 upload completion and create bucket object.      After uploading to S3 using the presigned URL, call this endpoint to:     1. Verify the file exists in S3     2. Validate ETag and file size (if provided)     3. Create bucket object (default, unless create_object_on_confirm=false)     4. Update upload status to COMPLETED      **Sync vs Async**:     - Files < 100MB: Processed synchronously (~100ms)     - Files >= 100MB or async=true: Processed asynchronously (returns task_id)      **Duplicate Detection**:     - If file hash matches existing upload, marks as duplicate     - References original object_id if available
+        Verify S3 upload completion and create bucket object.      After uploading to S3 using the presigned URL, call this endpoint to:     1. Verify the file exists in S3     2. Validate ETag and file size (if provided)     3. Create bucket object (default, unless create_object_on_confirm=false)     4. Update upload status to COMPLETED      **Processing**: the created object is PENDING and is not processed by     confirmation. Add it to a batch and submit the batch to start processing,     or set `auto_submit_batch=true` on this request to create and submit a     batch for the new object in the same call.      **Sync vs Async**:     - Files < 100MB: Processed synchronously (~100ms)     - Files >= 100MB or async=true: Processed asynchronously (returns task_id)      **Duplicate Detection**:     - If file hash matches existing upload, marks as duplicate     - References original object_id if available      **Unique Keys**:     - If the bucket has a unique_key, the object is created under an insertion       policy: `?policy=insert|update|upsert` on this request, else the bucket's       `unique_key.default_policy`. With neither, confirmation returns 422.
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
@@ -249,7 +262,9 @@ class BucketUploadsApi:
         :type upload_id: str
         :param var_async: Process confirmation asynchronously (recommended for files >= 100MB)
         :type var_async: bool
-        :param confirm_upload_request:
+        :param policy: Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.
+        :type policy: str
+        :param confirm_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type confirm_upload_request: ConfirmUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -277,6 +292,7 @@ class BucketUploadsApi:
             bucket_identifier=bucket_identifier,
             upload_id=upload_id,
             var_async=var_async,
+            policy=policy,
             confirm_upload_request=confirm_upload_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -290,8 +306,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -305,6 +323,7 @@ class BucketUploadsApi:
         bucket_identifier,
         upload_id,
         var_async,
+        policy,
         confirm_upload_request,
         _request_auth,
         _content_type,
@@ -335,6 +354,10 @@ class BucketUploadsApi:
         if var_async is not None:
             
             _query_params.append(('async', var_async))
+            
+        if policy is not None:
+            
+            _query_params.append(('policy', policy))
             
         # process the header parameters
         # process the form parameters
@@ -393,7 +416,8 @@ class BucketUploadsApi:
     def confirm_uploads_batch_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        batch_confirm_request: BatchConfirmRequest,
+        batch_confirm_request: Annotated[BatchConfirmRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
+        policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -413,8 +437,10 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param batch_confirm_request: (required)
+        :param batch_confirm_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_confirm_request: BatchConfirmRequest
+        :param policy: Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.
+        :type policy: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -440,6 +466,7 @@ class BucketUploadsApi:
         _param = self._confirm_uploads_batch_buckets_serialize(
             bucket_identifier=bucket_identifier,
             batch_confirm_request=batch_confirm_request,
+            policy=policy,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -452,8 +479,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -470,7 +499,8 @@ class BucketUploadsApi:
     def confirm_uploads_batch_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        batch_confirm_request: BatchConfirmRequest,
+        batch_confirm_request: Annotated[BatchConfirmRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
+        policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -490,8 +520,10 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param batch_confirm_request: (required)
+        :param batch_confirm_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_confirm_request: BatchConfirmRequest
+        :param policy: Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.
+        :type policy: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -517,6 +549,7 @@ class BucketUploadsApi:
         _param = self._confirm_uploads_batch_buckets_serialize(
             bucket_identifier=bucket_identifier,
             batch_confirm_request=batch_confirm_request,
+            policy=policy,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -529,8 +562,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -547,7 +582,8 @@ class BucketUploadsApi:
     def confirm_uploads_batch_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        batch_confirm_request: BatchConfirmRequest,
+        batch_confirm_request: Annotated[BatchConfirmRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
+        policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -567,8 +603,10 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param batch_confirm_request: (required)
+        :param batch_confirm_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_confirm_request: BatchConfirmRequest
+        :param policy: Insertion policy for unique key enforcement on the object created at confirmation. Valid values: 'insert', 'update', 'upsert'. Only applies if the bucket has a unique_key. Overrides the bucket's default_policy, matching ?policy= on POST /objects. Required when the bucket has a unique_key and no default_policy.
+        :type policy: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -594,6 +632,7 @@ class BucketUploadsApi:
         _param = self._confirm_uploads_batch_buckets_serialize(
             bucket_identifier=bucket_identifier,
             batch_confirm_request=batch_confirm_request,
+            policy=policy,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -606,8 +645,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -620,6 +661,7 @@ class BucketUploadsApi:
         self,
         bucket_identifier,
         batch_confirm_request,
+        policy,
         _request_auth,
         _content_type,
         _headers,
@@ -644,6 +686,10 @@ class BucketUploadsApi:
         if bucket_identifier is not None:
             _path_params['bucket_identifier'] = bucket_identifier
         # process the query parameters
+        if policy is not None:
+            
+            _query_params.append(('policy', policy))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -701,7 +747,7 @@ class BucketUploadsApi:
     def create_upload_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        create_upload_request: CreateUploadRequest,
+        create_upload_request: Annotated[CreateUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -721,7 +767,7 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param create_upload_request: (required)
+        :param create_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_upload_request: CreateUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -760,8 +806,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -778,7 +826,7 @@ class BucketUploadsApi:
     def create_upload_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        create_upload_request: CreateUploadRequest,
+        create_upload_request: Annotated[CreateUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -798,7 +846,7 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param create_upload_request: (required)
+        :param create_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_upload_request: CreateUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -837,8 +885,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -855,7 +905,7 @@ class BucketUploadsApi:
     def create_upload_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        create_upload_request: CreateUploadRequest,
+        create_upload_request: Annotated[CreateUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -875,7 +925,7 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param create_upload_request: (required)
+        :param create_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_upload_request: CreateUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -914,8 +964,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1009,7 +1061,7 @@ class BucketUploadsApi:
     def create_uploads_batch_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        batch_upload_request: BatchUploadRequest,
+        batch_upload_request: Annotated[BatchUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1029,7 +1081,7 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param batch_upload_request: (required)
+        :param batch_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_upload_request: BatchUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1068,8 +1120,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1086,7 +1140,7 @@ class BucketUploadsApi:
     def create_uploads_batch_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        batch_upload_request: BatchUploadRequest,
+        batch_upload_request: Annotated[BatchUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1106,7 +1160,7 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param batch_upload_request: (required)
+        :param batch_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_upload_request: BatchUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1145,8 +1199,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1163,7 +1219,7 @@ class BucketUploadsApi:
     def create_uploads_batch_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket")],
-        batch_upload_request: BatchUploadRequest,
+        batch_upload_request: Annotated[BatchUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1183,7 +1239,7 @@ class BucketUploadsApi:
 
         :param bucket_identifier: The unique identifier of the bucket (required)
         :type bucket_identifier: str
-        :param batch_upload_request: (required)
+        :param batch_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type batch_upload_request: BatchUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1222,8 +1278,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1380,8 +1438,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1461,8 +1521,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1542,8 +1604,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1692,8 +1756,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1773,8 +1839,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1854,8 +1922,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1949,7 +2019,7 @@ class BucketUploadsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_uploads_request: Optional[ListUploadsRequest] = None,
+        list_uploads_request: Annotated[Optional[ListUploadsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1985,7 +2055,7 @@ class BucketUploadsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_uploads_request:
+        :param list_uploads_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_uploads_request: ListUploadsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2032,8 +2102,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2058,7 +2130,7 @@ class BucketUploadsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_uploads_request: Optional[ListUploadsRequest] = None,
+        list_uploads_request: Annotated[Optional[ListUploadsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2094,7 +2166,7 @@ class BucketUploadsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_uploads_request:
+        :param list_uploads_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_uploads_request: ListUploadsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2141,8 +2213,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2167,7 +2241,7 @@ class BucketUploadsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_uploads_request: Optional[ListUploadsRequest] = None,
+        list_uploads_request: Annotated[Optional[ListUploadsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2203,7 +2277,7 @@ class BucketUploadsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_uploads_request:
+        :param list_uploads_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_uploads_request: ListUploadsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2250,8 +2324,10 @@ class BucketUploadsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

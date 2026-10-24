@@ -22,6 +22,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
+from mixpeek.models.degraded_entry import DegradedEntry
+from mixpeek.models.limit_entry import LimitEntry
 from mixpeek.models.retriever_execution_statistics import RetrieverExecutionStatistics
 from typing import Optional, Set
 from typing_extensions import Self
@@ -33,6 +35,8 @@ class ExecutionDetail(BaseModel):
     retriever_id: Optional[StrictStr] = Field(default='', description="The retriever that was executed. Use this to link interactions back to the retriever for learned fusion.")
     execution_id: StrictStr = Field(description="REQUIRED. Unique identifier for this execution run. Use this ID to track execution status, retrieve execution details, or query execution history. Format: 'exec_' prefix followed by alphanumeric token.")
     status: StrictStr = Field(description="REQUIRED. Execution status indicating current state. Common values: 'completed', 'failed', 'processing', 'pending'. Check this field to determine if execution succeeded or requires retry.")
+    degraded: Optional[List[DegradedEntry]] = Field(default=None, description="What this run skipped, one entry per resource, when status is 'degraded': the resource kind, its id, why it was skipped, and what to do about it. Empty on a clean run. A degraded run may return few or no documents; read these before treating an empty result as a real no-match.")
+    limits: Optional[List[LimitEntry]] = Field(default=None, description="OPTIONAL. Every cap that clamped this request: the setting, the value asked for, the value used, the cap's maximum and the stage that applied it. Absent when nothing was capped. A run that hit a cap can return fewer documents than asked; read this before treating a short result as everything that matched.")
     documents: Optional[List[Dict[str, Any]]] = Field(default=None, description="REQUIRED. Final document results after retriever completion, and the canonical result key: read `documents`, not `results` (the latter is a deprecated byte-for-byte alias, off unless include_legacy_results=true, and its ABSENCE on a normal response must not be read as zero results). Contains documents that passed through all retriever stages. Each document may include: document_id, payload (full document data), score (relevance score), metadata (collection-specific fields), and any fields added by enrichment/join stages. The moment_group reduce stage annotates each document with a `moments` array of merged time ranges; each moment has start_ms, end_ms, duration_ms, score, match_count and document_ids (see the moment-annotated example). Empty array indicates no documents matched the query criteria. Note: Legacy format may use 'final_results' instead of 'documents'.")
     results: Optional[List[Dict[str, Any]]] = Field(default=None, description="DEPRECATED alias for `documents`. Previously a computed field that duplicated `documents` byte-for-byte in every response (~half the payload). It is no longer populated by default to cut response size; pass `?include_legacy_results=true` to restore it during migration. Prefer `documents` — it is and has always been the canonical field. OMITTED from the response when unpopulated while `documents` has data (an empty `results` next to populated `documents` misled readers into 'no results' — 2026-07-06 and again 2026-07-08). When present it is ALWAYS a JSON array, never null. See FRUSTRATIONS.md 2026-04-02 / 2026-06-29 / 2026-06-30.")
     pagination: Optional[Dict[str, Any]] = Field(default=None, description="REQUIRED. Pagination metadata structure. Format varies by pagination method: Offset: {method, page_number, page_size, returned, total, has_next}, Cursor: {method, limit, returned, total, cursor, has_next}, Scroll: {method, scroll_id, limit, returned, total, has_next}, Keyset: {method, limit, returned, total, after}. Every method reports 'total', the number of documents the pipeline computed for this execution BEFORE the page slice, so compare total against returned to detect that a page is a subset. Use this to navigate through result pages.")
@@ -40,6 +44,7 @@ class ExecutionDetail(BaseModel):
     facets: Optional[List[Dict[str, Any]]] = Field(default=None, description="Facet value-lists + counts computed by the feature_search stage(s), surfaced at the TOP LEVEL for discoverability: each entry is a FacetResult (a facet `key` plus value/count buckets). The same data also appears per-stage under `stage_statistics.stages.<stage>.metadata.facets`; this field is the predictable place a facet consumer looks. When more than one stage computes facets, the last stage's facets are surfaced here. None when no facets were requested.")
     budget: Optional[Dict[str, Any]] = Field(default=None, description="REQUIRED. Budget usage snapshot for this execution. Contains: credits_used (credits consumed), credits_remaining (remaining budget), time_used_ms (execution time), and budget limits. Use this to track resource consumption and enforce budget limits.")
     cached_at: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Unix timestamp (seconds) when this result was cached. Present only when the full response was served from the retriever-level cache. Compute freshness as: time.time() - cached_at.")
+    completeness: Optional[Dict[str, StrictStr]] = Field(default=None, description="Completeness by layer, so the claims never contradict: `embeddings` is complete, complete_after_retry or partial (some query embeddings were dropped); `page` is complete, not_known_complete (a retried stage answered an empty page) or the execution status; `overall` is complete only when both layers are. Filled in when the response is written.")
     warnings: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. Execution warnings that did not prevent results but indicate potential issues — e.g. filtering on unindexed fields. Empty when there are no warnings.")
     interpretation: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. What the platform UNDERSTOOD from your request, so a correction or relaxation is visible instead of silent. Keys: provided_input_keys (the inputs you sent), inferred_inputs (schema defaults applied because you omitted the field — name: value), ignored_input_keys (inputs nothing in the pipeline consumes; they had no effect), and relaxations (filter conditions removed because the input they reference was not provided — each names the field, the template, and where it sat; the result set is BROADER than the literal filter when this is non-empty). The literal query text is used AS PROVIDED — no spell-correction step exists; semantic search is typo-tolerant by embedding, which this block does not alter. Stage-level rewrites (e.g. query_expand) report their expansions in stage_statistics.stages.<stage>.metadata.")
     error: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Retriever-level error message if execution failed. Only present when status='failed'. Contains human-readable error description to help diagnose the failure. Check stage_statistics for stage-specific errors.")
@@ -51,9 +56,10 @@ class ExecutionDetail(BaseModel):
     current_stage: Optional[StrictStr] = Field(default=None, description="Stage currently running when execution in-flight")
     stages_completed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of stages finished so far")
     total_stages: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Total stages configured")
-    documents_retained: Optional[StrictBool] = Field(default=False, description="Whether the documents this run returned are stored with it. FALSE means `documents` is empty because nothing was persisted, NOT because the query matched nothing: stored executions live in ClickHouse, which keeps the statistics and not the result rows. Read `total_returned` below for what the run actually returned. This exists because an empty `documents` on a completed run is otherwise indistinguishable from a real empty result, and the same reasoning is already written down one field over, where `documents` says the ABSENCE of `results` must not be read as zero results.")
+    documents_retained: Optional[StrictBool] = Field(default=False, description="Whether the documents this run returned are stored with it. FALSE means `documents` is empty because nothing was persisted, NOT because the query matched nothing: a stored execution keeps the statistics and not the result rows. Read `total_returned` below for what the run actually returned. This exists because an empty `documents` on a completed run is otherwise indistinguishable from a real empty result, and the same reasoning is already written down one field over, where `documents` says the ABSENCE of `results` must not be read as zero results.")
     total_returned: Optional[StrictInt] = Field(default=None, description="Documents this run returned to the caller, as recorded when it ran. Present on a stored read even when `documents` is empty and `documents_retained` is false, which is what lets a caller tell 'returned 3, not retained' from 'matched nothing'. None when the stored record does not carry it.")
-    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "warnings", "interpretation", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages", "documents_retained", "total_returned"]
+    trace_id: Optional[StrictStr] = Field(default=None, description="Trace identifier recorded when this execution ran. Quote it to Mixpeek support to find the request's trace. Null for executions recorded before trace ids were stored.")
+    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "degraded", "limits", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "completeness", "warnings", "interpretation", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages", "documents_retained", "total_returned", "trace_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,6 +100,20 @@ class ExecutionDetail(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in degraded (list)
+        _items = []
+        if self.degraded:
+            for _item_degraded in self.degraded:
+                if _item_degraded:
+                    _items.append(_item_degraded.to_dict())
+            _dict['degraded'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in limits (list)
+        _items = []
+        if self.limits:
+            for _item_limits in self.limits:
+                if _item_limits:
+                    _items.append(_item_limits.to_dict())
+            _dict['limits'] = _items
         # override the default output from pydantic by calling `to_dict()` of stage_statistics
         if self.stage_statistics:
             _dict['stage_statistics'] = self.stage_statistics.to_dict()
@@ -112,6 +132,8 @@ class ExecutionDetail(BaseModel):
             "retriever_id": obj.get("retriever_id") if obj.get("retriever_id") is not None else '',
             "execution_id": obj.get("execution_id"),
             "status": obj.get("status"),
+            "degraded": [DegradedEntry.from_dict(_item) for _item in obj["degraded"]] if obj.get("degraded") is not None else None,
+            "limits": [LimitEntry.from_dict(_item) for _item in obj["limits"]] if obj.get("limits") is not None else None,
             "documents": obj.get("documents"),
             "results": obj.get("results"),
             "pagination": obj.get("pagination"),
@@ -119,6 +141,7 @@ class ExecutionDetail(BaseModel):
             "facets": obj.get("facets"),
             "budget": obj.get("budget"),
             "cached_at": obj.get("cached_at"),
+            "completeness": obj.get("completeness"),
             "warnings": obj.get("warnings"),
             "interpretation": obj.get("interpretation"),
             "error": obj.get("error"),
@@ -131,7 +154,8 @@ class ExecutionDetail(BaseModel):
             "stages_completed": obj.get("stages_completed") if obj.get("stages_completed") is not None else 0,
             "total_stages": obj.get("total_stages") if obj.get("total_stages") is not None else 0,
             "documents_retained": obj.get("documents_retained") if obj.get("documents_retained") is not None else False,
-            "total_returned": obj.get("total_returned")
+            "total_returned": obj.get("total_returned"),
+            "trace_id": obj.get("trace_id")
         })
         return _obj
 

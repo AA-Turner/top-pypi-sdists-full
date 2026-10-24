@@ -14,11 +14,15 @@ from sarj_python_lint.rule_base import (
     RuleExample,
     Severity,
 )
+from sarj_python_lint.rules._annotation_semantics import bit_or_members as _union_members
 from sarj_python_lint.rules._ast_index import children, walk as walk_ast
+from sarj_python_lint.rules._ast_names import terminal_name as _dotted_tail
 from sarj_python_lint.rules._paths import is_test_path
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sarj_python_lint._file_context import PythonFileContext
 
 
@@ -38,6 +42,12 @@ class _FixtureDecorators(NamedTuple):
 class _FixtureFunction(NamedTuple):
     node: ast.FunctionDef | ast.AsyncFunctionDef
     owner: ast.ClassDef | None
+
+
+class FixtureDeclaration(NamedTuple):
+    node: ast.FunctionDef | ast.AsyncFunctionDef
+    name: str
+    decorator: ast.expr
 
 
 _NO_FIXTURE_DECORATORS = _FixtureDecorators(frozenset(), {}, frozenset())
@@ -151,8 +161,7 @@ class PytestFixtureReturnsBareTuple(Rule):
         return diags
 
 
-def _bare_tuple_results(tree: ast.Module) -> list[_TupleResult]:
-    hits: list[_TupleResult] = []
+def fixture_declarations(tree: ast.Module) -> Iterator[FixtureDeclaration]:
     for node, owner in _discoverable_functions(tree):
         if not node.decorator_list:
             continue
@@ -160,6 +169,15 @@ def _bare_tuple_results(tree: ast.Module) -> list[_TupleResult]:
         fixture_name = _fixture_name(node, fixture_names)
         if fixture_name is None:
             continue
+        decorator = next(
+            dec for dec in node.decorator_list if _names_fixture(dec, fixture_names.names, fixture_names.roots)
+        )
+        yield FixtureDeclaration(node, fixture_name, decorator)
+
+
+def _bare_tuple_results(tree: ast.Module) -> list[_TupleResult]:
+    hits: list[_TupleResult] = []
+    for node, fixture_name, _decorator in fixture_declarations(tree):
         aliases = _type_aliases(tree, before_line=node.lineno)
         has_yield = _has_own_yield(node)
         if node.returns is not None and _homogeneous_tuple_annotation(
@@ -473,23 +491,9 @@ def _optional_member(annotation: ast.expr) -> ast.expr | None:
     return None
 
 
-def _union_members(annotation: ast.expr) -> list[ast.expr]:
-    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
-        return [*_union_members(annotation.left), *_union_members(annotation.right)]
-    return [annotation]
-
-
 def _only_non_none(members: list[ast.expr]) -> ast.expr | None:
     concrete = [member for member in members if not (isinstance(member, ast.Constant) and member.value is None)]
     return concrete[0] if len(concrete) == 1 and len(concrete) < len(members) else None
-
-
-def _dotted_tail(node: ast.expr) -> str | None:
-    match node:
-        case ast.Name(id=name) | ast.Attribute(attr=name):
-            return name
-        case _:
-            return None
 
 
 def _has_own_yield(fixture: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:

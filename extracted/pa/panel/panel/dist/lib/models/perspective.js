@@ -2,7 +2,7 @@ import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
 import { HTMLBox, HTMLBoxView, set_size } from "./layout";
-import perspective_css from "../styles/models/perspective.css";
+import perspective_css from "styles/models/perspective.css";
 const THEMES = {
     "pro-dark": "Pro Dark",
     pro: "Pro Light",
@@ -39,7 +39,6 @@ export class PerspectiveClickEvent extends ModelEvent {
     config;
     column_names;
     row;
-    static __name__ = "PerspectiveClickEvent";
     constructor(config, column_names, row) {
         super();
         this.config = config;
@@ -54,7 +53,6 @@ export class PerspectiveClickEvent extends ModelEvent {
     }
 }
 export class PerspectiveView extends HTMLBoxView {
-    static __name__ = "PerspectiveView";
     perspective_element;
     table;
     worker;
@@ -152,65 +150,49 @@ export class PerspectiveView extends HTMLBoxView {
         this._current_plugin = this.model.plugin;
         set_size(container, this.model);
         this.shadow_el.appendChild(container);
-        new Promise((resolve, reject) => {
-            const start = Date.now();
-            const timeout = 5000;
-            const interval = 100;
-            const check = () => {
-                if (window.perspective_viewer !== undefined) {
-                    resolve(null);
-                }
-                else if (Date.now() - start > timeout) {
-                    reject(new Error("Timed out waiting for window.perspective_viewer"));
-                }
-                else {
-                    setTimeout(check, interval);
-                }
-            };
-            check();
-        }).then(() => {
-            window.perspective.worker().then((worker) => {
-                this.worker = worker;
-                worker.table(this.model.schema).then((table) => {
-                    this.table = table;
-                    this.table.update(this.data);
-                    container.innerHTML = "<perspective-viewer style='height:100%; width:100%;'></perspective-viewer>";
-                    this.perspective_element = container.children[0];
-                    const themesArray = Object.values(THEMES);
-                    const filteredThemes = themesArray.filter(t => t !== this.model.theme);
-                    const orderedThemes = [this.model.theme, ...filteredThemes];
-                    this.perspective_element.resetThemes(orderedThemes).catch(() => { });
-                    this.perspective_element.load(this.table);
-                    const plugin_config = {
-                        ...this.model.plugin_config,
-                        editable: this.model.editable,
-                        selectable: this.model.selectable,
-                    };
-                    this.perspective_element.restore({
-                        aggregates: this.model.aggregates,
-                        columns: this.model.columns,
-                        columns_config: this.model.columns_config,
-                        expressions: this.model.expressions,
-                        filter: this.model.filters,
-                        split_by: this.model.split_by,
-                        group_by: this.model.group_by,
-                        plugin: PLUGINS[this.model.plugin],
-                        plugin_config,
-                        settings: this.model.settings,
-                        sort: this.model.sort,
-                        theme: THEMES[this.model.theme],
-                        title: this.model.title,
-                    }).catch(() => { });
-                    this.perspective_element.save().then((config) => {
-                        this._current_config = config;
-                    });
-                    this._config_listener = () => this.sync_config();
-                    this.perspective_element.addEventListener("perspective-config-update", this._config_listener);
-                    this.perspective_element.addEventListener("perspective-click", (event) => {
-                        this.model.trigger_event(new PerspectiveClickEvent(event.detail.config, event.detail.column_names, event.detail.row));
-                    });
-                    this._loaded = true;
+        // The resource registry has already resolved perspective by the time the
+        // view renders, so there is nothing left to wait for here.
+        window.perspective.worker().then((worker) => {
+            this.worker = worker;
+            worker.table(this.model.schema).then((table) => {
+                this.table = table;
+                this.table.update(this.data);
+                container.innerHTML = "<perspective-viewer style='height:100%; width:100%;'></perspective-viewer>";
+                this.perspective_element = container.children[0];
+                const themesArray = Object.values(THEMES);
+                const filteredThemes = themesArray.filter(t => t !== this.model.theme);
+                const orderedThemes = [this.model.theme, ...filteredThemes];
+                this.perspective_element.resetThemes(orderedThemes).catch(() => { });
+                this.perspective_element.load(this.table);
+                const plugin_config = {
+                    ...this.model.plugin_config,
+                    editable: this.model.editable,
+                    selectable: this.model.selectable,
+                };
+                this.perspective_element.restore({
+                    aggregates: this.model.aggregates,
+                    columns: this.model.columns,
+                    columns_config: this.model.columns_config,
+                    expressions: this.model.expressions,
+                    filter: this.model.filters,
+                    split_by: this.model.split_by,
+                    group_by: this.model.group_by,
+                    plugin: PLUGINS[this.model.plugin],
+                    plugin_config,
+                    settings: this.model.settings,
+                    sort: this.model.sort,
+                    theme: THEMES[this.model.theme],
+                    title: this.model.title,
+                }).catch(() => { });
+                this.perspective_element.save().then((config) => {
+                    this._current_config = config;
                 });
+                this._config_listener = () => this.sync_config();
+                this.perspective_element.addEventListener("perspective-config-update", this._config_listener);
+                this.perspective_element.addEventListener("perspective-click", (event) => {
+                    this.model.trigger_event(new PerspectiveClickEvent(event.detail.config, event.detail.column_names, event.detail.row));
+                });
+                this._loaded = true;
             });
         });
     }
@@ -290,7 +272,6 @@ export class PerspectiveView extends HTMLBoxView {
     }
 }
 export class Perspective extends HTMLBox {
-    static __name__ = "Perspective";
     constructor(attrs) {
         super(attrs);
     }

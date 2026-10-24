@@ -46,6 +46,7 @@ __all__ = (
     "DomainStateType",
     "DomainUseCaseType",
     "DryRunModeType",
+    "EncryptionModeType",
     "EngineModeType",
     "EngineTypeType",
     "IPAddressTypeType",
@@ -171,6 +172,7 @@ DomainProcessingStatusTypeType = Literal[
 DomainStateType = Literal["Active", "NotAvailable", "Processing"]
 DomainUseCaseType = Literal["MIXED", "OBSERVABILITY", "SEARCH", "VECTOR"]
 DryRunModeType = Literal["Basic", "Verbose"]
+EncryptionModeType = Literal["DISK", "NATIVE"]
 EngineModeType = Literal["GENERAL", "OPTIMIZED"]
 EngineTypeType = Literal["Elasticsearch", "OpenSearch"]
 IPAddressTypeType = Literal["dualstack", "ipv4"]
@@ -363,6 +365,7 @@ SubjectKeyIdCOptionType = Literal["Email", "UserId", "UserName"]
 TLSSecurityPolicyType = Literal[
     "Policy-Min-TLS-1-0-2019-07",
     "Policy-Min-TLS-1-2-2019-07",
+    "Policy-Min-TLS-1-2-FIPS-PQ-2026-10",
     "Policy-Min-TLS-1-2-PFS-2023-10",
     "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
@@ -530,13 +533,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -604,6 +606,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -738,6 +741,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -788,7 +792,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

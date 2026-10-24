@@ -6,7 +6,6 @@ import { debounce } from "debounce";
 import { HTMLBox, HTMLBoxView } from "./layout";
 export class VizzuEvent extends ModelEvent {
     data;
-    static __name__ = "VizzuEvent";
     event_name = "vizzu_event";
     publish = true;
     constructor(data) {
@@ -19,7 +18,6 @@ export class VizzuEvent extends ModelEvent {
 }
 const VECTORIZED_PROPERTIES = ["x", "y", "color", "label", "lightness", "size", "splittedBy", "dividedBy"];
 export class VizzuChartView extends HTMLBoxView {
-    static __name__ = "VizzuChartView";
     container;
     update = [];
     vizzu_view;
@@ -154,7 +152,6 @@ export class VizzuChartView extends HTMLBoxView {
     }
 }
 export class VizzuChart extends HTMLBox {
-    static __name__ = "VizzuChart";
     constructor(attrs) {
         super(attrs);
     }

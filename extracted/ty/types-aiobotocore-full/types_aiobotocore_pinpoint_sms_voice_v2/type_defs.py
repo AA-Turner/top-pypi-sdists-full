@@ -460,6 +460,7 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class CarrierLookupRequestTypeDef(TypedDict):
     PhoneNumber: str
+    EnableCleansing: NotRequired[bool]
 
 
 class CarrierStatusInformationTypeDef(TypedDict):
@@ -1338,6 +1339,7 @@ class CarrierLookupResultTypeDef(TypedDict):
     MNC: str
     Carrier: str
     PhoneNumberType: PhoneNumberTypeType
+    OriginalPhoneNumber: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2658,6 +2660,7 @@ class PhoneNumberInformationTypeDef(TypedDict):
     PoolId: NotRequired[str]
     RegistrationId: NotRequired[str]
     MessagingLimits: NotRequired[MessagingLimitsTypeDef]
+    PricingTier: NotRequired[str]
 
 
 class SenderIdInformationTypeDef(TypedDict):
@@ -2670,6 +2673,7 @@ class SenderIdInformationTypeDef(TypedDict):
     Registered: bool
     RegistrationId: NotRequired[str]
     MessagingLimits: NotRequired[MessagingLimitsTypeDef]
+    PricingTier: NotRequired[str]
 
 
 class NotifyTemplateInformationTypeDef(TypedDict):

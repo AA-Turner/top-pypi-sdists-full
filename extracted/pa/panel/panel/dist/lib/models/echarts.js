@@ -19,7 +19,6 @@ export class EChartsEvent extends ModelEvent {
     type;
     data;
     query;
-    static __name__ = "EChartsEvent";
     constructor(type, data, query) {
         super();
         this.type = type;
@@ -34,13 +33,9 @@ export class EChartsEvent extends ModelEvent {
     }
 }
 export class EChartsView extends HTMLBoxView {
-    static __name__ = "EChartsView";
     container;
     _chart;
     _callbacks = [];
-    _loading_interval = null;
-    _loading_timeout = null;
-    _loading_el = null;
     connect_signals() {
         super.connect_signals();
         const { width, height, renderer, theme, event_config, js_events, data } = this.model.properties;
@@ -63,87 +58,18 @@ export class EChartsView extends HTMLBoxView {
                 // dispose may fail if echarts was never fully initialized
             }
         }
-        this._clear_loading_timer();
         super.render();
         this.container = div({ style: { height: "100%", width: "100%" } });
         this.shadow_el.append(this.container);
-        if (window.echarts == null) {
-            this._show_loading();
-            this._await_echarts();
-            return;
-        }
         this._init_chart();
     }
-    _show_loading() {
-        this._loading_el = div({
-            style: {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-                width: "100%",
-                color: "#888",
-                fontSize: "14px",
-            },
-        });
-        this._loading_el.textContent = "Loading ECharts...";
-        this.container.append(this._loading_el);
-    }
-    _hide_loading() {
-        if (this._loading_el != null) {
-            this._loading_el.remove();
-            this._loading_el = null;
-        }
-    }
-    _await_echarts() {
-        // Try script onload listener first (event-driven, not polling)
-        const script = document.querySelector("script[src*='echarts']");
-        if (script != null) {
-            const onLoad = () => {
-                script.removeEventListener("load", onLoad);
-                this._clear_loading_timer();
-                this._hide_loading();
-                this._init_chart();
-            };
-            script.addEventListener("load", onLoad);
-        }
-        // Polling fallback in case script tag isn't found or onload doesn't fire
-        this._loading_interval = setInterval(() => {
-            if (window.echarts != null) {
-                this._clear_loading_timer();
-                this._hide_loading();
-                this._init_chart();
-            }
-        }, 50);
-        this._loading_timeout = setTimeout(() => {
-            this._clear_loading_timer();
-            this._hide_loading();
-            console.warn("ECharts library failed to load. Ensure you call pn.extension('echarts') " +
-                "before using Gauge or ECharts components.");
-        }, 10000);
-    }
-    _clear_loading_timer() {
-        if (this._loading_interval != null) {
-            clearInterval(this._loading_interval);
-            this._loading_interval = null;
-        }
-        if (this._loading_timeout != null) {
-            clearTimeout(this._loading_timeout);
-            this._loading_timeout = null;
-        }
-    }
     _init_chart() {
-        if (window.echarts == null) {
-            return;
-        }
-        this._hide_loading();
         const config = { width: this.model.width, height: this.model.height, renderer: this.model.renderer };
         this._chart = window.echarts.init(this.container, this.model.theme, config);
         this._plot();
         this._subscribe();
     }
     remove() {
-        this._clear_loading_timer();
         super.remove();
         if (this._chart != null) {
             try {
@@ -161,7 +87,7 @@ export class EChartsView extends HTMLBoxView {
         }
     }
     _plot() {
-        if (window.echarts == null || this._chart == null) {
+        if (this._chart == null) {
             return;
         }
         const data = transformJsPlaceholders(this.model.data);
@@ -173,7 +99,7 @@ export class EChartsView extends HTMLBoxView {
         }
     }
     _subscribe() {
-        if (window.echarts == null || this._chart == null) {
+        if (this._chart == null) {
             return;
         }
         for (const [event_type, callback] of this._callbacks) {
@@ -224,7 +150,6 @@ export class EChartsView extends HTMLBoxView {
     }
 }
 export class ECharts extends HTMLBox {
-    static __name__ = "ECharts";
     constructor(attrs) {
         super(attrs);
     }

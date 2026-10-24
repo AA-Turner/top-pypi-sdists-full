@@ -109,8 +109,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -186,8 +188,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -263,8 +267,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -361,7 +367,7 @@ class PublishedRetrieversApi:
     ) -> OrganizationPublishStatsResponse:
         """Get Organization Publish Stats
 
-        Get organization publish statistics.
+        Get publish statistics for the namespace in the request.  The publish limit counts each namespace separately.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -398,8 +404,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -430,7 +438,7 @@ class PublishedRetrieversApi:
     ) -> ApiResponse[OrganizationPublishStatsResponse]:
         """Get Organization Publish Stats
 
-        Get organization publish statistics.
+        Get publish statistics for the namespace in the request.  The publish limit counts each namespace separately.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -467,8 +475,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -499,7 +509,7 @@ class PublishedRetrieversApi:
     ) -> RESTResponseType:
         """Get Organization Publish Stats
 
-        Get organization publish statistics.
+        Get publish statistics for the namespace in the request.  The publish limit counts each namespace separately.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -536,8 +546,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -667,8 +679,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -740,8 +754,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -813,8 +829,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -951,8 +969,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1028,8 +1048,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1105,8 +1127,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1191,7 +1215,7 @@ class PublishedRetrieversApi:
     def publish_retriever(
         self,
         retriever_id: Annotated[StrictStr, Field(description="ID of the retriever to publish")],
-        publish_retriever_request: PublishRetrieverRequest,
+        publish_retriever_request: Annotated[PublishRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1211,7 +1235,7 @@ class PublishedRetrieversApi:
 
         :param retriever_id: ID of the retriever to publish (required)
         :type retriever_id: str
-        :param publish_retriever_request: (required)
+        :param publish_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type publish_retriever_request: PublishRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1250,8 +1274,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1268,7 +1294,7 @@ class PublishedRetrieversApi:
     def publish_retriever_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="ID of the retriever to publish")],
-        publish_retriever_request: PublishRetrieverRequest,
+        publish_retriever_request: Annotated[PublishRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1288,7 +1314,7 @@ class PublishedRetrieversApi:
 
         :param retriever_id: ID of the retriever to publish (required)
         :type retriever_id: str
-        :param publish_retriever_request: (required)
+        :param publish_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type publish_retriever_request: PublishRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1327,8 +1353,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1345,7 +1373,7 @@ class PublishedRetrieversApi:
     def publish_retriever_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="ID of the retriever to publish")],
-        publish_retriever_request: PublishRetrieverRequest,
+        publish_retriever_request: Annotated[PublishRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1365,7 +1393,7 @@ class PublishedRetrieversApi:
 
         :param retriever_id: ID of the retriever to publish (required)
         :type retriever_id: str
-        :param publish_retriever_request: (required)
+        :param publish_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type publish_retriever_request: PublishRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1404,8 +1432,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1558,8 +1588,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1635,8 +1667,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1712,8 +1746,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1851,8 +1887,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1924,8 +1962,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1997,8 +2037,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2076,7 +2118,7 @@ class PublishedRetrieversApi:
     def update_published_retriever_id_publish(
         self,
         retriever_id: Annotated[StrictStr, Field(description="ID of the retriever")],
-        update_published_retriever_request: UpdatePublishedRetrieverRequest,
+        update_published_retriever_request: Annotated[UpdatePublishedRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2096,7 +2138,7 @@ class PublishedRetrieversApi:
 
         :param retriever_id: ID of the retriever (required)
         :type retriever_id: str
-        :param update_published_retriever_request: (required)
+        :param update_published_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_published_retriever_request: UpdatePublishedRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2135,8 +2177,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2153,7 +2197,7 @@ class PublishedRetrieversApi:
     def update_published_retriever_id_publish_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="ID of the retriever")],
-        update_published_retriever_request: UpdatePublishedRetrieverRequest,
+        update_published_retriever_request: Annotated[UpdatePublishedRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2173,7 +2217,7 @@ class PublishedRetrieversApi:
 
         :param retriever_id: ID of the retriever (required)
         :type retriever_id: str
-        :param update_published_retriever_request: (required)
+        :param update_published_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_published_retriever_request: UpdatePublishedRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2212,8 +2256,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2230,7 +2276,7 @@ class PublishedRetrieversApi:
     def update_published_retriever_id_publish_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="ID of the retriever")],
-        update_published_retriever_request: UpdatePublishedRetrieverRequest,
+        update_published_retriever_request: Annotated[UpdatePublishedRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2250,7 +2296,7 @@ class PublishedRetrieversApi:
 
         :param retriever_id: ID of the retriever (required)
         :type retriever_id: str
-        :param update_published_retriever_request: (required)
+        :param update_published_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_published_retriever_request: UpdatePublishedRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2289,8 +2335,10 @@ class PublishedRetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

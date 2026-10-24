@@ -46,7 +46,7 @@ class WebhooksApi:
     @validate_call
     def create_webhook_organizations(
         self,
-        webhook_input: WebhookInput,
+        webhook_input: Annotated[WebhookInput, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -64,7 +64,7 @@ class WebhooksApi:
 
         Create a new webhook for the user's organization.
 
-        :param webhook_input: (required)
+        :param webhook_input: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type webhook_input: WebhookInput
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -97,13 +97,15 @@ class WebhooksApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "WebhookOutput",
+            '200': "WebhookOutput",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -119,7 +121,7 @@ class WebhooksApi:
     @validate_call
     def create_webhook_organizations_with_http_info(
         self,
-        webhook_input: WebhookInput,
+        webhook_input: Annotated[WebhookInput, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,7 +139,7 @@ class WebhooksApi:
 
         Create a new webhook for the user's organization.
 
-        :param webhook_input: (required)
+        :param webhook_input: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type webhook_input: WebhookInput
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -170,13 +172,15 @@ class WebhooksApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "WebhookOutput",
+            '200': "WebhookOutput",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -192,7 +196,7 @@ class WebhooksApi:
     @validate_call
     def create_webhook_organizations_without_preload_content(
         self,
-        webhook_input: WebhookInput,
+        webhook_input: Annotated[WebhookInput, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -210,7 +214,7 @@ class WebhooksApi:
 
         Create a new webhook for the user's organization.
 
-        :param webhook_input: (required)
+        :param webhook_input: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type webhook_input: WebhookInput
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -243,13 +247,15 @@ class WebhooksApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "WebhookOutput",
+            '200': "WebhookOutput",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -394,8 +400,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -467,8 +475,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -540,8 +550,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -673,8 +685,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -746,8 +760,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -819,8 +835,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -904,7 +922,7 @@ class WebhooksApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_webhooks_request: Optional[ListWebhooksRequest] = None,
+        list_webhooks_request: Annotated[Optional[ListWebhooksRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -938,7 +956,7 @@ class WebhooksApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_webhooks_request:
+        :param list_webhooks_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_webhooks_request: ListWebhooksRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -984,8 +1002,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1009,7 +1029,7 @@ class WebhooksApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_webhooks_request: Optional[ListWebhooksRequest] = None,
+        list_webhooks_request: Annotated[Optional[ListWebhooksRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1043,7 +1063,7 @@ class WebhooksApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_webhooks_request:
+        :param list_webhooks_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_webhooks_request: ListWebhooksRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1089,8 +1109,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1114,7 +1136,7 @@ class WebhooksApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_webhooks_request: Optional[ListWebhooksRequest] = None,
+        list_webhooks_request: Annotated[Optional[ListWebhooksRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1148,7 +1170,7 @@ class WebhooksApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_webhooks_request:
+        :param list_webhooks_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_webhooks_request: ListWebhooksRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1194,8 +1216,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1325,7 +1349,7 @@ class WebhooksApi:
     def update_webhook_organizations(
         self,
         identifier: StrictStr,
-        webhook_input: WebhookInput,
+        webhook_input: Annotated[WebhookInput, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1345,7 +1369,7 @@ class WebhooksApi:
 
         :param identifier: (required)
         :type identifier: str
-        :param webhook_input: (required)
+        :param webhook_input: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type webhook_input: WebhookInput
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1384,8 +1408,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1402,7 +1428,7 @@ class WebhooksApi:
     def update_webhook_organizations_with_http_info(
         self,
         identifier: StrictStr,
-        webhook_input: WebhookInput,
+        webhook_input: Annotated[WebhookInput, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1422,7 +1448,7 @@ class WebhooksApi:
 
         :param identifier: (required)
         :type identifier: str
-        :param webhook_input: (required)
+        :param webhook_input: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type webhook_input: WebhookInput
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1461,8 +1487,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1479,7 +1507,7 @@ class WebhooksApi:
     def update_webhook_organizations_without_preload_content(
         self,
         identifier: StrictStr,
-        webhook_input: WebhookInput,
+        webhook_input: Annotated[WebhookInput, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1499,7 +1527,7 @@ class WebhooksApi:
 
         :param identifier: (required)
         :type identifier: str
-        :param webhook_input: (required)
+        :param webhook_input: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type webhook_input: WebhookInput
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1538,8 +1566,10 @@ class WebhooksApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

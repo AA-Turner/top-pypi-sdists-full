@@ -155,6 +155,7 @@ __all__ = (
     "PolicyValidationModeType",
     "PrincipalMatchOperatorType",
     "ProviderType",
+    "RecordExpiryActionType",
     "RegistryAuthorizerTypeType",
     "RegistryRecordCredentialProviderTypeType",
     "RegistryRecordOAuthGrantTypeType",
@@ -423,6 +424,7 @@ PolicyStatusType = Literal[
 PolicyValidationModeType = Literal["FAIL_ON_ANY_FINDINGS", "IGNORE_ALL_FINDINGS"]
 PrincipalMatchOperatorType = Literal["StringEquals", "StringLike"]
 ProviderType = Literal["AWS", "AutoEval", "Custom", "DeepEval"]
+RecordExpiryActionType = Literal["REMOVE"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 RegistryRecordCredentialProviderTypeType = Literal["IAM", "OAUTH"]
 RegistryRecordOAuthGrantTypeType = Literal["CLIENT_CREDENTIALS"]
@@ -634,13 +636,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -708,6 +709,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -842,6 +844,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -892,7 +895,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -122,6 +122,7 @@ class SubStatementDataTypeDef(TypedDict):
     ResultRows: NotRequired[int]
     ResultSize: NotRequired[int]
     RedshiftQueryId: NotRequired[int]
+    RedshiftQueryUuid: NotRequired[str]
     HasResultSet: NotRequired[bool]
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -350,6 +351,7 @@ class DescribeStatementResponseTypeDef(TypedDict):
     ResultRows: int
     ResultSize: int
     RedshiftQueryId: int
+    RedshiftQueryUuid: str
     QueryParameters: list[SqlParameterTypeDef]
     SubStatements: list[SubStatementDataTypeDef]
     WorkgroupName: str

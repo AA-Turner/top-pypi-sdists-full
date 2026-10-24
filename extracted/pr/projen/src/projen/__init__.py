@@ -1001,6 +1001,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MANIFEST_FILE")
+    @builtins.classmethod
     def MANIFEST_FILE(cls) -> builtins.str:
         '''(experimental) The project-relative path of the deps manifest file.
 
@@ -2948,7 +2949,7 @@ class FileBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3fed3e4c76496e254ef32ce4556e7e1b3b0cef6929de044486dda20248a06c4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executable", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executable", value)
 
     @builtins.property
     @jsii.member(jsii_name="readonly")
@@ -2964,7 +2965,7 @@ class FileBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c20fcd33148f053d9de2f2152439cc9f0687a0e328bf05cb8b38721095832ea5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "readonly", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "readonly", value)
 
 
 class _FileBaseProxy(FileBase):
@@ -6691,6 +6692,7 @@ class Project(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_TASK")
+    @builtins.classmethod
     def DEFAULT_TASK(cls) -> builtins.str:
         '''(experimental) The name of the default task (the task executed when ``projen`` is run without arguments).
 
@@ -7471,7 +7473,7 @@ class ProjectTree(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.ProjectT
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd1d331084783b1e11404a33c550a54f472b9e2d656ca02bdc7287828f96e2fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "file", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "file", value)
 
 
 @jsii.data_type(
@@ -8230,7 +8232,7 @@ class ReleasableCommits(metaclass=jsii.JSIIMeta, jsii_type="projen.ReleasableCom
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1c46f6c8bc57788436baf6da521f9e5812106db6aa16bda9534549c8cbb078d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cmd", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cmd", value)
 
 
 class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovatebot"):
@@ -10114,7 +10116,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__063f23ecf0aa952acdfe114ecbbc1ac116753acf58aa564cd47b3ea5fbd99ad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cwd", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cwd", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -10132,7 +10134,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__740ba1ef0d399dc76efb91309b9d1c8426213faa31da03d8c0abbc94a3d02e03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="shell")
@@ -10151,7 +10153,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__989e797f6c50ea163019b02541994a1659760c08e6be54acbccddea75ddbce6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "shell", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "shell", value)
 
 
 @jsii.data_type(
@@ -11490,7 +11492,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb1be427ed62c07a9cac1abc0a8dd9f278b145f5630674d9b9db2dc55e5d651f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "shell", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "shell", value)
 
 
 @jsii.data_type(
@@ -12840,7 +12842,7 @@ class YamlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.YamlFile")
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e48f409d84ffd5e2a23ba998b62ea6bdf1343878ddf6bbdba39669e9e45b8464)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lineWidth", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lineWidth", value)
 
 
 @jsii.data_type(

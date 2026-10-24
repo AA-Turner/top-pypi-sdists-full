@@ -89,9 +89,13 @@ __all__ = (
     "StrideCategoryType",
     "TargetDomainStatusType",
     "TaskExecutionStatusType",
+    "TestScopeTypeType",
     "ThreatActorType",
     "ThreatSeverityType",
     "ThreatStatusType",
+    "TriggerEventType",
+    "TriggerFilterMatchModeType",
+    "TriggerFilterTypeType",
     "UserRoleType",
     "ValidationModeType",
     "ValidationStatusType",
@@ -149,10 +153,10 @@ PrivateConnectionStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
 PrivateConnectionTypeType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
-ProviderType = Literal["AZURE_DEVOPS", "BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
-ProviderTypeType = Literal["DOCUMENTATION", "SOURCE_CODE"]
+ProviderType = Literal["AZURE_DEVOPS", "BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB", "JIRA"]
+ProviderTypeType = Literal["DOCUMENTATION", "ISSUE_TRACKING", "SOURCE_CODE"]
 ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
-ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT"]
+ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT", "PROJECT"]
 RiskLevelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM", "UNKNOWN"]
 RiskTypeType = Literal[
     "ARBITRARY_FILE_UPLOAD",
@@ -201,9 +205,15 @@ StrideCategoryType = Literal[
 ]
 TargetDomainStatusType = Literal["FAILED", "PENDING", "UNREACHABLE", "VERIFIED"]
 TaskExecutionStatusType = Literal["ABORTED", "COMPLETED", "FAILED", "INTERNAL_ERROR", "IN_PROGRESS"]
+TestScopeTypeType = Literal["GENERATIVE_AI_APP", "WEB_APP"]
 ThreatActorType = Literal["AGENT", "CUSTOMER"]
 ThreatSeverityType = Literal["CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM"]
 ThreatStatusType = Literal["DISMISSED", "OPEN", "RESOLVED"]
+TriggerEventType = Literal[
+    "PULL_REQUEST_DRAFT", "PULL_REQUEST_LABEL_ADDED", "PULL_REQUEST_READY_FOR_REVIEW"
+]
+TriggerFilterMatchModeType = Literal["EXCLUDE", "INCLUDE"]
+TriggerFilterTypeType = Literal["LABEL", "TARGET_BRANCH"]
 UserRoleType = Literal["MEMBER"]
 ValidationModeType = Literal["DISABLED", "SIMULATED"]
 ValidationStatusType = Literal[
@@ -364,13 +374,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -438,6 +447,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -572,6 +582,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -622,7 +633,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

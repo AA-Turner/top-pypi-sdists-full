@@ -923,8 +923,8 @@ class TransferClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateHostKeyRequestTypeDef]
     ) -> UpdateHostKeyResponseTypeDef:
         """
-        Updates the description for the host key that's specified by the
-        <code>ServerId</code> and <code>HostKeyId</code> parameters.
+        Updates the host key that's specified by the <code>ServerId</code> and
+        <code>HostKeyId</code> parameters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/transfer/client/update_host_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_transfer/client/#update_host_key)

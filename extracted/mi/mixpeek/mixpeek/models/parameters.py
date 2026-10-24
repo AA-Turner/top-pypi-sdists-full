@@ -21,6 +21,8 @@ import re  # noqa: F401
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Optional
 from mixpeek.models.audio_fingerprint_extractor_params import AudioFingerprintExtractorParams
+from mixpeek.models.colbert_extractor_params import ColbertExtractorParams
+from mixpeek.models.colqwen_extractor_params import ColqwenExtractorParams
 from mixpeek.models.custom_plugin_params import CustomPluginParams
 from mixpeek.models.document_graph_extractor_params import DocumentGraphExtractorParams
 from mixpeek.models.face_identity_extractor_params import FaceIdentityExtractorParams
@@ -37,7 +39,7 @@ from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-PARAMETERS_ANY_OF_SCHEMAS = ["AudioFingerprintExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "TranscodingExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams"]
+PARAMETERS_ANY_OF_SCHEMAS = ["AudioFingerprintExtractorParams", "ColbertExtractorParams", "ColqwenExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "TranscodingExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams"]
 
 class Parameters(BaseModel):
     """
@@ -46,35 +48,39 @@ class Parameters(BaseModel):
 
     # data type: AudioFingerprintExtractorParams
     anyof_schema_1_validator: Optional[AudioFingerprintExtractorParams] = None
+    # data type: ColbertExtractorParams
+    anyof_schema_2_validator: Optional[ColbertExtractorParams] = None
+    # data type: ColqwenExtractorParams
+    anyof_schema_3_validator: Optional[ColqwenExtractorParams] = None
     # data type: DocumentGraphExtractorParams
-    anyof_schema_2_validator: Optional[DocumentGraphExtractorParams] = None
+    anyof_schema_4_validator: Optional[DocumentGraphExtractorParams] = None
     # data type: FaceIdentityExtractorParams
-    anyof_schema_3_validator: Optional[FaceIdentityExtractorParams] = None
+    anyof_schema_5_validator: Optional[FaceIdentityExtractorParams] = None
     # data type: GeminiMultifileExtractorParams
-    anyof_schema_4_validator: Optional[GeminiMultifileExtractorParams] = None
+    anyof_schema_6_validator: Optional[GeminiMultifileExtractorParams] = None
     # data type: ImageExtractorParams
-    anyof_schema_5_validator: Optional[ImageExtractorParams] = None
+    anyof_schema_7_validator: Optional[ImageExtractorParams] = None
     # data type: MultimodalExtractorParams
-    anyof_schema_6_validator: Optional[MultimodalExtractorParams] = None
+    anyof_schema_8_validator: Optional[MultimodalExtractorParams] = None
     # data type: PassthroughExtractorParams
-    anyof_schema_7_validator: Optional[PassthroughExtractorParams] = None
+    anyof_schema_9_validator: Optional[PassthroughExtractorParams] = None
     # data type: ScrollingTextExtractorParams
-    anyof_schema_8_validator: Optional[ScrollingTextExtractorParams] = None
+    anyof_schema_10_validator: Optional[ScrollingTextExtractorParams] = None
     # data type: TextExtractorParams
-    anyof_schema_9_validator: Optional[TextExtractorParams] = None
+    anyof_schema_11_validator: Optional[TextExtractorParams] = None
     # data type: TranscodingExtractorParams
-    anyof_schema_10_validator: Optional[TranscodingExtractorParams] = None
+    anyof_schema_12_validator: Optional[TranscodingExtractorParams] = None
     # data type: UniversalExtractorParams
-    anyof_schema_11_validator: Optional[UniversalExtractorParams] = None
+    anyof_schema_13_validator: Optional[UniversalExtractorParams] = None
     # data type: WebScraperExtractorParams
-    anyof_schema_12_validator: Optional[WebScraperExtractorParams] = None
+    anyof_schema_14_validator: Optional[WebScraperExtractorParams] = None
     # data type: CustomPluginParams
-    anyof_schema_13_validator: Optional[CustomPluginParams] = None
+    anyof_schema_15_validator: Optional[CustomPluginParams] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]] = None
+        actual_instance: Optional[Union[AudioFingerprintExtractorParams, ColbertExtractorParams, ColqwenExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "AudioFingerprintExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "TranscodingExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams" }
+    any_of_schemas: Set[str] = { "AudioFingerprintExtractorParams", "ColbertExtractorParams", "ColqwenExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "TranscodingExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams" }
 
     model_config = {
         "validate_assignment": True,
@@ -98,6 +104,18 @@ class Parameters(BaseModel):
         # validate data type: AudioFingerprintExtractorParams
         if not isinstance(v, AudioFingerprintExtractorParams):
             error_messages.append(f"Error! Input type `{type(v)}` is not `AudioFingerprintExtractorParams`")
+        else:
+            return v
+
+        # validate data type: ColbertExtractorParams
+        if not isinstance(v, ColbertExtractorParams):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `ColbertExtractorParams`")
+        else:
+            return v
+
+        # validate data type: ColqwenExtractorParams
+        if not isinstance(v, ColqwenExtractorParams):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `ColqwenExtractorParams`")
         else:
             return v
 
@@ -175,7 +193,7 @@ class Parameters(BaseModel):
 
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in Parameters with anyOf schemas: AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in Parameters with anyOf schemas: AudioFingerprintExtractorParams, ColbertExtractorParams, ColqwenExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -194,73 +212,85 @@ class Parameters(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_2_validator: Optional[DocumentGraphExtractorParams] = None
+        # anyof_schema_2_validator: Optional[ColbertExtractorParams] = None
+        try:
+            instance.actual_instance = ColbertExtractorParams.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
+        # anyof_schema_3_validator: Optional[ColqwenExtractorParams] = None
+        try:
+            instance.actual_instance = ColqwenExtractorParams.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
+        # anyof_schema_4_validator: Optional[DocumentGraphExtractorParams] = None
         try:
             instance.actual_instance = DocumentGraphExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_3_validator: Optional[FaceIdentityExtractorParams] = None
+        # anyof_schema_5_validator: Optional[FaceIdentityExtractorParams] = None
         try:
             instance.actual_instance = FaceIdentityExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_4_validator: Optional[GeminiMultifileExtractorParams] = None
+        # anyof_schema_6_validator: Optional[GeminiMultifileExtractorParams] = None
         try:
             instance.actual_instance = GeminiMultifileExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_5_validator: Optional[ImageExtractorParams] = None
+        # anyof_schema_7_validator: Optional[ImageExtractorParams] = None
         try:
             instance.actual_instance = ImageExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_6_validator: Optional[MultimodalExtractorParams] = None
+        # anyof_schema_8_validator: Optional[MultimodalExtractorParams] = None
         try:
             instance.actual_instance = MultimodalExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_7_validator: Optional[PassthroughExtractorParams] = None
+        # anyof_schema_9_validator: Optional[PassthroughExtractorParams] = None
         try:
             instance.actual_instance = PassthroughExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_8_validator: Optional[ScrollingTextExtractorParams] = None
+        # anyof_schema_10_validator: Optional[ScrollingTextExtractorParams] = None
         try:
             instance.actual_instance = ScrollingTextExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_9_validator: Optional[TextExtractorParams] = None
+        # anyof_schema_11_validator: Optional[TextExtractorParams] = None
         try:
             instance.actual_instance = TextExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_10_validator: Optional[TranscodingExtractorParams] = None
+        # anyof_schema_12_validator: Optional[TranscodingExtractorParams] = None
         try:
             instance.actual_instance = TranscodingExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_11_validator: Optional[UniversalExtractorParams] = None
+        # anyof_schema_13_validator: Optional[UniversalExtractorParams] = None
         try:
             instance.actual_instance = UniversalExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_12_validator: Optional[WebScraperExtractorParams] = None
+        # anyof_schema_14_validator: Optional[WebScraperExtractorParams] = None
         try:
             instance.actual_instance = WebScraperExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_13_validator: Optional[CustomPluginParams] = None
+        # anyof_schema_15_validator: Optional[CustomPluginParams] = None
         try:
             instance.actual_instance = CustomPluginParams.from_json(json_str)
             return instance
@@ -269,7 +299,7 @@ class Parameters(BaseModel):
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into Parameters with anyOf schemas: AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into Parameters with anyOf schemas: AudioFingerprintExtractorParams, ColbertExtractorParams, ColqwenExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -283,7 +313,7 @@ class Parameters(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AudioFingerprintExtractorParams, ColbertExtractorParams, ColqwenExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

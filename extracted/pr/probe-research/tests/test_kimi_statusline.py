@@ -63,7 +63,15 @@ def test_install_writes_the_slot_and_the_footer_keeps_kimis_own_line(kimi):
     line, took = _run_footer(kimi, kimi / "home")
     assert line.startswith("gpt-oss-120b  ~/proj  main  ")
     assert "tracking" in line or "on" in line or "off" in line or "read-only" in line
-    assert took < 0.25, f"{took:.3f}s: Kimi kills the command at 300 ms"
+    # Wall time, because that is what Kimi's 300 ms kill counts -- but the best
+    # of up to three renders: the footer takes ~0.03 s, and one render on a
+    # loaded 2-vCPU agent-ci runner read 0.28, 0.35 and 0.47 s. A footer that
+    # is really slow (importing our package alone is ~0.3 s) is slow every time.
+    tries = [took]
+    while tries[-1] >= 0.25 and len(tries) < 3:
+        tries.append(_run_footer(kimi, kimi / "home")[1])
+    seen = ", ".join(f"{t:.3f}s" for t in tries)
+    assert min(tries) < 0.25, f"{seen}: Kimi kills the command at 300 ms"
 
 
 def test_a_researchers_own_command_keeps_its_line_and_comes_back_on_uninstall(kimi):

@@ -209,9 +209,19 @@ if typing.TYPE_CHECKING:
     from .workspace_info_out import WorkspaceInfoOut
     from .workspace_member_out import WorkspaceMemberOut
     from .workspace_member_search_response_out import WorkspaceMemberSearchResponseOut
+    from .workspace_membership_list_response_out import WorkspaceMembershipListResponseOut
+    from .workspace_membership_out import WorkspaceMembershipOut
     from .workspace_share_access import WorkspaceShareAccess
     from .workspace_tool_registry_response_out import WorkspaceToolRegistryResponseOut
     from .workspace_tool_registry_tool_out import WorkspaceToolRegistryToolOut
+    from .workspace_usage_computer_out import WorkspaceUsageComputerOut
+    from .workspace_usage_day_out import WorkspaceUsageDayOut
+    from .workspace_usage_response_out import WorkspaceUsageResponseOut
+    from .workspace_usage_session_row_out import WorkspaceUsageSessionRowOut
+    from .workspace_usage_sessions_response_out import WorkspaceUsageSessionsResponseOut
+    from .workspace_usage_tokens_out import WorkspaceUsageTokensOut
+    from .workspace_usage_user_out import WorkspaceUsageUserOut
+    from .workspace_usage_window_out import WorkspaceUsageWindowOut
     from .wrap_strategy import WrapStrategy
 _dynamic_imports: typing.Dict[str, str] = {
     "ActivityClockRangeIn": ".activity_clock_range_in",
@@ -417,9 +427,19 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkspaceInfoOut": ".workspace_info_out",
     "WorkspaceMemberOut": ".workspace_member_out",
     "WorkspaceMemberSearchResponseOut": ".workspace_member_search_response_out",
+    "WorkspaceMembershipListResponseOut": ".workspace_membership_list_response_out",
+    "WorkspaceMembershipOut": ".workspace_membership_out",
     "WorkspaceShareAccess": ".workspace_share_access",
     "WorkspaceToolRegistryResponseOut": ".workspace_tool_registry_response_out",
     "WorkspaceToolRegistryToolOut": ".workspace_tool_registry_tool_out",
+    "WorkspaceUsageComputerOut": ".workspace_usage_computer_out",
+    "WorkspaceUsageDayOut": ".workspace_usage_day_out",
+    "WorkspaceUsageResponseOut": ".workspace_usage_response_out",
+    "WorkspaceUsageSessionRowOut": ".workspace_usage_session_row_out",
+    "WorkspaceUsageSessionsResponseOut": ".workspace_usage_sessions_response_out",
+    "WorkspaceUsageTokensOut": ".workspace_usage_tokens_out",
+    "WorkspaceUsageUserOut": ".workspace_usage_user_out",
+    "WorkspaceUsageWindowOut": ".workspace_usage_window_out",
     "WrapStrategy": ".wrap_strategy",
 }
 
@@ -649,8 +669,18 @@ __all__ = [
     "WorkspaceInfoOut",
     "WorkspaceMemberOut",
     "WorkspaceMemberSearchResponseOut",
+    "WorkspaceMembershipListResponseOut",
+    "WorkspaceMembershipOut",
     "WorkspaceShareAccess",
     "WorkspaceToolRegistryResponseOut",
     "WorkspaceToolRegistryToolOut",
+    "WorkspaceUsageComputerOut",
+    "WorkspaceUsageDayOut",
+    "WorkspaceUsageResponseOut",
+    "WorkspaceUsageSessionRowOut",
+    "WorkspaceUsageSessionsResponseOut",
+    "WorkspaceUsageTokensOut",
+    "WorkspaceUsageUserOut",
+    "WorkspaceUsageWindowOut",
     "WrapStrategy",
 ]

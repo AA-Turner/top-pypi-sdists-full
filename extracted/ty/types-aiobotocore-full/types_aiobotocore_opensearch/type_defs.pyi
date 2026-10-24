@@ -43,6 +43,7 @@ from .literals import (
     DomainStateType,
     DomainUseCaseType,
     DryRunModeType,
+    EncryptionModeType,
     EngineModeType,
     EngineTypeType,
     InboundConnectionStatusCodeType,
@@ -712,6 +713,7 @@ class EBSOptionsTypeDef(TypedDict):
 class EncryptionAtRestOptionsTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     KmsKeyId: NotRequired[str]
+    EncryptionMode: NotRequired[EncryptionModeType]
 
 class IdentityCenterOptionsInputTypeDef(TypedDict):
     EnabledAPIAccess: NotRequired[bool]

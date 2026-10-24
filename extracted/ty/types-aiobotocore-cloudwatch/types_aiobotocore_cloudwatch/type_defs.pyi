@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_cloudwatch.type_defs import AlarmContributorTypeDef
+    from types_aiobotocore_cloudwatch.type_defs import AlarmTagsPropagationOutputTypeDef
 
-    data: AlarmContributorTypeDef = ...
+    data: AlarmTagsPropagationOutputTypeDef = ...
     ```
 """
 
@@ -25,6 +25,8 @@ from .literals import (
     ActionsSuppressedByType,
     AlarmMuteRuleStatusType,
     AlarmTypeType,
+    AnomalyDetectorAdaptationSpeedType,
+    AnomalyDetectorOutlierFilteringStrengthType,
     AnomalyDetectorStateValueType,
     AnomalyDetectorTypeType,
     ComparisonOperatorType,
@@ -45,10 +47,15 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "ActionConfigurationOutputTypeDef",
+    "ActionConfigurationTypeDef",
+    "ActionConfigurationUnionTypeDef",
     "AlarmContributorTypeDef",
     "AlarmHistoryItemTypeDef",
     "AlarmMuteRuleSummaryTypeDef",
     "AlarmPromQLCriteriaTypeDef",
+    "AlarmTagsPropagationOutputTypeDef",
+    "AlarmTagsPropagationTypeDef",
     "AnomalyDetectorConfigurationOutputTypeDef",
     "AnomalyDetectorConfigurationTypeDef",
     "AnomalyDetectorConfigurationUnionTypeDef",
@@ -243,6 +250,16 @@ __all__ = (
     "WarmUpConfigurationTypeDef",
 )
 
+class AlarmTagsPropagationOutputTypeDef(TypedDict):
+    Enabled: bool
+    IncludedTagKeys: NotRequired[list[str]]
+    ExcludedTagKeys: NotRequired[list[str]]
+
+class AlarmTagsPropagationTypeDef(TypedDict):
+    Enabled: bool
+    IncludedTagKeys: NotRequired[Sequence[str]]
+    ExcludedTagKeys: NotRequired[Sequence[str]]
+
 class AlarmContributorTypeDef(TypedDict):
     ContributorId: str
     ContributorAttributes: dict[str, str]
@@ -298,27 +315,6 @@ class CloudwatchEventMetricStatsMetricTypeDef(TypedDict):
     metricName: str
     namespace: str
     dimensions: dict[str, str]
-
-class CompositeAlarmTypeDef(TypedDict):
-    ActionsEnabled: NotRequired[bool]
-    AlarmActions: NotRequired[list[str]]
-    AlarmArn: NotRequired[str]
-    AlarmConfigurationUpdatedTimestamp: NotRequired[datetime]
-    AlarmDescription: NotRequired[str]
-    AlarmName: NotRequired[str]
-    AlarmRule: NotRequired[str]
-    InsufficientDataActions: NotRequired[list[str]]
-    OKActions: NotRequired[list[str]]
-    StateReason: NotRequired[str]
-    StateReasonData: NotRequired[str]
-    StateUpdatedTimestamp: NotRequired[datetime]
-    StateValue: NotRequired[StateValueType]
-    StateTransitionedTimestamp: NotRequired[datetime]
-    ActionsSuppressedBy: NotRequired[ActionsSuppressedByType]
-    ActionsSuppressedReason: NotRequired[str]
-    ActionsSuppressor: NotRequired[str]
-    ActionsSuppressorWaitPeriod: NotRequired[int]
-    ActionsSuppressorExtensionPeriod: NotRequired[int]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -587,12 +583,20 @@ class UntagResourceInputTypeDef(TypedDict):
     ResourceARN: str
     TagKeys: Sequence[str]
 
+class ActionConfigurationOutputTypeDef(TypedDict):
+    AlarmTagsPropagation: NotRequired[AlarmTagsPropagationOutputTypeDef]
+
+class ActionConfigurationTypeDef(TypedDict):
+    AlarmTagsPropagation: NotRequired[AlarmTagsPropagationTypeDef]
+
 class EvaluationCriteriaTypeDef(TypedDict):
     PromQLCriteria: NotRequired[AlarmPromQLCriteriaTypeDef]
 
 class AnomalyDetectorConfigurationOutputTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[list[RangeOutputTypeDef]]
     MetricTimezone: NotRequired[str]
+    AdaptationSpeed: NotRequired[AnomalyDetectorAdaptationSpeedType]
+    OutlierFilteringStrength: NotRequired[AnomalyDetectorOutlierFilteringStrengthType]
 
 class DescribeAlarmsForMetricInputTypeDef(TypedDict):
     MetricName: str
@@ -924,19 +928,6 @@ class ManagedRuleTypeDef(TypedDict):
     ResourceARN: str
     Tags: NotRequired[Sequence[TagTypeDef]]
 
-class PutCompositeAlarmInputTypeDef(TypedDict):
-    AlarmName: str
-    AlarmRule: str
-    ActionsEnabled: NotRequired[bool]
-    AlarmActions: NotRequired[Sequence[str]]
-    AlarmDescription: NotRequired[str]
-    InsufficientDataActions: NotRequired[Sequence[str]]
-    OKActions: NotRequired[Sequence[str]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    ActionsSuppressor: NotRequired[str]
-    ActionsSuppressorWaitPeriod: NotRequired[int]
-    ActionsSuppressorExtensionPeriod: NotRequired[int]
-
 class PutDashboardInputTypeDef(TypedDict):
     DashboardName: str
     DashboardBody: str
@@ -1015,6 +1006,32 @@ class ScheduledQueryConfigurationTypeDef(TypedDict):
     QueryARN: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
+class CompositeAlarmTypeDef(TypedDict):
+    ActionsEnabled: NotRequired[bool]
+    AlarmActions: NotRequired[list[str]]
+    AlarmArn: NotRequired[str]
+    AlarmConfigurationUpdatedTimestamp: NotRequired[datetime]
+    AlarmDescription: NotRequired[str]
+    AlarmName: NotRequired[str]
+    AlarmRule: NotRequired[str]
+    InsufficientDataActions: NotRequired[list[str]]
+    OKActions: NotRequired[list[str]]
+    StateReason: NotRequired[str]
+    StateReasonData: NotRequired[str]
+    StateUpdatedTimestamp: NotRequired[datetime]
+    StateValue: NotRequired[StateValueType]
+    StateTransitionedTimestamp: NotRequired[datetime]
+    ActionsSuppressedBy: NotRequired[ActionsSuppressedByType]
+    ActionsSuppressedReason: NotRequired[str]
+    ActionsSuppressor: NotRequired[str]
+    ActionsSuppressorWaitPeriod: NotRequired[int]
+    ActionsSuppressorExtensionPeriod: NotRequired[int]
+    ActionConfiguration: NotRequired[ActionConfigurationOutputTypeDef]
+
+ActionConfigurationUnionTypeDef = Union[
+    ActionConfigurationTypeDef, ActionConfigurationOutputTypeDef
+]
+
 class ListMetricsOutputTypeDef(TypedDict):
     Metrics: list[MetricOutputTypeDef]
     OwningAccounts: list[str]
@@ -1046,6 +1063,8 @@ CloudwatchEventMetricTypeDef = TypedDict(
 class AnomalyDetectorConfigurationTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[Sequence[RangeTypeDef]]
     MetricTimezone: NotRequired[str]
+    AdaptationSpeed: NotRequired[AnomalyDetectorAdaptationSpeedType]
+    OutlierFilteringStrength: NotRequired[AnomalyDetectorOutlierFilteringStrengthType]
 
 EvaluationWindowUnionTypeDef = Union[EvaluationWindowTypeDef, EvaluationWindowOutputTypeDef]
 
@@ -1169,10 +1188,25 @@ class LogAlarmTypeDef(TypedDict):
     ActionLogLineCount: NotRequired[int]
     ActionLogLineRoleArn: NotRequired[str]
     WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
+    ActionConfiguration: NotRequired[ActionConfigurationOutputTypeDef]
 
 ScheduledQueryConfigurationUnionTypeDef = Union[
     ScheduledQueryConfigurationTypeDef, ScheduledQueryConfigurationOutputTypeDef
 ]
+
+class PutCompositeAlarmInputTypeDef(TypedDict):
+    AlarmName: str
+    AlarmRule: str
+    ActionsEnabled: NotRequired[bool]
+    AlarmActions: NotRequired[Sequence[str]]
+    AlarmDescription: NotRequired[str]
+    InsufficientDataActions: NotRequired[Sequence[str]]
+    OKActions: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ActionsSuppressor: NotRequired[str]
+    ActionsSuppressorWaitPeriod: NotRequired[int]
+    ActionsSuppressorExtensionPeriod: NotRequired[int]
+    ActionConfiguration: NotRequired[ActionConfigurationUnionTypeDef]
 
 class MetricDataQueryOutputTypeDef(TypedDict):
     Id: str
@@ -1253,6 +1287,7 @@ class PutLogAlarmInputTypeDef(TypedDict):
     TreatMissingData: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
+    ActionConfiguration: NotRequired[ActionConfigurationUnionTypeDef]
 
 class MetricAlarmTypeDef(TypedDict):
     AlarmName: NotRequired[str]
@@ -1288,6 +1323,7 @@ class MetricAlarmTypeDef(TypedDict):
     WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
+    ActionConfiguration: NotRequired[ActionConfigurationOutputTypeDef]
 
 class MetricMathAnomalyDetectorOutputTypeDef(TypedDict):
     MetricDataQueries: NotRequired[list[MetricDataQueryOutputTypeDef]]
@@ -1416,6 +1452,7 @@ class PutMetricAlarmInputMetricPutAlarmTypeDef(TypedDict):
     WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
+    ActionConfiguration: NotRequired[ActionConfigurationUnionTypeDef]
 
 class PutMetricAlarmInputTypeDef(TypedDict):
     AlarmName: str
@@ -1444,6 +1481,7 @@ class PutMetricAlarmInputTypeDef(TypedDict):
     WarmUpConfiguration: NotRequired[WarmUpConfigurationTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
+    ActionConfiguration: NotRequired[ActionConfigurationUnionTypeDef]
 
 MetricMathAnomalyDetectorUnionTypeDef = Union[
     MetricMathAnomalyDetectorTypeDef, MetricMathAnomalyDetectorOutputTypeDef

@@ -7,15 +7,18 @@ inside the test directory:
     $ uv run pytest -v -s test_basic.py
 """
 
+import gzip
 import io
+import logging
 import os
 import pathlib
 import textwrap
-import time
 from tempfile import NamedTemporaryFile
 from typing import Any, Callable
 
 import pytest
+from PIL import Image as PILImage
+from reportlab.graphics import renderPDF
 from reportlab.graphics.shapes import (
     _CLOSEPATH,
     _CURVETO,
@@ -112,6 +115,53 @@ class TestSvg2rlgInput:
         finally:
             os.unlink(file_path)
 
+    @pytest.mark.parametrize("suffix", [".svgz", ".SVGZ"])
+    @pytest.mark.parametrize("path_type", [str, pathlib.Path])
+    def test_svgz_preserves_sibling_svg(self, tmp_path, suffix, path_type):
+        source = tmp_path / f"drawing{suffix}"
+        source.write_bytes(gzip.compress(self.test_content.encode()))
+        compressed = source.read_bytes()
+        sibling = source.with_suffix(suffix[:-1])
+        sibling.write_bytes(b"an independent SVG file")
+
+        drawing = svglib.svg2rlg(path_type(source))
+
+        assert drawing is not None
+        assert drawing.contents
+        assert sibling.exists()
+        assert sibling.read_bytes() == b"an independent SVG file"
+        assert source.read_bytes() == compressed
+
+    def test_svgz_invalid_xml_leaves_no_intermediate(self, tmp_path):
+        source = tmp_path / "invalid.svgz"
+        source.write_bytes(gzip.compress(b"not an XML document"))
+
+        assert svglib.svg2rlg(source) is None
+        assert list(tmp_path.iterdir()) == [source]
+
+    def test_svgz_resolves_relative_image(self, tmp_path, monkeypatch):
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        PILImage.new("RGB", (2, 2), (12, 34, 56)).save(source_dir / "pixel.png")
+        source = source_dir / "drawing.svgz"
+        source.write_bytes(
+            gzip.compress(
+                b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4">'
+                b'<image href="pixel.png" width="4" height="4"/></svg>'
+            )
+        )
+        monkeypatch.chdir(tmp_path)
+
+        drawing = svglib.svg2rlg(source)
+
+        assert drawing is not None
+        image = TestEmbedded().find_image_in_drawing(drawing)
+        assert image is not None
+        with PILImage.open(image.path) as pixels:
+            assert pixels.getpixel((0, 0)) == (12, 34, 56)
+        assert renderPDF.drawToString(drawing).startswith(b"%PDF-")
+        assert not source.with_suffix(".svg").exists()
+
 
 def test_malformed_viewbox_is_ignored():
     # A viewBox that is not four numbers used to raise TypeError from
@@ -127,6 +177,47 @@ def test_malformed_viewbox_is_ignored():
 
 class TestPaths:
     """Testing path-related code."""
+
+    @pytest.mark.parametrize("command", ["A", "a"])
+    @pytest.mark.parametrize(
+        "parameters",
+        ["10 10 +0 0 1 20 0", "10 10 0 0 1 +20 0", "10 10 0 0 1 20 +0"],
+    )
+    def test_arc_explicit_positive_sign(self, command, parameters):
+        path = f"M0 0 {command} {parameters}"
+        assert utils.normalise_svg_path(path) == utils.normalise_svg_path(
+            path.replace("+", "")
+        )
+
+    def test_arc_flags_without_separators(self):
+        """Flags are single characters and may be directly followed by numbers."""
+        assert utils.split_arc_values("A", "10 10 0 0120 5") == [
+            "A",
+            [10.0, 10.0, 0.0, 0.0, 1.0, 20.0, 5.0],
+        ]
+
+    def test_arc_repeated_sequences(self):
+        assert utils.split_arc_values("a", "1 2 3 0 1 4 5, 6,7 8 1,0 9 10") == [
+            "a",
+            [1.0, 2.0, 3.0, 0.0, 1.0, 4.0, 5.0],
+            "a",
+            [6.0, 7.0, 8.0, 1.0, 0.0, 9.0, 10.0],
+        ]
+
+    @pytest.mark.parametrize("digits", [60, 5000])
+    def test_arc_with_long_digit_run_is_parsed_in_linear_time(self, digits):
+        """A long run of digits must not cause catastrophic backtracking
+        (GHSA-249c-7rgc-f52h). Malformed arcs are dropped, not an error."""
+        assert utils.split_arc_values("A", "9" * digits) == []
+        assert utils.normalise_svg_path("M0 0 A " + "9" * digits) == ["M", [0.0, 0.0]]
+
+    def test_arc_stops_at_first_malformed_argument(self):
+        assert utils.split_arc_values("A", "1 2 3 0 1 4 5 6 7") == [
+            "A",
+            [1.0, 2.0, 3.0, 0.0, 1.0, 4.0, 5.0],
+        ]
+        assert utils.split_arc_values("A", "1 2 3 2 1 4 5") == []
+        assert utils.split_arc_values("A", "1 2 3 | 1 4 5") == []
 
     def test_path_normalisation(self):
         "Test path normalisation."
@@ -645,6 +736,23 @@ class TestLengthAttrConverter:
 
 class TestTransformAttrConverter:
     "Testing transform attribute conversion."
+
+    @pytest.mark.parametrize("separator", ["\t", "\r", "\n"])
+    def test_svg_whitespace(self, separator):
+        ac = svglib.Svg2RlgAttributeConverter()
+        assert ac.convertTransform(f"translate(10{separator}20)") == (
+            ac.convertTransform("translate(10 20)")
+        )
+
+    @pytest.mark.parametrize("separator", ["&#9;", "&#13;", "&#10;"])
+    def test_whitespace_character_reference(self, separator):
+        template = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            '<rect width="10" height="10" transform="translate(10{}20)"/></svg>'
+        )
+        actual = drawing_from_svg(template.format(separator))
+        expected = drawing_from_svg(template.format(" "))
+        assert actual.getBounds() == pytest.approx(expected.getBounds())
 
     def test_0(self):
         "Test transform attribute conversion."
@@ -1354,7 +1462,7 @@ class TestUseNode:
         assert isinstance(drawing.contents[0].contents[0], Group)
         assert isinstance(drawing.contents[0].contents[1], Rect)
 
-    def test_use_nested_expansion_is_bounded(self):
+    def test_use_nested_expansion_is_bounded(self, caplog):
         """
         Nested <use> elements referencing groups of <use> elements multiply
         and must not expand without limit.
@@ -1364,14 +1472,86 @@ class TestUseNode:
             levels.append(
                 f'<g id="l{i}">' + f'<use xlink:href="#l{i - 1}"/>' * 10 + "</g>"
             )
-        start = time.time()
-        drawing = drawing_from_svg(
-            '<svg xmlns="http://www.w3.org/2000/svg" '
-            'xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10">'
-            f'<defs>{"".join(levels)}</defs><use xlink:href="#l5"/></svg>'
-        )
+        with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+            drawing = drawing_from_svg(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10">'
+                f'<defs>{"".join(levels)}</defs><use xlink:href="#l5"/></svg>'
+            )
         assert drawing is not None
-        assert time.time() - start < 10
+        limit_hits = [r for r in caplog.records if "Too many <use>" in r.message]
+        assert len(limit_hits) == 1
+
+    def test_use_self_reference_is_skipped(self, caplog):
+        """
+        A <use> pointing at itself must be skipped, not recurse forever.
+        """
+        with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+            drawing = drawing_from_svg(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10">'
+                '<use id="a" xlink:href="#a"/></svg>'
+            )
+        assert drawing is not None
+        assert any("Circular <use>" in r.message for r in caplog.records)
+
+    def test_use_cycle_is_skipped(self, caplog):
+        """
+        Cycles of two and three elements, each pointing at the next through
+        a <use>, must be skipped, not recurse forever.
+        """
+        cycles = {
+            "two": (
+                '<g id="a"><use xlink:href="#b"/></g>'
+                '<g id="b"><use xlink:href="#a"/></g>'
+            ),
+            "three": (
+                '<g id="a"><use xlink:href="#b"/></g>'
+                '<g id="b"><use xlink:href="#c"/></g>'
+                '<g id="c"><use xlink:href="#a"/></g>'
+            ),
+        }
+        for name, defs in cycles.items():
+            caplog.clear()
+            with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+                drawing = drawing_from_svg(
+                    '<svg xmlns="http://www.w3.org/2000/svg" '
+                    'xmlns:xlink="http://www.w3.org/1999/xlink" '
+                    f'width="10" height="10"><defs>{defs}</defs>'
+                    '<use xlink:href="#a"/></svg>'
+                )
+            assert drawing is not None, name
+            assert any("Circular <use>" in r.message for r in caplog.records), name
+
+    def test_use_cycle_through_nested_group_is_skipped(self, caplog):
+        """
+        Rendering a clone of #c rebinds #a to the cloned element; the cycle
+        must still be detected.
+        """
+        with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+            drawing = drawing_from_svg(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+                '<defs><g id="c"><g id="a"><use href="#c"/><use href="#a"/></g></g>'
+                '</defs><use href="#a"/></svg>'
+            )
+        assert drawing is not None
+        assert any("Circular <use>" in r.message for r in caplog.records)
+
+    def test_use_repeated_reference_is_not_a_cycle(self, caplog):
+        """
+        Reusing the same definition many times, also nested, is legitimate
+        and must not be reported as a cycle.
+        """
+        with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+            drawing = drawing_from_svg(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10">'
+                '<defs><rect id="r" width="1" height="1"/>'
+                '<g id="g"><use xlink:href="#r"/><use xlink:href="#r"/></g></defs>'
+                '<use xlink:href="#g"/><use xlink:href="#g"/></svg>'
+            )
+        assert drawing is not None
+        assert not caplog.records
 
     def test_use_node_properties(self):
         """

@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.clone_namespace_resources_config import CloneNamespaceResourcesConfig
@@ -27,13 +27,25 @@ from typing_extensions import Self
 
 class CloneNamespaceRequest(BaseModel):
     """
-    Request to clone a namespace with all its data.  Clone creates a full copy of a namespace including: - Namespace configuration (extractors, indexes) - Buckets (metadata, references same S3 files) - Collections (full copy of all vectors/embeddings) - Retrievers (pipeline configuration)  **Use Cases:** - Create staging environment from production - Backup namespace with all data - Fork namespace for experimentation  **For config-only copy (no data), use templates instead:** - POST /templates/namespaces/from-namespace/{id} - POST /templates/namespaces/{template_id}/instantiate
+    Request to clone a namespace with all its data.  Clone creates a full copy of a namespace including: - Namespace configuration (extractors, indexes) - Buckets (metadata, references same S3 files) - Collections (full copy of all vectors/embeddings) - Retrievers (pipeline configuration)  **Use Cases:** - Create staging environment from production - Backup namespace with all data - Fork namespace for experimentation  **For a config-only copy (no data):** export the namespace with POST /v1/manifest/export and apply the manifest with POST /v1/manifest/apply.
     """ # noqa: E501
     namespace_name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Name for the cloned namespace (must be unique)")
     include_resources: Optional[CloneNamespaceResourcesConfig] = Field(default=None, description="Which resources to include. Defaults to collections + retrievers.")
     description: Optional[StrictStr] = Field(default=None, description="Override description. If omitted, copies from source.")
     source_organization_id: Optional[StrictStr] = Field(default=None, description="Source org ID for cross-org cloning (admin only).")
-    __properties: ClassVar[List[str]] = ["namespace_name", "include_resources", "description", "source_organization_id"]
+    mode: Optional[StrictStr] = Field(default='copy', description="'copy' writes every vector into the new namespace. 'branch' will make a copy-on-write fork that shares the source's storage until either side writes; it is not available yet and is refused, naming what it waits on.")
+    ttl_seconds: Optional[Annotated[int, Field(strict=True, ge=60)]] = Field(default=None, description="Time-to-live in seconds for the new namespace, as on namespace create: it is deleted automatically after this duration. Omit for no expiry.")
+    __properties: ClassVar[List[str]] = ["namespace_name", "include_resources", "description", "source_organization_id", "mode", "ttl_seconds"]
+
+    @field_validator('mode')
+    def mode_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['copy', 'branch']):
+            raise ValueError("must be one of enum values ('copy', 'branch')")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,7 +104,9 @@ class CloneNamespaceRequest(BaseModel):
             "namespace_name": obj.get("namespace_name"),
             "include_resources": CloneNamespaceResourcesConfig.from_dict(obj["include_resources"]) if obj.get("include_resources") is not None else None,
             "description": obj.get("description"),
-            "source_organization_id": obj.get("source_organization_id")
+            "source_organization_id": obj.get("source_organization_id"),
+            "mode": obj.get("mode") if obj.get("mode") is not None else 'copy',
+            "ttl_seconds": obj.get("ttl_seconds")
         })
         return _obj
 

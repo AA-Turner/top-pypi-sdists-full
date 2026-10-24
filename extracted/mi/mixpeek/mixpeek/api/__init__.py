@@ -11,7 +11,6 @@ from mixpeek.api.analytics_clusters_api import AnalyticsClustersApi
 from mixpeek.api.analytics_collections_api import AnalyticsCollectionsApi
 from mixpeek.api.analytics_extractors_api import AnalyticsExtractorsApi
 from mixpeek.api.analytics_indexes_api import AnalyticsIndexesApi
-from mixpeek.api.analytics_inference_api import AnalyticsInferenceApi
 from mixpeek.api.analytics_namespaces_api import AnalyticsNamespacesApi
 from mixpeek.api.analytics_performance_api import AnalyticsPerformanceApi
 from mixpeek.api.analytics_retrievers_api import AnalyticsRetrieversApi
@@ -61,7 +60,6 @@ from mixpeek.api.namespace_templates_api import NamespaceTemplatesApi
 from mixpeek.api.namespaces_api import NamespacesApi
 from mixpeek.api.notifications_api import NotificationsApi
 from mixpeek.api.onboarding_api import OnboardingApi
-from mixpeek.api.ops_api import OpsApi
 from mixpeek.api.organization_api_keys_api import OrganizationAPIKeysApi
 from mixpeek.api.organization_audit_api import OrganizationAuditApi
 from mixpeek.api.organization_billing_api import OrganizationBillingApi
@@ -86,11 +84,11 @@ from mixpeek.api.retriever_api_keys_api import RetrieverAPIKeysApi
 from mixpeek.api.retriever_benchmarks_api import RetrieverBenchmarksApi
 from mixpeek.api.retriever_evaluations_api import RetrieverEvaluationsApi
 from mixpeek.api.retriever_interactions_api import RetrieverInteractionsApi
-from mixpeek.api.retriever_learned_fusion_api import RetrieverLearnedFusionApi
 from mixpeek.api.retriever_stages_api import RetrieverStagesApi
 from mixpeek.api.retriever_templates_api import RetrieverTemplatesApi
 from mixpeek.api.retrievers_api import RetrieversApi
 from mixpeek.api.scaffold_templates_api import ScaffoldTemplatesApi
+from mixpeek.api.signup_api import SignupApi
 from mixpeek.api.source_adapter_api import SourceAdapterApi
 from mixpeek.api.support_api import SupportApi
 from mixpeek.api.tasks_api import TasksApi

@@ -35,6 +35,7 @@ class UpdatePublishedRetrieverRequest(BaseModel):
     is_active: Optional[StrictBool] = Field(default=None, description="Activate or deactivate the published retriever")
     tags: Optional[List[StrictStr]] = Field(default=None, description="Update tags for categorizing this retriever")
     category: Optional[StrictStr] = Field(default=None, description="Update the primary category for this retriever")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["display_config", "rate_limit_config", "password_secret_name", "is_active", "tags", "category"]
 
     model_config = ConfigDict(
@@ -67,8 +68,10 @@ class UpdatePublishedRetrieverRequest(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -82,6 +85,11 @@ class UpdatePublishedRetrieverRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of rate_limit_config
         if self.rate_limit_config:
             _dict['rate_limit_config'] = self.rate_limit_config.to_dict()
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -101,6 +109,11 @@ class UpdatePublishedRetrieverRequest(BaseModel):
             "tags": obj.get("tags"),
             "category": obj.get("category")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

@@ -42,6 +42,19 @@ def test_a_version_that_starts_and_keeps_answering_stays(switched, monkeypatch):
     assert installs.active(switched).parent.name == "0.2.0"
 
 
+def test_a_guard_with_no_new_privs_never_calls_a_good_version_bad(switched, monkeypatch):
+    """Review (round 4): from a no_new_privs process `ensure` starts no
+    service, so the watch saw "did not answer" and switched a good release
+    back. There is nothing to watch from there: the version stays."""
+    from probe.service import client
+
+    monkeypatch.setattr(client, "no_new_privs", lambda: True)
+    monkeypatch.setenv(guard.WATCH_ENV, "1")
+    assert guard.main(["--from", "0.1.0", "--to", "9.9.9", "--old-python", sys.executable]) == 0
+    assert installs.active(switched).parent.name == "0.2.0"
+    assert "9.9.9" not in installs.rejected(switched)
+
+
 def test_a_version_that_answers_as_another_is_switched_back(switched, service_home, monkeypatch):
     monkeypatch.setenv(guard.WATCH_ENV, "1")
     # `--from` is what the switched-back service answers as: this code's version.

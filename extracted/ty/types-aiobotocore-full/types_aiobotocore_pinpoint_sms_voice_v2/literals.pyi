@@ -298,7 +298,7 @@ PhoneNumberFilterNameType = Literal[
     "two-way-channel-arn",
     "two-way-enabled",
 ]
-PhoneNumberTypeType = Literal["INVALID", "LANDLINE", "MOBILE", "OTHER"]
+PhoneNumberTypeType = Literal["INVALID", "LANDLINE", "MOBILE", "OTHER", "PREPAID", "VOIP"]
 PoolFilterNameType = Literal[
     "deletion-protection-enabled",
     "message-type",
@@ -609,13 +609,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -683,6 +682,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -817,6 +817,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -867,7 +868,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

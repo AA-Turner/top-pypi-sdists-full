@@ -13,12 +13,15 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::{ByteHint, Grammar},
+	scope::Scope,
 	span::{TraceOk, TraceParse},
+	syntax::Syntax,
 };
 
 use super::verify_url;
 
+/// The sequence that opens an auto-link.
+pub const OPEN_DELIMITER: &str = "<";
 /// The terminal character of an auto-link.
 pub const TERMINAL: u8 = b'>';
 
@@ -48,7 +51,8 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		if *self.context.hints.get(&Grammar::AutoLink) == ByteHint::Absent {
+		// also run inside a masked link, whose URL can be written as an auto link
+		if self.context.hints.rules_out(Syntax::AutoLink) {
 			return Err(nom::Err::Error(OM::Error::bind(|| {
 				E::from_error_kind(input.clone(), ErrorKind::Alt)
 			})));
@@ -73,7 +77,7 @@ where
 	E: ParseError<'data>,
 {
 	AutoParser {
-		context: context.with_grammar(Grammar::AutoLink),
+		context: context.with_scope(Scope::AutoLink),
 		error: PhantomData,
 	}
 }

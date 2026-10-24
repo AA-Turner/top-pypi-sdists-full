@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, Stri
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
 from mixpeek.models.stage_defs_learning_algorithm import StageDefsLearningAlgorithm
+from mixpeek.models.stage_defs_shipped_weight_set import StageDefsShippedWeightSet
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -48,8 +49,10 @@ class StageDefsLearnedFusionConfig(BaseModel):
     max_reward_per_interaction: Optional[Union[Annotated[float, Field(le=100.0, strict=True, ge=0.1)], Annotated[int, Field(le=100, strict=True, ge=1)]]] = Field(default=5.0, description="Maximum absolute reward value from a single interaction. Prevents outlier domination.")
     rollout_pct: Optional[Union[Annotated[float, Field(le=100.0, strict=True, ge=0.0)], Annotated[int, Field(le=100, strict=True, ge=0)]]] = Field(default=100.0, description="Percentage of requests that use learned weights. Others get static fusion. Deterministic bucketing by user_id.")
     shadow_mode: Optional[StrictBool] = Field(default=False, description="When true, compute learned fusion weights for logging but serve static fusion results.")
-    circuit_breaker_timeout_ms: Optional[Annotated[int, Field(le=30000, strict=True, ge=1)]] = Field(default=1000, description="Max time (ms) to resolve learned weights before the circuit breaker trips and the request falls back to static fusion. Default 1000ms. Lower it to fail fast under latency pressure; raise it if cold ClickHouse queries legitimately need more time.")
-    __properties: ClassVar[List[str]] = ["algorithm", "context_features", "demographic_features", "fallback_strategy", "min_interactions", "reward_signal", "exploration_bonus", "prior_alpha", "prior_beta", "reward_map", "decay_factor", "decay_window_days", "min_weight", "max_weight", "exploration_decay", "exploration_floor", "max_reward_per_interaction", "rollout_pct", "shadow_mode", "circuit_breaker_timeout_ms"]
+    circuit_breaker_timeout_ms: Optional[Annotated[int, Field(le=30000, strict=True, ge=1)]] = Field(default=1000, description="Max time (ms) to resolve learned weights before the circuit breaker trips and the request falls back to static fusion. Default 1000ms. Lower it to fail fast under latency pressure; raise it if cold interaction reads legitimately need more time.")
+    evaluation_dataset_id: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Evaluation dataset the gate scores a trained weight set on. A trained set ships only when it scores higher on this dataset than the live configuration. Without it nothing ships and fusion keeps learning online from interactions.")
+    shipped_weight_set: Optional[StageDefsShippedWeightSet] = Field(default=None, description="Read-only. The trained weight set this stage serves, written by the evaluation gate together with the evaluation that shipped it. A request that sets or changes it is refused.")
+    __properties: ClassVar[List[str]] = ["algorithm", "context_features", "demographic_features", "fallback_strategy", "min_interactions", "reward_signal", "exploration_bonus", "prior_alpha", "prior_beta", "reward_map", "decay_factor", "decay_window_days", "min_weight", "max_weight", "exploration_decay", "exploration_floor", "max_reward_per_interaction", "rollout_pct", "shadow_mode", "circuit_breaker_timeout_ms", "evaluation_dataset_id", "shipped_weight_set"]
 
     @field_validator('fallback_strategy')
     def fallback_strategy_validate_enum(cls, value):
@@ -100,6 +103,9 @@ class StageDefsLearnedFusionConfig(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of shipped_weight_set
+        if self.shipped_weight_set:
+            _dict['shipped_weight_set'] = self.shipped_weight_set.to_dict()
         return _dict
 
     @classmethod
@@ -131,7 +137,9 @@ class StageDefsLearnedFusionConfig(BaseModel):
             "max_reward_per_interaction": obj.get("max_reward_per_interaction") if obj.get("max_reward_per_interaction") is not None else 5.0,
             "rollout_pct": obj.get("rollout_pct") if obj.get("rollout_pct") is not None else 100.0,
             "shadow_mode": obj.get("shadow_mode") if obj.get("shadow_mode") is not None else False,
-            "circuit_breaker_timeout_ms": obj.get("circuit_breaker_timeout_ms") if obj.get("circuit_breaker_timeout_ms") is not None else 1000
+            "circuit_breaker_timeout_ms": obj.get("circuit_breaker_timeout_ms") if obj.get("circuit_breaker_timeout_ms") is not None else 1000,
+            "evaluation_dataset_id": obj.get("evaluation_dataset_id"),
+            "shipped_weight_set": StageDefsShippedWeightSet.from_dict(obj["shipped_weight_set"]) if obj.get("shipped_weight_set") is not None else None
         })
         return _obj
 

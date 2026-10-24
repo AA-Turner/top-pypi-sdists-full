@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgiref
-Version: 3.12.1
+Version: 3.13.0
 Summary: ASGI specs, helper code, and adapters
 Home-page: https://github.com/django/asgiref/
 Author: Django Software Foundation
@@ -12,22 +12,21 @@ Project-URL: Changelog, https://github.com/django/asgiref/blob/master/CHANGELOG.
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 License-File: LICENSE
-Requires-Dist: typing_extensions>=4; python_version < "3.11"
 Provides-Extra: tests
+Requires-Dist: packaging; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-asyncio; extra == "tests"
 Provides-Extra: mypy
@@ -86,6 +85,71 @@ thread for safety reasons; you can disable this for more performance with
 not rely on anything bound to threads (like database connections) when you do.
 
 
+Thread-sensitive contexts
+-------------------------
+
+``ThreadSensitiveContext`` gives thread-sensitive ``sync_to_async`` calls a
+shared, single-worker executor for an async block. This allows you to group
+thread-sensitive calls, for example, per-request in a web application,
+rather than per-process::
+
+    class ASGIHandler(...):
+        ...
+
+        async def __call__(...):
+            ...
+
+            async with ThreadSensitiveContext():
+                await self.handle(...)
+
+By default, only the outermost ``ThreadSensitiveContext`` sets the
+context. Nested calls are a no-op and reuse it.
+
+Nested contexts can be created by passing the explicit ``executor`` keyword
+argument.
+
+* The executor must run one call at a time on one thread, such as
+  ``ThreadPoolExecutor(max_workers=1)``. Recall, it is used for
+  ``sync_to_async(…, thread_sensitive=True)`` calls.
+
+* The calling code is responsible for the executor lifetime:
+  the context does not shut it down. You may use it again for a later block,
+  for example in a pool.
+
+* Do not use one executor for two blocks at the same time.
+
+By providing an executor, nested work can be run on a separate thread from the
+parent context's, including when the block is reached through ``async_to_sync``::
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    from asgiref.sync import ThreadSensitiveContext, sync_to_async
+
+    worker = ThreadPoolExecutor(max_workers=1)
+
+    async with ThreadSensitiveContext():
+        await sync_to_async(parent_work)()
+        async with ThreadSensitiveContext(executor=worker):
+            await sync_to_async(child_work)()
+            await sync_to_async(more_child_work)()
+        await sync_to_async(parent_work)()
+
+Both child calls run on the worker's thread. After the child block exits, calls
+use the parent thread again. Nested ``sync_to_async`` / ``async_to_sync`` calls
+within the child block also retain its thread affinity.
+
+Tasks created inside a block inherit its context. Wait for those tasks before
+leaving the context. A thread-sensitive call made by such a task after the
+context has exited raises ``RuntimeError``. To isolate concurrent tasks, each
+must enter its own context with its own executor.
+
+A context with an executor can be entered only once: create a new one for each
+block.
+
+Executor contexts separate thread-critical ``Local`` storage but do not change
+``ContextVar`` or plain ``Local`` propagation. ``thread_sensitive=False`` calls
+are not affected.
+
 Threadlocal replacement
 -----------------------
 
@@ -132,7 +196,7 @@ file handles for incoming POST bodies).
 Dependencies
 ------------
 
-``asgiref`` requires Python 3.10 or higher.
+``asgiref`` requires Python 3.11 or higher.
 
 
 Contributing
@@ -150,6 +214,20 @@ To run tests, make sure you have installed the ``tests`` extra with the package:
     cd asgiref/
     pip install -e .[tests]
     pytest
+
+There is also a micro-benchmark suite for ``asgiref.local`` in
+``tests/test_benchmark_local.py``. It is skipped unless ``pytest-benchmark``
+(or ``pytest-codspeed``) is installed, and is not part of the regular CI run.
+To run it via tox::
+
+    tox -e benchmark
+
+Benchmark numbers are only meaningful when compared on the same machine, so
+the typical workflow is to save a baseline and then compare against it::
+
+    tox -e benchmark -- --benchmark-save=before
+    # ... make changes ...
+    tox -e benchmark -- --benchmark-compare
 
 
 Building the documentation

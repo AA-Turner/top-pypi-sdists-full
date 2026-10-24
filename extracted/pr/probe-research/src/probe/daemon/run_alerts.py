@@ -28,12 +28,25 @@ QUIET. A server from before the route (404), a 5xx, a timeout, no network: logge
 at debug and asked again at the next poll; the lane never ends the worker. The
 server keeps two hours of alerts and the store dedupes by id, so a missed poll
 costs nothing but delay.
+
+ONE POLL FOR THE MACHINE (plan Q2). The lane offers the Probe service to ask for
+it (`mailbox.offer_run_alerts`: its marker names the CLI config whose daemon key
+the service polls with), and the service leaves the server's answer in
+`mailbox.alerts_handoff_path` every RUN_ALERT_POLL_S (`probe.service.alertpoll`).
+While a hand-off younger than HANDOFF_FRESH_S is there the lane asks no more
+itself: it takes each new hand-off within HANDOFF_CHECK_S (a stat, no network)
+and does with it exactly what it does with its own poll's answer. No fresh
+hand-off (no service, an older one, one that cannot reach Probe) and it polls
+as before. A worker whose key or endpoint comes from its environment offers
+nothing: the service would ask with another key.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import time
 from typing import TYPE_CHECKING
 
 from probe.daemon import lease, mailbox
@@ -59,6 +72,13 @@ ALERT_MORE_ONE = "and 1 more run."
 #: One alert's text is cut here (the server renders one sentence; a runaway one
 #: must not flood the agent's context).
 ALERT_TEXT_CHARS = 500
+#: The Probe service's hand-off (`mailbox.alerts_handoff_path`) younger than
+#: this means the service is polling for this session: the lane does not.
+HANDOFF_FRESH_S = 2.5 * RUN_ALERT_POLL_S
+#: Between polls the lane looks for a new hand-off this often (a stat), from a
+#: moment before the service's next round is due (its last hand-off + its
+#: `every`).
+HANDOFF_CHECK_S = 1.0
 
 
 def _line(text: str) -> str:
@@ -108,21 +128,54 @@ class RunAlertLane:
         #: No poll before this (`clock`): set after Probe refused the key.
         self.next_poll_at = 0.0
         self.task: asyncio.Task | None = None
+        #: The CLI config this lane offered the Probe service to poll with
+        #: (`offer`), or None: it polls only itself.
+        self.offered: str | None = None
+        #: `polled_at` of the last service hand-off taken.
+        self.handoff_at: float | None = None
 
     # -- life ----------------------------------------------------------------
     def start(self) -> None:
         if self.task is None:
+            self.offer()
             self.task = asyncio.ensure_future(self.run())
+
+    def offer(self) -> None:
+        """Offer the Probe service to poll for this session, when it would ask
+        as this worker does: a live session (no replay), and the daemon key and
+        endpoint from the CLI config, never from this process's environment
+        (which the service does not have)."""
+        if self.w.replay is not None:
+            return
+        from probe.daemon import model as model_mod
+
+        if os.environ.get(model_mod.ENV_KEY) or os.environ.get("PROBE_BASE_URL"):
+            return
+        from probe.sdk import config as sdk_config
+
+        try:
+            config = str(sdk_config.config_path().absolute())
+            if mailbox.offer_run_alerts(self.sid, config):
+                self.offered = config
+        except OSError as exc:
+            log.debug("run alerts: could not offer the service the poll: %s", exc)
 
     async def stop(self) -> None:
         """Cancel and wait: at session end nobody is left to tell. An alert not
-        polled yet stays on the server for a resumed session's worker."""
+        polled yet stays on the server for a resumed session's worker. The
+        offer to the service is taken back."""
         task, self.task = self.task, None
         if task is not None and not task.done():
             task.cancel()
             try:
                 await task
             except BaseException:  # noqa: BLE001 -- cancelled, or it had failed: either way it is over
+                pass
+        if self.offered is not None:
+            self.offered = None
+            try:
+                mailbox.offer_run_alerts(self.sid, None)
+            except OSError:
                 pass
 
     def quitting(self) -> bool:
@@ -147,7 +200,47 @@ class RunAlertLane:
                 raise
             except Exception as exc:  # noqa: BLE001 -- the poller never ends the worker
                 log.warning("run-alert poll failed: %s: %s", type(exc).__name__, exc)
+            await self.pause()
+
+    async def pause(self) -> None:
+        """RUN_ALERT_POLL_S until the next poll, cut short by a new hand-off
+        from the service (looked for every HANDOFF_CHECK_S while offered)."""
+        if self.offered is None:
             await asyncio.sleep(RUN_ALERT_POLL_S)
+            return
+        deadline = time.monotonic() + RUN_ALERT_POLL_S
+        stamp = self._handoff_stamp()
+        handoff = self.from_service()
+        if handoff is not None:
+            # The service's next round is due one interval after its last:
+            # nothing to look for before then.
+            every = handoff.get("every")
+            if isinstance(every, bool) or not isinstance(every, (int, float)) or not 0 < every <= RUN_ALERT_POLL_S:
+                every = RUN_ALERT_POLL_S
+            due = float(handoff["polled_at"]) + every - time.time() - HANDOFF_CHECK_S
+            if due > 0:
+                await asyncio.sleep(min(due, max(0.0, deadline - time.monotonic())))
+        while (left := deadline - time.monotonic()) > 0:
+            if self._handoff_stamp() != stamp:
+                return
+            await asyncio.sleep(min(HANDOFF_CHECK_S, left))
+
+    def _handoff_stamp(self) -> tuple | None:
+        try:
+            st = mailbox.alerts_handoff_path(self.sid).stat()
+        except OSError:
+            return None
+        return (st.st_ino, st.st_mtime_ns, st.st_size)
+
+    def from_service(self) -> dict | None:
+        """The service's hand-off when it polls for this session (one younger
+        than HANDOFF_FRESH_S, while this lane offered); None: poll here."""
+        if self.offered is None:
+            return None
+        data = mailbox.read_alerts_handoff(self.sid)
+        if data is None or time.time() - float(data["polled_at"]) > HANDOFF_FRESH_S:
+            return None
+        return data
 
     # -- one poll --------------------------------------------------------------
     async def tick(self) -> mailbox.Message | None:
@@ -158,6 +251,16 @@ class RunAlertLane:
 
         if self.w.replay is None and worker_mod.install_replaced():
             return None  # the worker leaves for the new install, whose poller asks again
+        handoff = self.from_service()
+        if handoff is not None:
+            # The service asked for this session: nothing to ask here. Each of
+            # its answers is taken once, as this lane's own would be.
+            if handoff["polled_at"] == self.handoff_at:
+                return None
+            alerts = handoff.get("alerts")
+            msg = self.hand_over(alerts) if alerts else None
+            self.handoff_at = handoff["polled_at"]  # taken: after a publish that raised, it is tried again
+            return msg
         alerts = await self.fetch()
         if alerts is None:
             return None

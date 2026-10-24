@@ -1,5 +1,6 @@
 import pytest
 
+from wtforms.fields.choices import Choice
 from wtforms.i18n import DummyTranslations
 
 
@@ -25,7 +26,12 @@ def basic_widget_dummy_field(dummy_field_class):
 
 @pytest.fixture
 def select_dummy_field(dummy_field_class):
-    return dummy_field_class([("foo", "lfoo", True, {}), ("bar", "lbar", False, {})])
+    return dummy_field_class(
+        [
+            Choice("foo", "lfoo", selected=True, render_kw={}),
+            Choice("bar", "lbar", selected=False, render_kw={}),
+        ]
+    )
 
 
 @pytest.fixture
@@ -50,6 +56,7 @@ class DummyField:
         label=None,
         id=None,
         field_type="StringField",
+        groups=None,
     ):
         self.data = data
         self.name = name
@@ -58,6 +65,7 @@ class DummyField:
         self.label = label
         self.id = id if id else ""
         self.type = field_type
+        self._groups = groups
 
     def __call__(self, **other):
         return self.data
@@ -74,11 +82,17 @@ class DummyField:
     def iter_choices(self):
         return iter(self.data)
 
-    def iter_groups(self):
-        return []
+    def _iter_choices_normalized(self):
+        return iter(self.data)
 
     def has_groups(self):
-        return False
+        return self._groups is not None
+
+    def iter_groups(self):
+        return iter(self._groups or [])
+
+    def _iter_groups_normalized(self):
+        return iter(self._groups or [])
 
     def gettext(self, string):
         return self._translations.gettext(string)

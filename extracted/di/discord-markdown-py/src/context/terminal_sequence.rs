@@ -1,18 +1,20 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{OutputMode, PResult, Parser, combinator::not, sequence::preceded};
+use nom::{
+	OutputMode, PResult, Parser, character::complete::char, combinator::not, sequence::preceded,
+};
 use tracing::Level;
 
 use crate::{
 	Input,
 	context::matched_pairs,
 	error::ParseError,
-	grammar::global_terminals,
+	scope::global_terminals,
 	span::{TraceOk, TraceParse},
 	util::iter_alt,
 };
 
-use super::{super::grammar::Grammar, Context};
+use super::Context;
 
 pub(super) struct TerminalSequence<'ctx, F, E> {
 	pub context: &'ctx Context,
@@ -45,11 +47,12 @@ where
 				not(iter_alt(|| {
 					// we consider the _start_ sequence a terminal so that the parent can be aware of the matched
 					// pairs without blindly consuming the opening token
-					(self.context.grammars() & matched_pairs::GRAMMARS)
+					(self.context.scopes() & matched_pairs::SCOPES)
 						.iter()
-						.map(Grammar::start_sequence)
+						.filter_map(|scope| scope.bracket_delimiters())
+						.map(|(open, _)| char(open.into()))
 				})),
-				not(self.context.grammar.terminal_sequence()),
+				not(self.context.scope.terminal_sequence()),
 				not(global_terminals(self.context.parents)),
 			),
 			(self.normal)(),

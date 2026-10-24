@@ -37,6 +37,10 @@ __all__ = (
     "DependencyDiscoveryStatusType",
     "DependencyInsightsErrorCodeType",
     "DependencyInsightsStatusType",
+    "DevOpsAgentConfidenceType",
+    "DevOpsAgentConnectionStatusType",
+    "DevOpsAgentInvestigationStatusType",
+    "DevOpsAgentVerdictType",
     "EksLabelSelectorOperatorType",
     "FailureCategoryType",
     "FailureModeAssessmentSuccessWaiterName",
@@ -139,6 +143,12 @@ DependencyInsightsErrorCodeType = Literal[
     "INSUFFICIENT_DATA", "INTERNAL_ERROR", "LLM_GENERATION_FAILED"
 ]
 DependencyInsightsStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+DevOpsAgentConfidenceType = Literal["HIGH", "LOW", "MEDIUM"]
+DevOpsAgentConnectionStatusType = Literal["CONNECTED", "CONNECTING", "DISCONNECTED", "FAILED"]
+DevOpsAgentInvestigationStatusType = Literal[
+    "CANCELED", "COMPLETED", "FAILED", "IN_PROGRESS", "PENDING", "TIMED_OUT"
+]
+DevOpsAgentVerdictType = Literal["FAIL", "PASS"]
 EksLabelSelectorOperatorType = Literal["DOES_NOT_EXIST", "EXISTS", "IN", "NOT_IN"]
 FailureCategoryType = Literal[
     "EXCESSIVE_LATENCY",
@@ -420,13 +430,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -494,6 +503,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -628,6 +638,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -678,7 +689,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

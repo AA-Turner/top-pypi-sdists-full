@@ -109,8 +109,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -186,8 +188,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -263,8 +267,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -408,8 +414,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -485,8 +493,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -562,8 +572,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -711,8 +723,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -792,8 +806,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -873,8 +889,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1023,8 +1041,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1100,8 +1120,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1177,8 +1199,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1278,7 +1302,7 @@ class AnalyticsNamespacesApi:
     ) -> NamespaceErrorsResponse:
         """Get Namespace Errors
 
-        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ClickHouse ``extraction_events`` warehouse; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ``extraction_events`` analytics collection; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
 
         :param hours: Hours of history to analyze
         :type hours: int
@@ -1318,8 +1342,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1351,7 +1377,7 @@ class AnalyticsNamespacesApi:
     ) -> ApiResponse[NamespaceErrorsResponse]:
         """Get Namespace Errors
 
-        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ClickHouse ``extraction_events`` warehouse; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ``extraction_events`` analytics collection; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
 
         :param hours: Hours of history to analyze
         :type hours: int
@@ -1391,8 +1417,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1424,7 +1452,7 @@ class AnalyticsNamespacesApi:
     ) -> RESTResponseType:
         """Get Namespace Errors
 
-        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ClickHouse ``extraction_events`` warehouse; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ``extraction_events`` analytics collection; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
 
         :param hours: Hours of history to analyze
         :type hours: int
@@ -1464,8 +1492,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1600,8 +1630,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1673,8 +1705,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1746,8 +1780,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1890,8 +1926,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1971,8 +2009,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2052,8 +2092,10 @@ class AnalyticsNamespacesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

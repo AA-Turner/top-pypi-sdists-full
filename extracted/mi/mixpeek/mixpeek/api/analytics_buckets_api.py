@@ -110,8 +110,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -187,8 +189,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -264,8 +268,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -415,8 +421,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -500,8 +508,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -585,8 +595,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -715,7 +727,7 @@ class AnalyticsBucketsApi:
     ) -> BucketUsageResponse:
         """Get Bucket Usage
 
-        Get usage and cost metrics.  Analyzes bucket usage and costs including: - Storage costs (GB-hours) - Upload operation costs - Sync operation costs - Cost breakdown by category  **Use Cases:** - Track bucket costs - Optimize spending - Forecast future costs - Cost attribution  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/buckets/bkt_abc123/usage?group_by=day\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        A bucket's storage, upload and sync usage over time.  Per period: storage_gb_hours, the bytes the bucket held integrated over time from its hourly storage snapshots (GB is 10^9 bytes; time before the first snapshot in the window is not counted); upload_operations, the objects created through the object create endpoints; and sync_operations, the sync runs that finished, successful or failed. Objects a sync creates count under its run, not as uploads.  Credits and estimated cost read 0: storage, uploads and syncs have no price yet, and this route reports quantities until the invoice's price table carries them. The default window is the last 30 days.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -764,8 +776,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -800,7 +814,7 @@ class AnalyticsBucketsApi:
     ) -> ApiResponse[BucketUsageResponse]:
         """Get Bucket Usage
 
-        Get usage and cost metrics.  Analyzes bucket usage and costs including: - Storage costs (GB-hours) - Upload operation costs - Sync operation costs - Cost breakdown by category  **Use Cases:** - Track bucket costs - Optimize spending - Forecast future costs - Cost attribution  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/buckets/bkt_abc123/usage?group_by=day\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        A bucket's storage, upload and sync usage over time.  Per period: storage_gb_hours, the bytes the bucket held integrated over time from its hourly storage snapshots (GB is 10^9 bytes; time before the first snapshot in the window is not counted); upload_operations, the objects created through the object create endpoints; and sync_operations, the sync runs that finished, successful or failed. Objects a sync creates count under its run, not as uploads.  Credits and estimated cost read 0: storage, uploads and syncs have no price yet, and this route reports quantities until the invoice's price table carries them. The default window is the last 30 days.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -849,8 +863,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -885,7 +901,7 @@ class AnalyticsBucketsApi:
     ) -> RESTResponseType:
         """Get Bucket Usage
 
-        Get usage and cost metrics.  Analyzes bucket usage and costs including: - Storage costs (GB-hours) - Upload operation costs - Sync operation costs - Cost breakdown by category  **Use Cases:** - Track bucket costs - Optimize spending - Forecast future costs - Cost attribution  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/buckets/bkt_abc123/usage?group_by=day\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        A bucket's storage, upload and sync usage over time.  Per period: storage_gb_hours, the bytes the bucket held integrated over time from its hourly storage snapshots (GB is 10^9 bytes; time before the first snapshot in the window is not counted); upload_operations, the objects created through the object create endpoints; and sync_operations, the sync runs that finished, successful or failed. Objects a sync creates count under its run, not as uploads.  Credits and estimated cost read 0: storage, uploads and syncs have no price yet, and this route reports quantities until the invoice's price table carries them. The default window is the last 30 days.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -934,8 +950,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1101,8 +1119,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1174,8 +1194,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1247,8 +1269,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1387,8 +1411,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1464,8 +1490,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1541,8 +1569,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1692,8 +1722,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1777,8 +1809,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1862,8 +1896,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2019,8 +2055,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2100,8 +2138,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2181,8 +2221,10 @@ class AnalyticsBucketsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

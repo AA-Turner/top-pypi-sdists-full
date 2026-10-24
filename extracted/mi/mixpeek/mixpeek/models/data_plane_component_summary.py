@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class DataPlaneComponentSummary(BaseModel):
     """
-    Summary of a non-Ray data plane component (celery, redis, mvs).
+    Summary of a non-Ray data plane component, such as redis or mvs.
     """ # noqa: E501
     component: StrictStr
     component_label: StrictStr

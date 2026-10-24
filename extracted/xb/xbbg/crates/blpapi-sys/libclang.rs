@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 /// `%CONDA_PREFIX%\\Library\\bin`. Copying that DLL to an OUT_DIR-local
 /// `libclang.dll` alias keeps the repository self-contained and avoids mutating
 /// the pixi environment.
-pub fn prepare_windows_libclang_alias(out_dir: &Path) -> Result<(), String> {
+pub(crate) fn prepare_windows_libclang_alias(out_dir: &Path) -> Result<(), String> {
     println!("cargo:rerun-if-env-changed=LIBCLANG_PATH");
     println!("cargo:rerun-if-env-changed=CONDA_PREFIX");
 
@@ -19,7 +19,9 @@ pub fn prepare_windows_libclang_alias(out_dir: &Path) -> Result<(), String> {
 
     for dir in libclang_candidate_dirs() {
         if has_bindgen_libclang_name(&dir) {
-            env::set_var("LIBCLANG_PATH", &dir);
+            // SAFETY: build scripts run in their own process, and this helper runs
+            // on the main thread before bindgen or anything else spawns a thread.
+            unsafe { env::set_var("LIBCLANG_PATH", &dir) };
             return Ok(());
         }
 
@@ -43,7 +45,9 @@ pub fn prepare_windows_libclang_alias(out_dir: &Path) -> Result<(), String> {
                 )
             })?;
 
-            env::set_var("LIBCLANG_PATH", &alias_dir);
+            // SAFETY: build scripts run in their own process, and this helper runs
+            // on the main thread before bindgen or anything else spawns a thread.
+            unsafe { env::set_var("LIBCLANG_PATH", &alias_dir) };
             println!("cargo:rerun-if-changed={}", versioned_dll.display());
             return Ok(());
         }

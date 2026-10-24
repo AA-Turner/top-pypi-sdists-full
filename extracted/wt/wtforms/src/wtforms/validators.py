@@ -2,6 +2,11 @@ import ipaddress
 import math
 import re
 import uuid
+from collections.abc import Callable
+from datetime import date
+from datetime import datetime
+from datetime import time
+from urllib.parse import urlparse
 
 __all__ = (
     "DataRequired",
@@ -17,7 +22,9 @@ __all__ = (
     "Length",
     "length",
     "NumberRange",
+    "DateRange",
     "number_range",
+    "date_range",
     "Optional",
     "optional",
     "Regexp",
@@ -173,12 +180,16 @@ class NumberRange:
     This will work with any comparable number type, such as floats and
     decimals, not just integers.
 
+    ``min`` and ``max`` may be callables to compute dynamic bounds.
+
     :param min:
         The minimum required value of the number. If not provided, minimum
-        value will not be checked.
+        value will not be checked. Can also be a callable that returns the
+        minimum value.
     :param max:
         The maximum value of the number. If not provided, maximum value
-        will not be checked.
+        will not be checked. Can also be a callable that returns the maximum
+        value.
     :param message:
         Error message to raise in case of a validation error. Can be
         interpolated using `%(min)s` and `%(max)s` if desired. Useful defaults
@@ -197,13 +208,19 @@ class NumberRange:
         if self.max is not None:
             self.field_flags["max"] = self.max
 
+    @staticmethod
+    def _resolve(value):
+        return value() if callable(value) else value
+
     def __call__(self, form, field):
+        min_value = self._resolve(self.min)
+        max_value = self._resolve(self.max)
         data = field.data
         if (
             data is not None
             and not math.isnan(data)
-            and (self.min is None or data >= self.min)
-            and (self.max is None or data <= self.max)
+            and (min_value is None or data >= min_value)
+            and (max_value is None or data <= max_value)
         ):
             return
 
@@ -212,16 +229,111 @@ class NumberRange:
 
         # we use %(min)s interpolation to support floats, None, and
         # Decimals without throwing a formatting exception.
-        elif self.max is None:
+        elif max_value is None:
             message = field.gettext("Number must be at least %(min)s.")
 
-        elif self.min is None:
+        elif min_value is None:
             message = field.gettext("Number must be at most %(max)s.")
 
         else:
             message = field.gettext("Number must be between %(min)s and %(max)s.")
 
-        raise ValidationError(message % dict(min=self.min, max=self.max))
+        raise ValidationError(message % dict(min=min_value, max=max_value))
+
+
+class DateRange:
+    """
+    Validates that a date or datetime is of a minimum and/or maximum value,
+    inclusive. This will work with dates and datetimes.
+
+    ``min`` and ``max`` may be callables to compute dynamic bounds.
+
+    For example::
+
+        def in_n_days(days):
+            return datetime.now() + timedelta(days=days)
+
+
+        cb = partial(in_n_days, 5)
+
+
+        class DateForm(Form):
+            date = DateField("date", [DateRange(min=date(2023, 1, 1), max=cb)])
+            datetime = DateTimeLocalField(
+                "datetime-local",
+                [DateRange(min=datetime(2023, 1, 1, 15, 30), max=cb)],
+            )
+
+    :param min:
+        The minimum required date or datetime. If not provided, minimum
+        date or datetime will not be checked. Can also be a callable that
+        returns a date or datetime.
+    :param max:
+        The maximum date or datetime. If not provided, maximum date or datetime
+        will not be checked. Can also be a callable that returns a date or
+        datetime.
+    :param message:
+        Error message to raise in case of a validation error. Can be
+        interpolated using `%(min)s` and `%(max)s` if desired. Useful defaults
+        are provided depending on the existence of min and max.
+
+    When supported, sets the `min` and `max` attributes on widgets.
+    """
+
+    def __init__(
+        self,
+        min=None,
+        max=None,
+        message=None,
+    ):
+        self.min = min
+        self.max = max
+        self.message = message
+        self.field_flags = {}
+
+        if self.min is not None:
+            self.field_flags["min"] = self.min
+        if self.max is not None:
+            self.field_flags["max"] = self.max
+
+    @staticmethod
+    def _to_datetime(value):
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, date):
+            return datetime.combine(value, time())
+        return value
+
+    @classmethod
+    def _coerce_bound(cls, value):
+        if callable(value):
+            value = value()
+        return cls._to_datetime(value)
+
+    def __call__(self, form, field):
+        min_value = self._coerce_bound(self.min)
+        max_value = self._coerce_bound(self.max)
+
+        data = self._to_datetime(field.data)
+        if data is not None and (
+            (min_value is None or data >= min_value)
+            and (max_value is None or data <= max_value)
+        ):
+            return
+
+        if self.message is not None:
+            message = self.message
+
+        elif max_value is None:
+            message = field.gettext("Date must be at least %(min)s.")
+
+        elif min_value is None:
+            message = field.gettext("Date must be at most %(max)s.")
+
+        else:
+            message = field.gettext("Date must be between %(min)s and %(max)s.")
+
+        raise ValidationError(message % dict(min=min_value, max=max_value))
 
 
 class Optional:
@@ -340,16 +452,50 @@ class Regexp:
         `regex` is not a string.
     :param message:
         Error message to raise in case of a validation error.
+    :param matcher:
+        Callable invoked as ``matcher(pattern, value)`` to perform the match.
+        Defaults to :func:`re.match`. Pass :func:`re.search` or
+        :func:`re.fullmatch` to change the anchoring behaviour.
+    :param html_pattern:
+        Controls the HTML ``pattern`` attribute emitted on supporting widgets.
+        Defaults to ``False`` (no attribute). Set to ``True`` to emit the
+        Python pattern source as-is, to a string to emit a custom
+        browser-specific pattern, or to a callable invoked as
+        ``html_pattern(regex)`` returning ``bool`` or ``str`` interpreted by
+        the same rules. Python and JavaScript regex syntaxes differ; emitting
+        a Python regex unchanged may fail in browsers. Note that the HTML
+        ``pattern`` attribute is implicitly anchored at both ends (equivalent
+        to :func:`re.fullmatch`), so a pattern paired with ``matcher=re.match``
+        or ``matcher=re.search`` may be accepted server-side but rejected by
+        the browser.
     """
 
-    def __init__(self, regex, flags=0, message=None):
+    def __init__(
+        self,
+        regex,
+        flags=0,
+        message=None,
+        matcher=re.match,
+        html_pattern: bool | str | Callable[[re.Pattern], bool | str] = False,
+    ):
         if isinstance(regex, str):
             regex = re.compile(regex, flags)
         self.regex = regex
         self.message = message
+        self.matcher = matcher
+        self.field_flags = self._resolve_field_flags(html_pattern)
+
+    def _resolve_field_flags(self, html_pattern):
+        if callable(html_pattern):
+            html_pattern = html_pattern(self.regex)
+        if html_pattern is True:
+            return {"pattern": self.regex.pattern}
+        if isinstance(html_pattern, str):
+            return {"pattern": html_pattern}
+        return {}
 
     def __call__(self, form, field, message=None):
-        match = self.regex.match(field.data or "")
+        match = self.matcher(self.regex, field.data or "")
         if match:
             return match
 
@@ -367,19 +513,29 @@ class Email:
     Validates an email address. Requires email_validator package to be
     installed. For ex: pip install wtforms[email].
 
+    Options that default to ``None`` are not forwarded to
+    ``email_validator``, so its module-level defaults (e.g.
+    ``email_validator.TEST_ENVIRONMENT``) take effect. Pass an explicit
+    value to override per-instance.
+
     :param message:
         Error message to raise in case of a validation error.
     :param granular_message:
         Use validation failed message from email_validator library
         (Default False).
     :param check_deliverability:
-        Perform domain name resolution check (Default False).
+        Perform domain name resolution check (Default False, diverging
+        from ``email_validator``'s default of True for safety on public
+        forms).
+    :param test_environment:
+        Allow `test` and `*.test` domain names, and disable DNS-based
+        deliverability checks (Default: defer to ``email_validator``).
     :param allow_smtputf8:
         Fail validation for addresses that would require SMTPUTF8
-        (Default True).
+        (Default: defer to ``email_validator``).
     :param allow_empty_local:
         Allow an empty local part (i.e. @example.com), e.g. for validating
-        Postfix aliases (Default False).
+        Postfix aliases (Default: defer to ``email_validator``).
     """
 
     def __init__(
@@ -387,12 +543,14 @@ class Email:
         message=None,
         granular_message=False,
         check_deliverability=False,
-        allow_smtputf8=True,
-        allow_empty_local=False,
+        test_environment=None,
+        allow_smtputf8=None,
+        allow_empty_local=None,
     ):
         self.message = message
         self.granular_message = granular_message
         self.check_deliverability = check_deliverability
+        self.test_environment = test_environment
         self.allow_smtputf8 = allow_smtputf8
         self.allow_empty_local = allow_empty_local
 
@@ -410,6 +568,7 @@ class Email:
             email_validator.validate_email(
                 field.data,
                 check_deliverability=self.check_deliverability,
+                test_environment=self.test_environment,
                 allow_smtputf8=self.allow_smtputf8,
                 allow_empty_local=self.allow_empty_local,
             )
@@ -505,31 +664,42 @@ class MacAddress(Regexp):
         super().__call__(form, field, message)
 
 
-class URL(Regexp):
+class URL:
     """
-    Simple regexp based url validation. Much like the email validator, you
-    probably want to validate the url later by other means if the url must
-    resolve.
+    Simple url validation based on :func:`urllib.parse.urlparse`. Much like
+    the email validator, you probably want to validate the url later by
+    other means if the url must resolve.
 
     :param require_tld:
         If true, then the domain-name portion of the URL must contain a .tld
         suffix.  Set this to false if you want to allow domains like
         `localhost`.
     :param allow_ip:
-        If false, then give ip as host will fail validation
+        If false, then giving an ip as host will fail validation.
+    :param allow_userinfo:
+        If true, accept ``username[:password]@`` in the URL. Defaults to
+        false: forms collecting URLs are often displayed back to users, and
+        userinfo is a known phishing vector
+        (e.g. ``https://accounts.example.com@evil.example/``).
+    :param schemes:
+        Iterable of allowed URL schemes. Defaults to ``("http", "https")``.
+        Pass ``None`` to accept any scheme (use with caution: ``javascript:``,
+        ``data:``, etc. would be accepted).
     :param message:
         Error message to raise in case of a validation error.
     """
 
-    def __init__(self, require_tld=True, allow_ip=True, message=None):
-        regex = (
-            r"^[a-z]+://"
-            r"(?P<host>[^\/\?:]+)"
-            r"(?P<port>:[0-9]+)?"
-            r"(?P<path>\/.*?)?"
-            r"(?P<query>\?.*)?$"
-        )
-        super().__init__(regex, re.IGNORECASE, message)
+    def __init__(
+        self,
+        require_tld=True,
+        allow_ip=True,
+        allow_userinfo=False,
+        schemes=("http", "https"),
+        message=None,
+    ):
+        self.allow_userinfo = allow_userinfo
+        self.schemes = schemes
+        self.message = message
         self.validate_hostname = HostnameValidation(
             require_tld=require_tld, allow_ip=allow_ip
         )
@@ -539,8 +709,26 @@ class URL(Regexp):
         if message is None:
             message = field.gettext("Invalid URL.")
 
-        match = super().__call__(form, field, message)
-        if not self.validate_hostname(match.group("host")):
+        try:
+            r = urlparse(field.data)
+        except ValueError as exc:
+            raise ValidationError(message) from exc
+
+        if not r.scheme or not r.hostname:
+            raise ValidationError(message)
+
+        if self.schemes is not None and r.scheme not in self.schemes:
+            raise ValidationError(message)
+
+        if not self.allow_userinfo and (r.username or r.password):
+            raise ValidationError(message)
+
+        try:
+            _ = r.port
+        except ValueError as exc:
+            raise ValidationError(message) from exc
+
+        if not self.validate_hostname(r.hostname):
             raise ValidationError(message)
 
 
@@ -559,6 +747,10 @@ class UUID:
         message = self.message
         if message is None:
             message = field.gettext("Invalid UUID.")
+        if isinstance(field.data, uuid.UUID):
+            return
+        if not isinstance(field.data, str):
+            raise ValidationError(message)
         try:
             uuid.UUID(field.data)
         except ValueError as exc:
@@ -723,6 +915,7 @@ ip_address = IPAddress
 mac_address = MacAddress
 length = Length
 number_range = NumberRange
+date_range = DateRange
 optional = Optional
 input_required = InputRequired
 data_required = DataRequired

@@ -6,8 +6,8 @@
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use smallvec::SmallVec;
@@ -16,11 +16,11 @@ use tokio::sync::{mpsc, oneshot};
 use xbbg_core::{BlpError, DataType as BlpDataType, Message, Name};
 
 use super::super::OverflowPolicy;
+use super::SubscriptionSender;
 use super::update::{
     FieldIndex, FieldKind, FieldLayout, FieldMeta, StringValueCache, SubscriptionUpdate, TopicId,
     UpdateField, UpdateValue,
 };
-use super::SubscriptionSender;
 
 pub struct SubscriptionMetrics {
     pub messages_received: Arc<AtomicU64>,
@@ -161,7 +161,8 @@ pub enum MessageOutcome {
 /// Handles from one sparse message, sorted by requested index. `None` is projected metadata.
 type RequestedFieldSelection<'a> = SmallVec<[(FieldIndex, Option<xbbg_core::Element<'a>>); 8]>;
 
-/// State for a single subscription, owned by PumpA.
+/// State for a single subscription. Native updates are delivered immediately;
+/// consumers that need Arrow batching use `SubscriptionArrowBatcher`.
 pub struct SubscriptionState {
     /// Topic string (e.g., "IBM US Equity")
     pub topic: Arc<str>,
@@ -188,8 +189,6 @@ pub struct SubscriptionState {
     pub stream: SubscriptionSender,
     /// Session-scoped off-callback forwarding for `OverflowPolicy::Block`.
     forwarder: Option<SubscriptionForwarder>,
-    /// Retained for option/status compatibility. Updates are emitted immediately.
-    pub flush_threshold: usize,
     /// Slow consumer flag (DATALOSS received)
     pub slow_consumer: bool,
     /// Overflow policy for slow consumers
@@ -223,14 +222,12 @@ impl SubscriptionState {
         topic: String,
         fields: Vec<String>,
         stream: SubscriptionSender,
-        flush_threshold: usize,
         capture_all_fields: bool,
     ) -> Self {
         Self::with_policy(
             topic,
             fields,
             stream,
-            flush_threshold,
             OverflowPolicy::default(),
             capture_all_fields,
         )
@@ -241,7 +238,6 @@ impl SubscriptionState {
         topic: String,
         fields: Vec<String>,
         stream: SubscriptionSender,
-        flush_threshold: usize,
         overflow_policy: OverflowPolicy,
         capture_all_fields: bool,
     ) -> Self {
@@ -249,7 +245,6 @@ impl SubscriptionState {
             topic,
             fields,
             stream,
-            flush_threshold,
             overflow_policy,
             capture_all_fields,
             None,
@@ -260,7 +255,6 @@ impl SubscriptionState {
         topic: String,
         fields: Vec<String>,
         stream: SubscriptionSender,
-        flush_threshold: usize,
         overflow_policy: OverflowPolicy,
         capture_all_fields: bool,
         forwarder: Option<SubscriptionForwarder>,
@@ -341,7 +335,6 @@ impl SubscriptionState {
             projection_indices: Vec::new(),
             stream,
             forwarder,
-            flush_threshold,
             slow_consumer: false,
             overflow_policy,
             dropped_batches: 0,
@@ -399,10 +392,10 @@ impl SubscriptionState {
     /// kind replaces its provisional hint; later observations merge normally.
     pub(crate) fn seed_kinds(&mut self, kinds: &HashMap<String, FieldKind>) {
         for idx in 0..self.field_strings.len() {
-            if self.field_kinds[idx] == FieldKind::Unknown {
-                if let Some(&kind) = kinds.get(self.field_strings[idx].as_ref()) {
-                    self.seed_kind(idx as FieldIndex, kind);
-                }
+            if self.field_kinds[idx] == FieldKind::Unknown
+                && let Some(&kind) = kinds.get(self.field_strings[idx].as_ref())
+            {
+                self.seed_kind(idx as FieldIndex, kind);
             }
         }
         self.refresh_layout();
@@ -830,7 +823,7 @@ impl SubscriptionState {
                             match self.update_value_for_field(idx as usize, &child, datatype) {
                                 Ok(value) => value,
                                 Err(error) if self.stream.report_field_error(&error, true) => {
-                                    continue
+                                    continue;
                                 }
                                 Err(error) => return Err(error),
                             };
@@ -1039,10 +1032,6 @@ impl SubscriptionState {
         self.suppress_closed_warning = true;
     }
 
-    /// Native updates are emitted immediately. This remains for existing worker
-    /// shutdown/drop callsites that previously flushed Arrow builders.
-    pub fn flush(&mut self) {}
-
     /// Deliver a terminal error independently of bounded data queue capacity.
     pub fn fail(&self, error: BlpError) {
         self.stream.fail(error);
@@ -1221,7 +1210,6 @@ mod tests {
                 .map(str::to_owned)
                 .collect(),
             tx,
-            1,
             false,
         );
         state.project_image(&decoded_update(
@@ -1304,8 +1292,7 @@ mod tests {
             FieldKind::TimestampMicros,
         ] {
             let (tx, mut rx) = subscription_channel(1);
-            let mut state =
-                SubscriptionState::new("TEST".into(), vec!["VALUE".into()], tx, 1, false);
+            let mut state = SubscriptionState::new("TEST".into(), vec!["VALUE".into()], tx, false);
             state.seed_kinds(&HashMap::from([("VALUE".into(), kind)]));
             let seeded = state.layout();
             assert_eq!(seeded.fields[0].kind, kind);
@@ -1332,7 +1319,6 @@ mod tests {
                     "TEST".into(),
                     vec!["FIELD_00".into(), "FIELD_19".into()],
                     tx,
-                    1,
                     policy,
                     all_fields,
                 );
@@ -1425,7 +1411,7 @@ mod tests {
             ],
         );
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), vec!["TIME".into()], tx, 1, false);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["TIME".into()], tx, false);
         let unrequested = decoded_update(
             Arc::clone(&source.layout),
             [(0, UpdateValue::Str(Arc::from("ignored")))],
@@ -1500,7 +1486,7 @@ mod tests {
     #[test]
     fn recorded_dataloss_keeps_observation_open_until_an_explicit_failure() {
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, false);
         for (index, (timestamp, expected)) in [(Some(17), 17), (None, 0), (Some(-1), 0)]
             .into_iter()
             .enumerate()
@@ -1564,7 +1550,7 @@ mod tests {
     fn closed_image_only_consumers_do_not_observe_new_kinds_or_messages() {
         for terminal_error in [false, true] {
             let (tx, mut rx) = subscription_channel(1);
-            let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, true);
+            let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, true);
             let layout = state.layout();
             if terminal_error {
                 state.fail(BlpError::Timeout);
@@ -1612,7 +1598,7 @@ mod tests {
             |formatter| formatter.json(r#"{"BID":null}"#),
         );
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, false);
 
         assert_eq!(
             deliver(&mut state, &metadata),
@@ -1657,7 +1643,7 @@ mod tests {
         ] {
             let (tx, mut rx) = subscription_channel(1);
             let mut state =
-                SubscriptionState::new(topic.into(), vec!["BID".into()], tx, 1, all_fields);
+                SubscriptionState::new(topic.into(), vec!["BID".into()], tx, all_fields);
             state.set_service(service);
             state.set_label(Arc::from("LABEL"));
             deliver(&mut state, &event);
@@ -1685,8 +1671,8 @@ mod tests {
         );
         let (bid_tx, mut bid_rx) = subscription_channel(1);
         let (ask_tx, mut ask_rx) = subscription_channel(1);
-        let mut bid = SubscriptionState::new("TEST".into(), vec!["BID".into()], bid_tx, 1, false);
-        let mut ask = SubscriptionState::new("TEST".into(), vec!["ASK".into()], ask_tx, 1, false);
+        let mut bid = SubscriptionState::new("TEST".into(), vec!["BID".into()], bid_tx, false);
+        let mut ask = SubscriptionState::new("TEST".into(), vec!["ASK".into()], ask_tx, false);
         bid.set_label(Arc::from("BID_LABEL"));
         ask.set_label(Arc::from("ASK_LABEL"));
         bid.set_topic_id(11);
@@ -1732,7 +1718,7 @@ mod tests {
     fn projection_growth_remaps_source_layouts_and_preserves_typed_clears() {
         let layout = decoded_layout(1, &[("ASK", FieldKind::F64), ("BID", FieldKind::F64)]);
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, false);
         let initial = state.project_image(&decoded_update(
             Arc::clone(&layout),
             [(1, UpdateValue::F64(10.0))],
@@ -1791,14 +1777,16 @@ mod tests {
             [(0, UpdateValue::Str(Arc::clone(&text)))],
         );
         let (tx, _rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, true);
+        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, true);
         let first = state.project_image(&source);
         assert_eq!(value_names(&first), vec!["TEXT"]);
-        assert!(!first
-            .layout
-            .fields
-            .iter()
-            .any(|field| field.name.as_ref() == "FUTURE"));
+        assert!(
+            !first
+                .layout
+                .fields
+                .iter()
+                .any(|field| field.name.as_ref() == "FUTURE")
+        );
         assert!(Arc::ptr_eq(
             &first.layout.fields[2].name,
             &layout.fields[0].name
@@ -1834,7 +1822,7 @@ mod tests {
             ],
         );
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, false);
         assert_eq!(
             state.project_update(&source, true),
             MessageOutcome::DataLoss
@@ -1855,8 +1843,8 @@ mod tests {
         );
         let (slow_tx, mut slow_rx) = subscription_channel(1);
         let (fast_tx, mut fast_rx) = subscription_channel(2);
-        let mut slow = SubscriptionState::new("TEST".into(), vec!["BID".into()], slow_tx, 1, false);
-        let mut fast = SubscriptionState::new("TEST".into(), vec!["BID".into()], fast_tx, 1, false);
+        let mut slow = SubscriptionState::new("TEST".into(), vec!["BID".into()], slow_tx, false);
+        let mut fast = SubscriptionState::new("TEST".into(), vec!["BID".into()], fast_tx, false);
         slow.project_update(&source, true);
         fast.project_update(&source, true);
         assert_eq!(slow.project_update(&source, true), MessageOutcome::Closed);
@@ -1892,14 +1880,13 @@ mod tests {
             "//blp/mktbar/ticker/TEST".into(),
             Vec::new(),
             source_tx,
-            1,
             false,
         );
         deliver(&mut decoder, &event);
         let source = source_rx.try_recv().unwrap().unwrap();
         let (tx, mut rx) = subscription_channel(1);
         let mut consumer =
-            SubscriptionState::new("//blp/mktbar/ticker/TEST".into(), Vec::new(), tx, 1, false);
+            SubscriptionState::new("//blp/mktbar/ticker/TEST".into(), Vec::new(), tx, false);
         consumer.set_label(Arc::from("LABEL"));
         consumer.project_update(&source, true);
         let update = rx.try_recv().unwrap().unwrap();
@@ -1923,7 +1910,7 @@ mod tests {
             |formatter| formatter.json(r#"{"LEVELS":[1.25,2.5]}"#),
         );
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, true);
+        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, true);
         deliver(&mut state, &scalar);
         let update = rx.try_recv().unwrap().unwrap();
         assert_eq!(value_names(&update), vec!["LEVELS"]);
@@ -1957,7 +1944,6 @@ mod tests {
                 "TEST".into(),
                 vec!["BID".into(), "ASK".into(), "LAST_PRICE".into()],
                 tx,
-                1,
                 all_fields,
             );
             let mut latest = HashMap::new();
@@ -1988,8 +1974,8 @@ mod tests {
                 (true, UpdateValue::TimestampMicros(1_789_046_055_000_000)),
                 (false, UpdateValue::Time64Micros(47_655_000_000)),
             ] {
-                let datetime = blpapi_sys::blpapi_HighPrecisionDatetime_t {
-                    datetime: blpapi_sys::blpapi_Datetime_t {
+                let datetime = xbbg_core::ffi::SdkHighPrecisionDatetime {
+                    datetime: xbbg_core::ffi::SdkDatetime {
                         parts: if with_date {
                             xbbg_core::ffi::BLPAPI_DATETIME_TIME_PART
                                 | xbbg_core::ffi::BLPAPI_DATETIME_DATE_PART
@@ -2018,7 +2004,6 @@ mod tests {
                     "TEST".into(),
                     vec!["LAST_UPDATE_ALL_SESSIONS_RT".into()],
                     tx,
-                    1,
                     all_fields,
                 );
                 deliver(&mut state, &event);
@@ -2042,7 +2027,7 @@ mod tests {
         for all_fields in [false, true] {
             let (tx, mut rx) = subscription_channel(1);
             let mut state =
-                SubscriptionState::new("TEST".into(), vec!["FLAG".into()], tx, 1, all_fields);
+                SubscriptionState::new("TEST".into(), vec!["FLAG".into()], tx, all_fields);
             for (value, expected_kind) in [
                 (None, FieldKind::Unknown),
                 (Some(b'Y'), FieldKind::Bool),
@@ -2088,7 +2073,7 @@ mod tests {
                 vec!["VALUE".into()]
             };
             let (tx, mut rx) = subscription_channel(1);
-            let mut state = SubscriptionState::new("TEST".into(), fields, tx, 1, all_fields);
+            let mut state = SubscriptionState::new("TEST".into(), fields, tx, all_fields);
 
             assert_eq!(
                 deliver(&mut state, &numeric),
@@ -2143,7 +2128,7 @@ mod tests {
             |formatter| formatter.json(r#"{"VALUE":7}"#),
         );
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, true);
+        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, true);
 
         assert!(matches!(
             deliver(&mut state, &complex),
@@ -2174,7 +2159,7 @@ mod tests {
         for all_fields in [false, true] {
             let (tx, mut rx) = subscription_channel(1);
             let mut state =
-                SubscriptionState::new("TEST".into(), vec!["LEVELS".into()], tx, 1, all_fields);
+                SubscriptionState::new("TEST".into(), vec!["LEVELS".into()], tx, all_fields);
             assert_eq!(deliver(&mut state, &event), MessageOutcome::Closed);
             assert!(matches!(
                 rx.try_recv().unwrap(),
@@ -2201,7 +2186,7 @@ mod tests {
             |formatter| formatter.json(r#"{"LEVELS":4.5}"#),
         );
         let (tx, mut rx) = subscription_channel(1);
-        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, true);
+        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, true);
 
         deliver(&mut state, &first_scalar);
         let update = rx.try_recv().unwrap().unwrap();
@@ -2214,10 +2199,11 @@ mod tests {
 
         deliver(&mut state, &array);
         let update = rx.try_recv().unwrap().unwrap();
-        assert!(!update
-            .values
-            .iter()
-            .any(|field| { update.layout.fields[field.index as usize].name.as_ref() == "LEVELS" }));
+        assert!(
+            !update.values.iter().any(|field| {
+                update.layout.fields[field.index as usize].name.as_ref() == "LEVELS"
+            })
+        );
 
         deliver(&mut state, &following_scalar);
         let update = rx.try_recv().unwrap().unwrap();
@@ -2241,7 +2227,6 @@ mod tests {
             "//blp/mktbar/ticker/TEST".into(),
             vec!["LAST_PRICE".into()],
             tx,
-            1,
             false,
         );
         deliver(&mut state, &event);
@@ -2272,7 +2257,7 @@ mod tests {
         for all_fields in [false, true] {
             let (tx, mut rx) = subscription_channel(1);
             tx.try_send(Ok(test_update(1))).unwrap();
-            let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, all_fields);
+            let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, all_fields);
             assert_eq!(deliver(&mut state, &event), MessageOutcome::DataLoss);
             assert_eq!(rx.try_recv().unwrap().unwrap().topic_id, 1);
             assert!(matches!(
@@ -2324,7 +2309,6 @@ mod tests {
             "TEST".to_string(),
             Vec::new(),
             consumer_tx,
-            1,
             OverflowPolicy::Block,
             false,
             Some(forwarder),
@@ -2376,7 +2360,6 @@ mod tests {
             "TEST".into(),
             Vec::new(),
             tx,
-            1,
             OverflowPolicy::DropNewest,
             false,
         );
@@ -2463,7 +2446,6 @@ mod tests {
             "TEST".into(),
             requested.iter().map(|field| (*field).to_owned()).collect(),
             tx,
-            5,
             false,
         );
 
@@ -2574,7 +2556,6 @@ mod tests {
             "TEST".into(),
             requested.iter().map(|field| (*field).to_owned()).collect(),
             tx,
-            6,
             false,
         );
 
@@ -2635,7 +2616,6 @@ mod tests {
             "TEST".into(),
             requested.iter().map(|field| (*field).to_owned()).collect(),
             tx,
-            7,
             true,
         );
 
@@ -2783,7 +2763,6 @@ mod tests {
             "//blp/mktbar/ticker/TEST".into(),
             requested.iter().map(|field| (*field).to_owned()).collect(),
             tx,
-            9,
             false,
         );
 
@@ -2853,7 +2832,6 @@ mod tests {
             "TEST".into(),
             requested.iter().map(|field| (*field).to_owned()).collect(),
             tx,
-            11,
             false,
         );
 

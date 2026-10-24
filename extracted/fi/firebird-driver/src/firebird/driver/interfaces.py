@@ -290,7 +290,7 @@ class iConfig(iReferenceCounted):
         return iConfigEntry(result)
     def find_pos(self, name: str, pos: int) -> iConfigEntry:
         """Find entry by name and position.
-If configuration file contains lines::
+If configuration file contains lines:
 
   Db=DBA
   Db=DBB
@@ -1098,8 +1098,8 @@ class iAttachment_v3(iReferenceCounted):
     VERSION = 3
     def __init__(self, intf):
         super().__init__(intf)
-        #: Encoding used for string values
         self.encoding: str = 'ascii'
+        "Encoding used for string values"
     def get_info(self, items: bytes, buffer: bytes) -> None:
         "Replaces `isc_database_info()`"
         self.vtable.getInfo(self, self.status, len(items), items, len(buffer), buffer)
@@ -1261,9 +1261,15 @@ class iAttachment(iAttachment_v4):
     VERSION = 5
     def detach(self) -> None:
         "Replaces `isc_detach_database()`. On success releases interface."
-        self.vtable.detach(self, self.status)
-        self._check()
-        self._refcnt -= 1
+        # Guard against detaching an already-released interface. During cyclic
+        # garbage collection the iAttachment's own iReferenceCounted.__del__
+        # may run release() before Connection.__del__ calls detach(); without
+        # this guard the native call dereferences freed memory and segfaults
+        # (issue #69). iAttachment_v4.detach already guards the same way.
+        if self._refcnt:
+            self.vtable.detach(self, self.status)
+            self._check()
+            self._refcnt -= 1
     def drop_database(self) -> None:
         "Replaces `isc_drop_database()`. On success releases interface."
         self.vtable.dropDatabase(self, self.status)
@@ -1567,9 +1573,10 @@ handle does not work with interfaces."""
         buffer = create_string_buffer(1024)
         self.vtable.formatStatus(self, buffer, 1024, status)
         return buffer.value.decode(encoding, errors='replace')
-    def get_client_version(self) -> int:
-        "Returns integer, containing major version in byte 0 and minor version in byte 1"
-        return self.vtable.getClientVersion(self)
+    def get_client_version(self) -> tuple[int, int]:
+        "Returns the client library's major and minor version numbers."
+        version = self.vtable.getClientVersion(self)
+        return version >> 8, version & 0xff
     def get_xpb_builder(self, kind: XpbKind, buffer: bytes |None=None) -> iXpbBuilder:
         "Returns XpbBuilder interface."
         if buffer is None:
@@ -2020,5 +2027,6 @@ def __augment_api(api: a.FirebirdAPI) -> None:
     setattr(sys.modules[__name__], '_util', _master.get_util_interface()) # noqa:B010
     api.master: iMaster = _master
     api.util: iUtil = _util
+    api._initialize_provider()
 
 add_hook(APIHook.LOADED, a.FirebirdAPI, __augment_api)

@@ -18,6 +18,9 @@ import types
 from collections.abc import Callable
 
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @pytest.fixture

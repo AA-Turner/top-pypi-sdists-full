@@ -128,6 +128,8 @@ __all__ = (
     "NotificationTypeDef",
     "NotificationWithSubscribersTypeDef",
     "PaginatorConfigTypeDef",
+    "ProductAttributeValuesOutputTypeDef",
+    "ProductAttributeValuesTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "ScpActionDefinitionOutputTypeDef",
@@ -350,10 +352,22 @@ class ExpressionDimensionValuesTypeDef(TypedDict):
     MatchOptions: NotRequired[Sequence[MatchOptionType]]
 
 
+class ProductAttributeValuesOutputTypeDef(TypedDict):
+    Key: str
+    Values: NotRequired[list[str]]
+    MatchOptions: NotRequired[list[MatchOptionType]]
+
+
 class TagValuesOutputTypeDef(TypedDict):
     Key: NotRequired[str]
     Values: NotRequired[list[str]]
     MatchOptions: NotRequired[list[MatchOptionType]]
+
+
+class ProductAttributeValuesTypeDef(TypedDict):
+    Key: str
+    Values: NotRequired[Sequence[str]]
+    MatchOptions: NotRequired[Sequence[MatchOptionType]]
 
 
 class TagValuesTypeDef(TypedDict):
@@ -556,6 +570,7 @@ class ExpressionOutputTypeDef(TypedDict):
     Dimensions: NotRequired[ExpressionDimensionValuesOutputTypeDef]
     Tags: NotRequired[TagValuesOutputTypeDef]
     CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesOutputTypeDef]
 
 
 class ExpressionPaginatorTypeDef(TypedDict):
@@ -565,6 +580,7 @@ class ExpressionPaginatorTypeDef(TypedDict):
     Dimensions: NotRequired[ExpressionDimensionValuesOutputTypeDef]
     Tags: NotRequired[TagValuesOutputTypeDef]
     CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesOutputTypeDef]
 
 
 class ExpressionTypeDef(TypedDict):
@@ -574,6 +590,7 @@ class ExpressionTypeDef(TypedDict):
     Dimensions: NotRequired[ExpressionDimensionValuesTypeDef]
     Tags: NotRequired[TagValuesTypeDef]
     CostCategories: NotRequired[CostCategoryValuesTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesTypeDef]
 
 
 TimePeriodUnionTypeDef = Union[TimePeriodTypeDef, TimePeriodOutputTypeDef]

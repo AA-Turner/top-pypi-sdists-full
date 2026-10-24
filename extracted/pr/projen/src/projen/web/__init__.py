@@ -261,6 +261,7 @@ class NextJsProject(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
         auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -403,6 +404,7 @@ class NextJsProject(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
         :param auto_merge_options: (experimental) Configure options for automatic merging on GitHub. Has no effect if ``github.mergify`` or ``autoMerge`` is set to false. Default: - see defaults in ``AutoMergeOptions``
@@ -547,6 +549,7 @@ class NextJsProject(
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
             workflow_package_cache=workflow_package_cache,
+            workflow_permissions=workflow_permissions,
             auto_approve_options=auto_approve_options,
             auto_merge=auto_merge,
             auto_merge_options=auto_merge_options,
@@ -821,6 +824,7 @@ class NextJsProject(
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_package_cache": "workflowPackageCache",
+        "workflow_permissions": "workflowPermissions",
         "sample_code": "sampleCode",
         "srcdir": "srcdir",
     },
@@ -970,6 +974,7 @@ class NextJsProjectOptions(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1112,6 +1117,7 @@ class NextJsProjectOptions(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param sample_code: (experimental) Generate one-time sample in ``pages/`` and ``public/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
 
@@ -1173,6 +1179,8 @@ class NextJsProjectOptions(
             projenrc_js_options = _javascript_eb5dbe11.ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
+        if isinstance(workflow_permissions, dict):
+            workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c6c29736)
             check_type(argname="argument assetsdir", value=assetsdir, expected_type=type_hints["assetsdir"])
@@ -1313,6 +1321,7 @@ class NextJsProjectOptions(
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
+            check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
             check_type(argname="argument sample_code", value=sample_code, expected_type=type_hints["sample_code"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1592,6 +1601,8 @@ class NextJsProjectOptions(
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_package_cache is not None:
             self._values["workflow_package_cache"] = workflow_package_cache
+        if workflow_permissions is not None:
+            self._values["workflow_permissions"] = workflow_permissions
         if sample_code is not None:
             self._values["sample_code"] = sample_code
         if srcdir is not None:
@@ -3416,6 +3427,28 @@ class NextJsProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def workflow_permissions(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
+        '''(experimental) Permissions for the main build, release and dependency upgrade jobs.
+
+        Defined scopes override the job defaults and automatically inferred permissions,
+        including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults.
+        Use ``JobPermission.NONE`` to explicitly remove a permission.
+
+        ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic
+        permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual
+        scopes. Applies to all release branches, but not to separate package, publishing,
+        self-mutation or pull request creation jobs, or unrelated workflows.
+
+        :default: - Use the job defaults and automatically inferred permissions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_permissions")
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
+
+    @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Generate one-time sample in ``pages/`` and ``public/`` if there are no files there.
 
@@ -3524,6 +3557,7 @@ class NextJsTypeScriptProject(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
         auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3684,6 +3718,7 @@ class NextJsTypeScriptProject(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
         :param auto_merge_options: (experimental) Configure options for automatic merging on GitHub. Has no effect if ``github.mergify`` or ``autoMerge`` is set to false. Default: - see defaults in ``AutoMergeOptions``
@@ -3846,6 +3881,7 @@ class NextJsTypeScriptProject(
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
             workflow_package_cache=workflow_package_cache,
+            workflow_permissions=workflow_permissions,
             auto_approve_options=auto_approve_options,
             auto_merge=auto_merge,
             auto_merge_options=auto_merge_options,
@@ -4120,6 +4156,7 @@ class NextJsTypeScriptProject(
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_package_cache": "workflowPackageCache",
+        "workflow_permissions": "workflowPermissions",
         "disable_tsconfig": "disableTsconfig",
         "disable_tsconfig_dev": "disableTsconfigDev",
         "docgen": "docgen",
@@ -4287,6 +4324,7 @@ class NextJsTypeScriptProjectOptions(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
         docgen: typing.Optional[builtins.bool] = None,
@@ -4447,6 +4485,7 @@ class NextJsTypeScriptProjectOptions(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
         :param disable_tsconfig_dev: (experimental) Do not generate a development tsconfig file. Default: false
         :param docgen: (experimental) Docgen by Typedoc. Default: false
@@ -4526,6 +4565,8 @@ class NextJsTypeScriptProjectOptions(
             projenrc_js_options = _javascript_eb5dbe11.ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
+        if isinstance(workflow_permissions, dict):
+            workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if isinstance(eslint_options, dict):
             eslint_options = _javascript_eb5dbe11.EslintOptions(**eslint_options)
         if isinstance(projenrc_ts_options, dict):
@@ -4676,6 +4717,7 @@ class NextJsTypeScriptProjectOptions(
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
+            check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
             check_type(argname="argument disable_tsconfig", value=disable_tsconfig, expected_type=type_hints["disable_tsconfig"])
             check_type(argname="argument disable_tsconfig_dev", value=disable_tsconfig_dev, expected_type=type_hints["disable_tsconfig_dev"])
             check_type(argname="argument docgen", value=docgen, expected_type=type_hints["docgen"])
@@ -4973,6 +5015,8 @@ class NextJsTypeScriptProjectOptions(
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_package_cache is not None:
             self._values["workflow_package_cache"] = workflow_package_cache
+        if workflow_permissions is not None:
+            self._values["workflow_permissions"] = workflow_permissions
         if disable_tsconfig is not None:
             self._values["disable_tsconfig"] = disable_tsconfig
         if disable_tsconfig_dev is not None:
@@ -6831,6 +6875,28 @@ class NextJsTypeScriptProjectOptions(
         '''
         result = self._values.get("workflow_package_cache")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def workflow_permissions(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
+        '''(experimental) Permissions for the main build, release and dependency upgrade jobs.
+
+        Defined scopes override the job defaults and automatically inferred permissions,
+        including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults.
+        Use ``JobPermission.NONE`` to explicitly remove a permission.
+
+        ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic
+        permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual
+        scopes. Applies to all release branches, but not to separate package, publishing,
+        self-mutation or pull request creation jobs, or unrelated workflows.
+
+        :default: - Use the job defaults and automatically inferred permissions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_permissions")
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
 
     @builtins.property
     def disable_tsconfig(self) -> typing.Optional[builtins.bool]:
@@ -7312,6 +7378,7 @@ class ReactProject(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         rewire: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
@@ -7453,6 +7520,7 @@ class ReactProject(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param rewire: (experimental) Rewire webpack configuration. Use this property to override webpack configuration properties provided by create-react-app, without needing to eject. This property will create a ``config-overrides.js`` file in your root directory, which will contain the desired rewiring code. To **override** the configuration, you can provide simple key value pairs. Keys take the form of js code directives that traverse to the desired property. Values should be JSON serializable objects. For example, the following config:: rewire: { "module.unknownContextCritical": false } Will translate to the following ``config-overrides.js`` file:: module.exports = function override(config, env) { config.module.unknownContextCritical = false; } Default: - No rewired config.
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
@@ -7596,6 +7664,7 @@ class ReactProject(
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
             workflow_package_cache=workflow_package_cache,
+            workflow_permissions=workflow_permissions,
             rewire=rewire,
             auto_approve_options=auto_approve_options,
             auto_merge=auto_merge,
@@ -7851,6 +7920,7 @@ class ReactTypeScriptProject(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
         auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8010,6 +8080,7 @@ class ReactTypeScriptProject(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
         :param auto_merge_options: (experimental) Configure options for automatic merging on GitHub. Has no effect if ``github.mergify`` or ``autoMerge`` is set to false. Default: - see defaults in ``AutoMergeOptions``
@@ -8171,6 +8242,7 @@ class ReactTypeScriptProject(
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
             workflow_package_cache=workflow_package_cache,
+            workflow_permissions=workflow_permissions,
             auto_approve_options=auto_approve_options,
             auto_merge=auto_merge,
             auto_merge_options=auto_merge_options,
@@ -8424,6 +8496,7 @@ class ReactTypeScriptProject(
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_package_cache": "workflowPackageCache",
+        "workflow_permissions": "workflowPermissions",
         "disable_tsconfig": "disableTsconfig",
         "disable_tsconfig_dev": "disableTsconfigDev",
         "docgen": "docgen",
@@ -8590,6 +8663,7 @@ class ReactTypeScriptProjectOptions(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
         docgen: typing.Optional[builtins.bool] = None,
@@ -8749,6 +8823,7 @@ class ReactTypeScriptProjectOptions(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
         :param disable_tsconfig_dev: (experimental) Do not generate a development tsconfig file. Default: false
         :param docgen: (experimental) Docgen by Typedoc. Default: false
@@ -8829,6 +8904,8 @@ class ReactTypeScriptProjectOptions(
             projenrc_js_options = _javascript_eb5dbe11.ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
+        if isinstance(workflow_permissions, dict):
+            workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if isinstance(eslint_options, dict):
             eslint_options = _javascript_eb5dbe11.EslintOptions(**eslint_options)
         if isinstance(projenrc_ts_options, dict):
@@ -8977,6 +9054,7 @@ class ReactTypeScriptProjectOptions(
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
+            check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
             check_type(argname="argument disable_tsconfig", value=disable_tsconfig, expected_type=type_hints["disable_tsconfig"])
             check_type(argname="argument disable_tsconfig_dev", value=disable_tsconfig_dev, expected_type=type_hints["disable_tsconfig_dev"])
             check_type(argname="argument docgen", value=docgen, expected_type=type_hints["docgen"])
@@ -9271,6 +9349,8 @@ class ReactTypeScriptProjectOptions(
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_package_cache is not None:
             self._values["workflow_package_cache"] = workflow_package_cache
+        if workflow_permissions is not None:
+            self._values["workflow_permissions"] = workflow_permissions
         if disable_tsconfig is not None:
             self._values["disable_tsconfig"] = disable_tsconfig
         if disable_tsconfig_dev is not None:
@@ -11107,6 +11187,28 @@ class ReactTypeScriptProjectOptions(
         '''
         result = self._values.get("workflow_package_cache")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def workflow_permissions(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
+        '''(experimental) Permissions for the main build, release and dependency upgrade jobs.
+
+        Defined scopes override the job defaults and automatically inferred permissions,
+        including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults.
+        Use ``JobPermission.NONE`` to explicitly remove a permission.
+
+        ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic
+        permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual
+        scopes. Applies to all release branches, but not to separate package, publishing,
+        self-mutation or pull request creation jobs, or unrelated workflows.
+
+        :default: - Use the job defaults and automatically inferred permissions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_permissions")
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
 
     @builtins.property
     def disable_tsconfig(self) -> typing.Optional[builtins.bool]:
@@ -11707,6 +11809,7 @@ class ReactComponentOptions(ReactRewireOptions):
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_package_cache": "workflowPackageCache",
+        "workflow_permissions": "workflowPermissions",
         "rewire": "rewire",
         "sample_code": "sampleCode",
         "srcdir": "srcdir",
@@ -11852,6 +11955,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         rewire: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
@@ -11993,6 +12097,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param rewire: (experimental) Rewire webpack configuration. Use this property to override webpack configuration properties provided by create-react-app, without needing to eject. This property will create a ``config-overrides.js`` file in your root directory, which will contain the desired rewiring code. To **override** the configuration, you can provide simple key value pairs. Keys take the form of js code directives that traverse to the desired property. Values should be JSON serializable objects. For example, the following config:: rewire: { "module.unknownContextCritical": false } Will translate to the following ``config-overrides.js`` file:: module.exports = function override(config, env) { config.module.unknownContextCritical = false; } Default: - No rewired config.
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``public/`` if there are no files there. Default: true
         :param srcdir: (experimental) Source directory. Default: "src"
@@ -12055,6 +12160,8 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
             projenrc_js_options = _javascript_eb5dbe11.ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
+        if isinstance(workflow_permissions, dict):
+            workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345e755bb6)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -12193,6 +12300,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
+            check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
             check_type(argname="argument rewire", value=rewire, expected_type=type_hints["rewire"])
             check_type(argname="argument sample_code", value=sample_code, expected_type=type_hints["sample_code"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
@@ -12469,6 +12577,8 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_package_cache is not None:
             self._values["workflow_package_cache"] = workflow_package_cache
+        if workflow_permissions is not None:
+            self._values["workflow_permissions"] = workflow_permissions
         if rewire is not None:
             self._values["rewire"] = rewire
         if sample_code is not None:
@@ -14271,6 +14381,28 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def workflow_permissions(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
+        '''(experimental) Permissions for the main build, release and dependency upgrade jobs.
+
+        Defined scopes override the job defaults and automatically inferred permissions,
+        including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults.
+        Use ``JobPermission.NONE`` to explicitly remove a permission.
+
+        ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic
+        permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual
+        scopes. Applies to all release branches, but not to separate package, publishing,
+        self-mutation or pull request creation jobs, or unrelated workflows.
+
+        :default: - Use the job defaults and automatically inferred permissions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_permissions")
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
+
+    @builtins.property
     def rewire(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
         '''(experimental) Rewire webpack configuration.
 
@@ -14524,6 +14656,7 @@ def _typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+    workflow_permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
     sample_code: typing.Optional[builtins.bool] = None,
     srcdir: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -14670,6 +14803,7 @@ def _typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+    workflow_permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_tsconfig: typing.Optional[builtins.bool] = None,
     disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
     docgen: typing.Optional[builtins.bool] = None,
@@ -14867,6 +15001,7 @@ def _typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772e
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+    workflow_permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_tsconfig: typing.Optional[builtins.bool] = None,
     disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
     docgen: typing.Optional[builtins.bool] = None,
@@ -15053,6 +15188,7 @@ def _typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+    workflow_permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
     rewire: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     sample_code: typing.Optional[builtins.bool] = None,
     srcdir: typing.Optional[builtins.str] = None,

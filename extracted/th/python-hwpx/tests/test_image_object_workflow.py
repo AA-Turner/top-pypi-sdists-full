@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import base64
+import io
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -90,6 +92,44 @@ def test_add_picture_manifest_item_marks_embedded(tmp_path: Path) -> None:
     items = [i for i in document.package._manifest_items() if i.get("id") == "BIN0001"]
     assert len(items) == 1
     assert items[0].get("isEmbeded") == "1"
+
+
+def _saved_manifest_hrefs(document: HwpxDocument) -> tuple[set[str], set[str]]:
+    with zipfile.ZipFile(io.BytesIO(document.to_bytes())) as archive:
+        manifest = ET.fromstring(archive.read("Contents/content.hpf"))
+        bindata = {name for name in archive.namelist() if name.startswith("BinData/")}
+    hrefs = {item.get("href") for item in manifest.iter("{http://www.idpf.org/2007/opf/}item")}
+    return hrefs, bindata
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        ("section", "pic0", "pic0", "pic0"),
+        ("pic0", "section", "pic1"),
+        ("pic0", "save", "section", "pic1", "pic0"),
+        ("section", "pic0", "validate", "pic1", "section", "pic2"),
+    ],
+)
+def test_pictures_added_around_add_section_all_reach_the_manifest(steps) -> None:
+    """add_section edits the manifest the document holds and add_picture the one
+    the package holds; each must see the other's items, or the save drops them."""
+    document = HwpxDocument.new()
+    for step in steps:
+        if step == "section":
+            document.add_section()
+        elif step == "save":
+            document.to_bytes()
+        elif step == "validate":
+            document.validate()
+        else:
+            section = document.sections[int(step[-1])]
+            document.add_picture(PNG_1X1, "png", section=section, width=7200, height=7200)
+
+    hrefs, bindata = _saved_manifest_hrefs(document)
+    assert len(bindata) == steps.count("pic0") + steps.count("pic1") + steps.count("pic2")
+    assert bindata <= hrefs
+    assert {section.part_name for section in document.oxml.sections} <= hrefs
 
 
 def test_replace_picture_preserves_geometry_and_replaces_only_asset_graph(tmp_path: Path) -> None:
@@ -226,6 +266,26 @@ def test_an_aligned_inline_picture_takes_the_paragraph_alignment() -> None:
         document = HwpxDocument.new()
         document.add_picture(PNG_1X1, "png", width=7200, height=7200, align=align)
         assert _picture_paragraph_alignment(document) == align.upper()
+
+
+@pytest.mark.parametrize("align", ["BOGUS", "TOP", "  right ", 1])
+def test_a_picture_alignment_outside_the_schema_is_refused_before_anything_is_added(align: object) -> None:
+    # Hancom reads a horizontal alignment it does not know as LEFT; the picture was written with it as given.
+    document = HwpxDocument.new()
+    paragraphs, images = len(document.paragraphs), len(document.list_images())
+
+    with pytest.raises(HwpxValueError) as caught:
+        document.add_picture(PNG_1X1, "png", width=7200, height=7200, align=align)  # type: ignore[arg-type]
+
+    assert caught.value.code == "shape-position-frame"
+    assert (len(document.paragraphs), len(document.list_images())) == (paragraphs, images)
+
+
+def test_a_picture_takes_the_inside_and_outside_alignments_too() -> None:
+    for align in ("INSIDE", "outside"):
+        document = HwpxDocument.new()
+        document.add_picture(PNG_1X1, "png", width=7200, height=7200, align=align)
+        assert _first_picture(document).find(f"{HP}pos").get("horzAlign") == align.upper()
 
 
 def test_a_picture_without_align_keeps_the_paragraph_alignment() -> None:

@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from probe.daemon.events import Event, Kind
+from probe.daemon.events import PEER_TOOL, Event, Kind
 
 #: Permission modes, normalized. `BYPASS` = the harness asks nothing (D22: the
 #: daemon asks nothing either). `UNKNOWN` = the mode could not be read (the
@@ -174,3 +174,27 @@ def existing(paths: Iterable[tuple[str, Path]]) -> list[ContextFile]:
 
 def event(kind: Kind, stream: str, offset: int, **fields) -> Event:
     return Event(kind=kind, stream=stream, offset=offset, **fields)
+
+
+def peer_message(stream: str, offset: int, *, text: str, sender_from: str | None = None,
+                 sender_name: str | None = None, mid_turn: bool = False, **fields) -> Event:
+    """A message another agent sent this session (`events.PEER_TOOL`): META, with
+    the sender in `command` -- its name and its address, as the harness gave
+    them (`richy-7f (uds:/run/user/1000/cc-socks/3408179.sock)`) -- and both
+    apart in `tool_input`. `mid_turn`: it reached the agent between its steps
+    (a helper's report), so it starts no turn of its own."""
+    sender_from = sender_from.strip() if isinstance(sender_from, str) and sender_from.strip() else None
+    sender_name = sender_name.strip() if isinstance(sender_name, str) and sender_name.strip() else None
+    sender = (f"{sender_name} ({sender_from})" if sender_name and sender_from and sender_name != sender_from
+              else sender_name or sender_from)
+    tool_input: dict = {}
+    if sender:
+        tool_input["command"] = sender
+    if sender_from:
+        tool_input["from"] = sender_from
+    if sender_name:
+        tool_input["from_name"] = sender_name
+    if mid_turn:
+        tool_input["mid_turn"] = True
+    return Event(kind=Kind.META, stream=stream, offset=offset, text=text, tool=PEER_TOOL, tool_input=tool_input,
+                 **fields)

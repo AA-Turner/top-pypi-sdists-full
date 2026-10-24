@@ -16,12 +16,13 @@ from pathlib import Path
 
 from probe.cli import capabilities, claude_cli, codex_config, pi_config, plugin_cli
 from probe.core import events
-from probe.harness import get_registry
+from probe.harness import FAMILY_EXTENSION, Harness, get_registry
 from probe.sdk import session_marker
 from probe.sdk.durable import through_symlink, write_text_atomic
 
 _LIMIT = 8192
-_SOURCES = ("claude_code", "codex", "pi")
+#: The hook-plugin harnesses whose settings and plugin ledger this repairs.
+_HOOK_SOURCES = (plugin_cli.CLAUDE, plugin_cli.CODEX)
 
 
 class RepairError(ValueError):
@@ -42,19 +43,25 @@ def _read_json(path: Path, *, missing: dict | None = None) -> dict:
     return value
 
 
+def _package_harness() -> Harness | None:
+    """The extension-family harness whose package `_pi_repair` repairs (pi's),
+    from the registry rather than by name."""
+    return next((h for h in get_registry().installable() if h.family == FAMILY_EXTENSION), None)
+
+
 def _journal(source: str) -> Path:
     return session_marker.sessions_dir().parent / "integration-reinstall" / f"{source}.json"
 
 
 def _settings_path(source: str) -> Path:
-    if source == "codex":
+    if source == plugin_cli.CODEX:
         return codex_config.config_path()
     return get_registry().get(source).home_dir() / "settings.json"
 
 
 def _flags(source: str, names: list[str]) -> dict:
     path = _settings_path(source)
-    if source == "codex":
+    if source == plugin_cli.CODEX:
         import tomlkit
 
         data = tomlkit.parse(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -95,7 +102,7 @@ def _restore_flags(source: str, flags: dict) -> None:
     # `codex_config.write_mcp_bearer` writes that, and it replaces the link).
     original = _settings_path(source)
     path = through_symlink(original)
-    if source == "codex":
+    if source == plugin_cli.CODEX:
         import tomlkit
 
         data = tomlkit.parse(path.read_text(encoding="utf-8"))
@@ -157,7 +164,7 @@ def _registered(source: str) -> set[str]:
 
 
 def _validate_registrations(source: str, names: list[str]) -> None:
-    if source != "claude_code":
+    if source != plugin_cli.CLAUDE:
         _flags(source, names)  # reject unknown/custom Codex plugin options
         return
     ledger = _read_settings_json(capabilities.claude_plugin_ledger())
@@ -182,7 +189,7 @@ def _validate_registrations(source: str, names: list[str]) -> None:
 
 def _physical(source: str, name: str) -> bool:
     root = _cache(source, name)
-    manifest = ".codex-plugin" if source == "codex" else ".claude-plugin"
+    manifest = get_registry().get(source).plugin["manifest_dir"]
     for path in root.glob(f"*/{manifest}/plugin.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -288,6 +295,9 @@ def _hook_repair(source: str) -> None:
 
 
 def _pi_repair() -> None:
+    harness = _package_harness()
+    if harness is None:
+        raise RepairError("this agent does not support integration repair")
     active = os.environ
     settings = pi_config.settings_path(active)
     before = settings.read_bytes()
@@ -306,14 +316,14 @@ def _pi_repair() -> None:
         raise RepairError("pi package resolves outside its managed clone; left unchanged")
     if root.exists() and not root.is_dir():
         raise RepairError("pi package cache is not a directory; left unchanged")
-    binary = shutil.which("pi")
+    binary = shutil.which(harness.binary)
     if not binary:
         raise RepairError("pi is not on PATH")
     backup = root.with_name(root.name + ".probe-reinstall-backup")
-    intent = {"v": 1, "source": "pi", "profile": session_marker.recorder("pi"), "package_source": source,
+    intent = {"v": 1, "source": harness.id, "profile": session_marker.recorder(harness.id), "package_source": source,
               "home": str(pi_config.pi_agent_dir(active).resolve()),
               "entry_digest": hashlib.sha256(json.dumps(data["packages"][index], sort_keys=True).encode()).hexdigest()}
-    journal = _journal("pi")
+    journal = _journal(harness.id)
     if journal.exists():
         if (_read_json(journal) != intent or backup.is_symlink()
                 or (backup.exists() and not backup.is_dir())):
@@ -366,12 +376,13 @@ def run(sources: tuple[str, ...] | list[str]) -> bool:
         tel.emit(telemetry.EVENT_INTEGRATION_REINSTALL_STARTED, operation="reinstall", agent_source=source)
         events.step(events.Step.REINSTALL_INTEGRATION, events.Status.STARTED, "Reinstalling Probe integration", agent=source)
         try:
-            if source not in _SOURCES:
-                raise RepairError("this agent does not support integration repair")
-            if source == "pi":
+            package = _package_harness()
+            if source in _HOOK_SOURCES:
+                _hook_repair(source)
+            elif package is not None and source == package.id:
                 _pi_repair()
             else:
-                _hook_repair(source)
+                raise RepairError("this agent does not support integration repair")
         except Exception as exc:  # noqa: BLE001 - report a failed repair, never a complete installation
             all_ok = False
             message = str(exc)

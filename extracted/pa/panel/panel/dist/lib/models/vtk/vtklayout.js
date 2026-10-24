@@ -22,7 +22,6 @@ const INFO_DIV_STYLE = {
 };
 const textPositions = Enum("LowerLeft", "LowerRight", "UpperLeft", "UpperRight", "LowerEdge", "RightEdge", "LeftEdge", "UpperEdge");
 export class AbstractVTKView extends HTMLBoxView {
-    static __name__ = "AbstractVTKView";
     _axes;
     _camera_callbacks;
     _orientationWidget;
@@ -426,7 +425,6 @@ export class AbstractVTKView extends HTMLBoxView {
     }
 }
 export class AbstractVTKPlot extends HTMLBox {
-    static __name__ = "AbstractVTKPlot";
     renderer_el;
     static __module__ = "panel.models.vtk";
     constructor(attrs) {

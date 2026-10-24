@@ -24,9 +24,11 @@ export declare class ReactComponentView extends ReactiveESMView {
     _force_update_callbacks: (() => void)[];
     _mounted_resolve: (() => void) | null;
     _scheduled_removals: DOMView[];
+    _dom_sentinel: HTMLStyleElement | null;
     initialize(): void;
     get use_shadow_dom(): boolean;
     render_esm(): void;
+    setup_style_cache(): void;
     render_error(error: SyntaxError): void;
     /**
      * Settles the promise handed to `_await_ready` by `render_esm`. Safe to call
@@ -40,6 +42,15 @@ export declare class ReactComponentView extends ReactiveESMView {
     protected _apply_stylesheets(stylesheets: StyleSheetLike[]): void;
     render(): void;
     r_after_render(): void;
+    /**
+     * Re-inserting a node recreates the style sheets in its shadow root from
+     * their text, dropping rules added through the CSSOM, which is how emotion
+     * injects styles. A sentinel holding one CSSOM rule detects exactly that,
+     * so that the parent re-rendering, which walks every child, only forces an
+     * update (and a rebuild of the emotion cache) on the children it moved.
+     */
+    protected _dom_reinserted(): boolean;
+    protected _mark_dom(): void;
     _update_layout(): void;
     build_child_views(): Promise<UIElementView[]>;
     protected _update_children_pass(): Promise<void>;
@@ -63,9 +74,9 @@ export declare class ReactComponent extends ReactiveESM {
     sucrase_transforms: Transform[];
     constructor(attrs?: Partial<ReactComponent.Attrs>);
     get usesMui(): boolean;
-    protected _render_code(): string;
-    compile(): string | null;
     protected get _render_cache_key(): string;
+    protected _render_module(): Promise<any>;
+    compile(): string | null;
     static __module__: string;
 }
 //# sourceMappingURL=react_component.d.ts.map

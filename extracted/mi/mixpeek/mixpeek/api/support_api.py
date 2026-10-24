@@ -59,7 +59,7 @@ class SupportApi:
     def add_ticket_message_support(
         self,
         ticket_identifier: StrictStr,
-        create_message_request: CreateMessageRequest,
+        create_message_request: Annotated[CreateMessageRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -78,7 +78,7 @@ class SupportApi:
 
         :param ticket_identifier: (required)
         :type ticket_identifier: str
-        :param create_message_request: (required)
+        :param create_message_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_message_request: CreateMessageRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -117,8 +117,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -135,7 +137,7 @@ class SupportApi:
     def add_ticket_message_support_with_http_info(
         self,
         ticket_identifier: StrictStr,
-        create_message_request: CreateMessageRequest,
+        create_message_request: Annotated[CreateMessageRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -154,7 +156,7 @@ class SupportApi:
 
         :param ticket_identifier: (required)
         :type ticket_identifier: str
-        :param create_message_request: (required)
+        :param create_message_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_message_request: CreateMessageRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -193,8 +195,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -211,7 +215,7 @@ class SupportApi:
     def add_ticket_message_support_without_preload_content(
         self,
         ticket_identifier: StrictStr,
-        create_message_request: CreateMessageRequest,
+        create_message_request: Annotated[CreateMessageRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -230,7 +234,7 @@ class SupportApi:
 
         :param ticket_identifier: (required)
         :type ticket_identifier: str
-        :param create_message_request: (required)
+        :param create_message_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_message_request: CreateMessageRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -269,8 +273,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -362,7 +368,7 @@ class SupportApi:
     @validate_call
     def create_broadcast_support_comms(
         self,
-        create_broadcast_request: CreateBroadcastRequest,
+        create_broadcast_request: Annotated[CreateBroadcastRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -379,7 +385,7 @@ class SupportApi:
         """Create a broadcast communication (Mixpeek admin only).
 
 
-        :param create_broadcast_request: (required)
+        :param create_broadcast_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_broadcast_request: CreateBroadcastRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -417,8 +423,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -434,7 +442,7 @@ class SupportApi:
     @validate_call
     def create_broadcast_support_comms_with_http_info(
         self,
-        create_broadcast_request: CreateBroadcastRequest,
+        create_broadcast_request: Annotated[CreateBroadcastRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -451,7 +459,7 @@ class SupportApi:
         """Create a broadcast communication (Mixpeek admin only).
 
 
-        :param create_broadcast_request: (required)
+        :param create_broadcast_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_broadcast_request: CreateBroadcastRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -489,8 +497,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -506,7 +516,7 @@ class SupportApi:
     @validate_call
     def create_broadcast_support_comms_without_preload_content(
         self,
-        create_broadcast_request: CreateBroadcastRequest,
+        create_broadcast_request: Annotated[CreateBroadcastRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -523,7 +533,7 @@ class SupportApi:
         """Create a broadcast communication (Mixpeek admin only).
 
 
-        :param create_broadcast_request: (required)
+        :param create_broadcast_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_broadcast_request: CreateBroadcastRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -561,8 +571,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -651,7 +663,7 @@ class SupportApi:
     @validate_call
     def create_ticket_support(
         self,
-        create_ticket_request: CreateTicketRequest,
+        create_ticket_request: Annotated[CreateTicketRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -668,7 +680,7 @@ class SupportApi:
         """Create Support Ticket
 
 
-        :param create_ticket_request: (required)
+        :param create_ticket_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_ticket_request: CreateTicketRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -706,8 +718,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -723,7 +737,7 @@ class SupportApi:
     @validate_call
     def create_ticket_support_with_http_info(
         self,
-        create_ticket_request: CreateTicketRequest,
+        create_ticket_request: Annotated[CreateTicketRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -740,7 +754,7 @@ class SupportApi:
         """Create Support Ticket
 
 
-        :param create_ticket_request: (required)
+        :param create_ticket_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_ticket_request: CreateTicketRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -778,8 +792,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -795,7 +811,7 @@ class SupportApi:
     @validate_call
     def create_ticket_support_without_preload_content(
         self,
-        create_ticket_request: CreateTicketRequest,
+        create_ticket_request: Annotated[CreateTicketRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -812,7 +828,7 @@ class SupportApi:
         """Create Support Ticket
 
 
-        :param create_ticket_request: (required)
+        :param create_ticket_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_ticket_request: CreateTicketRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -850,8 +866,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -940,7 +958,7 @@ class SupportApi:
     @validate_call
     def create_video_support(
         self,
-        create_video_request: CreateVideoRequest,
+        create_video_request: Annotated[CreateVideoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -957,7 +975,7 @@ class SupportApi:
         """Register a support video (admin only); triggers Gemini review for uploads.
 
 
-        :param create_video_request: (required)
+        :param create_video_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_video_request: CreateVideoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -995,8 +1013,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1012,7 +1032,7 @@ class SupportApi:
     @validate_call
     def create_video_support_with_http_info(
         self,
-        create_video_request: CreateVideoRequest,
+        create_video_request: Annotated[CreateVideoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1029,7 +1049,7 @@ class SupportApi:
         """Register a support video (admin only); triggers Gemini review for uploads.
 
 
-        :param create_video_request: (required)
+        :param create_video_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_video_request: CreateVideoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1067,8 +1087,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1084,7 +1106,7 @@ class SupportApi:
     @validate_call
     def create_video_support_without_preload_content(
         self,
-        create_video_request: CreateVideoRequest,
+        create_video_request: Annotated[CreateVideoRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1101,7 +1123,7 @@ class SupportApi:
         """Register a support video (admin only); triggers Gemini review for uploads.
 
 
-        :param create_video_request: (required)
+        :param create_video_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_video_request: CreateVideoRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1139,8 +1161,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1229,7 +1253,7 @@ class SupportApi:
     @validate_call
     def create_video_upload_url_support(
         self,
-        video_upload_url_request: VideoUploadUrlRequest,
+        video_upload_url_request: Annotated[VideoUploadUrlRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1246,7 +1270,7 @@ class SupportApi:
         """Presigned PUT to upload a support video to cold storage (admin only).
 
 
-        :param video_upload_url_request: (required)
+        :param video_upload_url_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type video_upload_url_request: VideoUploadUrlRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1284,8 +1308,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1301,7 +1327,7 @@ class SupportApi:
     @validate_call
     def create_video_upload_url_support_with_http_info(
         self,
-        video_upload_url_request: VideoUploadUrlRequest,
+        video_upload_url_request: Annotated[VideoUploadUrlRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1318,7 +1344,7 @@ class SupportApi:
         """Presigned PUT to upload a support video to cold storage (admin only).
 
 
-        :param video_upload_url_request: (required)
+        :param video_upload_url_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type video_upload_url_request: VideoUploadUrlRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1356,8 +1382,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1373,7 +1401,7 @@ class SupportApi:
     @validate_call
     def create_video_upload_url_support_without_preload_content(
         self,
-        video_upload_url_request: VideoUploadUrlRequest,
+        video_upload_url_request: Annotated[VideoUploadUrlRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1390,7 +1418,7 @@ class SupportApi:
         """Presigned PUT to upload a support video to cold storage (admin only).
 
 
-        :param video_upload_url_request: (required)
+        :param video_upload_url_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type video_upload_url_request: VideoUploadUrlRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1428,8 +1456,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1573,8 +1603,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1645,8 +1677,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1717,8 +1751,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1849,8 +1885,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1921,8 +1959,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1993,8 +2033,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2078,7 +2120,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_comms_request: Optional[ListCommsRequest] = None,
+        list_comms_request: Annotated[Optional[ListCommsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2111,7 +2153,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_comms_request:
+        :param list_comms_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_comms_request: ListCommsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2157,8 +2199,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2182,7 +2226,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_comms_request: Optional[ListCommsRequest] = None,
+        list_comms_request: Annotated[Optional[ListCommsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2215,7 +2259,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_comms_request:
+        :param list_comms_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_comms_request: ListCommsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2261,8 +2305,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2286,7 +2332,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_comms_request: Optional[ListCommsRequest] = None,
+        list_comms_request: Annotated[Optional[ListCommsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2319,7 +2365,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_comms_request:
+        :param list_comms_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_comms_request: ListCommsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2365,8 +2411,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2503,7 +2551,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_comms_request: Optional[ListCommsRequest] = None,
+        list_comms_request: Annotated[Optional[ListCommsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2536,7 +2584,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_comms_request:
+        :param list_comms_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_comms_request: ListCommsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2582,8 +2630,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2607,7 +2657,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_comms_request: Optional[ListCommsRequest] = None,
+        list_comms_request: Annotated[Optional[ListCommsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2640,7 +2690,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_comms_request:
+        :param list_comms_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_comms_request: ListCommsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2686,8 +2736,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2711,7 +2763,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_comms_request: Optional[ListCommsRequest] = None,
+        list_comms_request: Annotated[Optional[ListCommsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2744,7 +2796,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_comms_request:
+        :param list_comms_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_comms_request: ListCommsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2790,8 +2842,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2928,7 +2982,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tickets_request: Optional[ListTicketsRequest] = None,
+        list_tickets_request: Annotated[Optional[ListTicketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2961,7 +3015,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tickets_request:
+        :param list_tickets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tickets_request: ListTicketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3007,8 +3061,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3032,7 +3088,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tickets_request: Optional[ListTicketsRequest] = None,
+        list_tickets_request: Annotated[Optional[ListTicketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3065,7 +3121,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tickets_request:
+        :param list_tickets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tickets_request: ListTicketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3111,8 +3167,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3136,7 +3194,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tickets_request: Optional[ListTicketsRequest] = None,
+        list_tickets_request: Annotated[Optional[ListTicketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3169,7 +3227,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tickets_request:
+        :param list_tickets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tickets_request: ListTicketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3215,8 +3273,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3353,7 +3413,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tickets_request: Optional[ListTicketsRequest] = None,
+        list_tickets_request: Annotated[Optional[ListTicketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3386,7 +3446,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tickets_request:
+        :param list_tickets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tickets_request: ListTicketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3432,8 +3492,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3457,7 +3519,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tickets_request: Optional[ListTicketsRequest] = None,
+        list_tickets_request: Annotated[Optional[ListTicketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3490,7 +3552,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tickets_request:
+        :param list_tickets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tickets_request: ListTicketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3536,8 +3598,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3561,7 +3625,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_tickets_request: Optional[ListTicketsRequest] = None,
+        list_tickets_request: Annotated[Optional[ListTicketsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3594,7 +3658,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_tickets_request:
+        :param list_tickets_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_tickets_request: ListTicketsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3640,8 +3704,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3778,7 +3844,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_videos_request: Optional[ListVideosRequest] = None,
+        list_videos_request: Annotated[Optional[ListVideosRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3811,7 +3877,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_videos_request:
+        :param list_videos_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_videos_request: ListVideosRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3857,8 +3923,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3882,7 +3950,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_videos_request: Optional[ListVideosRequest] = None,
+        list_videos_request: Annotated[Optional[ListVideosRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3915,7 +3983,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_videos_request:
+        :param list_videos_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_videos_request: ListVideosRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3961,8 +4029,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3986,7 +4056,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_videos_request: Optional[ListVideosRequest] = None,
+        list_videos_request: Annotated[Optional[ListVideosRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4019,7 +4089,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_videos_request:
+        :param list_videos_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_videos_request: ListVideosRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4065,8 +4135,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4203,7 +4275,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_videos_request: Optional[ListVideosRequest] = None,
+        list_videos_request: Annotated[Optional[ListVideosRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4236,7 +4308,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_videos_request:
+        :param list_videos_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_videos_request: ListVideosRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4282,8 +4354,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4307,7 +4381,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_videos_request: Optional[ListVideosRequest] = None,
+        list_videos_request: Annotated[Optional[ListVideosRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4340,7 +4414,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_videos_request:
+        :param list_videos_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_videos_request: ListVideosRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4386,8 +4460,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4411,7 +4487,7 @@ class SupportApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_videos_request: Optional[ListVideosRequest] = None,
+        list_videos_request: Annotated[Optional[ListVideosRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4444,7 +4520,7 @@ class SupportApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_videos_request:
+        :param list_videos_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_videos_request: ListVideosRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4490,8 +4566,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4621,7 +4699,7 @@ class SupportApi:
     def update_ticket_support(
         self,
         ticket_identifier: StrictStr,
-        update_ticket_request: UpdateTicketRequest,
+        update_ticket_request: Annotated[UpdateTicketRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4640,7 +4718,7 @@ class SupportApi:
 
         :param ticket_identifier: (required)
         :type ticket_identifier: str
-        :param update_ticket_request: (required)
+        :param update_ticket_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_ticket_request: UpdateTicketRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4679,8 +4757,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4697,7 +4777,7 @@ class SupportApi:
     def update_ticket_support_with_http_info(
         self,
         ticket_identifier: StrictStr,
-        update_ticket_request: UpdateTicketRequest,
+        update_ticket_request: Annotated[UpdateTicketRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4716,7 +4796,7 @@ class SupportApi:
 
         :param ticket_identifier: (required)
         :type ticket_identifier: str
-        :param update_ticket_request: (required)
+        :param update_ticket_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_ticket_request: UpdateTicketRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4755,8 +4835,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4773,7 +4855,7 @@ class SupportApi:
     def update_ticket_support_without_preload_content(
         self,
         ticket_identifier: StrictStr,
-        update_ticket_request: UpdateTicketRequest,
+        update_ticket_request: Annotated[UpdateTicketRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4792,7 +4874,7 @@ class SupportApi:
 
         :param ticket_identifier: (required)
         :type ticket_identifier: str
-        :param update_ticket_request: (required)
+        :param update_ticket_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_ticket_request: UpdateTicketRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4831,8 +4913,10 @@ class SupportApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

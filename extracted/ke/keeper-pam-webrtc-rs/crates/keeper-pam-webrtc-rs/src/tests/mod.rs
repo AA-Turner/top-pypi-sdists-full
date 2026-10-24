@@ -47,6 +47,8 @@ mod misc_tests;
 mod nat_keepalive_tests;
 #[cfg(test)]
 mod network_monitor_config_tests;
+#[cfg(all(test, feature = "python-support"))]
+mod operational_diagnostics_tests;
 #[cfg(test)]
 mod protocol_tests;
 #[cfg(test)]

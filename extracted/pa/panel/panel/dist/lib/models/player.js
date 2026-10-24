@@ -20,7 +20,6 @@ function unpress(btn_list) {
     btn_list.forEach((btn) => btn.style.borderStyle = "outset");
 }
 export class PlayerView extends WidgetView {
-    static __name__ = "PlayerView";
     buttonEl;
     titleEl;
     groupEl;
@@ -478,7 +477,6 @@ export class PlayerView extends WidgetView {
 }
 export const LoopPolicy = Enum("once", "loop", "reflect");
 export class Player extends Widget {
-    static __name__ = "Player";
     constructor(attrs) {
         super(attrs);
     }

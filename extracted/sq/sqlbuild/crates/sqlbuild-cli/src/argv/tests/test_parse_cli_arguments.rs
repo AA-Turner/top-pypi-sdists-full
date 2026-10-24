@@ -88,6 +88,30 @@ fn given_help_version_or_rejected_arguments_when_parsing_then_exits_after_writin
             expected_exit: 2,
             expected_last_write: "sqb rules: error[C900]: the following arguments are required: rules_command\n\n",
         },
+        ExitTestCase {
+            description: "a rename target without a new name stays a usage error",
+            argv: &["rename", "stg_orders"],
+            expected_exit: 2,
+            expected_last_write: "sqb rename: error[C900]: the following arguments are required: NEW_NAME\n\n",
+        },
+        ExitTestCase {
+            description: "an invalid review choice exits as a review setup failure",
+            argv: &["review", "--downstream", "some"],
+            expected_exit: 3,
+            expected_last_write: "sqb review: error[C900]: argument --downstream: invalid choice: 'some' (choose from 'critical', 'all', 'none')\n\n",
+        },
+        ExitTestCase {
+            description: "an unknown review option exits as a review setup failure",
+            argv: &["review", "--no-such-option"],
+            expected_exit: 3,
+            expected_last_write: "sqb: error[C900]: unrecognized arguments: --no-such-option\n\n",
+        },
+        ExitTestCase {
+            description: "a rename without a target or a file stays a usage error",
+            argv: &["rename"],
+            expected_exit: 2,
+            expected_last_write: "sqb rename: error[C900]: the following arguments are required: TARGET, NEW_NAME\n\n",
+        },
     ];
 
     for test_case in test_cases {

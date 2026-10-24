@@ -50,7 +50,7 @@ class ExtractorsApi:
     def confirm_submission_extractors_uploads(
         self,
         submission_id: StrictStr,
-        confirm_submission_request: ConfirmSubmissionRequest,
+        confirm_submission_request: Annotated[ConfirmSubmissionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -70,7 +70,7 @@ class ExtractorsApi:
 
         :param submission_id: (required)
         :type submission_id: str
-        :param confirm_submission_request: (required)
+        :param confirm_submission_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirm_submission_request: ConfirmSubmissionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -109,8 +109,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -127,7 +129,7 @@ class ExtractorsApi:
     def confirm_submission_extractors_uploads_with_http_info(
         self,
         submission_id: StrictStr,
-        confirm_submission_request: ConfirmSubmissionRequest,
+        confirm_submission_request: Annotated[ConfirmSubmissionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -147,7 +149,7 @@ class ExtractorsApi:
 
         :param submission_id: (required)
         :type submission_id: str
-        :param confirm_submission_request: (required)
+        :param confirm_submission_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirm_submission_request: ConfirmSubmissionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -186,8 +188,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -204,7 +208,7 @@ class ExtractorsApi:
     def confirm_submission_extractors_uploads_without_preload_content(
         self,
         submission_id: StrictStr,
-        confirm_submission_request: ConfirmSubmissionRequest,
+        confirm_submission_request: Annotated[ConfirmSubmissionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -224,7 +228,7 @@ class ExtractorsApi:
 
         :param submission_id: (required)
         :type submission_id: str
-        :param confirm_submission_request: (required)
+        :param confirm_submission_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type confirm_submission_request: ConfirmSubmissionRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -263,8 +267,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -356,7 +362,7 @@ class ExtractorsApi:
     @validate_call
     def generate_upload_url_extractors_submissions(
         self,
-        create_submission_upload_request: CreateSubmissionUploadRequest,
+        create_submission_upload_request: Annotated[CreateSubmissionUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -374,7 +380,7 @@ class ExtractorsApi:
 
         Step 1: Get a presigned URL to upload your extractor archive to S3.
 
-        :param create_submission_upload_request: (required)
+        :param create_submission_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_submission_upload_request: CreateSubmissionUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -412,8 +418,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -429,7 +437,7 @@ class ExtractorsApi:
     @validate_call
     def generate_upload_url_extractors_submissions_with_http_info(
         self,
-        create_submission_upload_request: CreateSubmissionUploadRequest,
+        create_submission_upload_request: Annotated[CreateSubmissionUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -447,7 +455,7 @@ class ExtractorsApi:
 
         Step 1: Get a presigned URL to upload your extractor archive to S3.
 
-        :param create_submission_upload_request: (required)
+        :param create_submission_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_submission_upload_request: CreateSubmissionUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -485,8 +493,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -502,7 +512,7 @@ class ExtractorsApi:
     @validate_call
     def generate_upload_url_extractors_submissions_without_preload_content(
         self,
-        create_submission_upload_request: CreateSubmissionUploadRequest,
+        create_submission_upload_request: Annotated[CreateSubmissionUploadRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -520,7 +530,7 @@ class ExtractorsApi:
 
         Step 1: Get a presigned URL to upload your extractor archive to S3.
 
-        :param create_submission_upload_request: (required)
+        :param create_submission_upload_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_submission_upload_request: CreateSubmissionUploadRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -558,8 +568,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -703,8 +715,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -775,8 +789,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -847,8 +863,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -984,8 +1002,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1061,8 +1081,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1138,8 +1160,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1278,8 +1302,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1351,8 +1377,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1424,8 +1452,10 @@ class ExtractorsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

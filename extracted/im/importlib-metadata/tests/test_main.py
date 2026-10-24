@@ -57,6 +57,25 @@ class BasicTests(fixtures.DistInfoPkg, unittest.TestCase):
             type('DistributionSubclass', (Distribution,), {})()
 
     @fixtures.parameterize(
+        dict(text='Name: foo\nVersion: 1.0\n', expected=True),
+        dict(text=None, expected=False),
+    )
+    def test_detects_metadata_by_reading(self, text, expected):
+        """
+        A distribution that isn't path-based takes the default
+        detection, which reads what it cannot otherwise detect.
+        """
+
+        class Provided(Distribution):
+            def read_text(self, filename):
+                return text if filename == 'METADATA' else None
+
+            def locate_file(self, path):
+                return None  # pragma: no cover
+
+        assert Provided()._has_metadata() is expected
+
+    @fixtures.parameterize(
         dict(name=None),
         dict(name=''),
     )
@@ -160,6 +179,40 @@ class InvalidMetadataTests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCa
         dist = Distribution.from_name('foo')
         assert dist.version == "1.0"
 
+    def test_invalid_dists_deferred(self):
+        """
+        Preferring the valid dists defers the invalid ones to the end
+        rather than dropping them.
+        """
+        fixtures.build_files(self.make_pkg('foo-4.0', files={}), self.site_dir)
+        fixtures.build_files(self.make_pkg('foo-4.1'), self.site_dir)
+        dists = list(Distribution._prefer_valid(Distribution.discover(name='foo')))
+        assert len(dists) == 2
+        assert dists[0].version == "1.0"
+
+    def test_entry_points_from_valid_dist(self):
+        """
+        Entry points come from the valid dist even when an invalid one
+        of the same name is discovered first.
+
+        Ref python/importlib_metadata#534.
+        """
+        # as in test_valid_dists_preferred, bracket the valid dist so that
+        # on most file systems it is never naturally first.
+        fixtures.build_files(self.make_pkg('foo-4.0', files={}), self.site_dir)
+        fixtures.build_files(
+            self.make_pkg(
+                'foo-4.1',
+                files={
+                    'METADATA': "VERSION: 1.0",
+                    'entry_points.txt': '[shadowed]\nep = foo:main\n',
+                },
+            ),
+            self.site_dir,
+        )
+        fixtures.build_files(self.make_pkg('foo-4.2', files={}), self.site_dir)
+        assert entry_points(group='shadowed').names == {'ep'}
+
     def test_missing_metadata(self):
         """
         Dists with a missing metadata file should raise ``MetadataNotFound``.
@@ -206,76 +259,6 @@ class InvalidMetadataTests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCa
         unversioned = Distribution.at(self.site_dir / 'unversioned-4.4.dist-info')
         with self.assertRaisesRegex(KeyError, 'Version.*unversioned-4.4.dist-info'):
             unversioned.version
-
-
-class MultipleVersionsTests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCase):
-    """
-    An unclean upgrade can leave more than one metadata directory for a
-    distribution in one path. Prefer the greater one.
-
-    Ref python/cpython#100666.
-    """
-
-    # Deliberately not in version order; the preference follows the
-    # lexicographic ordering of the directory names, which only
-    # approximates the ordering of the versions they name.
-    versions = '1.12.1', '1.13.1', '1.9.0', '2.0.0'
-    expected = '2.0.0', '1.9.0', '1.13.1', '1.12.1'
-
-    @staticmethod
-    def make_pkg(name, version, files=None):
-        """
-        Create metadata for a dist-info package at the indicated version.
-        """
-        return {
-            f'{name}-{version}.dist-info': (
-                {'METADATA': f'Name: {name}\nVersion: {version}\n'}
-                if files is None
-                else files
-            ),
-        }
-
-    def build_versions(self, *versions):
-        for ver in versions:
-            fixtures.build_files(self.make_pkg('foo', ver), self.site_dir)
-
-    def test_greater_version_preferred(self):
-        """
-        Retrieving by name resolves to the greater version.
-        """
-        self.build_versions(*self.versions)
-        assert version('foo') == self.expected[0]
-
-    def test_discovery_order(self):
-        """
-        Preferring one version doesn't hide the others from discovery,
-        which reports them greatest first.
-        """
-        self.build_versions(*self.versions)
-        found = tuple(dist.version for dist in Distribution.discover(name='foo'))
-        assert found == self.expected
-
-    def test_greater_version_preferred_in_eggs(self):
-        """
-        Legacy egg-info metadata gets the same preference.
-        """
-        fixtures.build_files(
-            {
-                f'foo-{ver}.egg-info': {'PKG-INFO': f'Name: foo\nVersion: {ver}\n'}
-                for ver in self.versions
-            },
-            self.site_dir,
-        )
-        assert version('foo') == self.expected[0]
-
-    def test_validity_preferred_to_version(self):
-        """
-        A valid dist is still preferred to an invalid one of a greater
-        version, the condition that prompted the report.
-        """
-        self.build_versions('1.12.1')
-        fixtures.build_files(self.make_pkg('foo', '2.0.0', files={}), self.site_dir)
-        assert version('foo') == '1.12.1'
 
 
 class NonASCIITests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCase):

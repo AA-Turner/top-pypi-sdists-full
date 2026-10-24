@@ -183,6 +183,7 @@ def device_authorize(
     client_context: dict | None = None,
     token_name: str | None = None,
     device_instance_id: str | None = None,
+    bind_device: bool = True,
     install_code: str | None = None,
     open_browser: bool = True,
     on_prompt: Callable[[DevicePrompt], None] | None = None,
@@ -211,6 +212,13 @@ def device_authorize(
     ``install_code`` redeems the website's short-lived 10-character code instead
     of requesting another browser approval. The selected grants are still
     explicit, and the long-lived secrets return only through the PKCE exchange.
+
+    ``bind_device=False`` sends no ``device_instance_id``: the token is for
+    somewhere else (`probe token create` for a pod), so the approval must not
+    take THIS machine's slot. The exchange releases a device's credentials
+    only when the request names one, so naming this laptop revoked its own
+    login (a customer's Mac, 2026-10-23); without a device it mints an
+    installation of its own and releases nothing.
     """
     if install_code is not None and not re.fullmatch(r"[A-Z0-9]{10}", install_code):
         raise DeviceLoginError(
@@ -250,7 +258,9 @@ def device_authorize(
         # Omitted when we could not persist an identity, and harmlessly ignored
         # by a backend that predates it (`DeviceAuthorizationStart` is not
         # extra="forbid"), so a new CLI keeps working against an old server.
-        if device_instance_id is None:
+        if not bind_device:
+            device_instance_id = None
+        elif device_instance_id is None:
             from .device_identity import device_instance_id as _resolve
 
             try:

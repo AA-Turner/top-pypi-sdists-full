@@ -26,7 +26,7 @@ from mixpeek.models.list_snapshots_request import ListSnapshotsRequest
 from mixpeek.models.list_snapshots_response import ListSnapshotsResponse
 from mixpeek.models.restore_snapshot_request import RestoreSnapshotRequest
 from mixpeek.models.restore_snapshot_response import RestoreSnapshotResponse
-from mixpeek.models.snapshot_model import SnapshotModel
+from mixpeek.models.snapshot_detail_response import SnapshotDetailResponse
 from mixpeek.models.snapshot_verify_response import SnapshotVerifyResponse
 
 from mixpeek.api_client import ApiClient, RequestSerialized
@@ -51,7 +51,7 @@ class NamespaceSnapshotsApi:
     def create_snapshot_namespaces(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
-        create_snapshot_request: CreateSnapshotRequest,
+        create_snapshot_request: Annotated[CreateSnapshotRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,11 +67,11 @@ class NamespaceSnapshotsApi:
     ) -> CreateSnapshotResponse:
         """Create Namespace Snapshot
 
-        Create a point-in-time snapshot of the entire namespace. Captures all MongoDB documents and an S3 object manifest. Optionally copies S3 objects to the snapshot prefix for full data preservation (required if you plan to delete the namespace and restore later).
+        Create a point-in-time snapshot of the entire namespace. Captures all MongoDB documents and an S3 object manifest. Optionally copies S3 objects to the snapshot prefix for full data preservation (required if you plan to delete the namespace and restore later). With import_from, imports a snapshot taken on another plane instead: its artifacts are copied from an allowed backup bucket, each checked against its recorded sha256, and the snapshot is completed only if verify finds it restorable.
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
-        :param create_snapshot_request: (required)
+        :param create_snapshot_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_snapshot_request: CreateSnapshotRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -110,8 +110,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -128,7 +130,7 @@ class NamespaceSnapshotsApi:
     def create_snapshot_namespaces_with_http_info(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
-        create_snapshot_request: CreateSnapshotRequest,
+        create_snapshot_request: Annotated[CreateSnapshotRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -144,11 +146,11 @@ class NamespaceSnapshotsApi:
     ) -> ApiResponse[CreateSnapshotResponse]:
         """Create Namespace Snapshot
 
-        Create a point-in-time snapshot of the entire namespace. Captures all MongoDB documents and an S3 object manifest. Optionally copies S3 objects to the snapshot prefix for full data preservation (required if you plan to delete the namespace and restore later).
+        Create a point-in-time snapshot of the entire namespace. Captures all MongoDB documents and an S3 object manifest. Optionally copies S3 objects to the snapshot prefix for full data preservation (required if you plan to delete the namespace and restore later). With import_from, imports a snapshot taken on another plane instead: its artifacts are copied from an allowed backup bucket, each checked against its recorded sha256, and the snapshot is completed only if verify finds it restorable.
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
-        :param create_snapshot_request: (required)
+        :param create_snapshot_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_snapshot_request: CreateSnapshotRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -187,8 +189,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -205,7 +209,7 @@ class NamespaceSnapshotsApi:
     def create_snapshot_namespaces_without_preload_content(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
-        create_snapshot_request: CreateSnapshotRequest,
+        create_snapshot_request: Annotated[CreateSnapshotRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -221,11 +225,11 @@ class NamespaceSnapshotsApi:
     ) -> RESTResponseType:
         """Create Namespace Snapshot
 
-        Create a point-in-time snapshot of the entire namespace. Captures all MongoDB documents and an S3 object manifest. Optionally copies S3 objects to the snapshot prefix for full data preservation (required if you plan to delete the namespace and restore later).
+        Create a point-in-time snapshot of the entire namespace. Captures all MongoDB documents and an S3 object manifest. Optionally copies S3 objects to the snapshot prefix for full data preservation (required if you plan to delete the namespace and restore later). With import_from, imports a snapshot taken on another plane instead: its artifacts are copied from an allowed backup bucket, each checked against its recorded sha256, and the snapshot is completed only if verify finds it restorable.
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
-        :param create_snapshot_request: (required)
+        :param create_snapshot_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_snapshot_request: CreateSnapshotRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -264,8 +268,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -417,8 +423,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -494,8 +502,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -571,8 +581,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -653,6 +665,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
         snapshot_id: Annotated[StrictStr, Field(description="Snapshot ID (e.g. snap_xxxxxxxxxxxx)")],
+        download: Annotated[Optional[StrictBool], Field(description="Return signed download URLs and sha256 digests for every artifact. Only a completed snapshot can be downloaded.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -665,15 +678,17 @@ class NamespaceSnapshotsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> SnapshotModel:
+    ) -> SnapshotDetailResponse:
         """Get Snapshot
 
-        Get details of a specific snapshot.
+        Get details of a specific snapshot. With download=true the response also carries a signed URL and the sha256 for every artifact (configuration, Mongo dumps, vector export, object manifest), valid for one hour, so you can download the namespace.
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
         :param snapshot_id: Snapshot ID (e.g. snap_xxxxxxxxxxxx) (required)
         :type snapshot_id: str
+        :param download: Return signed download URLs and sha256 digests for every artifact. Only a completed snapshot can be downloaded.
+        :type download: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -699,6 +714,7 @@ class NamespaceSnapshotsApi:
         _param = self._get_snapshot_namespaces_serialize(
             namespace_identifier=namespace_identifier,
             snapshot_id=snapshot_id,
+            download=download,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -706,13 +722,15 @@ class NamespaceSnapshotsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "SnapshotModel",
+            '200': "SnapshotDetailResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -730,6 +748,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
         snapshot_id: Annotated[StrictStr, Field(description="Snapshot ID (e.g. snap_xxxxxxxxxxxx)")],
+        download: Annotated[Optional[StrictBool], Field(description="Return signed download URLs and sha256 digests for every artifact. Only a completed snapshot can be downloaded.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -742,15 +761,17 @@ class NamespaceSnapshotsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[SnapshotModel]:
+    ) -> ApiResponse[SnapshotDetailResponse]:
         """Get Snapshot
 
-        Get details of a specific snapshot.
+        Get details of a specific snapshot. With download=true the response also carries a signed URL and the sha256 for every artifact (configuration, Mongo dumps, vector export, object manifest), valid for one hour, so you can download the namespace.
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
         :param snapshot_id: Snapshot ID (e.g. snap_xxxxxxxxxxxx) (required)
         :type snapshot_id: str
+        :param download: Return signed download URLs and sha256 digests for every artifact. Only a completed snapshot can be downloaded.
+        :type download: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -776,6 +797,7 @@ class NamespaceSnapshotsApi:
         _param = self._get_snapshot_namespaces_serialize(
             namespace_identifier=namespace_identifier,
             snapshot_id=snapshot_id,
+            download=download,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -783,13 +805,15 @@ class NamespaceSnapshotsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "SnapshotModel",
+            '200': "SnapshotDetailResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -807,6 +831,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
         snapshot_id: Annotated[StrictStr, Field(description="Snapshot ID (e.g. snap_xxxxxxxxxxxx)")],
+        download: Annotated[Optional[StrictBool], Field(description="Return signed download URLs and sha256 digests for every artifact. Only a completed snapshot can be downloaded.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -822,12 +847,14 @@ class NamespaceSnapshotsApi:
     ) -> RESTResponseType:
         """Get Snapshot
 
-        Get details of a specific snapshot.
+        Get details of a specific snapshot. With download=true the response also carries a signed URL and the sha256 for every artifact (configuration, Mongo dumps, vector export, object manifest), valid for one hour, so you can download the namespace.
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
         :param snapshot_id: Snapshot ID (e.g. snap_xxxxxxxxxxxx) (required)
         :type snapshot_id: str
+        :param download: Return signed download URLs and sha256 digests for every artifact. Only a completed snapshot can be downloaded.
+        :type download: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -853,6 +880,7 @@ class NamespaceSnapshotsApi:
         _param = self._get_snapshot_namespaces_serialize(
             namespace_identifier=namespace_identifier,
             snapshot_id=snapshot_id,
+            download=download,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -860,13 +888,15 @@ class NamespaceSnapshotsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "SnapshotModel",
+            '200': "SnapshotDetailResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -879,6 +909,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier,
         snapshot_id,
+        download,
         _request_auth,
         _content_type,
         _headers,
@@ -905,6 +936,10 @@ class NamespaceSnapshotsApi:
         if snapshot_id is not None:
             _path_params['snapshot_id'] = snapshot_id
         # process the query parameters
+        if download is not None:
+            
+            _query_params.append(('download', download))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -946,7 +981,7 @@ class NamespaceSnapshotsApi:
     def list_snapshots_namespaces(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
-        list_snapshots_request: Optional[ListSnapshotsRequest] = None,
+        list_snapshots_request: Annotated[Optional[ListSnapshotsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -966,7 +1001,7 @@ class NamespaceSnapshotsApi:
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
-        :param list_snapshots_request:
+        :param list_snapshots_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_snapshots_request: ListSnapshotsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1005,8 +1040,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1023,7 +1060,7 @@ class NamespaceSnapshotsApi:
     def list_snapshots_namespaces_with_http_info(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
-        list_snapshots_request: Optional[ListSnapshotsRequest] = None,
+        list_snapshots_request: Annotated[Optional[ListSnapshotsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1043,7 +1080,7 @@ class NamespaceSnapshotsApi:
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
-        :param list_snapshots_request:
+        :param list_snapshots_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_snapshots_request: ListSnapshotsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1082,8 +1119,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1100,7 +1139,7 @@ class NamespaceSnapshotsApi:
     def list_snapshots_namespaces_without_preload_content(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
-        list_snapshots_request: Optional[ListSnapshotsRequest] = None,
+        list_snapshots_request: Annotated[Optional[ListSnapshotsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1120,7 +1159,7 @@ class NamespaceSnapshotsApi:
 
         :param namespace_identifier: Namespace name or ID (required)
         :type namespace_identifier: str
-        :param list_snapshots_request:
+        :param list_snapshots_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_snapshots_request: ListSnapshotsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1159,8 +1198,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1254,7 +1295,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
         snapshot_id: Annotated[StrictStr, Field(description="Snapshot ID to restore from")],
-        restore_snapshot_request: RestoreSnapshotRequest,
+        restore_snapshot_request: Annotated[RestoreSnapshotRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1276,7 +1317,7 @@ class NamespaceSnapshotsApi:
         :type namespace_identifier: str
         :param snapshot_id: Snapshot ID to restore from (required)
         :type snapshot_id: str
-        :param restore_snapshot_request: (required)
+        :param restore_snapshot_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type restore_snapshot_request: RestoreSnapshotRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1316,8 +1357,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1335,7 +1378,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
         snapshot_id: Annotated[StrictStr, Field(description="Snapshot ID to restore from")],
-        restore_snapshot_request: RestoreSnapshotRequest,
+        restore_snapshot_request: Annotated[RestoreSnapshotRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1357,7 +1400,7 @@ class NamespaceSnapshotsApi:
         :type namespace_identifier: str
         :param snapshot_id: Snapshot ID to restore from (required)
         :type snapshot_id: str
-        :param restore_snapshot_request: (required)
+        :param restore_snapshot_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type restore_snapshot_request: RestoreSnapshotRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1397,8 +1440,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1416,7 +1461,7 @@ class NamespaceSnapshotsApi:
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Namespace name or ID")],
         snapshot_id: Annotated[StrictStr, Field(description="Snapshot ID to restore from")],
-        restore_snapshot_request: RestoreSnapshotRequest,
+        restore_snapshot_request: Annotated[RestoreSnapshotRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1438,7 +1483,7 @@ class NamespaceSnapshotsApi:
         :type namespace_identifier: str
         :param snapshot_id: Snapshot ID to restore from (required)
         :type snapshot_id: str
-        :param restore_snapshot_request: (required)
+        :param restore_snapshot_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type restore_snapshot_request: RestoreSnapshotRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1478,8 +1523,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1638,8 +1685,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1719,8 +1768,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1800,8 +1851,10 @@ class NamespaceSnapshotsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

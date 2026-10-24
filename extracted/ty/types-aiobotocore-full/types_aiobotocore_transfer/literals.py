@@ -43,6 +43,7 @@ __all__ = (
     "ExecutionErrorTypeType",
     "ExecutionStatusType",
     "HomeDirectoryTypeType",
+    "HostKeyStorageTypeType",
     "IdentityProviderTypeType",
     "IpAddressTypeType",
     "ListAccessesPaginatorName",
@@ -119,6 +120,7 @@ ExecutionErrorTypeType = Literal[
 ]
 ExecutionStatusType = Literal["COMPLETED", "EXCEPTION", "HANDLING_EXCEPTION", "IN_PROGRESS"]
 HomeDirectoryTypeType = Literal["LOGICAL", "PATH"]
+HostKeyStorageTypeType = Literal["SECRETS_MANAGER", "SERVICE_MANAGED"]
 IdentityProviderTypeType = Literal[
     "API_GATEWAY", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "SERVICE_MANAGED"
 ]
@@ -315,13 +317,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -389,6 +390,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -523,6 +525,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -573,7 +576,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

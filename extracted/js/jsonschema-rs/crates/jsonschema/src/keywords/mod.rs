@@ -777,4 +777,84 @@ mod tests {
         assert_eq!(errors[0].to_string(), r#""foo" is a required property"#);
         assert_eq!(errors[1].to_string(), r#""bar" is a required property"#);
     }
+
+    #[cfg(feature = "arbitrary-precision")]
+    mod large_numbers {
+        use crate::tests_util;
+        use serde_json::{json, Value};
+        use test_case::test_case;
+
+        fn number(text: &str) -> Value {
+            serde_json::from_str(text).expect("valid JSON")
+        }
+
+        fn digits(count: usize) -> Value {
+            number(&format!("1{}", "0".repeat(count)))
+        }
+
+        #[test_case(&json!({"type": "integer"}), &number("1e-30000"), false)]
+        #[test_case(&json!({"const": 0}), &number("1e-30000"), false)]
+        #[test_case(&json!({"enum": [0, 1]}), &number("1e-30000"), false)]
+        #[test_case(&json!({"uniqueItems": true}), &json!([number("1e-30000"), number("2e-30000")]), true)]
+        #[test_case(&json!({"multipleOf": 0.5}), &number("1e-30000"), false)]
+        #[test_case(&json!({"multipleOf": 0.5}), &number("1e30000"), true)]
+        #[test_case(&json!({"const": 0.5}), &digits(30000), false)]
+        #[test_case(&json!({"enum": [0.5]}), &digits(30000), false)]
+        #[test_case(&json!({"maximum": 0.5}), &digits(30000), false)]
+        #[test_case(&json!({"exclusiveMinimum": 0.5}), &digits(30000), true)]
+        #[test_case(&json!({"multipleOf": 0.5}), &digits(30000), true)]
+        #[test_case(&json!({"maximum": digits(30000)}), &number("0.5"), true)]
+        fn exact_answer(schema: &Value, instance: &Value, expected: bool) {
+            if expected {
+                tests_util::is_valid(schema, instance);
+            } else {
+                tests_util::is_not_valid(schema, instance);
+            }
+        }
+
+        // Exponents too far out for exact arithmetic to materialise the number.
+        #[test_case(r#"{"type": "integer"}"#, "1e-2000000", false)]
+        #[test_case(r#"{"type": "integer"}"#, "1e2000000", true)]
+        #[test_case(r#"{"type": "integer"}"#, "1.5e2000000", true)]
+        #[test_case(r#"{"const": 0}"#, "1e-2000000", false)]
+        #[test_case(r#"{"enum": [0]}"#, "1e-2000000", false)]
+        #[test_case(r#"{"const": 1e2000000}"#, "10e1999999", true)]
+        #[test_case(r#"{"const": 1e2000000}"#, "2e2000000", false)]
+        #[test_case(r#"{"uniqueItems": true}"#, "[1e-2000000, 0.1e-1999999]", false)]
+        #[test_case(r#"{"uniqueItems": true}"#, "[1e-2000000, 2e-2000000]", true)]
+        #[test_case(r#"{"maximum": 0}"#, "1e-2000000", false)]
+        #[test_case(r#"{"minimum": 0}"#, "-1e-2000000", false)]
+        #[test_case(r#"{"exclusiveMinimum": 0}"#, "1e-2000000", true)]
+        #[test_case(r#"{"exclusiveMaximum": 0}"#, "-1e-2000000", true)]
+        #[test_case(r#"{"minimum": 0.1}"#, "1e-2000000", false)]
+        #[test_case(r#"{"maximum": 18446744073709551616}"#, "1e2000000", false)]
+        #[test_case(r#"{"maximum": 1e-2000000}"#, "0", true)]
+        #[test_case(r#"{"maximum": 1e-2000000}"#, "2e-2000000", false)]
+        #[test_case(r#"{"minimum": 1e-2000000}"#, "0.5e-1999999", true)]
+        #[test_case(r#"{"minimum": 1e2000000}"#, "1e308", false)]
+        #[test_case(r#"{"exclusiveMaximum": 1e2000000}"#, "1e2000000", false)]
+        #[test_case(r#"{"multipleOf": 2}"#, "1e2000000", true)]
+        #[test_case(r#"{"multipleOf": 3}"#, "1e2000000", false)]
+        #[test_case(r#"{"multipleOf": 0.5}"#, "1e2000000", true)]
+        #[test_case(r#"{"multipleOf": 0.5}"#, "1e-2000000", false)]
+        #[test_case(r#"{"multipleOf": 18446744073709551616}"#, "1e2000000", true)]
+        #[test_case(r#"{"multipleOf": 1e-2000000}"#, "3", true)]
+        #[test_case(r#"{"multipleOf": 1e-2000000}"#, "1e-2000001", false)]
+        #[test_case(r#"{"multipleOf": 1e2000000}"#, "3e2000000", true)]
+        #[test_case(r#"{"multipleOf": 1e2000000}"#, "1e308", false)]
+        fn past_exponent_cap(schema: &str, instance: &str, expected: bool) {
+            exact_answer(&number(schema), &number(instance), expected);
+        }
+
+        // `1.000...0001`, with more digits than exact arithmetic takes on.
+        #[test_case(r#"{"type": "integer"}"#, false)]
+        #[test_case(r#"{"const": 1}"#, false)]
+        #[test_case(r#"{"maximum": 1}"#, false)]
+        #[test_case(r#"{"exclusiveMinimum": 1}"#, true)]
+        #[test_case(r#"{"multipleOf": 0.5}"#, false)]
+        fn past_digit_cap(schema: &str, expected: bool) {
+            let instance = number(&format!("1.{}1", "0".repeat(2_000_000)));
+            exact_answer(&number(schema), &instance, expected);
+        }
+    }
 }

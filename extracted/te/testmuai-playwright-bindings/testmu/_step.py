@@ -44,6 +44,8 @@ def get_step_autoheal() -> bool:
 
 
 _TEMPLATE_TOKEN_RE = re.compile(r"\{\{(.+?)\}\}|\$\{(.+?)\}")
+# Credential namespaces (mirrors _v3._vars._MASKED_NAMESPACES) — never resolved into a step label.
+_SECRET_TOKEN_RE = re.compile(r"\{\{\s*(?:secrets?|totp)\.[^{}]*\}\}")
 
 
 def get_step_intent():
@@ -95,7 +97,23 @@ def _resolve_label(description):
         from testmu import _router
         if _router.mode() != "v3":
             return description
-        return str(_router.impl()._vars.var(description))
+        # The label is shipped on lambda-testCase-start/end and logged, so a
+        # credential must never be substituted in: keep {{secrets.*}}/{{totp.*}}
+        # tokens as authored, and redact any already-resolved secret value that
+        # arrives through an ordinary variable (set_var("pwd", var("{{secrets..}}"))).
+        _vars = _router.impl()._vars
+        hidden = []
+
+        def _hide(m):
+            hidden.append(m.group(0))
+            return f"\x00SECRET{len(hidden) - 1}\x00"
+
+        resolved = str(_vars.var(_SECRET_TOKEN_RE.sub(_hide, description)))
+        for secret in sorted(_vars._SECRET_VALUES, key=len, reverse=True):
+            resolved = resolved.replace(secret, "*****")
+        for i, token in enumerate(hidden):
+            resolved = resolved.replace(f"\x00SECRET{i}\x00", token)
+        return resolved
     except Exception as e:  # noqa: BLE001 — label resolution is best-effort
         _log.debug("[testmu] step label resolve skipped: %s", e)
         return description

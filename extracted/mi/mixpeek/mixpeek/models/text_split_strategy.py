@@ -33,6 +33,7 @@ class TextSplitStrategy(str, Enum):
     PARAGRAPHS = 'paragraphs'
     PAGES = 'pages'
     TIME_SEGMENTS = 'time_segments'
+    MARKDOWN = 'markdown'
     NONE = 'none'
 
     @classmethod

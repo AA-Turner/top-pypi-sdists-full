@@ -33,7 +33,7 @@ from plato.rpc.client.stubs import AgentJobStub, EnvStub, ExecStub, FilesStub, H
 from plato.rpc.errors import AgentJobRecordLostError, AgentUnreachableError
 from plato.rpc.models.env import EnvSetupRequest, HostsEntry
 from plato.rpc.models.exec_ import ExecRunRequest
-from plato.rpc.models.job import AgentJobStartRequest
+from plato.rpc.models.job import AgentJobStartRequest, AgentJobStatus
 from plato.rpc.protocol import CAP_AGENT_JOB_START, CAP_ENV_SETUP, CAP_EXEC_RUN
 from plato.runtimes.base import RuntimeInfo, VMMetadata
 from plato.utils.subprocess import (
@@ -46,6 +46,8 @@ from plato.utils.subprocess import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from plato.v2.async_.session import Session
 
 logger = logging.getLogger(__name__)
@@ -449,6 +451,8 @@ async def execute_agent(
     ctx: AgentContext,
     runner_path: str,
     workdir: str,
+    *,
+    on_job_started: Callable[[str], None] | None = None,
 ) -> str:
     """Execute the agent on a VM.
 
@@ -456,6 +460,11 @@ async def execute_agent(
     lifetime is decoupled from the connection — a network blip no longer looks
     like a crash (the exit-255 fix). SSH fallback is the original
     session-lifetime ``run_ssh_streaming`` body, unchanged.
+
+    ``on_job_started`` gets the job's ``agent_job_id`` as soon as the daemon has
+    started it (RPC path only: an agent run over SSH has no job to come back
+    to). A caller that keeps it can wait on the same job later, from another
+    process too, with ``attach_agent``.
 
     Returns the hex span ID of the agent execution span (consumed by
     ``plato/workflows/backend.py`` via ``runner.last_execution_span_id``) — the
@@ -467,7 +476,7 @@ async def execute_agent(
     hostname = info.hostname
 
     async def _rpc(client: AgentDaemonClient) -> str:
-        return await _execute_agent_rpc(client, info, ctx, runner_path, workdir)
+        return await _execute_agent_rpc(client, info, ctx, runner_path, workdir, on_job_started=on_job_started)
 
     async def _ssh() -> str:
         return await _execute_agent_ssh(info, ctx, runner_path, workdir)
@@ -481,6 +490,8 @@ async def _execute_agent_rpc(
     ctx: AgentContext,
     runner_path: str,
     workdir: str,
+    *,
+    on_job_started: Callable[[str], None] | None = None,
 ) -> str:
     """Run the agent as a supervised daemon job. Instruction goes via the files
     service (no ARG_MAX games), env via the job spec (no shell export file), and
@@ -535,32 +546,63 @@ async def _execute_agent_rpc(
         await AgentJobStub(client).start(
             AgentJobStartRequest(agent_job_id=agent_job_id, argv=argv, cwd=workdir, env=env)
         )
-        try:
-            status = await AgentJobStub(client).wait_for_exit(agent_job_id, poll_s=30.0)
-        except asyncio.CancelledError:
-            # Caller cancelled (continuation timeout, user abort, teardown):
-            # stop the remote agent instead of orphaning it. ONE shielded
-            # best-effort request — the daemon runs the TERM→grace→KILL
-            # escalation server-side, so cancellation never blocks on the
-            # grace window (and a dead daemon must not block it either).
-            logger.warning(
-                "Agent job %s on %s: caller cancelled — sent TERM with 5s KILL escalation",
-                agent_job_id,
-                hostname,
-            )
-            with contextlib.suppress(Exception):
-                await asyncio.shield(
-                    AgentJobStub(client).signal(agent_job_id, _SIGTERM, escalate_kill_after_s=5.0, deadline_s=5.0)
-                )
-            raise
-        except AgentUnreachableError:
-            # Daemon (or the whole VM) died mid-run and stayed down past the
-            # retry budget — it cannot report on itself. SSH probes are the
-            # surviving role of diagnose_agent_vm (ping, sshd, dmesg/OOM, ps,
-            # free), exactly what the SSH path ran on exit-255.
-            await diagnose_agent_vm(info)
-            raise
+        if on_job_started is not None:
+            try:
+                on_job_started(agent_job_id)
+            except BaseException:
+                # The caller couldn't keep the id, so nothing could come back to
+                # this job: stop it rather than leave it running unowned.
+                logger.warning("Agent job %s on %s: on_job_started failed — sent TERM", agent_job_id, hostname)
+                with contextlib.suppress(Exception):
+                    await asyncio.shield(
+                        AgentJobStub(client).signal(agent_job_id, _SIGTERM, escalate_kill_after_s=5.0, deadline_s=5.0)
+                    )
+                raise
+        status = await _wait_for_agent_job(client, info, agent_job_id)
 
+    await _check_agent_job_outcome(client, info, agent_job_id, status)
+    return last_execution_span_id
+
+
+async def _wait_for_agent_job(client: AgentDaemonClient, info: RuntimeInfo, agent_job_id: str) -> AgentJobStatus:
+    """Wait for a started agent job to leave the running state. Cancelling the
+    wait stops the job (TERM, then KILL); a daemon gone for good raises
+    ``AgentUnreachableError`` after probing the VM."""
+    hostname = info.hostname
+    try:
+        status = await AgentJobStub(client).wait_for_exit(agent_job_id, poll_s=30.0)
+    except asyncio.CancelledError:
+        # Caller cancelled (continuation timeout, user abort, teardown):
+        # stop the remote agent instead of orphaning it. ONE shielded
+        # best-effort request — the daemon runs the TERM→grace→KILL
+        # escalation server-side, so cancellation never blocks on the
+        # grace window (and a dead daemon must not block it either).
+        logger.warning(
+            "Agent job %s on %s: caller cancelled — sent TERM with 5s KILL escalation",
+            agent_job_id,
+            hostname,
+        )
+        with contextlib.suppress(Exception):
+            await asyncio.shield(
+                AgentJobStub(client).signal(agent_job_id, _SIGTERM, escalate_kill_after_s=5.0, deadline_s=5.0)
+            )
+        raise
+    except AgentUnreachableError:
+        # Daemon (or the whole VM) died mid-run and stayed down past the
+        # retry budget — it cannot report on itself. SSH probes are the
+        # surviving role of diagnose_agent_vm (ping, sshd, dmesg/OOM, ps,
+        # free), exactly what the SSH path ran on exit-255.
+        await diagnose_agent_vm(info)
+        raise
+    return status
+
+
+async def _check_agent_job_outcome(
+    client: AgentDaemonClient, info: RuntimeInfo, agent_job_id: str, status: AgentJobStatus
+) -> None:
+    """Raise for an agent job that didn't exit cleanly (lost, killed by a
+    signal, non-zero exit), logging what the daemon can tell about why."""
+    hostname = info.hostname
     logger.info(
         "Agent job %s finished: state=%s rc=%s term_signal=%s",
         agent_job_id,
@@ -628,7 +670,53 @@ async def _execute_agent_rpc(
             raise RuntimeError(f"Agent killed by signal {status.term_signal}")
         raise AgentExitError(status.rc, stdout_tail=tails.get("stdout", ""), stderr_tail=tails.get("stderr", ""))
 
-    return last_execution_span_id
+
+class AgentJobNotAttachableError(RuntimeError):
+    """``attach_agent`` on a VM whose agent can't be re-attached: its daemon
+    doesn't run agent jobs over RPC (or RPC is switched off), so an agent there
+    ran over SSH and ended with the connection that started it."""
+
+
+async def attach_agent(info: RuntimeInfo, agent_job_id: str) -> str:
+    """Wait for an agent job that's already running on ``info``'s VM, started
+    by ``execute_agent`` (whose ``on_job_started`` gave the id), possibly in
+    another process, and check its outcome the same way.
+
+    The job never depended on the process that started it: the daemon keeps
+    it running and keeps its outcome on disk, so a new process that holds the
+    VM's address and an SSH key it accepts can wait on it. Cancelling this
+    wait stops the job, as cancelling ``execute_agent`` does. Raises
+    ``AgentJobNotAttachableError`` when the VM's daemon can't run agent jobs
+    (the agent ran over SSH), and the daemon's ``JOB_NOT_FOUND`` error for an
+    id it doesn't know.
+
+    Returns the hex span ID of this wait's ``agent.execution.attach`` span.
+    """
+    ssh_key = info.ssh_key_path
+    if not ssh_key:
+        raise RuntimeError("ssh_key_path required to attach to an agent job")
+
+    async def _rpc(client: AgentDaemonClient) -> str:
+        span_id = ""
+        tracer = trace.get_tracer(__name__)
+        with tracer.start_as_current_span("agent.execution.attach") as span:
+            span_ctx = span.get_span_context()
+            if span_ctx.is_valid:
+                span_id = format(span_ctx.span_id, "016x")
+            span.set_attribute("plato.agent.alias", info.metadata.alias)
+            span.set_attribute("agent.hostname", info.hostname)
+            span.set_attribute("plato.agent.job_id", agent_job_id)
+            logger.info("Attaching to agent job %s on %s", agent_job_id, info.hostname)
+            status = await _wait_for_agent_job(client, info, agent_job_id)
+        await _check_agent_job_outcome(client, info, agent_job_id, status)
+        return span_id
+
+    async def _ssh() -> str:
+        raise AgentJobNotAttachableError(
+            f"Agent job {agent_job_id} on {info.hostname}: the VM's daemon can't run agent jobs over RPC"
+        )
+
+    return await rpc_or_ssh(info.hostname, ssh_key, CAP_AGENT_JOB_START, _rpc, _ssh)
 
 
 async def _execute_agent_ssh(

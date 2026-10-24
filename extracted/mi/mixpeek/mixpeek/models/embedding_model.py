@@ -38,6 +38,8 @@ class EmbeddingModel(str, Enum):
     TEXT_MINUS_EMBEDDING_MINUS_3_MINUS_LARGE = 'text-embedding-3-large'
     FACE_IDENTITY_ARCFACE_R100_V1 = 'face_identity_arcface_r100_v1'
     ALL_MINILM_L6_V2_V1 = 'all_minilm_l6_v2_v1'
+    COLBERTV2_V1 = 'colbertv2_v1'
+    COLQWEN2_V1 = 'colqwen2_v1'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

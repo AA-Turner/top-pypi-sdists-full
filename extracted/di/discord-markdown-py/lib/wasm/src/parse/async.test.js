@@ -1,4 +1,4 @@
-import { parse } from "@discord/markdown-wasm/async";
+import { Syntax, parse } from "@discord/markdown-wasm/async";
 import { expect, test } from "vitest";
 
 test("simple parse", async () => {
@@ -15,8 +15,8 @@ test("simple parse", async () => {
 	]);
 });
 
-test("parse with allowed_rules", async () => {
-	expect(await parse("_foo_ **bar**", ["italic"])).toEqual([
+test("parse with flags", async () => {
+	expect(await parse("_foo_ **bar**", Syntax.ITALIC)).toEqual([
 		{
 			type: "paragraph",
 			value: [
@@ -66,4 +66,18 @@ test("parse mention as bigint", async () => {
 			],
 		},
 	]);
+});
+
+test("flags remove syntax with a mask", async () => {
+	expect(await parse("@everyone", Syntax.ALL & ~Syntax.MENTIONS)).toEqual([
+		{ type: "paragraph", value: [{ type: "text", value: "@everyone" }] },
+	]);
+});
+
+test("every bit set allows everything", async () => {
+	expect(await parse("**foo**", ~0)).toEqual(await parse("**foo**"));
+});
+
+test("no bit set allows everything", async () => {
+	expect(await parse("**foo**", 0)).toEqual(await parse("**foo**"));
 });

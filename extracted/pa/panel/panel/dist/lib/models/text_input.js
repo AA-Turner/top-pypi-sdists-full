@@ -2,7 +2,6 @@ import { TextInput as BkTextInput, TextInputView as BkTextInputView } from "@bok
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 export class EnterEvent extends ModelEvent {
     value_input;
-    static __name__ = "EnterEvent";
     constructor(value_input) {
         super();
         this.value_input = value_input;
@@ -15,7 +14,6 @@ export class EnterEvent extends ModelEvent {
     }
 }
 export class TextInputView extends BkTextInputView {
-    static __name__ = "TextInputView";
     _keyup(event) {
         super._keyup(event);
         if (event.key == "Enter") {
@@ -25,7 +23,6 @@ export class TextInputView extends BkTextInputView {
     }
 }
 export class TextInput extends BkTextInput {
-    static __name__ = "TextInput";
     constructor(attrs) {
         super(attrs);
     }

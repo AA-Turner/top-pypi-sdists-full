@@ -15,12 +15,13 @@ use std::sync::{Arc, OnceLock};
 
 use arc_swap::ArcSwap;
 use arrow_array::{Array, RecordBatch, StringArray};
+#[cfg(test)]
 use arrow_schema::{DataType, TimeUnit};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use xbbg_log::{debug, info, warn};
 
-use crate::cache_io::{read_json_array_bounded, AtomicJsonPublisher, PublicationOutcome};
+use crate::cache_io::{AtomicJsonPublisher, PublicationOutcome, read_json_array_bounded};
 
 /// Bloomberg field type as returned by //blp/apiflds.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -76,8 +77,9 @@ impl BlpFieldType {
         }
     }
 
+    #[cfg(test)]
     /// Convert to Arrow DataType.
-    pub fn to_arrow_type(&self) -> DataType {
+    fn to_arrow_type(&self) -> DataType {
         match self {
             BlpFieldType::Boolean => DataType::Boolean,
             BlpFieldType::Character => DataType::Utf8,
@@ -392,8 +394,9 @@ impl FieldTypeResolver {
         self.cache.load().get(&field_id.to_uppercase()).cloned()
     }
 
+    #[cfg(test)]
     /// Get Arrow type string for a field.
-    pub fn get_arrow_type(&self, field_id: &str) -> Option<String> {
+    pub(crate) fn get_arrow_type(&self, field_id: &str) -> Option<String> {
         self.get(field_id).map(|info| info.arrow_type)
     }
 
@@ -502,11 +505,11 @@ impl FieldTypeResolver {
             let field_upper = field.to_uppercase();
 
             // 1. Check manual overrides
-            if let Some(overrides) = manual_overrides {
-                if let Some(t) = overrides.get(field).or_else(|| overrides.get(&field_upper)) {
-                    result.insert(field.clone(), t.clone());
-                    continue;
-                }
+            if let Some(overrides) = manual_overrides
+                && let Some(t) = overrides.get(field).or_else(|| overrides.get(&field_upper))
+            {
+                result.insert(field.clone(), t.clone());
+                continue;
             }
 
             // 2. Check cache

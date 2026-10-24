@@ -1,10 +1,15 @@
-import type { Block, Rule } from "@discord/markdown-types";
+import type { Block, SyntaxFlags } from "@discord/markdown-types";
+
+export { Syntax, type SyntaxFlags } from "@discord/markdown-types";
 
 /**
  * Parse markdown into an AST.
  *
  * Runs synchronously on the JS thread through a JSI host function backed by the native Rust
  * parser. Throws if the parser rejects the content or if the native module is not linked.
+ *
+ * `flags` picks the syntax to parse, as a bitwise OR of `Syntax` members, and defaults to
+ * `Syntax.ALL`, which `0` also means.
  *
  * `fuel` bounds how much work the parse may do, defaulting to the parser's own budget. Because
  * this runs on the JS thread, a caller handling untrusted content under a frame budget may want
@@ -13,7 +18,7 @@ import type { Block, Rule } from "@discord/markdown-types";
  */
 export function parse(
 	content: string,
-	allowedRules?: Rule[] | null,
+	flags?: SyntaxFlags | null,
 	fuel?: number | null,
 ): Block[];
 

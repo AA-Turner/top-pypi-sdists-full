@@ -53,6 +53,16 @@ filter types::
         # 0xc0a80000 = 192.168.0.0
         # 0xffffff00 = 255.255.255.0 (/24)
         # 16 = Destination network field bit offset
+
+    # Add a filter to send packets with a fwmark of 0x01 with mask 0xff
+    # into 1:10
+    ip.tc("add-filter", "u32", eth0,
+          parent=0x10000,
+          prio=10,
+          protocol=protocols.ETH_P_ALL,
+          target=0x10010,
+          mark_val=0x01,
+          mark_mask=0xff)
 '''
 
 import struct
@@ -83,7 +93,15 @@ def get_parameters(kwarg):
         ret['attrs'].append(['TCA_U32_ACT', get_tca_action(kwarg)])
 
     ret['attrs'].append(['TCA_U32_CLASSID', kwarg['target']])
-    ret['attrs'].append(['TCA_U32_SEL', {'keys': kwarg['keys']}])
+    ret['attrs'].append(['TCA_U32_SEL', {'keys': kwarg.get('keys', [])}])
+
+    if kwarg.get("mark_val") and kwarg.get("mark_mask"):
+        ret["attrs"].append(
+            [
+                "TCA_U32_MARK",
+                {"val": kwarg["mark_val"], "mask": kwarg["mark_mask"]},
+            ]
+        )
 
     return ret
 
@@ -212,8 +230,6 @@ class options(nla, nla_plus_police):
                         keys.append(key)
                         key = None
 
-            if not keys:
-                raise ValueError('no keys specified')
             self['nkeys'] = len(keys)
             # FIXME: do not hardcode flags :)
             self['flags'] = 1

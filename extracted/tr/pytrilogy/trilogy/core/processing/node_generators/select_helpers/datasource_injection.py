@@ -2,6 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from trilogy.constants import MagicConstants
 from trilogy.core.enums import (
     BooleanOperator,
     ComparisonOperator,
@@ -27,11 +28,13 @@ from trilogy.core.processing.basic_graph import (
     get_derivable_concepts,
 )
 from trilogy.core.processing.condition_utility import (
+    NULL_MEMBER,
     ExcludedEnumValues,
+    conditions_partition_covers,
+    conditions_partition_domain,
     decompose_condition,
     effective_enum_domain,
     merge_conditions,
-    simplify_conditions,
 )
 
 
@@ -114,6 +117,8 @@ def _claimed_value(atom: BuildComparison) -> str:
     literal: object = atom.right if isinstance(atom.left, BuildConcept) else atom.left
     if isinstance(literal, BuildFunction) and literal.arguments:
         literal = literal.arguments[0]
+    if literal is MagicConstants.NULL:
+        return NULL_MEMBER
     return str(literal)
 
 
@@ -165,7 +170,7 @@ def _cover_units(
         return units
     # A non-enum residual is provable only as a range/boolean cover, one atom
     # per arm.
-    if all(len(claim) == 1 for _, claim in constrained) and simplify_conditions(
+    if all(len(claim) == 1 for _, claim in constrained) and conditions_partition_domain(
         [claim[key_address] for _, claim in constrained if key_address in claim],
         excluded,
     ):
@@ -207,6 +212,9 @@ def _enum_cover_units(
     domain = effective_enum_domain(key.datatype, key, excluded)
     assert isinstance(domain, EnumType)
     required = [str(v) for v in domain.values]
+    gone = (excluded or {}).get(key.address, frozenset())
+    if key.is_nullable and NULL_MEMBER not in gone:
+        required.append(NULL_MEMBER)
     silent = [(ds, claim) for ds, claim in arms if key.address not in claim]
     by_value: dict[str, list[_Arm]] = defaultdict(list)
     for ds, claim in arms:
@@ -367,13 +375,32 @@ def get_union_sources(
             result = _best_enum_union(dses, merge_key.datatype, merge_key, excluded)
             if result:
                 final.extend(result)
-        else:
-            conditions = [
-                c.non_partial_for.conditional for c in dses if c.non_partial_for
-            ]
-            if simplify_conditions(conditions, excluded):
-                final.append(dses)
+        elif best := _best_range_cover(dses, excluded):
+            final.append(best)
     return final
+
+
+def _best_range_cover(
+    dses: list[BuildDatasource],
+    excluded: ExcludedEnumValues | None,
+) -> list[BuildDatasource] | None:
+    """The arms of a non-enum family that partition its discriminator, widest
+    column overlap first, then most materialized, then fewest scans."""
+    arms = [ds for ds in dses if ds.non_partial_for]
+    covers = conditions_partition_covers(
+        [ds.non_partial_for.conditional for ds in arms], excluded  # type: ignore[union-attr]
+    )
+    if not covers:
+        return None
+    best = max(
+        covers,
+        key=lambda cover: (
+            len(frozenset.intersection(*(_columns(arms[i]) for i in cover))),
+            sum(_datasource_score(arms[i]) for i in cover),
+            -len(cover),
+        ),
+    )
+    return [arms[i] for i in sorted(best)]
 
 
 def union_sources(
@@ -469,10 +496,10 @@ def describe_incomplete_partitions(
 ) -> str | None:
     """Why a `complete where` family failed to union into a complete source.
 
-    ``get_union_sources`` only unions arms whose predicates provably exhaust the
-    discriminator's domain. A plain `string` discriminator has no enumerable
-    domain, so no set of equality predicates over it can be proven complete;
-    this names that modeling gap instead of a generic "no complete sources".
+    ``get_union_sources`` only unions arms whose predicates provably partition
+    the discriminator's domain. A plain `string` family of `=` arms leaves every
+    other string uncovered; this names that modeling gap instead of a generic
+    "no complete sources".
     """
     requested = {c.address for c in concepts}
     reasons: list[str] = []
@@ -494,16 +521,14 @@ def describe_incomplete_partitions(
         if isinstance(merge_key.datatype, EnumType):
             if _best_enum_union(dses, merge_key.datatype, merge_key, excluded):
                 continue
-        elif simplify_conditions(
-            [c.non_partial_for.conditional for c in dses if c.non_partial_for],
-            excluded,
-        ):
+        elif _best_range_cover(dses, excluded):
             continue
         names = ", ".join(sorted(d.name for d in dses))
         reasons.append(
             f"partial sources ({names}) partition on `{merge_key_addr}`"
-            f" ({merge_key.datatype}), but their `complete where` clauses are not"
-            " provably exhaustive over that type, so they cannot be unioned into a"
+            f" ({merge_key.datatype}), but their `complete where` clauses do not"
+            " provably partition that type (every value, NULL included when it is"
+            " nullable, in exactly one arm), so they cannot be unioned into a"
             " complete source"
         )
     if not reasons:

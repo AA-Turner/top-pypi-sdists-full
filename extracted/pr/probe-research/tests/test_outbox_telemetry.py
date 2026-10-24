@@ -17,6 +17,7 @@ still kicked, so DELETING the call left it green.
 from __future__ import annotations
 
 import importlib
+import json
 
 import pytest
 
@@ -378,8 +379,10 @@ def test_a_suppressed_stuck_report_says_so_and_stamps_nothing(
     [
         {"pending": 1, "failed": 0, "paused": False, "auth_blocked_since": "2026-08-20T00:00:00+00:00"},
         {"pending": 1, "failed": 0, "paused": True, "auth_blocked_since": None},
+        {"pending": 40, "held": 40, "failed": 0, "paused": False, "auth_blocked_since": None,
+         "blocked_oldest_pending": "2026-08-20T00:00:00+00:00", "blocked_reason": "held"},
     ],
-    ids=["auth-blocked", "paused"],
+    ids=["auth-blocked", "paused", "held"],
 )
 def test_the_banner_reports_the_states_no_drainer_ever_sees(monkeypatch, status):
     """POSITIVE wiring test. The predecessor patched emit_outbox_stuck to explode
@@ -420,3 +423,54 @@ def test_a_broken_report_still_kicks_the_drainer(monkeypatch, capsys):
 
     assert kicked == [True]
     assert "2 dead-lettered" in capsys.readouterr().err
+
+
+def _ago(hours: float) -> str:
+    from datetime import datetime, timedelta, timezone
+
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+
+@pytest.mark.parametrize(("queues", "stuck", "why"), [
+    ({"": {"pending": 40, "held": 40, "oldest_pending": 2}}, True, "held for an hour"),
+    ({"": {"pending": 40, "held": 40, "oldest_pending": 0.5}}, False, "not an hour yet"),
+    ({"": {"pending": 40, "held": 0, "oldest_pending": 9}}, False, "busy, not held"),
+    ({"": {"pending": 40, "held": 1, "close_held": 1, "oldest_pending": 9}}, False, "a close waiting on its data"),
+    ({"": {"pending": 500, "oldest_pending": 2},
+      "credential-v1/0123456789abcdef": {"pending": 3, "held": 3, "oldest_pending": 0.02}}, False,
+     "one queue's backlog, another's fresh hold"),
+    ({"credential-v1/0123456789abcdef/delivery-v1": {"pending": 40, "held": 40, "oldest_pending": 3}}, True,
+     "held in a credential queue's delivery namespace"),
+])
+def test_writes_one_queue_holds_for_a_credential_nothing_here_holds_are_stuck_after_an_hour(tmp_path, queues,
+                                                                                          stuck, why):
+    """A held write waits for its own credential, forever when that one is
+    revoked. Judged per queue through the real `read_status` (C1 reviews: the
+    fold paired one queue's oldest write with another's hold, and dropped the
+    delivery namespace's hold)."""
+    from probe.sdk.journal import Journal
+
+    root = tmp_path / "outbox"
+    for sub, fields in queues.items():
+        folder = root / sub if sub else root
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "status.json").write_text(json.dumps({**fields, "oldest_pending": _ago(fields["oldest_pending"])}))
+    assert tm.stuck_status(Journal.read_status(root)) is stuck, why
+
+
+def test_the_stuck_payload_counts_held_writes_and_refused_credentials(tmp_path, captured):
+    spool = tmp_path / "outbox"
+    spool.mkdir()
+    status = {"pending": 12, "held": 5, "refused_fingerprints": {"aaaa": "2026-10-22T21:48:00+00:00",
+                                                                  "bbbb": "2026-10-23T17:21:00+00:00"}}
+    assert tm.emit_outbox_stuck(status, spool_dir=str(spool), base_url=HOSTED) is True
+    (props,) = events(captured, tm.EVENT_OUTBOX_STUCK)
+    assert (props["held"], props["refused_credentials"]) == (5, 2)
+    assert "aaaa" not in repr(props), "counts, never a fingerprint"
+
+
+def test_a_report_the_api_refused_everywhere_is_one_undeliverable_event(captured):
+    assert tm.emit_report_undeliverable(family="outbox_stuck", reason="credential_refused", base_url=HOSTED)
+    (props,) = events(captured, tm.EVENT_REPORT_UNDELIVERABLE)
+    assert (props["family"], props["reason"]) == ("outbox_stuck", "credential_refused")
+    assert tm.emit_report_undeliverable(family="x", reason="y", base_url=SELF_HOST) is False

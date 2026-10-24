@@ -222,6 +222,24 @@ pub fn spawned_task_completion_timeout() -> Duration {
     )
 }
 
+/// Maximum time a handler has to finish required cleanup after output is sealed.
+///
+/// **Default**: 30 seconds
+///
+/// This is independent of channel reads and spawned-task cleanup. It is a
+/// cancellation backstop, not a successful-completion result: an expired
+/// handler is aborted and its recording outcome remains incomplete/error.
+///
+/// **Env**: `KEEPER_GATEWAY_HANDLER_FINALIZATION_TIMEOUT_SECS`
+pub fn handler_finalization_timeout() -> Duration {
+    Duration::from_secs(
+        std::env::var("KEEPER_GATEWAY_HANDLER_FINALIZATION_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30),
+    )
+}
+
 /// Delay between disconnect message and EOF in Drop cleanup.
 ///
 /// **Default**: 100ms

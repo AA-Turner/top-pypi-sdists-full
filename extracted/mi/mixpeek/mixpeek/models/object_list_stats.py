@@ -25,12 +25,12 @@ from typing_extensions import Self
 
 class ObjectListStats(BaseModel):
     """
-    Aggregate statistics for a list of objects.
+    Statistics over the returned page of objects, not the whole bucket.  For a bucket-wide count use ?include_total=true, which populates pagination.total instead.
     """ # noqa: E501
-    total_objects: Optional[StrictInt] = Field(default=0, description="Total number of objects in the result")
-    total_blobs: Optional[StrictInt] = Field(default=0, description="Total number of blobs across all objects")
-    avg_blobs_per_object: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Average number of blobs per object")
-    objects_by_status: Optional[Dict[str, Any]] = Field(default=None, description="Count of objects grouped by status")
+    total_objects: Optional[StrictInt] = Field(default=0, description="Number of objects in THIS PAGE of results, not the bucket total. Use ?include_total=true to get the bucket-wide count in pagination.total.")
+    total_blobs: Optional[StrictInt] = Field(default=0, description="Total number of blobs across the objects in this page")
+    avg_blobs_per_object: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Average number of blobs per object, over this page")
+    objects_by_status: Optional[Dict[str, Any]] = Field(default=None, description="Count of objects in this page grouped by status, not a bucket-wide breakdown")
     __properties: ClassVar[List[str]] = ["total_objects", "total_blobs", "avg_blobs_per_object", "objects_by_status"]
 
     model_config = ConfigDict(

@@ -21,14 +21,18 @@ Where the request is issued from depends on the run:
 import json
 import logging
 import math
+import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
 from testmu_appium import _config
-from testmu_appium._v4._helpers._http import request_with_retry
+from testmu_appium._v4._helpers._api_log import _enabled, _scrub, has_secret, log_api_call, scrub_tree
+from testmu_appium._v4._helpers._http import TransientHTTPError, request_with_retry
+from testmu_appium._v4._helpers._wire import WireCapture
 from testmu_appium._v4._helpers.driver import get_driver
-from testmu_appium._v4._vars import set_var, var
+from testmu_appium._v4._vars import _SECRET_VALUES, _mark_secret, set_var, var
 
 _log = logging.getLogger("testmu_appium")
 
@@ -71,6 +75,8 @@ def _apply_header_auth(auth: dict, headers: dict) -> None:
         import base64 as _b64
         cred = _b64.b64encode(f"{data['username']}:{data.get('password', '')}".encode()).decode()
         headers["Authorization"] = f"Basic {cred}"
+        if {data["username"], data.get("password")} & _SECRET_VALUES:
+            _mark_secret(cred)  # a server that echoes the header would print it
 
 
 def _apply_aws_signature(auth: dict, *, method: str, url: str, body, headers: dict, params: dict) -> None:
@@ -339,6 +345,8 @@ def execute_api(
         timeout_sec = timeout_ms / 1000
     else:
         timeout_sec = _timeout_seconds(timeout)
+    # The request as authored, so the API log can name its values and mask secrets
+    authored = {"url": url, "headers": headers, "body": body, "params": params, "authorization": authorization}
     resolved_url = _resolve_str(url)
     resolved_headers: dict = _resolve_deep(headers or {})
     resolved_params = _resolve_deep(params) if params else None
@@ -358,6 +366,7 @@ def execute_api(
             if isinstance(parsed_body, (dict, list, str)):
                 resolved_body = _resolve_deep(parsed_body)
 
+    typed_keys = {str(k).lower() for k in resolved_headers}
     structured_auth = _structured_auth(authorization)
     if structured_auth is not None:
         structured_auth = _resolve_deep(structured_auth)
@@ -366,8 +375,10 @@ def execute_api(
         key.lower() == "authorization" for key in resolved_headers
     ):
         resolved_headers["Authorization"] = _resolve_str(authorization)
+    auth_keys = {str(k).lower() for k in resolved_headers} - typed_keys
 
-    _log.info("[execute_api] %s %s", method, resolved_url)
+    if _enabled():  # inside auteur the URL arrives resolved (TESTMU_API_LOG=0)
+        _log.info("[execute_api] %s %s", method, _scrub(str(url if has_secret(url) else resolved_url)))
 
     _settings = settings or {}
     follow_redirects = _settings.get("automatically_follow_redirect", True)
@@ -375,6 +386,19 @@ def execute_api(
 
     wire_headers = _wire_headers(resolved_headers)
     proxy = _config.get_api_proxy_url()
+    started = time.monotonic()
+
+    def _log_call(**outcome):
+        log_api_call(method.upper(), resolved_url, authored=authored, sent_headers=wire_headers,
+                     body=resolved_body, auth_keys=auth_keys, params=resolved_params,
+                     elapsed_ms=(time.monotonic() - started) * 1000, **outcome)
+
+    # Same check as the Playwright and Selenium bindings: stop before sending, not with httpx's own error
+    parsed_url = urlparse(resolved_url)
+    if not all([parsed_url.scheme, parsed_url.netloc]):
+        error = RuntimeError(f"Invalid URL: {resolved_url!r}")
+        _log_call(error=error)
+        raise error
 
     if proxy is None and _config.run_target == "cloud":
         driver = get_driver()
@@ -384,20 +408,30 @@ def execute_api(
                 "LambdaTest grid hook and needs the live session (run it inside "
                 "testmu_appium.run)"
             )
-        result = _via_hook(
-            driver, method=method, url=resolved_url, headers=wire_headers,
-            body=resolved_body, params=resolved_params, timeout=timeout_sec, verify=verify,
-            settings={"automatically_follow_redirect": follow_redirects,
-                      **({"normalization": True} if normalize else {})},
-            normalize=normalize,
-            authorization=structured_auth,
-        )
+        try:
+            result = _via_hook(
+                driver, method=method, url=resolved_url, headers=wire_headers,
+                body=resolved_body, params=resolved_params, timeout=timeout_sec, verify=verify,
+                settings={"automatically_follow_redirect": follow_redirects,
+                          **({"normalization": True} if normalize else {})},
+                normalize=normalize,
+                authorization=structured_auth,
+            )
+        except Exception as exc:
+            _log_call(error=exc)
+            raise
+        hook_body = result.get("body")
+        _log_call(status=result.get("status_code"), message=result.get("message", ""),
+                  size=len(hook_body if isinstance(hook_body, (str, bytes)) else json.dumps(hook_body, default=str))
+                  if hook_body is not None else 0)
     else:
         if structured_auth is not None and str(structured_auth.get("type", "")).lower() == "aws-signature":
             resolved_params = dict(resolved_params or {})
+            unsigned = {str(k).lower() for k in wire_headers}
             _apply_aws_signature(
                 structured_auth, method=method, url=resolved_url, body=resolved_body,
                 headers=wire_headers, params=resolved_params)
+            auth_keys |= {str(k).lower() for k in wire_headers} - unsigned
             resolved_params = resolved_params or None
         request_kwargs: dict = {"follow_redirects": follow_redirects}
         if isinstance(resolved_body, (dict, list)):
@@ -411,11 +445,13 @@ def execute_api(
             request_kwargs["timeout"] = timeout_sec
             request_kwargs["total_timeout_s"] = timeout_sec
 
+        # record the wire request for the API log and auteur's API console
+        capture = WireCapture(proxy)
         try:
             response = request_with_retry(
                 method.upper(), resolved_url,
                 headers=wire_headers or None,
-                verify=verify, proxy=proxy, **request_kwargs,
+                verify=verify, proxy=proxy, wire=capture, silent=True, **request_kwargs,
             )
 
             try:
@@ -432,15 +468,28 @@ def execute_api(
                 "status_code": response.status_code,
                 "headers": dict(response.headers),
                 "body": parsed_body,
+                "time": (time.monotonic() - started) * 1000,  # ms, as the Playwright binding returns it
             }
             if normalize:
                 result = _normalize_direct(result, response)
+            request_sent = capture.build(response)
+            _log_call(status=response.status_code, reason=getattr(response, "reason_phrase", ""),
+                      size=len(getattr(response, "content", b"") or b""), capture=request_sent, response=response)
         except httpx.TimeoutException as exc:
             # A timed-out request is a 408 response the test can assert on, as V2
             # answered it; the step passes and the output variable is written.
             _log.info("[execute_api] timed out: %s", exc)
             result = _timeout_response(timeout_sec)
-    _log.info("[execute_api] status_code=%s", result["status_code"])
+            request_sent = capture.build(exc=exc, method=method, url=resolved_url)
+            _log_call(error=exc, capture=request_sent)
+        except Exception as exc:
+            exc.api_capture = capture.build(exc=exc, method=method, url=resolved_url)
+            # retries ran out on a 408/429/5xx: the server answered, so log its status
+            status = exc.status_code if isinstance(exc, TransientHTTPError) else None
+            _log_call(status=status, error=None if status else exc, capture=getattr(exc, "api_capture", None))
+            raise
+        if request_sent:
+            result["request_sent"] = scrub_tree(request_sent)
     if output_variable:
         set_var(output_variable, result)
     return result

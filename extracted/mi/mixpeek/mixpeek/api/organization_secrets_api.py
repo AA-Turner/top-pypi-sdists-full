@@ -17,7 +17,8 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictStr
+from pydantic import Field, StrictStr
+from typing_extensions import Annotated
 from mixpeek.models.create_secret_request import CreateSecretRequest
 from mixpeek.models.secret_response import SecretResponse
 from mixpeek.models.secrets_list_response import SecretsListResponse
@@ -44,7 +45,7 @@ class OrganizationSecretsApi:
     @validate_call
     def create_secret_organizations(
         self,
-        create_secret_request: CreateSecretRequest,
+        create_secret_request: Annotated[CreateSecretRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -62,7 +63,7 @@ class OrganizationSecretsApi:
 
         Create a new secret in organization vault.  **Security**: - Secret value is encrypted at rest using Fernet encryption - Encrypted using ENCRYPTION_KEY from environment - Decrypted value is NEVER returned in API responses - Only secret names are exposed in list operations  **Use Cases**: - Store API keys for external services (Stripe, GitHub, etc.) - Store authentication tokens for api_call retriever stage - Store credentials for third-party integrations  **Important**: - Secret names must be unique within organization - Use update endpoint to modify existing secrets - Delete and recreate if you forget the value
 
-        :param create_secret_request: (required)
+        :param create_secret_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_secret_request: CreateSecretRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -95,13 +96,15 @@ class OrganizationSecretsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SecretResponse",
+            '200': "SecretResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -117,7 +120,7 @@ class OrganizationSecretsApi:
     @validate_call
     def create_secret_organizations_with_http_info(
         self,
-        create_secret_request: CreateSecretRequest,
+        create_secret_request: Annotated[CreateSecretRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -135,7 +138,7 @@ class OrganizationSecretsApi:
 
         Create a new secret in organization vault.  **Security**: - Secret value is encrypted at rest using Fernet encryption - Encrypted using ENCRYPTION_KEY from environment - Decrypted value is NEVER returned in API responses - Only secret names are exposed in list operations  **Use Cases**: - Store API keys for external services (Stripe, GitHub, etc.) - Store authentication tokens for api_call retriever stage - Store credentials for third-party integrations  **Important**: - Secret names must be unique within organization - Use update endpoint to modify existing secrets - Delete and recreate if you forget the value
 
-        :param create_secret_request: (required)
+        :param create_secret_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_secret_request: CreateSecretRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -168,13 +171,15 @@ class OrganizationSecretsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SecretResponse",
+            '200': "SecretResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -190,7 +195,7 @@ class OrganizationSecretsApi:
     @validate_call
     def create_secret_organizations_without_preload_content(
         self,
-        create_secret_request: CreateSecretRequest,
+        create_secret_request: Annotated[CreateSecretRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -208,7 +213,7 @@ class OrganizationSecretsApi:
 
         Create a new secret in organization vault.  **Security**: - Secret value is encrypted at rest using Fernet encryption - Encrypted using ENCRYPTION_KEY from environment - Decrypted value is NEVER returned in API responses - Only secret names are exposed in list operations  **Use Cases**: - Store API keys for external services (Stripe, GitHub, etc.) - Store authentication tokens for api_call retriever stage - Store credentials for third-party integrations  **Important**: - Secret names must be unique within organization - Use update endpoint to modify existing secrets - Delete and recreate if you forget the value
 
-        :param create_secret_request: (required)
+        :param create_secret_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_secret_request: CreateSecretRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -241,13 +246,15 @@ class OrganizationSecretsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "SecretResponse",
+            '200': "SecretResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -392,8 +399,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -465,8 +474,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -538,8 +549,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -667,8 +680,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -736,8 +751,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -805,8 +822,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -880,7 +899,7 @@ class OrganizationSecretsApi:
     def update_secret_organizations_name(
         self,
         secret_name: StrictStr,
-        update_secret_request: UpdateSecretRequest,
+        update_secret_request: Annotated[UpdateSecretRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -900,7 +919,7 @@ class OrganizationSecretsApi:
 
         :param secret_name: (required)
         :type secret_name: str
-        :param update_secret_request: (required)
+        :param update_secret_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_secret_request: UpdateSecretRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -939,8 +958,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -957,7 +978,7 @@ class OrganizationSecretsApi:
     def update_secret_organizations_name_with_http_info(
         self,
         secret_name: StrictStr,
-        update_secret_request: UpdateSecretRequest,
+        update_secret_request: Annotated[UpdateSecretRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -977,7 +998,7 @@ class OrganizationSecretsApi:
 
         :param secret_name: (required)
         :type secret_name: str
-        :param update_secret_request: (required)
+        :param update_secret_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_secret_request: UpdateSecretRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1016,8 +1037,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1034,7 +1057,7 @@ class OrganizationSecretsApi:
     def update_secret_organizations_name_without_preload_content(
         self,
         secret_name: StrictStr,
-        update_secret_request: UpdateSecretRequest,
+        update_secret_request: Annotated[UpdateSecretRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1054,7 +1077,7 @@ class OrganizationSecretsApi:
 
         :param secret_name: (required)
         :type secret_name: str
-        :param update_secret_request: (required)
+        :param update_secret_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_secret_request: UpdateSecretRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1093,8 +1116,10 @@ class OrganizationSecretsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

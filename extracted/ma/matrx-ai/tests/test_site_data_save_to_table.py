@@ -10,6 +10,7 @@ import pytest
 from matrx_scraper import _ext
 from matrx_scraper.features.site_data import SiteDataTableRefused, SiteDataTableSaved
 
+import matrx_ai.tools.implementations.site_data as site_data_module
 from matrx_ai.tools.implementations.site_data import site_data
 from matrx_ai.tools.models import ToolContext
 
@@ -56,6 +57,7 @@ async def test_save_to_table_returns_the_table_reference_and_the_usual_rendering
     _ext.configure_ext(site_data_table_writer=_writer(seen))
     res = await site_data({"url": TP_URL, "max_records": 5, "save_to_table": True, "table_name": "Amazon reviews"}, _ctx())
     assert res.success, res.error
+    assert res.output_kind is None
     out = res.output
     assert (out["table_id"], out["table_name"], out["rows_created"], out["rows_updated"], out["records_billed"]) == (
         "tbl-1", "Trustpilot - amazon", 1, 0, 1)
@@ -87,3 +89,23 @@ async def test_no_writer_injected_says_so():
     _ext._registry.pop("site_data_table_writer", None)
     res = await site_data({"url": TP_URL, "save_to_table": True}, _ctx())
     assert not res.success and "not set up" in res.error.message
+
+
+@pytest.mark.asyncio
+async def test_chat_door_returns_the_typed_not_started_result_without_fetching(monkeypatch):
+    import matrx_scraper.features.site_data as door
+
+    monkeypatch.setattr(site_data_module, "is_chat_door", lambda **_: True)
+
+    async def forbidden(*args, **kwargs):
+        raise AssertionError("chat must not start a dataset fetch")
+
+    monkeypatch.setattr(door, "fetch", forbidden)
+    monkeypatch.setattr(door, "fetch_to_table", forbidden)
+    result = await site_data({"url": TP_URL}, _ctx())
+    assert result.output_kind == "data_fetch_not_started"
+    assert result.output == {
+        "__kind": "data_fetch_not_started",
+        "status": "not_started",
+        "message": "A slower dataset exists for https://www.trustpilot.com/review/www.amazon.com, but it is not started from chat. Tell the person they can start it from the Data Library (/data/library); for a quick answer now, use web with action='read' on the page URL.",
+    }

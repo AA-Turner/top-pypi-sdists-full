@@ -5,15 +5,16 @@ use std::sync::Arc;
 use arrow_array::{
     Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, Date64Array,
     Decimal128Array, DurationMicrosecondArray, DurationMillisecondArray, DurationNanosecondArray,
-    DurationSecondArray, Float16Array, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, LargeBinaryArray, LargeStringArray, RecordBatch, RecordBatchOptions,
+    DurationSecondArray, Float16Array, Float32Array, Float64Array, Int8Array, Int16Array,
+    Int32Array, Int64Array, LargeBinaryArray, LargeStringArray, RecordBatch, RecordBatchOptions,
     StringArray, StringViewArray, StructArray, Time32MillisecondArray, Time32SecondArray,
     Time64MicrosecondArray, Time64NanosecondArray, TimestampMicrosecondArray,
-    TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt16Array,
-    UInt32Array, UInt64Array, UInt8Array,
+    TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+    UInt16Array, UInt32Array, UInt64Array,
 };
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef, TimeUnit};
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Offset, Timelike};
+use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{
     PyImportError, PyIndexError, PyKeyError, PyOverflowError, PyRuntimeError, PyTypeError,
     PyValueError,
@@ -23,19 +24,19 @@ use pyo3::types::{
     PyAny, PyBool, PyBytes, PyCapsule, PyDate, PyDateTime, PyDict, PyInt, PyIterator, PyList,
     PyTime, PyTuple, PyType, PyTzInfo,
 };
-use pyo3::IntoPyObjectExt;
 use pyo3_arrow::ffi::{
-    to_array_pycapsules, to_schema_pycapsule, to_stream_pycapsule, ArrayIterator,
+    ArrayIterator, to_array_pycapsules, to_schema_pycapsule, to_stream_pycapsule,
 };
 use pyo3_arrow::{PyChunkedArray, PyRecordBatch, PyTable};
 #[cfg(feature = "stub-gen")]
 use pyo3_stub_gen::derive::*;
 use xbbg_arrow::{
-    build_array, cell_from_array, cell_has_value, cell_to_string, ArrowCoreError, CellValue,
-    ColumnData, SortDirection, TableData,
+    ArrowCoreError, CellValue, ColumnData, SortDirection, TableData, build_array, cell_from_array,
+    cell_has_value, cell_to_string,
 };
 use xbbg_async::engine::state::{
-    METADATA_KEY_EID_DATA, METADATA_KEY_FIELD_EXCEPTIONS, METADATA_KEY_SECURITY_ERRORS,
+    METADATA_KEY_DELAYED, METADATA_KEY_EID_DATA, METADATA_KEY_FIELD_EXCEPTIONS,
+    METADATA_KEY_SECURITY_ERRORS,
 };
 
 fn core_err_to_py(err: ArrowCoreError) -> PyErr {
@@ -45,9 +46,6 @@ fn core_err_to_py(err: ArrowCoreError) -> PyErr {
         }
         ArrowCoreError::ColumnIndexOutOfRange => PyIndexError::new_err("column index out of range"),
         ArrowCoreError::RowIndexOutOfRange => PyIndexError::new_err("row index out of range"),
-        ArrowCoreError::InvalidSortDirection { column, direction } => PyValueError::new_err(
-            format!("unsupported sort direction for {column}: {direction}"),
-        ),
         other => PyValueError::new_err(other.to_string()),
     }
 }
@@ -150,15 +148,15 @@ fn py_value_to_cell(value: &Bound<'_, PyAny>) -> PyResult<CellValue> {
             "unsupported Python datetime representation: {text}"
         )));
     }
-    if let Ok(isoformat) = value.getattr("isoformat") {
-        if let Ok(text) = isoformat.call0()?.extract::<String>() {
-            if text.len() == 10 {
-                if let Ok(date) = NaiveDate::parse_from_str(&text, "%Y-%m-%d") {
-                    return Ok(CellValue::Date(date));
-                }
-            }
-            return Ok(CellValue::Text(text));
+    if let Ok(isoformat) = value.getattr("isoformat")
+        && let Ok(text) = isoformat.call0()?.extract::<String>()
+    {
+        if text.len() == 10
+            && let Ok(date) = NaiveDate::parse_from_str(&text, "%Y-%m-%d")
+        {
+            return Ok(CellValue::Date(date));
         }
+        return Ok(CellValue::Text(text));
     }
     Ok(CellValue::Text(value.str()?.to_string()))
 }
@@ -343,10 +341,9 @@ fn timestamp_to_py(py: Python<'_>, micros: i64, timezone: Option<&str>) -> PyRes
         .import("zoneinfo")
         .and_then(|module| module.getattr("ZoneInfo"))
         .and_then(|zoneinfo| zoneinfo.call1((tz_name,)))
+        && let Ok(converted) = utc_datetime.call_method1("astimezone", (zoneinfo,))
     {
-        if let Ok(converted) = utc_datetime.call_method1("astimezone", (zoneinfo,)) {
-            return Ok(converted.unbind());
-        }
+        return Ok(converted.unbind());
     }
 
     let tz = tz_name
@@ -737,7 +734,7 @@ fn parse_bqr_path(path: &str) -> Option<(usize, String)> {
 #[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass(module = "xbbg._core", frozen, skip_from_py_object)]
 #[derive(Clone)]
-pub struct ArrowField {
+pub(crate) struct ArrowField {
     field: FieldRef,
 }
 
@@ -772,7 +769,7 @@ impl ArrowField {
 #[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass(module = "xbbg._core", frozen, skip_from_py_object)]
 #[derive(Clone)]
-pub struct ArrowSchema {
+pub(crate) struct ArrowSchema {
     schema: SchemaRef,
 }
 
@@ -813,7 +810,7 @@ impl ArrowSchema {
 #[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass(module = "xbbg._core", frozen, skip_from_py_object)]
 #[derive(Clone)]
-pub struct ArrowColumn {
+pub(crate) struct ArrowColumn {
     data: ColumnData,
 }
 
@@ -925,12 +922,12 @@ impl ArrowColumn {
 #[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass(module = "xbbg._core", frozen, skip_from_py_object)]
 #[derive(Clone)]
-pub struct ArrowRecordBatch {
+pub(crate) struct ArrowRecordBatch {
     batch: RecordBatch,
 }
 
 impl ArrowRecordBatch {
-    pub fn new(batch: RecordBatch) -> Self {
+    fn new(batch: RecordBatch) -> Self {
         Self { batch }
     }
 
@@ -1107,12 +1104,12 @@ impl ArrowRecordBatch {
 #[cfg_attr(feature = "stub-gen", gen_stub_pyclass)]
 #[pyclass(module = "xbbg._core", frozen, skip_from_py_object)]
 #[derive(Clone)]
-pub struct ArrowTable {
+pub(crate) struct ArrowTable {
     data: TableData,
 }
 
 impl ArrowTable {
-    pub fn try_new(batches: Vec<RecordBatch>) -> PyResult<Self> {
+    fn try_new(batches: Vec<RecordBatch>) -> PyResult<Self> {
         map_core(TableData::try_new(batches)).map(Self::from_data)
     }
 
@@ -1270,6 +1267,11 @@ impl ArrowTable {
             self.data.schema.metadata(),
             METADATA_KEY_FIELD_EXCEPTIONS,
         )
+    }
+
+    #[getter]
+    fn delayed(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        parse_metadata_json(py, self.data.schema.metadata(), METADATA_KEY_DELAYED)
     }
 
     #[pyo3(signature = (requested_schema=None))]
@@ -1488,55 +1490,55 @@ impl ArrowTable {
     ) -> PyResult<Self> {
         let mut result = self.clone();
 
-        if let Some(sort) = sort {
-            if result.data.schema.index_of("date").is_ok() {
-                let date_order = if sort.eq_ignore_ascii_case("DESCENDING") {
-                    "descending"
-                } else {
-                    "ascending"
-                };
-                let mut sort_keys = Vec::new();
-                if result.data.schema.index_of("ticker").is_ok() {
-                    sort_keys.push(("ticker".to_string(), "ascending".to_string()));
-                }
-                sort_keys.push(("date".to_string(), date_order.to_string()));
-                if result.data.schema.index_of("field").is_ok() {
-                    sort_keys.push(("field".to_string(), "ascending".to_string()));
-                }
-                result = result.sort_by(sort_keys, true)?;
+        if let Some(sort) = sort
+            && result.data.schema.index_of("date").is_ok()
+        {
+            let date_order = if sort.eq_ignore_ascii_case("DESCENDING") {
+                "descending"
+            } else {
+                "ascending"
+            };
+            let mut sort_keys = Vec::new();
+            if result.data.schema.index_of("ticker").is_ok() {
+                sort_keys.push(("ticker".to_string(), "ascending".to_string()));
             }
+            sort_keys.push(("date".to_string(), date_order.to_string()));
+            if result.data.schema.index_of("field").is_ok() {
+                sort_keys.push(("field".to_string(), "ascending".to_string()));
+            }
+            result = result.sort_by(sort_keys, true)?;
         }
 
         if let Some(date_format) = date_format {
             let normalized = date_format.to_ascii_uppercase();
-            if matches!(normalized.as_str(), "PERIODIC" | "BOTH") {
-                if let Ok(date_idx) = result.data.schema.index_of("date") {
-                    let mut period_cells = Vec::with_capacity(result.num_rows());
-                    for batch in &result.data.batches {
-                        let date_array = batch.column(date_idx);
-                        for row in 0..date_array.len() {
-                            period_cells.push(CellValue::Text(period_label(
-                                date_array.as_ref(),
-                                row,
-                                periodicity.as_deref(),
-                            )));
-                        }
+            if matches!(normalized.as_str(), "PERIODIC" | "BOTH")
+                && let Ok(date_idx) = result.data.schema.index_of("date")
+            {
+                let mut period_cells = Vec::with_capacity(result.num_rows());
+                for batch in &result.data.batches {
+                    let date_array = batch.column(date_idx);
+                    for row in 0..date_array.len() {
+                        period_cells.push(CellValue::Text(period_label(
+                            date_array.as_ref(),
+                            row,
+                            periodicity.as_deref(),
+                        )));
                     }
-                    let data = if normalized == "PERIODIC" {
-                        result
-                            .data
-                            .with_cells_column(date_idx, "period", &period_cells, true, true)
-                    } else {
-                        result.data.with_cells_column(
-                            date_idx + 1,
-                            "period",
-                            &period_cells,
-                            false,
-                            true,
-                        )
-                    };
-                    result = Self::from_data(map_core(data)?);
                 }
+                let data = if normalized == "PERIODIC" {
+                    result
+                        .data
+                        .with_cells_column(date_idx, "period", &period_cells, true, true)
+                } else {
+                    result.data.with_cells_column(
+                        date_idx + 1,
+                        "period",
+                        &period_cells,
+                        false,
+                        true,
+                    )
+                };
+                result = Self::from_data(map_core(data)?);
             }
         }
 
@@ -1702,9 +1704,10 @@ mod tests {
 
                 let time = values.get_item("auction_time").unwrap();
                 assert!(time.is_instance_of::<PyTime>());
-                assert!(time
-                    .eq(PyTime::new(py, 15, 59, 1, 123_456, None).unwrap())
-                    .unwrap());
+                assert!(
+                    time.eq(PyTime::new(py, 15, 59, 1, 123_456, None).unwrap())
+                        .unwrap()
+                );
                 assert!(time.getattr("tzinfo").unwrap().is_none());
 
                 let nulls = rows.get_item(1).unwrap();
@@ -1919,6 +1922,10 @@ mod tests {
                         METADATA_KEY_FIELD_EXCEPTIONS.to_string(),
                         r#"{"IBM US Equity":[{"field":"PX_BAD","category":"BAD_FLD","code":2,"subcategory":"INVALID","message":"bad field"}]}"#.to_string(),
                     ),
+                    (
+                        METADATA_KEY_DELAYED.to_string(),
+                        r#"{"IBM US Equity":{"delayed":true,"delay_minutes":15},"MSFT US Equity":{"delayed":false,"delay_minutes":null}}"#.to_string(),
+                    ),
                 ]));
             let batch = RecordBatch::try_new(
                 Arc::new(schema),
@@ -1932,18 +1939,47 @@ mod tests {
             assert_eq!(eid_data["IBM US Equity"], vec![101, 202]);
 
             let security_errors = table.security_errors(py).expect("security errors");
-            assert!(security_errors
-                .bind(py)
-                .get_item("BAD Ticker")
-                .expect("security error")
-                .is_instance_of::<PyDict>());
+            assert!(
+                security_errors
+                    .bind(py)
+                    .get_item("BAD Ticker")
+                    .expect("security error")
+                    .is_instance_of::<PyDict>()
+            );
 
             let field_exceptions = table.field_exceptions(py).expect("field exceptions");
-            assert!(field_exceptions
-                .bind(py)
-                .get_item("IBM US Equity")
-                .expect("field exception")
-                .is_instance_of::<PyList>());
+            assert!(
+                field_exceptions
+                    .bind(py)
+                    .get_item("IBM US Equity")
+                    .expect("field exception")
+                    .is_instance_of::<PyList>()
+            );
+
+            let delayed = table.delayed(py).expect("delayed");
+            let delayed = delayed.bind(py);
+            let ibm = delayed.get_item("IBM US Equity").expect("delayed ticker");
+            assert!(
+                ibm.get_item("delayed")
+                    .expect("delayed flag")
+                    .extract::<bool>()
+                    .expect("bool flag")
+            );
+            assert_eq!(
+                ibm.get_item("delay_minutes")
+                    .expect("delay minutes")
+                    .extract::<u32>()
+                    .expect("integer minutes"),
+                15
+            );
+            assert!(
+                delayed
+                    .get_item("MSFT US Equity")
+                    .expect("real-time ticker")
+                    .get_item("delay_minutes")
+                    .expect("delay minutes")
+                    .is_none()
+            );
         });
     }
 }

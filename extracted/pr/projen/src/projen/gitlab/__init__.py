@@ -1861,7 +1861,7 @@ class _IDTokenProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9e6bbd7c1d3e16ffa82367cdd5ca16ce06a42726f4193639790a39bb2eadef9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aud", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aud", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDToken).__jsii_proxy_class__ = lambda : _IDTokenProxy

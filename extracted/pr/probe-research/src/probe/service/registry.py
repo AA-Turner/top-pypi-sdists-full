@@ -64,6 +64,15 @@ class Session:
     #: when its registrant said (plan D13): where its daemon worker, its runs
     #: and a setup it started keep their locks. None: an older registrant.
     state_dir: str | None = None
+    #: Its registrant was no more confined than the service (`caller.sandboxed`)
+    #: at its last register: only then does the service act for the session
+    #: with this user's own key (its run alerts, plan Q2). Never stored: the
+    #: next heartbeat says it again.
+    unconfined: bool = False
+    #: Whether its registrant's environment allows automatic diagnostic
+    #: reports (`session.register`'s `report_env`, crash-report plan B2); None:
+    #: it did not say (an older registrant), which the watch reads as no.
+    report_env: bool | None = None
 
     def alive(self, now: float, ttl: float) -> bool:
         if self.mode == Mode.OFF:
@@ -93,6 +102,8 @@ class Session:
             "registered_at": self.registered_at,
             "heartbeat_at": self.heartbeat_at,
             "state_dir": self.state_dir,
+            # The keeper reads it here (no service to ask: `watch.sessions_on_disk`).
+            "report_env": self.report_env,
         }
 
 
@@ -194,7 +205,8 @@ class Registry:
                 )
 
     def register(
-        self, sid: str, harness: str, mode: str, owner: dict | None, generation: int, state_dir: str | None = None
+        self, sid: str, harness: str, mode: str, owner: dict | None, generation: int, state_dir: str | None = None,
+        report_env: bool | None = None,
     ) -> Registration:
         self._refuse_stale(sid, generation)
         now = self.clock()
@@ -205,14 +217,21 @@ class Registry:
             current.mode = mode
             current.heartbeat_at = now
             current.state_dir = state_dir
+            if report_env is not None:
+                # A register that says nothing (`session.record`'s, for a hosted
+                # session) leaves what its link said.
+                current.report_env = report_env
             self.save()
             return Registration(Outcome.REFRESHED, current)
         if owner is not None and self.owner_alive(owner["pid"], owner["start_time"]) is False:
             # Never stored: a dead owner cannot hold the service, and storing it
             # would only wait for an exit event that already happened.
-            dead = Session(sid, harness, mode, owner, generation, now, now, owner_live=False, state_dir=state_dir)
+            dead = Session(sid, harness, mode, owner, generation, now, now, owner_live=False, state_dir=state_dir,
+                           report_env=report_env)
             return Registration(Outcome.DEAD, dead, current)
-        session = Session(sid, harness, mode, owner, generation, now, now, state_dir=state_dir)
+        if report_env is None and current is not None:
+            report_env = current.report_env  # what its registrant said last, until it says again
+        session = Session(sid, harness, mode, owner, generation, now, now, state_dir=state_dir, report_env=report_env)
         self.sessions[sid] = session
         self.tombstones.pop(sid, None)
         self.save()
@@ -301,6 +320,7 @@ class Registry:
                     registered_at=float(raw["registered_at"]),
                     heartbeat_at=float(raw["heartbeat_at"]),
                     state_dir=raw["state_dir"] if isinstance(raw.get("state_dir"), str) else None,
+                    report_env=raw["report_env"] if isinstance(raw.get("report_env"), bool) else None,
                 )
             except (KeyError, TypeError, ValueError):
                 continue

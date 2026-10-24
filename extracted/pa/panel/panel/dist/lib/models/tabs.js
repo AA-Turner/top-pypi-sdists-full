@@ -17,15 +17,38 @@ function hide(element) {
     element.setAttribute("aria-hidden", "true");
 }
 export class TabsView extends BkTabsView {
-    static __name__ = "TabsView";
     connect_signals() {
         super.connect_signals();
         let view = this;
         while (view != null) {
             if (view.model.type.endsWith("Tabs")) {
-                view.connect(view.model.properties.active.change, () => this.update_zindex());
+                view.connect(view.model.properties.active.change, () => this.update_active());
             }
             view = view.parent || view._parent; // Handle ReactiveHTML
+        }
+    }
+    update_active() {
+        super.update_active();
+        this._update_child_visibility();
+        this.update_zindex();
+    }
+    _active_child_view() {
+        const tab = this.model.tabs[this.model.active];
+        if (tab == null) {
+            return undefined;
+        }
+        return this.child_views.find((child_view) => child_view.model == tab.child);
+    }
+    _update_child_visibility() {
+        const { child_views } = this;
+        for (const child_view of child_views) {
+            if (child_view != null) {
+                hide(child_view.el);
+            }
+        }
+        const active = this._active_child_view();
+        if (active != null) {
+            show(active.el);
         }
     }
     get is_visible() {
@@ -33,7 +56,7 @@ export class TabsView extends BkTabsView {
         let current_view = this;
         while (parent != null) {
             if (parent.model.type.endsWith("Tabs")) {
-                if (parent.child_views.indexOf(current_view) !== parent.model.active) {
+                if (parent._active_child_view() !== current_view) {
                     return false;
                 }
             }
@@ -54,7 +77,7 @@ export class TabsView extends BkTabsView {
             }
         }
         if (this.is_visible) {
-            const active = child_views[this.model.active];
+            const active = this._active_child_view();
             if (active != null && active.el != null) {
                 active.el.style.zIndex = "1";
             }
@@ -62,19 +85,7 @@ export class TabsView extends BkTabsView {
     }
     _after_layout() {
         LayoutDOMView.prototype._after_layout.call(this);
-        const { child_views } = this;
-        for (const child_view of child_views) {
-            if (child_view !== undefined) {
-                hide(child_view.el);
-            }
-        }
-        const { active } = this.model;
-        if (active in child_views) {
-            const tab = child_views[active];
-            if (tab !== undefined) {
-                show(tab.el);
-            }
-        }
+        this._update_child_visibility();
     }
     _update_layout() {
         LayoutDOMView.prototype._update_layout.call(this);
@@ -99,30 +110,8 @@ export class TabsView extends BkTabsView {
             delete this.layout;
         }
     }
-    update_active() {
-        const i = this.model.active;
-        const { header_els } = this;
-        for (const el of header_els) {
-            el.classList.remove(tabs.active);
-        }
-        if (i in header_els) {
-            header_els[i].classList.add(tabs.active);
-        }
-        const { child_views } = this;
-        for (const child_view of child_views) {
-            hide(child_view.el);
-        }
-        if (i in child_views) {
-            const view = child_views[i];
-            show(view.el);
-            if (view.invalidate_render == null) {
-                view.invalidate_render();
-            }
-        }
-    }
 }
 export class Tabs extends BkTabs {
-    static __name__ = "Tabs";
     static __module__ = "panel.models.tabs";
     static {
         this.prototype.default_view = TabsView;

@@ -6,3 +6,6 @@ rustflags = ["-C", "target-feature=+crt-static"]
 # memchr, memmem and aho-corasick only take their SIMD paths on wasm when this is set at compile time
 [target.wasm32-unknown-unknown]
 rustflags = ["-C", "target-feature=+simd128"]
+
+[alias]
+xtask = "run --quiet --package xtask --"

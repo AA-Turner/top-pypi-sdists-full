@@ -178,6 +178,14 @@ TREELITE_DLL int TreeliteLoadLightGBMModelFromString(
  * \{
  */
 /*!
+ * \brief Deprecated. Please use \ref TreeliteLoadSKLearnRandomForestRegressorEx instead.
+ */
+TREELITE_DLL int TreeliteLoadSKLearnRandomForestRegressor(int n_estimators, int n_features,
+    int n_targets, int64_t const* node_count, int64_t const** children_left,
+    int64_t const** children_right, int64_t const** feature, double const** threshold,
+    double const** value, int64_t const** n_node_samples, double const** weighted_n_node_samples,
+    double const** impurity, TreeliteModelHandle* out);
+/*!
  * \brief Load a scikit-learn RandomForestRegressor model from a collection of arrays. Refer to
  *        https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
  *        learn the meaning of the arrays in detail. Note that this function can also be used to
@@ -196,6 +204,9 @@ TREELITE_DLL int TreeliteLoadLightGBMModelFromString(
  *                  the i-th tree. This is only defined if node k is an internal (non-leaf) node.
  * \param value value[i][k] stores the leaf output of node k of the i-th tree. This is only defined
  *              if node k is a leaf node.
+ * \param missing_go_to_left missing_go_to_left[i][k] stores the default direction for the missing
+ *                           value at node k of the i-th tree. This is only defined if node k is an
+ *                           internal (non-leaf) node.
  * \param n_node_samples n_node_samples[i][k] stores the number of data samples associated with
  *                       node k of the i-th tree.
  * \param weighted_n_node_samples weighted_n_node_samples[i][k] stores the sum of weighted data
@@ -205,11 +216,19 @@ TREELITE_DLL int TreeliteLoadLightGBMModelFromString(
  * \param out Loaded model
  * \return 0 for success, -1 for failure
  */
-TREELITE_DLL int TreeliteLoadSKLearnRandomForestRegressor(int n_estimators, int n_features,
+TREELITE_DLL int TreeliteLoadSKLearnRandomForestRegressorEx(int n_estimators, int n_features,
     int n_targets, int64_t const* node_count, int64_t const** children_left,
     int64_t const** children_right, int64_t const** feature, double const** threshold,
-    double const** value, int64_t const** n_node_samples, double const** weighted_n_node_samples,
-    double const** impurity, TreeliteModelHandle* out);
+    double const** value, uint8_t const** missing_go_to_left, int64_t const** n_node_samples,
+    double const** weighted_n_node_samples, double const** impurity, TreeliteModelHandle* out);
+/*!
+ * \brief Deprecated. Please use \ref TreeliteLoadSKLearnIsolationForestEx instead.
+ */
+TREELITE_DLL int TreeliteLoadSKLearnIsolationForest(int n_estimators, int n_features,
+    int64_t const* node_count, int64_t const** children_left, int64_t const** children_right,
+    int64_t const** feature, double const** threshold, double const** value,
+    int64_t const** n_node_samples, double const** weighted_n_node_samples, double const** impurity,
+    double ratio_c, TreeliteModelHandle* out);
 /*!
  * \brief Load a scikit-learn IsolationForest model from a collection of arrays. Refer to
  *        https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
@@ -227,20 +246,33 @@ TREELITE_DLL int TreeliteLoadSKLearnRandomForestRegressor(int n_estimators, int 
  *                  the i-th tree. This is only defined if node k is an internal (non-leaf) node.
  * \param value value[i][k] stores the expected isolation depth of node k of the i-th tree. This is
  *              only defined if node k is a leaf node.
+ * \param missing_go_to_left missing_go_to_left[i][k] stores the default direction for the missing
+ *                           value at node k of the i-th tree. This is only defined if node k is an
+ *                           internal (non-leaf) node.
  * \param n_node_samples n_node_samples[i][k] stores the number of data samples associated with
  *                       node k of the i-th tree.
  * \param weighted_n_node_samples weighted_n_node_samples[i][k] stores the sum of weighted data
  *                                samples associated with node k of the i-th tree.
  * \param impurity Not used, but must be passed as array of arrays for each tree and node.
  * \param ratio_c Standardizing constant to use for calculation of the anomaly score.
+ * \param offset Offset used to define the decision function from the raw scores.
  * \param out Loaded model
  * \return 0 for success, -1 for failure
  */
-TREELITE_DLL int TreeliteLoadSKLearnIsolationForest(int n_estimators, int n_features,
+TREELITE_DLL int TreeliteLoadSKLearnIsolationForestEx(int n_estimators, int n_features,
     int64_t const* node_count, int64_t const** children_left, int64_t const** children_right,
     int64_t const** feature, double const** threshold, double const** value,
-    int64_t const** n_node_samples, double const** weighted_n_node_samples, double const** impurity,
-    double ratio_c, TreeliteModelHandle* out);
+    uint8_t const** missing_go_to_left, int64_t const** n_node_samples,
+    double const** weighted_n_node_samples, double const** impurity, double ratio_c, double offset,
+    TreeliteModelHandle* out);
+/*!
+ * \brief Deprecated. Please use \ref TreeliteLoadSKLearnRandomForestClassifierEx instead.
+ */
+TREELITE_DLL int TreeliteLoadSKLearnRandomForestClassifier(int n_estimators, int n_features,
+    int n_targets, int32_t const* n_classes, int64_t const* node_count,
+    int64_t const** children_left, int64_t const** children_right, int64_t const** feature,
+    double const** threshold, double const** value, int64_t const** n_node_samples,
+    double const** weighted_n_node_samples, double const** impurity, TreeliteModelHandle* out);
 /*!
  * \brief Load a scikit-learn RandomForestClassifier model from a collection of arrays. Refer to
  *        https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
@@ -261,6 +293,9 @@ TREELITE_DLL int TreeliteLoadSKLearnIsolationForest(int n_estimators, int n_feat
  *                  the i-th tree. This is only defined if node k is an internal (non-leaf) node.
  * \param value value[i][k] stores the leaf output of node k of the i-th tree. This is only defined
  *              if node k is a leaf node.
+ * \param missing_go_to_left missing_go_to_left[i][k] stores the default direction for the missing
+ *                           value at node k of the i-th tree. This is only defined if node k is an
+ *                           internal (non-leaf) node.
  * \param n_node_samples n_node_samples[i][k] stores the number of data samples associated with
  *                       node k of the i-th tree.
  * \param weighted_n_node_samples weighted_n_node_samples[i][k] stores the sum of weighted data
@@ -270,11 +305,12 @@ TREELITE_DLL int TreeliteLoadSKLearnIsolationForest(int n_estimators, int n_feat
  * \param out Loaded model
  * \return 0 for success, -1 for failure
  */
-TREELITE_DLL int TreeliteLoadSKLearnRandomForestClassifier(int n_estimators, int n_features,
+TREELITE_DLL int TreeliteLoadSKLearnRandomForestClassifierEx(int n_estimators, int n_features,
     int n_targets, int32_t const* n_classes, int64_t const* node_count,
     int64_t const** children_left, int64_t const** children_right, int64_t const** feature,
-    double const** threshold, double const** value, int64_t const** n_node_samples,
-    double const** weighted_n_node_samples, double const** impurity, TreeliteModelHandle* out);
+    double const** threshold, double const** value, uint8_t const** missing_go_to_left,
+    int64_t const** n_node_samples, double const** weighted_n_node_samples, double const** impurity,
+    TreeliteModelHandle* out);
 /*!
  * \brief Load a scikit-learn GradientBoostingRegressor model from a collection of arrays. Refer
  *        to https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html to
@@ -346,7 +382,15 @@ TREELITE_DLL int TreeliteLoadSKLearnGradientBoostingClassifier(int n_iter, int n
     int64_t const** children_right, int64_t const** feature, double const** threshold,
     double const** value, int64_t const** n_node_samples, double const** weighted_n_node_samples,
     double const** impurity, double const* base_scores, TreeliteModelHandle* out);
-
+/*!
+ * \brief Deprecated. Please use \ref TreeliteLoadSKLearnHistGradientBoostingRegressorEx instead.
+ */
+TREELITE_DLL int TreeliteLoadSKLearnHistGradientBoostingRegressor(int n_iter, int n_features,
+    int64_t const* node_count, void const** nodes, int expected_sizeof_node_struct,
+    uint32_t n_categorical_splits, uint32_t const** raw_left_cat_bitsets,
+    uint32_t const* known_cat_bitsets, uint32_t const* known_cat_bitsets_offset_map,
+    int32_t const* features_map, int64_t const** categories_map, double const* base_scores,
+    TreeliteModelHandle* out);
 /*!
  * \brief Load a scikit-learn HistGradientBoostingRegressor model from a collection of arrays.
  *        Note: HistGradientBoostingRegressor does not support multiple targets (outputs).
@@ -373,16 +417,17 @@ TREELITE_DLL int TreeliteLoadSKLearnGradientBoostingClassifier(int n_iter, int n
  * \param base_scores Baseline predictions for outputs. At prediction, margin scores will be
  *                    adjusted by this amount before applying the post-processing (link)
  *                    function. Required shape: (1,)
+ * \param loss_function Name of the loss function used in the boosting progress. This information
+ *                      is used in selecting the postprocessor field in the imported Treelite model.
  * \param out Loaded model
  * \return 0 for success, -1 for failure
  */
-TREELITE_DLL int TreeliteLoadSKLearnHistGradientBoostingRegressor(int n_iter, int n_features,
+TREELITE_DLL int TreeliteLoadSKLearnHistGradientBoostingRegressorEx(int n_iter, int n_features,
     int64_t const* node_count, void const** nodes, int expected_sizeof_node_struct,
     uint32_t n_categorical_splits, uint32_t const** raw_left_cat_bitsets,
     uint32_t const* known_cat_bitsets, uint32_t const* known_cat_bitsets_offset_map,
     int32_t const* features_map, int64_t const** categories_map, double const* base_scores,
-    TreeliteModelHandle* out);
-
+    char const* loss_function, TreeliteModelHandle* out);
 /*!
  * \brief Load a scikit-learn HistGradientBoostingClassifier model from a collection of arrays.
  *        Note: HistGradientBoostingClassifier does not support multiple targets (outputs).

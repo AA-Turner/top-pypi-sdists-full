@@ -23,10 +23,14 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.base_feature_extractor_model_output import BaseFeatureExtractorModelOutput
-from mixpeek.models.namespace_infrastructure_output import NamespaceInfrastructureOutput
+from mixpeek.models.namespace_cost_cap_override import NamespaceCostCapOverride
+from mixpeek.models.namespace_infrastructure import NamespaceInfrastructure
+from mixpeek.models.namespace_pin import NamespacePin
 from mixpeek.models.namespace_scope import NamespaceScope
+from mixpeek.models.namespace_trusted_issuer import NamespaceTrustedIssuer
 from mixpeek.models.namespace_type import NamespaceType
 from mixpeek.models.payload_index_config_output import PayloadIndexConfigOutput
+from mixpeek.models.tiering_override import TieringOverride
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -39,33 +43,40 @@ class NamespaceModel(BaseModel):
     namespace_name: Annotated[str, Field(strict=True, max_length=64)] = Field(description="Name of the namespace")
     namespace_type: Optional[NamespaceType] = Field(default=None, description="Type of namespace. STANDARD for regular namespaces, MARKETPLACE for curated datasets that can be subscribed to.")
     scope: Optional[NamespaceScope] = Field(default=None, description="Ownership scope. ORG (default) is org-scoped — only visible to members of the owning organization. SYSTEM is Mixpeek-owned and visible read-only to every authenticated org; used for curated sample corpora. Mutations on SYSTEM namespaces require admin auth.")
-    infrastructure: Optional[NamespaceInfrastructureOutput] = Field(default=None, description="Infrastructure configuration for the namespace.")
+    infrastructure: Optional[NamespaceInfrastructure] = Field(default=None, description="Infrastructure configuration for the namespace.")
+    trusted_issuers: Optional[Annotated[List[NamespaceTrustedIssuer], Field(max_length=5)]] = Field(default=None, description="Identity providers whose end-user tokens (OIDC/JWT, verified against a JWKS) may call this namespace directly from a browser, each with the retrievers and collections it may use and the claims applied as filters. None or empty accepts no end-user tokens.")
+    cost_cap_override: Optional[NamespaceCostCapOverride] = Field(default=None, description="Deprecated: use spend_budget. Explicit daily inference cost cap for this namespace, kept working for existing callers.")
+    tiering: Optional[TieringOverride] = Field(default=None, description="This namespace's tiering override: enabled, idle_days and exempt (a reason). Each field left unset inherits the platform's data-class default, and each collection inherits from here. An exempt namespace is never demoted.")
+    pinned: Optional[NamespacePin] = Field(default=None, description="This namespace's pin: enabled, warm_query_encoder, and who set it when. A pinned namespace with warm_query_encoder keeps one replica of each query encoder its searches call running, billed per replica-hour as its own invoice line. Absent means not pinned.")
+    spend_budget: Optional[Dict[str, Any]] = Field(default=None, description="This namespace's own spend budget as stored: daily_usd, monthly_usd and the change history. Absent until someone sets it; the organization's namespace default applies until then.")
+    budget: Optional[Dict[str, Any]] = Field(default=None, description="Read-only. The namespace's effective daily and monthly budget, where each number comes from, spend to date, and the headroom left under the organization's budget. Computed on GET; never stored.")
     cluster_id: Optional[StrictStr] = Field(default=None, description="Infrastructure cluster ID for this namespace (Enterprise only). When set, this namespace uses a dedicated compute and vector cluster. If None, uses shared infrastructure or organization-level infrastructure. Format: iclstr_xxx")
     description: Optional[StrictStr] = Field(default=None, description="Description of the namespace")
     feature_extractors: Optional[List[BaseFeatureExtractorModelOutput]] = Field(default=None, description="List of feature extractors configured for this namespace")
     payload_indexes: Optional[List[PayloadIndexConfigOutput]] = Field(default=None, description="Custom payload indexes configured for this namespace")
     payload_index_count: Optional[StrictInt] = Field(default=None, description="Number of USER (non-protected) payload indexes on this namespace — the same count the Studio Namespaces table shows per row. Populated even in the summary LIST view, which omits the heavy `payload_indexes` array itself (the array is ~75% of the list payload, but its count is a single integer). Without it the table can only show '—'.")
     document_count: Optional[StrictInt] = Field(default=None, description="Total number of documents in this namespace")
+    document_count_complete: Optional[StrictBool] = Field(default=True, description="False when the live vector-store count above did not finish in time (e.g. a shard still replaying its WAL after a restart) and document_count is therefore null rather than a real count, including a genuine zero. True (the default) covers every non-degraded response, including an empty namespace, whose document_count is 0 with this true.")
     bucket_count: Optional[StrictInt] = Field(default=None, description="Total number of buckets in this namespace")
     collection_count: Optional[StrictInt] = Field(default=None, description="Total number of collections in this namespace")
     object_count: Optional[StrictInt] = Field(default=None, description="Total number of objects across all buckets in this namespace")
     auto_create_indexes: Optional[StrictBool] = Field(default=False, description="Enable automatic creation of vector store payload indexes based on filter usage patterns. When enabled, the system tracks which fields are most frequently filtered (>100 queries/24h) and automatically creates indexes to improve query performance. Background task runs every 6 hours. Expected performance improvement: 50-90% latency reduction for filtered queries.")
+    adaptive_indexing: Optional[StrictBool] = Field(default=False, description="Let the vector index re-tune its own partition size and flush threshold from observed search latency. Off by default. When on, every change it makes is recorded in the namespace's mxp_platform_events collection (event_type index_adaptation) with the parameter, its old and new value, the search count that triggered it, and p95 search latency before and after.")
     vector_inference_map: Optional[Dict[str, StrictStr]] = Field(default=None, description="Mapping of vector index names to inference service names. Built at namespace creation based on extractor configurations. Used by feature search to determine correct inference service for queries. Example: {'image_extractor_v1_embedding': 'google_siglip_base_v1'}")
     dynamic_vector_indexes: Optional[StrictBool] = Field(default=None, description="Creation-time marker for BYO vector-name handling. False = the namespace was created with EXPLICIT vector_configs, so upserting a vector name outside those configs is rejected (422) instead of silently auto-indexed under a name nothing searches. True = fully dynamic BYO namespace (created without vector_configs): new vector names keep being inferred on first upsert. Null (namespaces that predate the marker) behaves as True so existing flows are unchanged.")
     mode: Optional[StrictStr] = Field(default=None, description="Namespace mode: 'managed' (Mixpeek manages vector schemas and inference) or 'standalone' (bring-your-own vectors). Populated from the stored mvs_mode; null for namespaces that predate BYOV.")
     vector_configs: Optional[List[Dict[str, Any]]] = Field(default=None, description="For standalone / promoted (BYO-vector) namespaces, the per-vector configs: name, dimension, metric. Populated from the stored mvs_vector_configs; null for managed namespaces with no BYO vectors.")
-    qdrant_status: Optional[Dict[str, Any]] = Field(default=None, description="Live vector collection status. Populated when retrieving a namespace. Includes: status (green/yellow/red), points_count, indexed_vectors_count, segments_count. None if vector collection does not exist or is unreachable.")
     clone_status: Optional[StrictStr] = Field(default=None, description="Deep-clone / scaffold sample-data progress: 'cloning' (in flight), 'ready' (completed), 'failed' (see clone_error). Null for namespaces that were never cloned. Poll this after a scaffold instantiate with include_sample_data=true.")
     clone_error: Optional[StrictStr] = Field(default=None, description="Error detail when clone_status='failed'; null otherwise.")
     clone_phase: Optional[StrictStr] = Field(default=None, description="Fine-grained clone progress: 'queued' (dispatched, waiting for a worker — a clone can wait many minutes behind tenant heavy-queue backlogs), 'copying' (the clone task is actively running), null once terminal (see clone_status) or for namespaces never cloned. Distinguishes a queue-starved clone from a dead one.")
-    clone_task_id: Optional[StrictStr] = Field(default=None, description="Celery task id of the in-flight or last deep clone, for diagnosing a stalled clone from the namespace record alone.")
+    clone_task_id: Optional[StrictStr] = Field(default=None, description="Work id of the in-flight or last deep clone, for diagnosing a stalled clone from the namespace record alone.")
     clone_dispatched_at: Optional[datetime] = Field(default=None, description="When the deep-clone task was dispatched; with clone_phase='queued' this measures time spent waiting for a worker.")
     source_namespace_id: Optional[StrictStr] = Field(default=None, description="For a cloned namespace, the source (golden/sample) namespace id it was cloned from.")
     namespace_ready: Optional[StrictBool] = Field(default=False, description="ALWAYS PRESENT. True only after the server CONFIRMED this namespace is usable: its vector collection exists and is reachable (a served live count, the readiness signal) and no clone is in flight. Never a prediction or timestamp. A wizard-created namespace mid-provision reads false (poll the namespace GET; it flips true on the first confirming read and the flip is persisted). Namespaces created before the feature shipped emit true; post-ship namespaces with no stored value emit false (fail toward not-ready).")
     created_at: Optional[datetime] = Field(default=None, description="When the namespace was created")
     updated_at: Optional[datetime] = Field(default=None, description="When the namespace was last updated")
-    expires_at: Optional[datetime] = Field(default=None, description="UTC timestamp after which the namespace is auto-deleted by the hourly cleanup_expired_namespaces reaper. Computed at create time from CreateNamespaceRequest.ttl_seconds; null means the namespace never expires.")
-    __properties: ClassVar[List[str]] = ["object", "namespace_id", "namespace_name", "namespace_type", "scope", "infrastructure", "cluster_id", "description", "feature_extractors", "payload_indexes", "payload_index_count", "document_count", "bucket_count", "collection_count", "object_count", "auto_create_indexes", "vector_inference_map", "dynamic_vector_indexes", "mode", "vector_configs", "qdrant_status", "clone_status", "clone_error", "clone_phase", "clone_task_id", "clone_dispatched_at", "source_namespace_id", "namespace_ready", "created_at", "updated_at", "expires_at"]
+    expires_at: Optional[datetime] = Field(default=None, description="UTC timestamp after which the namespace is deleted automatically. Set at create time from ttl_seconds, and changed or cleared with PATCH (expires_at or ttl_seconds). An hourly sweep records a namespace_expiring event in the namespace's mxp_platform_events collection about an hour before, and deletes the namespace once the expiry has passed and that warning is an hour old. Null means the namespace never expires.")
+    __properties: ClassVar[List[str]] = ["object", "namespace_id", "namespace_name", "namespace_type", "scope", "infrastructure", "trusted_issuers", "cost_cap_override", "tiering", "pinned", "spend_budget", "budget", "cluster_id", "description", "feature_extractors", "payload_indexes", "payload_index_count", "document_count", "document_count_complete", "bucket_count", "collection_count", "object_count", "auto_create_indexes", "adaptive_indexing", "vector_inference_map", "dynamic_vector_indexes", "mode", "vector_configs", "clone_status", "clone_error", "clone_phase", "clone_task_id", "clone_dispatched_at", "source_namespace_id", "namespace_ready", "created_at", "updated_at", "expires_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -111,6 +122,22 @@ class NamespaceModel(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of infrastructure
         if self.infrastructure:
             _dict['infrastructure'] = self.infrastructure.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in trusted_issuers (list)
+        _items = []
+        if self.trusted_issuers:
+            for _item_trusted_issuers in self.trusted_issuers:
+                if _item_trusted_issuers:
+                    _items.append(_item_trusted_issuers.to_dict())
+            _dict['trusted_issuers'] = _items
+        # override the default output from pydantic by calling `to_dict()` of cost_cap_override
+        if self.cost_cap_override:
+            _dict['cost_cap_override'] = self.cost_cap_override.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of tiering
+        if self.tiering:
+            _dict['tiering'] = self.tiering.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of pinned
+        if self.pinned:
+            _dict['pinned'] = self.pinned.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in feature_extractors (list)
         _items = []
         if self.feature_extractors:
@@ -142,22 +169,29 @@ class NamespaceModel(BaseModel):
             "namespace_name": obj.get("namespace_name"),
             "namespace_type": obj.get("namespace_type"),
             "scope": obj.get("scope"),
-            "infrastructure": NamespaceInfrastructureOutput.from_dict(obj["infrastructure"]) if obj.get("infrastructure") is not None else None,
+            "infrastructure": NamespaceInfrastructure.from_dict(obj["infrastructure"]) if obj.get("infrastructure") is not None else None,
+            "trusted_issuers": [NamespaceTrustedIssuer.from_dict(_item) for _item in obj["trusted_issuers"]] if obj.get("trusted_issuers") is not None else None,
+            "cost_cap_override": NamespaceCostCapOverride.from_dict(obj["cost_cap_override"]) if obj.get("cost_cap_override") is not None else None,
+            "tiering": TieringOverride.from_dict(obj["tiering"]) if obj.get("tiering") is not None else None,
+            "pinned": NamespacePin.from_dict(obj["pinned"]) if obj.get("pinned") is not None else None,
+            "spend_budget": obj.get("spend_budget"),
+            "budget": obj.get("budget"),
             "cluster_id": obj.get("cluster_id"),
             "description": obj.get("description"),
             "feature_extractors": [BaseFeatureExtractorModelOutput.from_dict(_item) for _item in obj["feature_extractors"]] if obj.get("feature_extractors") is not None else None,
             "payload_indexes": [PayloadIndexConfigOutput.from_dict(_item) for _item in obj["payload_indexes"]] if obj.get("payload_indexes") is not None else None,
             "payload_index_count": obj.get("payload_index_count"),
             "document_count": obj.get("document_count"),
+            "document_count_complete": obj.get("document_count_complete") if obj.get("document_count_complete") is not None else True,
             "bucket_count": obj.get("bucket_count"),
             "collection_count": obj.get("collection_count"),
             "object_count": obj.get("object_count"),
             "auto_create_indexes": obj.get("auto_create_indexes") if obj.get("auto_create_indexes") is not None else False,
+            "adaptive_indexing": obj.get("adaptive_indexing") if obj.get("adaptive_indexing") is not None else False,
             "vector_inference_map": obj.get("vector_inference_map"),
             "dynamic_vector_indexes": obj.get("dynamic_vector_indexes"),
             "mode": obj.get("mode"),
             "vector_configs": obj.get("vector_configs"),
-            "qdrant_status": obj.get("qdrant_status"),
             "clone_status": obj.get("clone_status"),
             "clone_error": obj.get("clone_error"),
             "clone_phase": obj.get("clone_phase"),

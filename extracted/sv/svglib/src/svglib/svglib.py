@@ -27,10 +27,10 @@ import os
 import pathlib
 import re
 import shlex
-import shutil
 from collections import defaultdict, namedtuple
 from io import BytesIO
 from typing import (
+    IO,
     Any,
     BinaryIO,
     Optional,
@@ -103,7 +103,7 @@ PX_TO_PT = 0.75
 
 # An SVG source accepted by the public API: a path, a path-like object, or an
 # already-open binary/text file object.
-SVGSource = Union[str, os.PathLike[str], BinaryIO, TextIO]
+SVGSource = Union[str, os.PathLike[str], BinaryIO, TextIO, IO[bytes], gzip.GzipFile]
 
 # A single gradient stop: (offset, ReportLab color). The color is untyped
 # because ReportLab ships no stubs.
@@ -490,7 +490,7 @@ class AttributeConverter:
             subline = line[bi + 1 : bj]
             subline = subline.strip()
             subline = subline.replace(",", " ")
-            subline = re.sub("[ ]+", ",", subline)
+            subline = re.sub(r"[ \t\r\n]+", ",", subline)
             try:
                 if "," in subline:
                     indices.append(tuple(float(num) for num in subline.split(",")))
@@ -897,6 +897,7 @@ class _UseExpansionCounter:
 
     def __init__(self) -> None:
         self.count = 0
+        self.origin_ids = itertools.count()
 
 
 class ExternalSVG:
@@ -1182,6 +1183,7 @@ class SvgRenderer:
         )
         self._external_svgs: dict[str, ExternalSVG] = {}
         self._use_expansions = _UseExpansionCounter()
+        self._use_stack: list[str] = []  # Targets being expanded, to detect cycles.
         self.attrConverter.css_rules = CSSMatcher()
 
     def _set_root_font_size(self, root_node: Any) -> None:
@@ -2039,14 +2041,28 @@ class SvgRenderer:
         else:
             item = item[1]  # [0] is the renderer, not used here.
 
-        if clipping:
-            group.add(clipping)
-        if len(node.getchildren()) == 0:
-            # Append a copy of the referenced node as the <use> child (if not
-            # already done)
-            node.append(copy.deepcopy(item))
-        self.renderNode(list(node.iter_children())[-1], parent=group)
-        self.apply_node_attr_to_group(node, group)
+        # Rendering a clone can rebind an id to the cloned element, so key on
+        # the element the target was originally cloned from.
+        target = item.etree_element.get("__use_origin")
+        if target is None:
+            target = str(next(self._use_expansions.origin_ids))
+            item.etree_element.set("__use_origin", target)
+        if item.etree_element is node.etree_element or target in self._use_stack:
+            logger.error("Circular <use> reference detected, skipping.")
+            return group
+
+        self._use_stack.append(target)
+        try:
+            if clipping:
+                group.add(clipping)
+            if len(node.getchildren()) == 0:
+                # Append a copy of the referenced node as the <use> child (if not
+                # already done)
+                node.append(copy.deepcopy(item))
+            self.renderNode(list(node.iter_children())[-1], parent=group)
+            self.apply_node_attr_to_group(node, group)
+        finally:
+            self._use_stack.pop()
         return group
         return None
 
@@ -2851,7 +2867,7 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
 
 
 def svg2rlg(
-    path: Union[str, os.PathLike[str], BinaryIO, TextIO],
+    path: SVGSource,
     resolve_entities: bool = False,
     **kwargs: Any,
 ) -> Optional[Drawing]:
@@ -2871,25 +2887,17 @@ def svg2rlg(
     if isinstance(path, pathlib.Path):
         path = str(path)
 
-    # unzip .svgz file into .svg
-    unzipped_path: Optional[str] = None
     if isinstance(path, str) and os.path.splitext(path)[1].lower() == ".svgz":
-        with gzip.open(path, "rb") as f_in, open(path[:-1], "wb") as f_out:
-            shutil.copyfileobj(f_in, f_out)
-        path = path[:-1]
-        unzipped_path = path
-
-    svg_root = load_svg_file(path, resolve_entities=resolve_entities)
+        with gzip.open(path, "rb") as source:
+            svg_root = load_svg_file(source, resolve_entities=resolve_entities)
+    else:
+        svg_root = load_svg_file(path, resolve_entities=resolve_entities)
     if svg_root is None:
         return None
 
     # convert to a RLG drawing
     svgRenderer = SvgRenderer(path, **kwargs)
     drawing = svgRenderer.render(svg_root)
-
-    # remove unzipped .svgz file (.svg)
-    if unzipped_path is not None:
-        os.remove(unzipped_path)
 
     return drawing
 

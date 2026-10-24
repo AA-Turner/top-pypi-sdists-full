@@ -3,6 +3,7 @@ import type { StyleSheetLike } from "@bokehjs/core/dom";
 import type * as p from "@bokehjs/core/properties";
 import type { Attrs } from "@bokehjs/core/types";
 import { InputWidget, InputWidgetView } from "@bokehjs/models/widgets/input_widget";
+import type { ResourceSpec } from "./resources";
 export declare class UploadEvent extends ModelEvent {
     readonly data: any;
     constructor(data: any);
@@ -19,7 +20,7 @@ export declare class FileDropperView extends InputWidgetView {
     _file_pond: any | null;
     _transfer_in_process: string | null;
     private extensionsToMimeTypes;
-    initialize(): void;
+    lazy_initialize(): Promise<void>;
     connect_signals(): void;
     remove(): void;
     stylesheets(): StyleSheetLike[];
@@ -40,6 +41,7 @@ export declare namespace FileDropper {
         mime_type: p.Property<any>;
         multiple: p.Property<boolean>;
         previews: p.Property<string[]>;
+        external_resources: p.Property<ResourceSpec | null>;
     };
 }
 export interface FileDropper extends FileDropper.Attrs {
@@ -48,5 +50,6 @@ export declare class FileDropper extends InputWidget {
     properties: FileDropper.Props;
     static __module__: string;
     constructor(attrs?: Partial<FileDropper.Attrs>);
+    initialize(): void;
 }
 //# sourceMappingURL=file_dropper.d.ts.map

@@ -17,7 +17,6 @@ from docker.client import DockerClient
 from docker.errors import ImageNotFound
 from docker.models.containers import Container
 
-import docker
 from tinybird.tb.client import AuthNoTokenException, TinyB
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLILocalException
@@ -683,7 +682,7 @@ def get_docker_client() -> DockerClient:
             except Exception:
                 pass
         try:
-            client = docker.from_env()  # type: ignore
+            client = DockerClient.from_env()
         except Exception as e:
             add_telemetry_event(
                 "docker_error",

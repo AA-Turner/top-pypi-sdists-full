@@ -33,6 +33,13 @@ if TYPE_CHECKING:
 # default W value per core for a CPU if no model is found in the ref csv
 DEFAULT_POWER_PER_CORE = 4
 
+_TROUBLESHOOTING_URL = "https://docs.codecarbon.io/latest/how-to/troubleshooting/"
+RAPL_PERMISSION_HELP = (
+    "You can grant read permission with: sudo chmod -R a+r /sys/class/powercap/* "
+    "(this does not persist across reboots, see "
+    f"{_TROUBLESHOOTING_URL}#rapl-permission-denied for a permanent setup)"
+)
+
 
 @lru_cache(maxsize=1)
 def is_powergadget_available() -> bool:
@@ -180,18 +187,16 @@ def _create_warn_function():
         nonlocal already_warned
         if not already_warned:
             logger.warning(
-                "\tRAPL - Permission denied reading RAPL file %s. "
-                "You can grant read permission with: "
-                "sudo chmod -R a+r /sys/class/powercap/*",
+                "\tRAPL - Permission denied reading RAPL file %s. %s",
                 energy_path,
+                RAPL_PERMISSION_HELP,
             )
             already_warned = True
         else:
             logger.debug(
-                "\tRAPL - Permission denied reading RAPL file %s. "
-                "You can grant read permission with: "
-                "sudo chmod -R a+r /sys/class/powercap/*",
+                "\tRAPL - Permission denied reading RAPL file %s. %s",
                 energy_path,
+                RAPL_PERMISSION_HELP,
             )
 
     return warn_permission_denied
@@ -251,6 +256,24 @@ def is_psutil_available():
             + f"psutil.cpu_times : {e}",
         )
         return False
+
+
+def is_raspberry() -> bool:
+    """
+    Check if the Raspberry Pi PMIC power readings are available.
+
+    `vcgencmd` ships with every Raspberry Pi OS, but only the Pi 5 answers
+    `pmic_read_adc`: older boards fall back to the TDP of their CPU.
+    """
+    if not os.path.exists("/usr/bin/vcgencmd"):
+        return False
+    try:
+        res = subprocess.run(
+            ["vcgencmd", "pmic_read_adc"], capture_output=True, timeout=5
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return res.returncode == 0 and b"volt(" in res.stdout
 
 
 class IntelPowerGadget:
@@ -489,7 +512,7 @@ class IntelRAPL:
         """Scan subdirectories of a RAPL entry for domain directories."""
         subdirs = []
         try:
-            for sub in os.listdir(entry_path):
+            for sub in sorted(os.listdir(entry_path)):
                 sub_path = os.path.join(entry_path, sub)
                 if ":" in sub and os.path.isdir(sub_path):
                     if os.path.exists(os.path.join(sub_path, "energy_uj")):
@@ -508,7 +531,7 @@ class IntelRAPL:
         """Scan a base directory for intel-rapl entries."""
         domain_dirs = []
         try:
-            for entry in os.listdir(base):
+            for entry in sorted(os.listdir(base)):
                 if not entry.startswith("intel-rapl"):
                     continue
                 entry_path = os.path.join(base, entry)
@@ -537,7 +560,7 @@ class IntelRAPL:
         if domain_dirs:
             return domain_dirs
         try:
-            for item in os.listdir(self._lin_rapl_dir):
+            for item in sorted(os.listdir(self._lin_rapl_dir)):
                 if ":" in item:
                     path = os.path.join(self._lin_rapl_dir, item)
                     if os.path.isdir(path) and os.path.exists(
@@ -592,8 +615,7 @@ class IntelRAPL:
             return True, is_required_main
         except PermissionError:
             msg = f"\tRAPL - Permission denied reading RAPL file {rapl_file}."
-            suggestion = "You can grant read permission with: sudo chmod -R a+r /sys/class/powercap/*"
-            logger.warning("%s %s; skipping.", msg, suggestion)
+            logger.warning("%s %s; skipping.", msg, RAPL_PERMISSION_HELP)
             return False, False
         except Exception as e:
             logger.debug(
@@ -893,6 +915,7 @@ class IntelRAPL:
             (rapl_file.path, float(rapl_file.last_energy))
             for rapl_file in self._rapl_files
             if "dram" not in rapl_file.name.lower()
+            and rapl_file.last_energy is not None
         ]
         self._mirrored_candidates = find_mirrored_counters(
             counters, SEQUENTIAL_READ_TOLERANCE_KWH
@@ -928,7 +951,10 @@ class IntelRAPL:
                 continue
             delta = float(rapl_file.energy_delta)
             reference_delta = float(reference.energy_delta)
-            if delta <= 0 and reference_delta <= 0:
+            if rapl_file.sample_skipped or reference.sample_skipped:
+                # A skipped sample reports no energy: the interval is not conclusive
+                pending[path] = reference_path
+            elif delta <= 0 and reference_delta <= 0:
                 # Nothing was accumulated: the interval is not conclusive
                 pending[path] = reference_path
             elif counters_match(delta, reference_delta, SEQUENTIAL_READ_TOLERANCE_KWH):
@@ -1088,9 +1114,10 @@ class TDP:
                 )
                 return cpu_model_detected, power
             logger.warning(
-                "We saw that you have a %s but we don't know it."
-                + " Please contact us.",
+                "We saw that you have a %s but we don't know it. "
+                "Please help us add it, see %s#unknown-cpu-model",
                 cpu_model_detected,
+                _TROUBLESHOOTING_URL,
             )
             if is_psutil_available():
                 # Count thread of the CPU

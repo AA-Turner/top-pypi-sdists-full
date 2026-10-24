@@ -162,7 +162,7 @@ def _reshape(
 
 cdef int64_t even_ceil(int64_t N):
   if N & 0x1:
-    return N << 1
+    return N + 1
   return N
 
 @cython.binding(True)
@@ -327,7 +327,7 @@ def connected_components(
     dtype = data.dtype
     if out_dtype is not None:
       dtype = out_dtype
-    out_labels = np.zeros(shape=(0,), dtype=dtype)
+    out_labels = np.zeros(shape=data.shape, dtype=dtype)
     if return_N:
       return (out_labels, 0)
     return out_labels
@@ -409,7 +409,7 @@ def connected_components(
   if binary_image:
     if connectivity in (4,6):
       max_labels = min(max_labels, (union_find_voxels // 2) + 1)
-    elif connectivity == (8,18):
+    elif connectivity in (8,18):
       max_labels = min(max_labels, (union_find_voxels // 4) + 1)
     else: # 26
       max_labels = min(max_labels, (union_find_voxels // 8) + 1)
@@ -1079,7 +1079,7 @@ def voxel_connectivity_graph(
     out_dtype = np.uint8
 
   if data.size == 0:
-    return np.zeros(shape=(0,), dtype=out_dtype)
+    return np.zeros(shape=data.shape, dtype=out_dtype)
 
   data = np.asfortranarray(data)
 

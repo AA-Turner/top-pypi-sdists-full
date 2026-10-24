@@ -70,6 +70,9 @@ def test_frozen_opaque_bytes_are_not_rescanned_on_this_machine(tmp_path):
         mixed_archive(clear_member=b"password=FabricatedPasswordForInspection123!\n"),
         b"PK\x03\x04broken\npassword=FabricatedPasswordForInspection123!\n",
     ],
+    # Named for the same reason as above: agent-ci run 40015305530 failed its
+    # collection when two workers built the archive a zip tick apart.
+    ids=["binary", "encrypted-member-zip", "broken-zip"],
 )
 def test_format_uncertainty_does_not_hide_readable_credentials(raw):
     # Recorded, not refused: a credential never costs the upload.

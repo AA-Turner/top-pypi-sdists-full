@@ -1,24 +1,26 @@
-"""Tree-wide dollar budget for one user request (parent + all sub-agents).
+"""Tree-wide dollar budget for one user action (its turn + every child agent run).
 
-One user click = one ``cx_user_request`` = the total cost of everything it
-triggered, INCLUDING every sub-agent it spawns (sub-agents inherit the parent's
-``request_id`` / ``user_request_id``). A sub-agent tree can fan out fast — a
-runaway agent spawning agents spawning agents — and rack up real money with no
-ceiling: the per-count spawn caps bound the NUMBER of children, never the
-DOLLARS. This module is that dollar ceiling, shared across the whole tree under
-one user request.
+One user action = one request TREE: the person's turn plus every child agent run it
+spawns, at any depth. Every child owns its OWN turn (``chat.user_request``) — the fork
+mints its ``request_id`` and freezes the tree's root as ``root_request_id``
+(``AppContext.tree_request_id``). A sub-agent tree can fan out fast — a runaway agent
+spawning agents spawning agents — and rack up real money with no ceiling: the
+per-count spawn caps bound the NUMBER of children, never the DOLLARS. This module is
+that dollar ceiling, shared across the whole tree.
 
 How it works:
-- Every billed model call folds its cost into a per-``user_request_id``
-  accumulator at the executor's ``add_usage`` chokepoint. Because parent turns
-  and every sub-agent share the same ``request_id``, one accumulator naturally
-  sums the entire tree.
+- Every billed model call folds its cost into the accumulator of its tree ROOT at the
+  executor's ``add_usage`` chokepoint. A child's own request id is LINKED to its root
+  (:func:`join_tree` at the child's run start; :func:`record_tree_cost` also links on a
+  child's first spend), so one accumulator sums the entire tree.
 - Before a turn's tool calls run, the orchestrator reads ``remaining_budget`` and
   threads it into ``ToolContext.cost_budget_remaining``; the existing
   ``ToolGuardrails._check_cost_budget`` then BLOCKS new (expensive / spawning)
   tool calls LOUDLY once the tree is out of budget — never silently.
-- The accumulator is released when the request owner finalizes (or on cancel)
-  so the process-local map can't grow without bound.
+- Every run releases ITS OWN request at finalize (:func:`release_tree_budget`): a child
+  drops only its link; the root's total stays while any linked child still runs (a
+  detached helper outliving its root stays capped) and is dropped by the last one out.
+  A workflow step runs on the run's own id and never releases it.
 
 This is a guardrail, not an accounting record: the authoritative per-call cost
 still lives on the ``cx_request`` rows. The accumulator is an in-memory,
@@ -51,10 +53,11 @@ TREE_COST_CEILING_USD: float | None = 25.0
 _MAX_TREES = 50_000
 
 _accrued: OrderedDict[str, float] = OrderedDict()
-#: R38 (Agent Factory review 5 N5-4): a run that keeps its OWN request record
-#: (``run_agent(independent_request=True)``) still spends against its ROOT tree's
-#: cap. ``_root_of`` maps such a request id to the root request whose accumulator it
-#: shares; ``_members`` is the reverse map, dropped with the root.
+#: Every child agent run owns its own request id and spends against its ROOT tree's
+#: cap (R38). ``_root_of`` maps such a request id to the root request whose
+#: accumulator it shares; ``_members`` is the reverse map (the refcount), dropped with
+#: the root. An explicit ``link_tree_request`` (a factory build spending against its
+#: calling run, ``cost_parent_request_id``) joins the same way.
 _root_of: dict[str, str] = {}
 _members: dict[str, set[str]] = {}
 #: Roots whose own run finished while linked members (detached children) still ran:
@@ -64,20 +67,43 @@ _lock = threading.Lock()
 
 
 def owns_tree(ctx: Any) -> bool:
-    """Whether the run on ``ctx`` owns its request's tree — the only run that may release it.
+    """Whether the run on ``ctx`` releases its own request at finalize.
 
-    Not a sub-agent (``parent_request_id`` set) and not a workflow step: a step runs on
-    the ROOT's ``request_id`` with ``parent_request_id=None`` (``fork_for_workflow_step``),
-    so reading ownership from ``parent_request_id`` alone let a workflow-holder mandate's
-    step agent release the whole tree's accumulator mid-tree (review 6 N6-4). No context
-    = a bare run that owns what it opened."""
+    Every run does — a child agent run owns its own turn, and releasing it drops only
+    its link (:func:`release_tree_budget`) — EXCEPT a workflow step, which runs on the
+    workflow run's own ``request_id`` (``fork_for_workflow_step``) and would release the
+    whole run's accumulator mid-run (review 6 N6-4). No context = a bare run that owns
+    what it opened."""
     if ctx is None:
         return True
-    if getattr(ctx, "parent_request_id", None):
-        return False
     return str(getattr(ctx, "origin_class", "") or "") != "workflow" and str(
         getattr(ctx, "conversation_type", "") or ""
     ) != "workflow"
+
+
+def _ambient_root(user_request_id: str) -> str | None:
+    """The ambient context's tree root when the context IS ``user_request_id``'s run."""
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001 — no context, no root
+        return None
+    if ctx is None or str(getattr(ctx, "request_id", "") or "") != str(user_request_id):
+        return None
+    return str(getattr(ctx, "root_request_id", "") or "") or None
+
+
+def join_tree(ctx: Any) -> None:
+    """Link ``ctx``'s own request to its tree root (idempotent). Called at every run's
+    start, so a child that has not spent yet already holds the root open: a detached
+    helper outliving its root never restarts at a fresh 0."""
+    if ctx is None:
+        return
+    link_tree_request(
+        str(getattr(ctx, "request_id", "") or "") or None,
+        str(getattr(ctx, "root_request_id", "") or "") or None,
+    )
 
 
 def _evict() -> None:
@@ -120,14 +146,21 @@ def tree_root_request_id(user_request_id: str | None) -> str | None:
         return _root(user_request_id)
 
 
-def record_tree_cost(user_request_id: str | None, cost: float | None) -> None:
-    """Fold a billed call's cost into the tree accumulator for its user request.
+def record_tree_cost(
+    user_request_id: str | None, cost: float | None, *, root_request_id: str | None = None
+) -> None:
+    """Fold a billed call's cost into the tree accumulator for its request's ROOT.
 
+    ``root_request_id`` (default: the ambient context's, when the context is this
+    request's run) links a child's own request to its tree on its first spend.
     No-op on a missing id or a non-positive / unknown cost — a call whose cost
     can't yet be computed simply doesn't count (conservative toward allowing
     work, never toward a phantom block)."""
     if not user_request_id or not cost or cost <= 0:
         return
+    root_request_id = root_request_id or _ambient_root(user_request_id)
+    if root_request_id:
+        link_tree_request(user_request_id, root_request_id)
     with _lock:
         root = _root(user_request_id)
         _accrued[root] = _accrued.get(root, 0.0) + float(cost)
@@ -135,14 +168,19 @@ def record_tree_cost(user_request_id: str | None, cost: float | None) -> None:
         _evict()
 
 
-def remaining_budget(user_request_id: str | None) -> float | None:
-    """Dollars left for this user request's whole tree, or ``None`` when no
-    budget applies (disabled, or unknown request id). ``None`` means the
-    guardrail treats the budget as absent — never as exhausted."""
+def remaining_budget(
+    user_request_id: str | None, *, root_request_id: str | None = None
+) -> float | None:
+    """Dollars left for this request's whole tree, or ``None`` when no budget applies
+    (disabled, or unknown request id). ``None`` means the guardrail treats the budget
+    as absent — never as exhausted. A child that has not spent yet reads its ROOT's
+    total (``root_request_id``, default: the ambient context's)."""
     if TREE_COST_CEILING_USD is None or not user_request_id:
         return None
+    root_request_id = root_request_id or _ambient_root(user_request_id)
     with _lock:
-        return TREE_COST_CEILING_USD - _accrued.get(_root(user_request_id), 0.0)
+        root = _root(root_request_id or user_request_id)
+        return TREE_COST_CEILING_USD - _accrued.get(root, 0.0)
 
 
 def accrued_cost(user_request_id: str | None) -> float:

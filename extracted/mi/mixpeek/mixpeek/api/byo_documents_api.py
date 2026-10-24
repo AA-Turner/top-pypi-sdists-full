@@ -49,7 +49,7 @@ class BYODocumentsApi:
     @validate_call
     def create_standalone_namespace(
         self,
-        create_standalone_namespace_request_model: CreateStandaloneNamespaceRequestModel,
+        create_standalone_namespace_request_model: Annotated[CreateStandaloneNamespaceRequestModel, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class BYODocumentsApi:
 
         Create a standalone namespace for BYO (Bring Your Own) vectors. No collection or feature extractor binding is required. Users upsert pre-computed vectors directly via the direct upsert endpoint.
 
-        :param create_standalone_namespace_request_model: (required)
+        :param create_standalone_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_standalone_namespace_request_model: CreateStandaloneNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -105,8 +105,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -122,7 +124,7 @@ class BYODocumentsApi:
     @validate_call
     def create_standalone_namespace_with_http_info(
         self,
-        create_standalone_namespace_request_model: CreateStandaloneNamespaceRequestModel,
+        create_standalone_namespace_request_model: Annotated[CreateStandaloneNamespaceRequestModel, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -140,7 +142,7 @@ class BYODocumentsApi:
 
         Create a standalone namespace for BYO (Bring Your Own) vectors. No collection or feature extractor binding is required. Users upsert pre-computed vectors directly via the direct upsert endpoint.
 
-        :param create_standalone_namespace_request_model: (required)
+        :param create_standalone_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_standalone_namespace_request_model: CreateStandaloneNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -178,8 +180,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -195,7 +199,7 @@ class BYODocumentsApi:
     @validate_call
     def create_standalone_namespace_without_preload_content(
         self,
-        create_standalone_namespace_request_model: CreateStandaloneNamespaceRequestModel,
+        create_standalone_namespace_request_model: Annotated[CreateStandaloneNamespaceRequestModel, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -213,7 +217,7 @@ class BYODocumentsApi:
 
         Create a standalone namespace for BYO (Bring Your Own) vectors. No collection or feature extractor binding is required. Users upsert pre-computed vectors directly via the direct upsert endpoint.
 
-        :param create_standalone_namespace_request_model: (required)
+        :param create_standalone_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_standalone_namespace_request_model: CreateStandaloneNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -251,8 +255,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -405,8 +411,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -486,8 +494,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -567,8 +577,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -653,7 +665,7 @@ class BYODocumentsApi:
     def promote_namespace(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace to promote")],
-        promote_namespace_request_model: PromoteNamespaceRequestModel,
+        promote_namespace_request_model: Annotated[PromoteNamespaceRequestModel, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -673,7 +685,7 @@ class BYODocumentsApi:
 
         :param namespace_id: Namespace to promote (required)
         :type namespace_id: str
-        :param promote_namespace_request_model: (required)
+        :param promote_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type promote_namespace_request_model: PromoteNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -712,8 +724,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -730,7 +744,7 @@ class BYODocumentsApi:
     def promote_namespace_with_http_info(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace to promote")],
-        promote_namespace_request_model: PromoteNamespaceRequestModel,
+        promote_namespace_request_model: Annotated[PromoteNamespaceRequestModel, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -750,7 +764,7 @@ class BYODocumentsApi:
 
         :param namespace_id: Namespace to promote (required)
         :type namespace_id: str
-        :param promote_namespace_request_model: (required)
+        :param promote_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type promote_namespace_request_model: PromoteNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -789,8 +803,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -807,7 +823,7 @@ class BYODocumentsApi:
     def promote_namespace_without_preload_content(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace to promote")],
-        promote_namespace_request_model: PromoteNamespaceRequestModel,
+        promote_namespace_request_model: Annotated[PromoteNamespaceRequestModel, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -827,7 +843,7 @@ class BYODocumentsApi:
 
         :param namespace_id: Namespace to promote (required)
         :type namespace_id: str
-        :param promote_namespace_request_model: (required)
+        :param promote_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type promote_namespace_request_model: PromoteNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -866,8 +882,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -960,7 +978,7 @@ class BYODocumentsApi:
     def upsert_documents_byo_namespaces(
         self,
         namespace_id: Annotated[StrictStr, Field(description="The namespace to upsert documents into.")],
-        byo_upsert_request: BYOUpsertRequest,
+        byo_upsert_request: Annotated[BYOUpsertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -980,7 +998,7 @@ class BYODocumentsApi:
 
         :param namespace_id: The namespace to upsert documents into. (required)
         :type namespace_id: str
-        :param byo_upsert_request: (required)
+        :param byo_upsert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type byo_upsert_request: BYOUpsertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1019,8 +1037,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1037,7 +1057,7 @@ class BYODocumentsApi:
     def upsert_documents_byo_namespaces_with_http_info(
         self,
         namespace_id: Annotated[StrictStr, Field(description="The namespace to upsert documents into.")],
-        byo_upsert_request: BYOUpsertRequest,
+        byo_upsert_request: Annotated[BYOUpsertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1057,7 +1077,7 @@ class BYODocumentsApi:
 
         :param namespace_id: The namespace to upsert documents into. (required)
         :type namespace_id: str
-        :param byo_upsert_request: (required)
+        :param byo_upsert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type byo_upsert_request: BYOUpsertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1096,8 +1116,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1114,7 +1136,7 @@ class BYODocumentsApi:
     def upsert_documents_byo_namespaces_without_preload_content(
         self,
         namespace_id: Annotated[StrictStr, Field(description="The namespace to upsert documents into.")],
-        byo_upsert_request: BYOUpsertRequest,
+        byo_upsert_request: Annotated[BYOUpsertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1134,7 +1156,7 @@ class BYODocumentsApi:
 
         :param namespace_id: The namespace to upsert documents into. (required)
         :type namespace_id: str
-        :param byo_upsert_request: (required)
+        :param byo_upsert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type byo_upsert_request: BYOUpsertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1173,8 +1195,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1267,7 +1291,7 @@ class BYODocumentsApi:
     def validate_promotion_namespaces_id_promote(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace to validate promotion for")],
-        promote_namespace_request_model: Optional[PromoteNamespaceRequestModel] = None,
+        promote_namespace_request_model: Annotated[Optional[PromoteNamespaceRequestModel], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1287,7 +1311,7 @@ class BYODocumentsApi:
 
         :param namespace_id: Namespace to validate promotion for (required)
         :type namespace_id: str
-        :param promote_namespace_request_model:
+        :param promote_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type promote_namespace_request_model: PromoteNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1326,8 +1350,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1344,7 +1370,7 @@ class BYODocumentsApi:
     def validate_promotion_namespaces_id_promote_with_http_info(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace to validate promotion for")],
-        promote_namespace_request_model: Optional[PromoteNamespaceRequestModel] = None,
+        promote_namespace_request_model: Annotated[Optional[PromoteNamespaceRequestModel], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1364,7 +1390,7 @@ class BYODocumentsApi:
 
         :param namespace_id: Namespace to validate promotion for (required)
         :type namespace_id: str
-        :param promote_namespace_request_model:
+        :param promote_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type promote_namespace_request_model: PromoteNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1403,8 +1429,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1421,7 +1449,7 @@ class BYODocumentsApi:
     def validate_promotion_namespaces_id_promote_without_preload_content(
         self,
         namespace_id: Annotated[StrictStr, Field(description="Namespace to validate promotion for")],
-        promote_namespace_request_model: Optional[PromoteNamespaceRequestModel] = None,
+        promote_namespace_request_model: Annotated[Optional[PromoteNamespaceRequestModel], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1441,7 +1469,7 @@ class BYODocumentsApi:
 
         :param namespace_id: Namespace to validate promotion for (required)
         :type namespace_id: str
-        :param promote_namespace_request_model:
+        :param promote_namespace_request_model: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type promote_namespace_request_model: PromoteNamespaceRequestModel
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1480,8 +1508,10 @@ class BYODocumentsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

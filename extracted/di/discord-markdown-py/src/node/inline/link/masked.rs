@@ -10,7 +10,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::LazyLock};
 
 use aho_corasick::{AhoCorasick, Match};
 use discord_confusables::skeleton;
-use enumset::{EnumSet, enum_set, enum_set_difference};
+use enumset::{enum_set, enum_set_difference};
 use nom::{
 	Check, Complete, Finish, Mode, OutputM, Parser,
 	combinator::{map, not},
@@ -23,12 +23,11 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::ByteHint,
-	rule::{Rule, RuleSet},
 	span::Span,
+	syntax::{Syntax, SyntaxSet},
 };
 
-use super::{Grammar, Link, auto, detection, is_suspicious_whitespace, scheme, verify_url};
+use super::{Link, Scope, auto, detection, is_suspicious_whitespace, scheme, verify_url};
 use crate::node::Element;
 
 mod link;
@@ -103,13 +102,20 @@ pub const LINK_OPENER: u8 = b'(';
 /// The sequence that separates the text portion from the link & title portion.
 pub const TEXT_LINK_DIVIDER: &[u8] = b"](";
 
-/// Rules that not allowed to parse inside the text portion.
-// this is intentionally setup to exclude most rules by default
-pub const DISABLED_MASKED_LINK_RULES: EnumSet<Rule> = {
-	let allowed_rules =
-		enum_set!(Rule::Bold | Rule::Code | Rule::Italic | Rule::Strikethrough | Rule::Underline);
-	let all_rules = RuleSet::all();
-	enum_set_difference!(all_rules, allowed_rules)
+/// Syntax that is not allowed to parse inside the text portion.
+// this is intentionally setup to exclude most syntax by default
+pub const DISABLED_MASKED_LINK_SYNTAXES: SyntaxSet = {
+	let allowed = enum_set!(
+		Syntax::Bold
+			| Syntax::AsteriskItalic
+			| Syntax::UnderscoreItalic
+			| Syntax::Strikethrough
+			| Syntax::Underline
+			| Syntax::Code
+			| Syntax::DoubleCode
+	);
+	let all = SyntaxSet::all();
+	enum_set_difference!(all, allowed)
 };
 
 struct MaskedParser<'ctx, S, E> {
@@ -144,12 +150,6 @@ where
 		if bytes.first() != Some(&TEXT_OPENER) {
 			return Err(nom::Err::Error(OM::Error::bind(|| {
 				E::from_error_kind(input.clone(), ErrorKind::Char)
-			})));
-		}
-
-		if *self.context.hints.get(&Grammar::MaskedLinkText) == ByteHint::Absent {
-			return Err(nom::Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input.clone(), ErrorKind::Alt)
 			})));
 		}
 

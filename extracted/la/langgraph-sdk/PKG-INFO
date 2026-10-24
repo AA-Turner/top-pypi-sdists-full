@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langgraph-sdk
-Version: 0.4.8
+Version: 0.4.9
 Summary: SDK for interacting with LangGraph API
 Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/sdk-py
 Project-URL: Twitter, https://x.com/langchain_oss
@@ -13,7 +13,7 @@ Requires-Dist: httpx>=0.25.2
 Requires-Dist: langchain-core<2,>=1.4.0
 Requires-Dist: langchain-protocol>=0.0.15
 Requires-Dist: orjson>=3.11.5
-Requires-Dist: websockets<17,>=14
+Requires-Dist: websockets>=14
 Description-Content-Type: text/markdown
 
 # LangGraph Python SDK

@@ -651,6 +651,9 @@ def _heuristic_func_mm_bf16(
         if "cublaslt" in suitable_backends:
             heuristic_backends.append("cublaslt")
 
+    if "cute-dsl" in suitable_backends:
+        heuristic_backends.append("cute-dsl")
+
     if "tinygemm" in suitable_backends and out_dtype == torch.bfloat16:
         heuristic_backends.append("tinygemm")
 
@@ -731,8 +734,7 @@ def mm_bf16(
             ``bias`` / ``pdl``. Requires SM >= 90.
         ``"cute-dsl"`` uses standalone Blackwell low-M kernels for M <= 32
         (direct, cluster Split-K and warp Split-K) and cuBLASLt above that.
-        It is never auto-selected; serving frameworks must select it
-        explicitly. Without autotuning, M > 32 runs cuBLASLt; below, the
+        Without autotuning, M > 32 runs cuBLASLt; below, the
         direct kernel runs where its shape heuristic applies, otherwise the
         warp Split-K kernel whenever it is eligible (N % 16 == 0, K % 128 == 0
         with at most 64 K tiles; requires CuTe DSL >= 4.7), and
@@ -2785,17 +2787,21 @@ def fp8_gemm_sm100(
 ) -> None:
     tuner = AutoTuner.get()
 
-    runners = []
-    if "cutlass_sm10x" in runner_names:
-        runners.append(get_gemm_sm100_module_cutlass_fp8().cutlass_fp8_gemm_runner())
-    if "cutlass_sm12x" in runner_names:
-        runners.append(get_gemm_sm120_module_cutlass_fp8().cutlass_fp8_gemm_runner())
-    if "cublas" in runner_names:
-        runners.append(get_gemm_module().cublas_fp8_gemm_runner())
-    if "cudnn" in runner_names:
-        runners.append(_cudnn_gemm_fp8_runner())
-    if "cute-dsl_sm107" in runner_names:
-        runners.append(_cute_dsl_fp8_gemm_runner_sm107())
+    # Keep the caller's order: untuned, the autotuner runs runners[0].
+    runner_factories = {
+        "cutlass_sm10x": lambda: (
+            get_gemm_sm100_module_cutlass_fp8().cutlass_fp8_gemm_runner()
+        ),
+        "cutlass_sm12x": lambda: (
+            get_gemm_sm120_module_cutlass_fp8().cutlass_fp8_gemm_runner()
+        ),
+        "cublas": lambda: get_gemm_module().cublas_fp8_gemm_runner(),
+        "cudnn": _cudnn_gemm_fp8_runner,
+        "cute-dsl_sm107": _cute_dsl_fp8_gemm_runner_sm107,
+    }
+    runners = [
+        runner_factories[name]() for name in runner_names if name in runner_factories
+    ]
     assert runners, "No suitable runners found"
 
     inputs = [a, b, scale_a, scale_b, out, workspace_buffer]
@@ -5733,8 +5739,81 @@ def _expand_block_scale_tensor_shape(block_scale_tensor, batch_size):
 
 
 @supported_compute_capability([100, 103, 107])
-def _trtllm_low_latency_gemm_fp8_requirement(**_):
+def _trtllm_low_latency_gemm_fp8_requirement(a: torch.Tensor, b: torch.Tensor, **_):
+    if b.ndim != 3:
+        raise ValueError(
+            "trtllm_low_latency mm_fp8 requires the weight prepared by "
+            "prepare_low_latency_gemm_weights, shape (k // 128, n, 128)"
+        )
     return True
+
+
+def _check_mm_fp8_unprocessed_weight(a: torch.Tensor, b: torch.Tensor) -> None:
+    if (
+        a.ndim != 2
+        or b.ndim != 2
+        or a.shape[1] != b.shape[1]
+        or not a.is_contiguous()
+        or not b.is_contiguous()
+    ):
+        raise ValueError(
+            "cublas / cudnn / cutlass mm_fp8 require contiguous (m, k) and unprocessed "
+            "(n, k) inputs"
+        )
+    fp8_dtypes = (torch.float8_e4m3fn, torch.float8_e5m2)
+    if a.dtype not in fp8_dtypes or b.dtype not in fp8_dtypes:
+        raise ValueError("mm_fp8 requires FP8 operands")
+
+
+@supported_compute_capability([89, 90, 100, 103, 107, 110, 120, 121])
+def _cublas_mm_fp8_requirement(a: torch.Tensor, b: torch.Tensor, **_):
+    _check_mm_fp8_unprocessed_weight(a, b)
+    return True
+
+
+@supported_compute_capability([89, 90, 100, 103, 107, 110, 120, 121])
+def _cudnn_mm_fp8_requirement(
+    a: torch.Tensor, b: torch.Tensor, backend: str = "auto", **_
+):
+    _check_mm_fp8_unprocessed_weight(a, b)
+    return _cudnn_available_or_raise_for_backend(backend)
+
+
+@supported_compute_capability([100, 103, 107, 110, 120, 121])
+def _cutlass_mm_fp8_requirement(a: torch.Tensor, b: torch.Tensor, **_):
+    _check_mm_fp8_unprocessed_weight(a, b)
+    if a.dtype == torch.float8_e5m2 or b.dtype == torch.float8_e5m2:
+        raise ValueError("e5m2 is not supported for mm_fp8 with cutlass backend")
+    return True
+
+
+def _heuristic_func_mm_fp8(
+    suitable_backends: List[str],
+    a: torch.Tensor,
+    b: torch.Tensor,
+    alpha: Optional[torch.Tensor] = None,
+    out_dtype: torch.dtype = torch.bfloat16,
+    out: Optional[torch.Tensor] = None,
+    backend: str = "auto",
+):
+    # The prepared 3-D weight only fits trtllm_low_latency; the unprocessed (n, k)
+    # weight goes to the bmm_fp8 runners.
+    if b.ndim == 3:
+        return [x for x in ("trtllm_low_latency",) if x in suitable_backends]
+    return _heuristic_func_bmm_fp8(
+        [x for x in ("cutlass", "cublas", "cudnn") if x in suitable_backends],
+        a.unsqueeze(0),
+        b.t().unsqueeze(0),
+        None,
+        None,
+        out_dtype,
+    )
+
+
+@functools.cache
+def _fp8_unit_scale(device: torch.device) -> torch.Tensor:
+    # Device-resident 1.0 for the per-tensor FP8 runners' second scale.
+    return torch.ones(1, dtype=torch.float32, device=device)
 
 
 @supported_compute_capability([100, 103, 107])
@@ -5770,7 +5849,11 @@ def _cutedsl_low_latency_blockscaled_gemm_fp8_requirement(
     {
         "trtllm_low_latency": _trtllm_low_latency_gemm_fp8_requirement,
         "cutedsl_low_latency": _cutedsl_low_latency_blockscaled_gemm_fp8_requirement,
-    }
+        "cublas": _cublas_mm_fp8_requirement,
+        "cudnn": _cudnn_mm_fp8_requirement,
+        "cutlass": _cutlass_mm_fp8_requirement,
+    },
+    heuristic_func=_heuristic_func_mm_fp8,
 )
 @flashinfer_api(trace=mm_fp8_trace)
 def mm_fp8(
@@ -5780,7 +5863,12 @@ def mm_fp8(
     out_dtype: torch.dtype = torch.bfloat16,
     out: Optional[torch.Tensor] = None,
     backend: Literal[
-        "trtllm_low_latency", "cutedsl_low_latency"
+        "trtllm_low_latency",
+        "cutedsl_low_latency",
+        "cublas",
+        "cudnn",
+        "cutlass",
+        "auto",
     ] = "trtllm_low_latency",
 ):
     r"""FP8 matrix multiplication.
@@ -5796,8 +5884,12 @@ def mm_fp8(
           Weight tensor, shape (k // block_size, n, block_size), fp8 e4m3
           B needs to be pre-processed using `prepare_low_latency_gemm_weights`.
           block_size is 128 for e4m3.
-        - When using "cutedsl_low_latency" backend, an unprocessed contiguous weight
-          tensor of shape (n, k), fp8 e4m3 or e5m2.
+        - When using "cutedsl_low_latency", "cublas", "cudnn" or "cutlass", an
+          unprocessed contiguous weight tensor of shape (n, k), fp8 e4m3 or e5m2
+          (e4m3 only for "cutlass").
+        - With "auto", either layout: the prepared 3-D weight runs
+          "trtllm_low_latency", the unprocessed 2-D weight runs the per-tensor FP8
+          GEMMs.
 
     alpha: Optional[torch.Tensor]
         Scale tensor for the output, float. If None, defaults to 1.0 for no scaling.
@@ -5808,10 +5900,16 @@ def mm_fp8(
     out: Optional[torch.Tensor]
         Output tensor, shape (m, n). If None, a new tensor will be allocated.
 
-    backend: Literal["trtllm_low_latency", "cutedsl_low_latency"]
+    backend: Literal["trtllm_low_latency", "cutedsl_low_latency", "cublas", "cudnn", "cutlass", "auto"]
         Backend to use for computation. Default is "trtllm_low_latency".
         - "trtllm_low_latency": optimized for small M dimension.
         - "cutedsl_low_latency": requires SM100/SM103, m <= 8, and k divisible by 128.
+        - "cublas" / "cudnn" / "cutlass": the per-tensor-scaled FP8 GEMMs of
+          :func:`bmm_fp8` (batch 1) on the unprocessed weight.
+        - "auto": picks by weight layout. The prepared weight runs
+          "trtllm_low_latency". The unprocessed weight runs cuBLAS / CUTLASS / cuDNN,
+          autotuned over the three when autotuning is on; untuned it runs cuBLAS
+          first on SM107 and CUTLASS first elsewhere (as ``bmm_fp8(backend="auto")``).
 
     Returns
     -------
@@ -5837,12 +5935,29 @@ def mm_fp8(
     """
 
     supported_out_dtypes = (torch.bfloat16,)
-    supported_backends = ("trtllm_low_latency", "cutedsl_low_latency")
+    supported_backends = (
+        "trtllm_low_latency",
+        "cutedsl_low_latency",
+        "cublas",
+        "cudnn",
+        "cutlass",
+        "auto",
+    )
+
+    runner_names: List[str] = []
+    if backend == "auto":
+        runner_names = mm_fp8.suitable_auto_backends
+        if runner_names == ["trtllm_low_latency"]:
+            backend = "trtllm_low_latency"
+    elif backend in ("cublas", "cudnn"):
+        runner_names = [backend]
+    elif backend == "cutlass":
+        runner_names = _heuristic_func_mm_fp8(["cutlass"], a, b, alpha, out_dtype)
 
     if backend == "trtllm_low_latency":
         m = a.shape[0]
         n = b.shape[1]
-    elif backend == "cutedsl_low_latency":
+    elif backend in supported_backends:
         m, n = a.shape[0], b.shape[0]
     else:
         raise ValueError(
@@ -5915,6 +6030,21 @@ def mm_fp8(
             "mm_fp8_cutedsl_low_latency", [runner], TuningConfig(), inputs
         )
         runner(inputs=inputs, tactic=tactic)
+    elif runner_names:
+        # bmm_fp8 runners with batch 1; (n, k) row-major is bmm_fp8's column-major B.
+        unit_scale = _fp8_unit_scale(a.device)
+        workspace_buffer = _get_cache_buf(
+            "bmm_fp8_workspace", DEFAULT_WORKSPACE_SIZE, a.device
+        )
+        fp8_gemm_sm100(
+            a.unsqueeze(0),
+            b.t().unsqueeze(0),
+            alpha if alpha is not None else unit_scale,
+            unit_scale,
+            out.unsqueeze(0),
+            workspace_buffer,
+            runner_names,
+        )
     else:
         raise ValueError(
             f"Unsupported backend: {backend}. "
@@ -6410,12 +6540,36 @@ def _check_cute_dsl_availability():
         raise ValueError("CuTe DSL is not available.")
 
 
+def _sm107_low_m_split_k(
+    m: int, n: int, real_k: int, ab_dtype, split_k_kernel_cls, sm_count: int
+) -> int:
+    """Most split-K slices that fill <= 3/4 of the SMs with >= 8 K blocks per slice.
+
+    A split that nearly fills the GPU (e.g. 4-way at N=6144) is slower than a 2-way one.
+    """
+    tile_k = (
+        split_k_kernel_cls.MMA_INST_BITS_K * split_k_kernel_cls.MMA_INST_TILE_K
+    ) // ab_dtype.width
+    n_tiles = (n + 127) // 128
+    for slices in sorted(split_k_kernel_cls.SUPPORTED_SPLIT_K_SLICES, reverse=True):
+        if (
+            split_k_kernel_cls.is_valid_tactic(m, real_k, ab_dtype, slices)
+            and real_k // (tile_k * slices) >= 8
+            and n_tiles * slices <= (3 * sm_count) // 4
+        ):
+            return slices
+    return 1
+
+
 def _cute_dsl_gemm_mxfp8_runner(
     sm_major: int,
     sm_minor: int,
     enable_pdl: bool,
     out_dtype: torch.dtype,
+    warp_splitk_supports: Optional[Callable[[List[torch.Tensor]], bool]] = None,
+    low_m_only: bool = False,
 ):
+    """``low_m_only``: only the M <= 32 narrow-tile / split-K tactics (SM107)."""
     import cutlass
 
     from .kernels.dense_blockscaled_gemm_sm100 import (
@@ -6457,6 +6611,17 @@ def _cute_dsl_gemm_mxfp8_runner(
             m = a.shape[0]
             n = b.shape[1]
             real_k = a.shape[1]
+            if low_m_only and not split_k_kernel_cls.supports_m(m):
+                return []  # wide tiles are the SM107 kernel's job
+            warp_serves = warp_splitk_supports is not None and warp_splitk_supports(
+                inputs
+            )
+            if warp_serves and m <= 8:
+                # Keep the default tactic as the fallback if every warp split-K
+                # tactic fails to profile.
+                return [
+                    (split_k_kernel_cls.mma_tiler_mn_for_m(m), (1, 1), True, False, 1)
+                ]
             ab_dtype = cutlass.Float8E4M3FN
             base_tactics = _get_sm100_block_scaled_tactics(
                 m=m,
@@ -6469,10 +6634,18 @@ def _cute_dsl_gemm_mxfp8_runner(
                 device=a.device,
             )
             valid_tactics = [(*tactic, 1) for tactic in base_tactics]
+            if low_m_only:
+                valid_tactics = [
+                    t
+                    for t in valid_tactics
+                    if t[2] and split_k_kernel_cls.supports_mma_tiler_for_m(t[0], m)
+                ]
             if not out.is_contiguous():
                 return valid_tactics
 
             for split_k_slices in split_k_kernel_cls.SUPPORTED_SPLIT_K_SLICES:
+                if warp_serves and real_k < 4096:
+                    continue
                 if split_k_kernel_cls.is_valid_tactic(
                     m,
                     real_k,
@@ -6508,12 +6681,24 @@ def _cute_dsl_gemm_mxfp8_runner(
 
             if split_k_kernel_cls.supports_m(m) and out.is_contiguous():
                 # Untuned low-M execution uses the corresponding base tactic.
+                fallback_split = (
+                    _sm107_low_m_split_k(
+                        m,
+                        n,
+                        real_k,
+                        cutlass.Float8E4M3FN,
+                        split_k_kernel_cls,
+                        get_device_sm_count(a.device),
+                    )
+                    if low_m_only
+                    else 1
+                )
                 fallback_tactic = (
                     split_k_kernel_cls.mma_tiler_mn_for_m(m),
                     (1, 1),
                     True,
                     False,
-                    1,
+                    fallback_split,
                 )
             else:
                 fallback_tactic = (
@@ -6819,6 +7004,167 @@ def _cute_dsl_gemm_mxfp8_sm107_runner(out_dtype: torch.dtype):
     return CuteDSLMxfp8Sm107GemmRunner()
 
 
+@functools.cache
+def _cute_dsl_warp_splitk_mxfp8_gemm_runner(enable_pdl: bool):
+    """Warp split-K MXFP8 runner for ``backend="cute-dsl"`` (M <= 16, K <= 5120).
+
+    Registered next to ``CuteDSLMxfp8GemmRunner`` so one autotune call profiles
+    both; it offers no tactics for a profile it cannot serve.
+    """
+    from .kernels.dense_mxfp8_gemm_warp_splitk import (
+        MxFp8WarpSplitKTactic,
+        autotune_tactics,
+        default_tactic,
+        run_mxfp8_warp_splitk,
+        validate_inputs,
+        validate_tactic,
+    )
+
+    class CuteDSLMxfp8WarpSplitKRunner(TunableRunner):
+        def get_cache_key_extras(self, inputs: List[torch.Tensor]) -> tuple:
+            _, _, _, _, _, out, _ = inputs
+            return (str(out.dtype), enable_pdl)
+
+        def supports_inputs(
+            self, inputs: List[torch.Tensor], check_m: bool = True
+        ) -> bool:
+            a, b, a_descale, b_descale, _, out, _ = inputs
+            try:
+                validate_inputs(a, b, a_descale, b_descale, out, check_m)
+            except ValueError:
+                return False
+            return True
+
+        def is_tactic_compatible(
+            self, inputs: List[torch.Tensor], tactic: object
+        ) -> bool:
+            if tactic == -1:
+                return True
+            if not isinstance(tactic, (tuple, list)):
+                return False
+            a, b, *_ = inputs
+            try:
+                validate_tactic(
+                    MxFp8WarpSplitKTactic(*tactic), a.shape[0], b.shape[1], a.shape[1]
+                )
+            except (TypeError, ValueError):
+                return False
+            return True
+
+        def get_valid_tactics(
+            self, inputs: List[torch.Tensor], profile: OptimizationProfile
+        ) -> list[tuple[int, int, int, int, int]]:
+            if not self.supports_inputs(inputs):
+                return []
+            a, b, *_ = inputs
+            with torch.cuda.device(a.device):
+                return [
+                    astuple(config)
+                    for config in autotune_tactics(a.shape[0], b.shape[1], a.shape[1])
+                ]
+
+        def forward(
+            self,
+            inputs: List[torch.Tensor],
+            tactic=-1,
+            do_preparation: bool = False,
+            **kwargs,
+        ) -> torch.Tensor:
+            a, b, a_descale, b_descale, _, out, _ = inputs
+            with torch.cuda.device(a.device):
+                if tactic == -1:
+                    tactic = default_tactic(a.shape[0], b.shape[1], a.shape[1])
+                else:
+                    try:
+                        tactic = MxFp8WarpSplitKTactic(*tactic)
+                    except TypeError as error:
+                        raise ValueError(
+                            "CuTeDSL MXFP8 warp split-K tactics must be "
+                            "(output_tile, token_tile, k_tile, stages, "
+                            "b_loader_warps)."
+                        ) from error
+                return run_mxfp8_warp_splitk(
+                    a, b, a_descale, b_descale, out, enable_pdl, tactic
+                )
+
+    return CuteDSLMxfp8WarpSplitKRunner()
+
+
+def _cute_dsl_mxfp8_runners(
+    sm_major: int,
+    sm_minor: int,
+    enable_pdl: bool,
+    out_dtype: torch.dtype,
+    inputs: List[torch.Tensor],
+) -> List[TunableRunner]:
+    """Runners of ``mm_mxfp8(backend="cute-dsl")``; ``[0]`` is the untuned default."""
+    from ..cute_dsl.availability import is_cute_dsl_experimental_available
+
+    # Older DSLs lack cutlass.experimental; only the block-scaled runner remains.
+    if not is_cute_dsl_experimental_available():
+        return [_cute_dsl_gemm_mxfp8_runner(sm_major, sm_minor, enable_pdl, out_dtype)]
+    warp = _cute_dsl_warp_splitk_mxfp8_gemm_runner(enable_pdl)
+    # One autotune call profiles every M bucket with these runners, so whether the
+    # warp runner is registered must not depend on M; per profile it offers
+    # tactics only for the M it serves.
+    if not warp.supports_inputs(inputs, check_m=False):
+        return [_cute_dsl_gemm_mxfp8_runner(sm_major, sm_minor, enable_pdl, out_dtype)]
+    cluster_splitk = _cute_dsl_gemm_mxfp8_runner(
+        sm_major,
+        sm_minor,
+        enable_pdl,
+        out_dtype,
+        warp_splitk_supports=warp.supports_inputs,
+    )
+    a, b = inputs[0], inputs[1]
+    # Untuned, warp split-K runs first only while its 16-wide output tiles fit in
+    # one wave. On wider N the cluster split-K default is faster in back-to-back
+    # PDL calls, where its prologue overlaps the previous kernel (#6839).
+    if warp.supports_inputs(inputs) and b.shape[1] // 16 <= get_device_sm_count(
+        a.device
+    ):
+        return [warp, cluster_splitk]
+    return [cluster_splitk, warp]
+
+
+def _cute_dsl_mxfp8_runners_sm107(
+    out_dtype: torch.dtype, inputs: List[torch.Tensor]
+) -> List[TunableRunner]:
+    """SM107 ``mm_mxfp8(backend="cute-dsl")`` runners; ``[0]`` is the untuned default."""
+    from ..cute_dsl.availability import is_cute_dsl_experimental_available
+
+    sm107 = _cute_dsl_gemm_mxfp8_sm107_runner(out_dtype)
+    low_m = _cute_dsl_gemm_mxfp8_runner(10, 7, True, out_dtype, low_m_only=True)
+    a, b, _, _, _, out, _ = inputs
+    m, k = a.shape
+    n = b.shape[1]
+    warp = None
+    if is_cute_dsl_experimental_available():
+        warp = _cute_dsl_warp_splitk_mxfp8_gemm_runner(enable_pdl=True)
+        # The runner set must not depend on M; the warp runner gates M per tactic.
+        if not warp.supports_inputs(inputs, check_m=False):
+            warp = None
+    tail = [warp] if warp is not None else []
+    # Untuned, warp split-K goes first only while its default grid (32-wide
+    # output tiles, 16-wide if N % 32) fits two waves; past that it falls behind.
+    warp_grid_fits = n // (32 if n % 32 == 0 else 16) <= 2 * get_device_sm_count(
+        a.device
+    )
+    if (
+        warp is not None
+        and warp.supports_inputs(inputs)
+        and m <= 8
+        and k <= 2048
+        and warp_grid_fits
+    ):
+        return [warp, low_m, sm107]
+    # The low-M runner goes first only up to M=16: its 32-token tile with K split
+    # in 4 is slower than the SM107 kernel at M=17-32.
+    if m <= 16 and out.is_contiguous():
+        return [low_m, sm107] + tail
+    return [sm107, low_m] + tail
+
+
 def _cudnn_mm_mxfp8_runner():
     """Build a TunableRunner for the cuDNN MXFP8 (2D mm) backend.
 
@@ -7121,37 +7467,6 @@ def mm_mxfp8(
 
     major, minor = get_compute_capability(a.device)
 
-    backend_to_runner_factory = {
-        "cutlass": lambda: get_cutlass_mxfp8_gemm_module(
-            major
-        ).cutlass_mxfp8_gemm_runner(),
-        "trtllm": lambda: get_trtllm_gemm_module().trtllm_mxfp8_gemm_runner(
-            use_8x4_sf_layout
-        ),
-        "cute-dsl": lambda: (
-            _cute_dsl_gemm_mxfp8_sm107_runner(out_dtype)
-            if _use_sm107_mxfp8_cute_dsl(major, minor, a, b, out)
-            else _cute_dsl_gemm_mxfp8_runner(major, minor, True, out_dtype)
-        ),
-        "cutedsl_low_latency": lambda: _cutedsl_low_latency_blockscaled_gemm_runner(
-            major * 10 + minor, True
-        ),
-        "cudnn": lambda: _cudnn_mm_mxfp8_runner(),
-        "b12x": lambda: _b12x_gemm_mxfp8_runner(major, minor, True, out_dtype),
-    }
-
-    runners: List[TunableRunner] = [
-        backend_to_runner_factory[cur_backend]() for cur_backend in backends
-    ]
-
-    tuner = AutoTuner.get()
-
-    tuning_config = (
-        _MM_MXFP8_CUTE_DSL_TUNING_CONFIG
-        if backends in (["cute-dsl"], ["cutedsl_low_latency"])
-        else _MM_MXFP8_TUNING_CONFIG
-    )
-
     inputs = [
         a,
         b,
@@ -7162,12 +7477,52 @@ def mm_mxfp8(
         workspace_buffer,
     ]
 
+    backend_to_runner_factory = {
+        "cutlass": lambda: get_cutlass_mxfp8_gemm_module(
+            major
+        ).cutlass_mxfp8_gemm_runner(),
+        "trtllm": lambda: get_trtllm_gemm_module().trtllm_mxfp8_gemm_runner(
+            use_8x4_sf_layout
+        ),
+        "cute-dsl": lambda: (
+            _cute_dsl_mxfp8_runners_sm107(out_dtype, inputs)
+            if _use_sm107_mxfp8_cute_dsl(major, minor, a, b, out)
+            else _cute_dsl_mxfp8_runners(major, minor, True, out_dtype, inputs)
+        ),
+        "cutedsl_low_latency": lambda: _cutedsl_low_latency_blockscaled_gemm_runner(
+            major * 10 + minor, True
+        ),
+        "cudnn": lambda: _cudnn_mm_mxfp8_runner(),
+        "b12x": lambda: _b12x_gemm_mxfp8_runner(major, minor, True, out_dtype),
+    }
+
+    runners: List[TunableRunner] = []
+    for cur_backend in backends:
+        built = backend_to_runner_factory[cur_backend]()
+        runners.extend(built if isinstance(built, list) else [built])
+
+    tuner = AutoTuner.get()
+
+    tuning_config = (
+        _MM_MXFP8_CUTE_DSL_TUNING_CONFIG
+        if backends in (["cute-dsl"], ["cutedsl_low_latency"])
+        else _MM_MXFP8_TUNING_CONFIG
+    )
+
     runner, tactic = tuner.choose_one(
         custom_op="mxfp8_gemm",
         runners=runners,
         tuning_config=tuning_config,
         inputs=inputs,
     )
+
+    # A cached warp split-K entry is keyed by M bucket, so it can come from an M the
+    # kernel does not serve or carry a tactic illegal for this shape. Fall back to
+    # the first runner's default, as the autotuner itself does.
+    if hasattr(runner, "is_tactic_compatible") and not (
+        runner.supports_inputs(inputs) and runner.is_tactic_compatible(inputs, tactic)
+    ):
+        runner, tactic = runners[0], -1
 
     runner(inputs=inputs, tactic=tactic)
     return out
@@ -8522,8 +8877,20 @@ def _cute_dsl_gemm_fp4_runner(
             # trtllm_fp4_block_scale_moe, which this path does not touch.
             def untuned_tactic():
                 if sm_version == 107 and Sm107Kernel is not None:
+                    sm_count = get_device_sm_count(a.device)
+                    # Take the SM100 split-K kernel's picks: low-M, large-weight shapes
+                    # otherwise leave most SMs idle.
+                    split_k = (
+                        _select_sm100_mm_fp4_splitk_tactic(
+                            m, n, real_k, sm_count, out.is_contiguous(), sm_minor
+                        )
+                        if use_nvfp4
+                        else None
+                    )
+                    if split_k is not None and split_k[4] == _SM100_SPLITK_KERNEL_TYPE:
+                        return split_k
                     return _select_sm107_mm_fp4_cute_dsl_tactic(
-                        m, n, real_k, get_device_sm_count(a.device), sf_vec_size
+                        m, n, real_k, sm_count, sf_vec_size
                     )
                 sm_count = get_device_sm_count(a.device)
                 return (
@@ -9148,6 +9515,8 @@ _MM_MXFP8_TUNING_CONFIG = TuningConfig(
 _MM_MXFP8_CUTE_DSL_TUNING_CONFIG = replace(
     _MM_MXFP8_TUNING_CONFIG,
     use_cuda_graph=True,
+    # Rank the runners from a cold L2, as the BF16 cute-dsl config does.
+    use_cold_l2_graph_replay=True,
     use_cold_l2_cache=True,
 )
 
@@ -9530,6 +9899,11 @@ def _heuristic_func_bmm_fp8(
                 )
         else:
             heuristic_backends.append("cudnn")
+
+    # On SM107 cuBLAS is the faster untuned default; autotuning still tries all.
+    if is_sm107_supported and "cublas" in heuristic_backends:
+        heuristic_backends.remove("cublas")
+        heuristic_backends.insert(0, "cublas")
 
     # CuTe-DSL backend is placed last (experimental)
     # Note: CuTe-DSL supports both Float8E4M3FN and Float8E5M2, but requires same dtype

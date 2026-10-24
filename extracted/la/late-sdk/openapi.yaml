@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.339.2"
+  version: "1.350.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -603,7 +603,7 @@ tags:
       Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.review.approved, ad.review.rejected, ad.delivery_issue, campaign.budget.depleted, ad_account.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
-      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* and contact.* to contacts, sequence.* and workflow.run.* to messages, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Support Assistant events (support.run.*) belong to no single group: they need every resource group enabled and a first-party full-scope caller (a session or a full-scope key, never an OAuth token or a profile-scoped key). Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
+      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* and contact.* to contacts, sequence.* and workflow.run.* to messages, ad.*, ad_account.* and campaign.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Support Assistant events (support.run.*) belong to no single group: they need every resource group enabled and a first-party full-scope caller (a session or a full-scope key, never an OAuth token or a profile-scoped key). Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
 
       Profile and account filters. A subscription can also carry `profileIds`, an allowlist of profiles, and `accountIds`, an allowlist of connected accounts with the same semantics keyed on the account; each non-empty list narrows delivery and a subscription with both must be satisfied on both. A scoped subscription is only sent events it can attribute to one of those profiles: the profile of the connected account behind the event, or for an aggregate `post.*` event the profile of every account the post targets (a post spanning two scoped endpoints' profiles reaches both). So an integrator can route the profile holding test accounts to a staging endpoint while a second subscription, scoped to the production profiles, keeps production traffic. Events that belong to no profile (`verification.*`, `phone_number.*`, and a legacy post whose accounts were deleted) reach only unscoped subscriptions. The filter runs when an event is emitted; redelivery replays a delivery already made to that endpoint and test fires ignore it. Absent or empty means every profile (or every account).
   - name: Support Assistant
@@ -1004,17 +1004,20 @@ components:
         (ads_read, ads_write, ads_analytics). `Retry-After` comes from
         Pinterest's `x-ratelimit-reset` when it sends one, otherwise 60 seconds.
 
-        TikTok ads: TikTok caps requests per second for the whole app, across
-        every advertiser, and answers overage with code 40100 or with code
-        40002 `OVER_QPS_LIMIT`. Both return 429 `rate_limited` with
-        `platform: tiktok` and `Retry-After: 10`. Space out bulk reads (for
-        example one ad at a time per advertiser) instead of retrying at once.
+        TikTok ads: TikTok caps requests per second and answers overage with
+        code 40100 or with code 40002 `OVER_QPS_LIMIT`. Both return 429
+        `rate_limited` with `platform: tiktok` and `Retry-After: 10`. Space out
+        bulk reads (for example one ad at a time per advertiser) instead of
+        retrying at once.
         The Smart+ review read (`GET /v1/ads/{adId}/tiktok-smart-plus-review`)
-        has a stricter quota of its own on TikTok: after an overage Zernio
-        answers 429 with `Retry-After: 60` for that advertiser and connection,
-        without calling TikTok, until the minute is over. The advertiser-wide
-        read (`GET /v1/ads/tiktok-smart-plus-reviews`) answers 200 with
-        `incomplete: true` instead.
+        has a stricter quota of its own on TikTok, which behaves per advertiser: after an
+        overage Zernio answers 429 for that advertiser and connection, without
+        calling TikTok, for 60 seconds, then 120, then 240 while TikTok keeps
+        refusing (back to 60 after a successful call); `Retry-After` is the
+        time left. The advertiser-wide read
+        (`GET /v1/ads/tiktok-smart-plus-reviews`) answers 200 with
+        `incomplete: true` instead. Keep one request in flight per advertiser
+        there; different advertisers can be read in parallel.
       headers:
         Retry-After:
           description: 'Seconds remaining until the upstream quota resets.'
@@ -1218,6 +1221,38 @@ components:
         currency: { type: [string, "null"] }
         contactId: { type: [string, "null"], description: 'The contact a lead_received workflow created or matched for this lead.' }
         firstContactedAt: { type: [string, "null"], format: date-time, description: 'When the first WhatsApp message to the lead was delivered.' }
+    ConnectHandoffLink:
+      type: object
+      description: 'Only with `handoff=true`: the link to show as a QR code.'
+      properties:
+        id: { type: string, format: uuid, description: 'Pass to `GET /v1/connect/handoffs/{handoffId}`.' }
+        url: { type: string, format: uri, description: 'Short link to encode in the QR code. It opens the welcome screen on the phone.' }
+        expiresAt: { type: string, format: date-time, description: 'When `url` stops working (30 minutes).' }
+    ConnectHandoff:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [waiting, opened, connected, failed, expired] }
+        platform: { type: string }
+        accounts:
+          type: array
+          description: 'Filled when `status` is `connected`: every account the connect added (several when the user picked several pages, locations or organizations), each checked to be on the profile the connect was started for and written during this handoff. Empty otherwise.'
+          items:
+            type: object
+            properties:
+              id: { type: string, description: 'The Zernio account id.' }
+              profileId: { type: string }
+              username: { type: string }
+        error:
+          type: [object, "null"]
+          description: 'Set when `status` is `failed`.'
+          properties:
+            code: { type: string, description: 'The `error` code the flow ended on, as on a redirect_url. `connect_incomplete` when the phone reported no outcome, `connect_unverified` when it reported an account Zernio could not match to this connect.' }
+            message: { type: [string, "null"] }
+            details:
+              type: object
+              additionalProperties: { type: string }
+              description: 'The other params the redirect flow appends for that error, such as `is_user_fixable`, `reason`, `dashboard_url`, `request_id` and `stage`. All optional.'
     ConnectWelcomeScreen:
       type: object
       properties:
@@ -3229,6 +3264,17 @@ components:
         paymentMethodRequired: { type: boolean, description: "Always true. The account has no billing until it is set up in Google Ads." }
         nextSteps: { type: string, description: "Billing setup instructions for the user." }
         validateOnly: { type: boolean, description: "Always false on a 201." }
+    LinkedInMentionIssue:
+      type: object
+      description: 'One LinkedIn mention that could not be resolved, listed under `details.mentions[]` of the error.'
+      required: [input, code, message]
+      properties:
+        input: { type: string, description: 'The mention exactly as written in the request, for example `@[https://www.linkedin.com/in/jane-doe]`.' }
+        code:
+          type: string
+          description: 'Why it failed.'
+          enum: [linkedin_mention_unresolvable, linkedin_mention_requires_page_admin, linkedin_mention_name_unavailable, linkedin_mentions_limit_exceeded, rate_limited, reconnect_required, temporarily_unavailable]
+        message: { type: string, description: 'Human-readable reason.' }
     ErrorResponse:
       type: object
       description: |
@@ -8657,7 +8703,7 @@ components:
           items: { type: string }
         mentions:
           type: array
-          description: "Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field."
+          description: "Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, write them in the post content, for example @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme]."
           items: { type: string }
         visibility: { type: string, enum: [public, private, unlisted] }
         metadata:
@@ -9338,6 +9384,24 @@ components:
         mediaProductType: { type: [string, "null"], description: LIVE for a live video., example: LIVE }
         username: { type: [string, "null"], description: Instagram handle of the broadcasting account. }
         timestamp: { type: [string, "null"], description: 'Creation time of the broadcast media as Meta returns it (ISO 8601).' }
+
+    FacebookTaggedPost:
+      type: object
+      required: [id, message, createdTime, taggedTime, permalinkUrl, pictureUrl, from]
+      properties:
+        id: { type: string, description: Facebook post ID of the post that tags the Page. }
+        message: { type: [string, "null"] }
+        createdTime: { type: [string, "null"], description: 'Publication time as Meta returns it (ISO 8601).' }
+        taggedTime: { type: [string, "null"], description: 'When the Page was tagged in the post (ISO 8601).' }
+        permalinkUrl: { type: [string, "null"], description: Public Facebook URL of the post. }
+        pictureUrl: { type: [string, "null"], description: Full-size picture attached to the post. }
+        from:
+          type: [object, "null"]
+          description: Null when Meta does not return the author, which is common for posts by people.
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: [string, "null"] }
 
     InstagramTaggedMedia:
       type: object
@@ -11825,8 +11889,10 @@ components:
           type: boolean
           description: Whether user has analytics add-on access
         pagination:
-          description: Only present when page/limit params are provided
-          $ref: '#/components/schemas/Pagination'
+          description: 'Present on a paginated request: `{ page, limit, total, pages }` with page and limit, `{ limit, nextCursor }` with cursor paging (limit alone or cursor).'
+          oneOf:
+            - $ref: '#/components/schemas/Pagination'
+            - $ref: '#/components/schemas/AccountCursorPagination'
         profileTotals:
           type: object
           additionalProperties: { type: integer }
@@ -11842,6 +11908,14 @@ components:
             disconnected:
               type: integer
               description: Of those, the accounts that need reconnection.
+    AccountCursorPagination:
+      type: object
+      required: [limit, nextCursor]
+      properties:
+        limit: { type: integer }
+        nextCursor:
+          type: [string, "null"]
+          description: 'Opaque cursor for the next page; pass it back as `cursor`. Null on the last page.'
     FollowerStatsResponse:
       type: object
       properties:
@@ -11864,6 +11938,9 @@ components:
             from: { type: string, format: date-time }
             to: { type: string, format: date-time }
         granularity: { type: string }
+        pagination:
+          description: Only present when limit or cursor is sent.
+          $ref: '#/components/schemas/AccountCursorPagination'
     UploadedFile:
       type: object
       properties:
@@ -11963,6 +12040,10 @@ components:
           type: string
         role:
           type: string
+        disabledResourceGroups:
+          type: array
+          items: { type: string }
+          description: 'Resource groups turned off for this team member. Empty for owners and unrestricted members.'
         createdAt:
           type: string
           format: date-time
@@ -14587,6 +14668,11 @@ components:
             for Business Messaging). `channel` is sent as the event's `messaging_channel`
             (`instagram_direct` goes out as `instagram`). Each id lands in Meta's
             `user_data` unhashed, and an id that does not belong to `channel` is ignored.
+            Meta accepts only its business messaging event names here (`LeadSubmitted`,
+            `QualifiedLead`, `Purchase`, `AddToCart`, `InitiateCheckout`, `ViewContent`,
+            `OrderCreated`, `OrderShipped`, `OrderDelivered`, `OrderCanceled`,
+            `OrderReturned`, `CartAbandoned`, `RatingProvided`, `ReviewProvided`);
+            `eventName` is forwarded unchanged.
           required: [channel]
           properties:
             channel: { type: string, enum: [whatsapp, messenger, instagram_direct] }
@@ -23347,6 +23433,12 @@ paths:
 
         See each platform's schema for media constraints.
 
+        ## LinkedIn @mentions
+
+        Put the profile or company URL inside `@[...]` in `content`, or in a LinkedIn entry's `customContent`: `@[https://www.linkedin.com/in/jane-doe]` or `@[https://www.linkedin.com/company/acme]`. The post is published with LinkedIn's real name and link, and no lookup call is needed first. Custom text is optional, as in `@[Jane](https://www.linkedin.com/in/jane-doe)`: for a person it must be the first name, last name or full name, for a company the exact company name, both case-sensitive. Any other text is replaced with LinkedIn's name and a `warnings` entry is returned (`linkedin_mention_name_replaced`). `@[Text](urn:li:person:ID)` markup, as returned by `GET /v1/accounts/{accountId}/linkedin-mentions`, is published exactly as you wrote it: it is not looked up, checked or changed, so its text must already be LinkedIn's name.
+
+        Resolving a person's profile URL needs one of your LinkedIn accounts to administer a Page; publishing does not. Only profile and company URLs can fail. A scheduled or published post is rejected when one cannot be resolved: `400` with code `linkedin_mentions_invalid`, `429` with `rate_limited` (LinkedIn is rate limiting), `401` with `reconnect_required` (expired token) or a retryable `503` with `temporarily_unavailable` (LinkedIn did not answer within 8 seconds in total). Each failing mention is listed under `details.mentions[]` (`LinkedInMentionIssue`) with its own code: `linkedin_mention_unresolvable`, `linkedin_mention_requires_page_admin` or `linkedin_mention_name_unavailable` (LinkedIn withheld the name and none was given). A post can resolve at most 10 profile or company URL mentions across its shared content and LinkedIn entries: more is a `400` with `linkedin_mentions_limit_exceeded`. Drafts never fail on a mention: unresolved ones (and more than 10) stay as written and come back as `warnings`. A draft is checked again when it is scheduled. On platforms other than LinkedIn, `@[linkedin.com/in/jane]` is posted as its text, or as the vanity (`jane`) when you wrote no text, and `@[Text](urn:li:...)` as `Text`.
+
         ## Scheduling
 
         Pick one of:
@@ -23407,7 +23499,7 @@ paths:
                   description: "Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted)."
                 content:
                   type: string
-                  description: 'Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.'
+                  description: 'Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts. LinkedIn @mentions: write @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme] in the text (see the operation description).'
                 mediaItems:
                   type: array
                   description: 'Media attached to every platform in the request (a platform entry can override it with `customMedia`). Each entry needs a publicly reachable HTTPS `url`; `type` (image, video, gif, document) is inferred from the URL extension when omitted and a `type` that contradicts the extension is rejected with 400. Upload files with `POST /v1/media/presign` first; per-platform size, duration and format limits are listed on each platform schema.'
@@ -23481,7 +23573,7 @@ paths:
                   items: { type: string }
                 mentions:
                   type: array
-                  description: "Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field."
+                  description: "Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, write them in the post content, for example @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme]."
                   items: { type: string }
                 crosspostingEnabled:
                   type: boolean
@@ -23891,13 +23983,20 @@ paths:
                         status: "pending"
                         error: null
         '400':
-          description: Validation error
+          description: 'Validation error. A LinkedIn profile or company URL mention that cannot be resolved returns code `linkedin_mentions_invalid` with `details.mentions[]`.'
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error: { type: string }
+                  code: { type: string }
+                  details:
+                    type: object
+                    properties:
+                      mentions:
+                        type: array
+                        items: { $ref: '#/components/schemas/LinkedInMentionIssue' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: |
@@ -23938,8 +24037,9 @@ paths:
                       accountId: { type: string }
                       platform: { type: string }
                       existingPostId: { type: string }
+        '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
         '429':
-          description: "Rate limit exceeded. Possible causes: API rate limit, velocity limit (25 posts/hour per account), account cooldown, or daily platform limits."
+          description: "Rate limit exceeded. Possible causes: API rate limit, velocity limit (25 posts/hour per account), account cooldown, or daily platform limits, or LinkedIn rate limiting a LinkedIn mention lookup (code `rate_limited`)."
           content:
             application/json:
               schema:
@@ -24202,6 +24302,17 @@ paths:
 
         Non-draft updates run the same per-platform validation as post creation (media requirements, platform-specific
         field rules, etc.) against the resulting platforms, returning 400 on failure.
+
+        ## LinkedIn @mentions
+
+        Profile and company URLs written as `@[https://www.linkedin.com/in/jane-doe]` or
+        `@[Jane](https://www.linkedin.com/company/acme)` in the `content` or LinkedIn `customContent` you send are
+        resolved to LinkedIn's name and link, exactly as on `POST /v1/posts` (see Create post for the rules). Only what
+        the request sends is looked up: an update of the schedule, status or media makes no LinkedIn call, and
+        `@[Text](urn:li:...)` markup is stored as written. Moving a draft out of draft also resolves the stored
+        `content` and the stored `customContent` of its LinkedIn entries, and saves the result. A mention that cannot be resolved on a non-draft returns `400` `linkedin_mentions_invalid`, `429`
+        `rate_limited`, `401` `reconnect_required` or a retryable `503` `temporarily_unavailable`, with each mention
+        under `details.mentions[]` (`LinkedInMentionIssue`). Drafts get `warnings` instead.
       parameters:
         - name: postId
           in: path
@@ -24310,7 +24421,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PostPublishIncompleteResponse'
         '400':
-          description: Invalid request
+          description: 'Invalid request. A LinkedIn profile or company URL mention that cannot be resolved returns code `linkedin_mentions_invalid` with `details.mentions[]` (`LinkedInMentionIssue`).'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -24321,6 +24432,8 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
         '409':
           description: 'The requested scheduledFor collides with another post already occupying that slot in the same queue (code: queue_slot_conflict). Choose a different time, omit scheduledFor and let the queue assign the next open slot, or send queueId: null to schedule this post outside the queue. Also returned when requiresApproval is sent on a post that is not a draft (code: invalid_resource_state).'
           content:
@@ -25309,8 +25422,9 @@ paths:
       summary: List accounts
       description: |
         Returns connected accounts. Only includes accounts within the plan limit by default. Follower data requires analytics add-on.
-        Supports optional server-side pagination via page/limit params. When omitted, returns all accounts (backward-compatible).
-        page and limit must be supplied together; out-of-range page/limit values are rejected with 400 rather than silently clamped.
+        Supports optional server-side pagination. When omitted, returns all accounts (backward-compatible).
+        Cursor paging: send `limit` alone for the first page, then pass `pagination.nextCursor` back as `cursor` until it is null. Pages are ordered by account id, so accounts added or removed between calls never shift a page. Cannot be combined with `page`, `sort` or `perProfile`.
+        Offset paging: send `page` and `limit` together. Out-of-range page/limit values are rejected with 400 rather than silently clamped.
       parameters:
         - name: profileId
           in: query
@@ -25345,7 +25459,7 @@ paths:
           schema:
             type: string
             enum: [account, platform, profile, status, connected]
-          description: 'Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.'
+          description: 'Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.'
         - name: order
           in: query
           schema:
@@ -25382,7 +25496,7 @@ paths:
           description: |
             When true, appends the shared WhatsApp sandbox account and the iMessage sandbox account
             to the list when they are active, honouring `platform` but no other filter. Ignored on
-            a paginated request (page/limit) and together with `perProfile`. Accepts `true` or
+            a paginated request (page, limit or cursor) and together with `perProfile`. Accepts `true` or
             `false` in any letter case; any other value returns 400.
         - name: includeStatusCounts
           in: query
@@ -25398,12 +25512,16 @@ paths:
           in: query
           schema: { type: integer, minimum: 1 }
           description: |
-            Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
+            Page number (1-based) for offset paging. Requires limit; omit page, limit and cursor for all accounts.
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 500 }
           description: |
-            Page size. Must be provided together with page; sending only one of the two returns 400.
+            Page size. With page, an offset page; alone or with cursor, a cursor page.
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: 'Opaque cursor from a previous response''s `pagination.nextCursor`; returns the next page of `limit` accounts (500 when limit is omitted). A cursor we cannot parse returns 400. Cannot be combined with page.'
         - name: profileIds
           in: query
           schema: { type: string }
@@ -25411,7 +25529,7 @@ paths:
         - name: perProfile
           in: query
           schema: { type: integer, minimum: 1, maximum: 24 }
-          description: 'Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page and limit.'
+          description: 'Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page, limit or cursor.'
       responses:
         '200':
           description: Accounts (with optional pagination)
@@ -25468,6 +25586,14 @@ paths:
           in: query
           schema: { type: string, enum: [daily, weekly, monthly], default: daily }
           description: Data aggregation level
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 25 }
+          description: 'Accounts per page, ordered by account id. Send it to page through accounts; the response then carries `pagination.nextCursor`. Without limit or cursor every matching account is returned.'
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: 'Opaque cursor from a previous response''s `pagination.nextCursor`; returns the next page of `limit` accounts (25 when limit is omitted). A cursor we cannot parse returns 400.'
       responses:
         '200':
           description: Follower stats
@@ -25496,6 +25622,7 @@ paths:
                       from: "2024-01-01T00:00:00.000Z"
                       to: "2024-01-31T23:59:59.999Z"
                     granularity: "daily"
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
@@ -26914,6 +27041,12 @@ paths:
                   enum: [admin, member, billing_admin, viewer]
                   default: member
                   description: Org role granted to the invitee. Defaults to 'member'. 'admin' can manage the team (invite/remove members, change roles and access) and billing, but not ownership transfer or account deletion. 'billing_admin' (displayed as Billing Manager) manages billing only. 'viewer' creates a read-only member who can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
+                disabledResourceGroups:
+                  type: array
+                  items:
+                    type: string
+                    enum: [publishing, engagement, messages, contacts, analytics, ads, telephony, accounts, billing, webhooks, commerce]
+                  description: 'Resource groups the invitee may not use once they join (the same groups as restricted API keys). Their dashboard hides those sections and every API request into a disabled group, with any credential they hold, is refused with 403. Omitted or empty means full access. Groups the caller lacks themselves are always added.'
                 readOnly:
                   type: boolean
                   deprecated: true
@@ -26937,6 +27070,9 @@ paths:
                   invitedProfileIds:
                     type: array
                     items: { type: string }
+                  disabledResourceGroups:
+                    type: array
+                    items: { type: string }
                   expiresAt: { type: string, format: date-time }
                   inviteUrl: { type: string, format: uri }
               example:
@@ -26945,6 +27081,7 @@ paths:
                 invitedProfileIds:
                   - "64f0a1b2c3d4e5f6a7b8c9d0"
                   - "64f0a1b2c3d4e5f6a7b8c9d1"
+                disabledResourceGroups: []
                 expiresAt: "2024-11-08T10:30:00Z"
                 inviteUrl: "https://zernio.com/invite/inv_abc123def456ghi789"
         '400': { description: Invalid request }
@@ -27223,6 +27360,10 @@ paths:
           in: query
           schema: { type: string, enum: [en, es, pt-BR] }
           description: 'Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`.'
+        - name: handoff
+          in: query
+          schema: { type: boolean, default: false }
+          description: 'Let the user finish on their phone. When `true`, the response also carries `handoff`: show `handoff.url` as a QR code in your app (any QR library), the user scans it and the welcome screen opens on the phone, already carrying this connect, so they log in to the platform there without signing in to anything else. The phone ends on a Zernio result screen telling them to go back to their computer. Learn the outcome by polling `GET /v1/connect/handoffs/{handoffId}` (every 2 to 5 seconds is fine) or from the `account.connected` webhook. Shows the welcome screen with your branding parameters or saved settings. Cannot be combined with `welcome=false`, `headless=true`, `signup`, `redirect=true` or `redirect_url` (400 `INVALID_FIELD_VALUE`). `handoff.url` works for 30 minutes. When the account is re-enabled straight away the response carries `account` instead, as without `handoff`.'
       security:
         - bearerAuth: []
       responses:
@@ -27240,6 +27381,8 @@ paths:
                   state: 
                     type: string
                     description: State parameter for security (handled automatically)
+                  handoff:
+                    $ref: '#/components/schemas/ConnectHandoffLink'
               example:
                 authUrl: "https://www.facebook.com/v21.0/dialog/oauth?client_id=..."
                 state: "user123-profile456-1234567890-https://yourdomain.com/callback"
@@ -30969,6 +31112,39 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /v1/connect/handoffs/{handoffId}:
+    get:
+      x-resource-group: accounts
+      operationId: getConnectHandoff
+      tags: [Connect]
+      summary: Get a phone handoff
+      description: 'Where a connect started with `handoff=true` on `GET /v1/connect/{platform}` stands: `waiting` until the QR code is scanned, `opened` once the phone opened it, then `connected` with the new accounts or `failed` with the error the flow ended on (the same `error` codes as the redirect flow). `expired` when nobody opened the QR code within its 30 minutes. Poll it every 2 to 5 seconds while your QR code is shown, and stop once it is `connected`, `failed` or `expired`. Readable for 60 minutes after it was created, then 404, as is a handoff created by another workspace.'
+      parameters:
+        - name: handoffId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: '`handoff.id` from the connect response.'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The handoff.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectHandoff' }
+              example:
+                id: 79c6dbf2-97ba-4f34-b615-5bf9435526db
+                status: connected
+                platform: instagram
+                accounts: [{ id: 6ab0c2f1e4d5a6b7c8d9e0f1, profileId: 69b0a1b2c3d4e5f6a7b8c9d0, username: acme }]
+                error: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The handoff expired, does not exist, or belongs to another workspace (code RESOURCE_NOT_FOUND).
   /v1/connect/welcome-screen:
     get:
       x-resource-group: accounts
@@ -33479,22 +33655,19 @@ paths:
       description: |
         Converts a LinkedIn profile or company URL to a URN for @mentions in posts.
 
-        How to use LinkedIn @mentions (2-step workflow):
-
-        1. Call this endpoint with the LinkedIn profile/company URL to get the mention URN and format.
-        2. Embed the returned mentionFormat (e.g. @[Vincent Jong](urn:li:person:xxx)) directly in your post's content field.
+        You usually do not need this endpoint. Put the profile or company URL inside `@[...]` in the post `content` (for example `@[https://www.linkedin.com/in/vincentjong]`) and the post resolves it for you, using LinkedIn's own name. Use this endpoint to preview what a URL resolves to, or to get ready-made `@[Name](urn)` markup, which still works in `content` and is published exactly as written.
 
         Example:
-        - Resolve: GET /v1/accounts/{id}/linkedin-mentions?url=linkedin.com/in/vincentjong&displayName=Vincent Jong
+        - Resolve: GET /v1/accounts/{id}/linkedin-mentions?url=linkedin.com/in/vincentjong
         - Returns: mentionFormat: "@[Vincent Jong](urn:li:person:xxx)"
         - Use in post content: "Great talk with @[Vincent Jong](urn:li:person:xxx) today!"
 
-        Important: The mentions array field in POST /v1/posts is stored for reference only and does NOT trigger @mentions on LinkedIn. You must embed the mention format directly in the content text.
+        Important: The mentions array field in POST /v1/posts is stored for reference only and does NOT trigger @mentions on LinkedIn. Write the mention in the content text.
 
         Requirements:
-        - Person mentions require the LinkedIn account to be admin of at least one organization: both endpoints that resolve a profile URL to a member URN take an organization you administer. Organization mentions (e.g. @Microsoft) have no such requirement.
+        - Resolving a profile URL to a person mention requires the LinkedIn account to be admin of at least one organization: both endpoints that resolve a profile URL to a member URN take an organization you administer. A resolved person mention publishes from any account. Organization mentions (e.g. @Microsoft) have no such requirement.
         - The two are not scoped alike. peopleTypeahead?q=organizationFollowers only returns that organization's followers; vanityUrl?q=vanityUrlAsOrganization does not, and its resolvable set is opaque. A 404 here does not mean the person is unknown to you or unknown to LinkedIn: a live public profile can 404 with no reason given.
-        - For person mentions to be clickable, the displayName parameter must exactly match the name shown on their LinkedIn profile.
+        - displayName is deprecated and ignored in practice: the endpoint reads the person's real name from LinkedIn itself. LinkedIn renders a person mention as a link only when the mention text is the person's first name, last name or full name (case-sensitive).
         - Person mentions DO work when published from personal profiles (the URN only needs to be valid). The limitation is only in the resolution step (URL to URN), not in publishing.
       parameters:
         - name: accountId
@@ -33523,7 +33696,8 @@ paths:
         - name: displayName
           in: query
           required: false
-          description: Exact display name as shown on LinkedIn. Required for person mentions to be clickable. Optional for org mentions.
+          deprecated: true
+          description: "Deprecated: omit it. When sent for a person it overrides the mention text, and LinkedIn renders the mention only if it is exactly the person's first name, last name or full name (case-sensitive). When omitted the real name is read from LinkedIn. Ignored for org mentions, which always use the organization's LinkedIn name."
           schema: { type: string }
           examples:
             personName:
@@ -33563,24 +33737,24 @@ paths:
                     example: "microsoft"
                   warning:
                     type: string
-                    description: Warning about clickable mentions (only present for person mentions if displayName was not provided)
-                    example: "For clickable person mentions, provide the displayName parameter with the exact name as shown on their LinkedIn profile."
+                    description: Only present for person mentions when displayName was not provided and the real name could not be resolved from LinkedIn
+                    example: "Could not resolve real name from LinkedIn. Display name was derived from the vanity URL and may not match the profile exactly."
               examples:
                 personWithDisplayName:
-                  summary: Person mention with displayName (recommended)
+                  summary: Person mention with a displayName override (must match the person's first name, last name or full name exactly, or the mention is not a link)
                   value:
                     urn: "urn:li:person:4qj5ox-agD"
                     type: "person"
                     displayName: "Miquel Palet"
                     mentionFormat: "@[Miquel Palet](urn:li:person:4qj5ox-agD)"
                 personWithoutDisplayName:
-                  summary: Person mention without displayName (may not be clickable)
+                  summary: Person mention whose real name could not be resolved (name derived from the vanity URL)
                   value:
                     urn: "urn:li:person:4qj5ox-agD"
                     type: "person"
                     displayName: "Miquelpalet"
                     mentionFormat: "@[Miquelpalet](urn:li:person:4qj5ox-agD)"
-                    warning: "For clickable person mentions, provide the displayName parameter with the exact name as shown on their LinkedIn profile."
+                    warning: "Could not resolve real name from LinkedIn. Display name was derived from the vanity URL and may not match the profile exactly."
                 organization:
                   summary: Org mention
                   value:
@@ -33593,40 +33767,43 @@ paths:
           description: Invalid request or no organization found (for person mentions)
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  error: { type: string }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
               examples:
                 missingUrl:
-                  value: { error: "url parameter is required" }
+                  value: { error: "url parameter is required", type: invalid_request_error, code: missing_required_field, param: url }
                 noOrgForPersonMention:
-                  value: { error: "No organization found. You need to be an admin of a LinkedIn organization to use person mentions. Organization mentions work without this requirement." }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                  value: { error: "No organization found. You need to be an admin of a LinkedIn organization to use person mentions. Organization mentions work without this requirement.", type: invalid_request_error, code: linkedin_mention_no_organization }
+        '401':
+          description: 'Missing or invalid API key (`missing_credentials` or `invalid_credentials`), or LinkedIn revoked or expired the account''s token (`reconnect_required`, reconnect the account).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                missingCredentials:
+                  value: { error: 'Missing API key. Send it as Authorization: Bearer <your API key>.', type: authentication_error, code: missing_credentials, docUrl: https://docs.zernio.com }
+                reconnectRequired:
+                  value: { error: 'Token expired or revoked for LinkedIn. Please reconnect your account.', type: permission_error, code: reconnect_required, platform: linkedin }
         '403':
           description: The account holds no organization role that can resolve person mentions
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  error: { type: string }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
               examples:
                 noPostingRole:
-                  value: { error: "LinkedIn blocked this lookup. Your account has no company page where it can create posts, which LinkedIn requires to resolve a person's profile URL. Ask for an Admin or Content Admin role on one of your pages, or mention a company instead." }
+                  value: { error: "LinkedIn blocked this lookup. Your account has no company page where it can create posts, which LinkedIn requires to resolve a person's profile URL. Ask for an Admin or Content Admin role on one of your pages, or mention a company instead.", type: permission_error, code: linkedin_mention_lookup_forbidden }
         '404':
-          description: Person or organization not found
+          description: Account, person or organization not found
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  error: { type: string }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
               examples:
                 memberNotFound:
-                  value: { error: "LinkedIn couldn't resolve this profile. Not every profile is resolvable through LinkedIn's API, even public ones, and LinkedIn gives no reason. Check the profile address is current (people can change theirs), or mention a company instead." }
+                  value: { error: "LinkedIn couldn't resolve this profile. Not every profile is resolvable through LinkedIn's API, even public ones, and LinkedIn gives no reason. Check the profile address is current (people can change theirs), or mention a company instead.", type: not_found, code: linkedin_person_not_resolvable }
                 orgNotFound:
-                  value: { error: "Organization not found. Check the LinkedIn company URL is correct." }
+                  value: { error: "Organization not found. Check the LinkedIn company URL is correct.", type: not_found, code: linkedin_organization_not_found }
+                accountNotFound:
+                  value: { error: "LinkedIn account not found", type: not_found, code: account_not_found }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /v1/accounts/{accountId}/instagram/stories:
     get:
@@ -34946,6 +35123,96 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
         '502': { description: Facebook rejected the request }
+
+  /v1/accounts/{accountId}/facebook-tagged-posts:
+    get:
+      x-resource-group: "analytics"
+      operationId: listFacebookTaggedPosts
+      tags: [Analytics]
+      summary: List the posts a Facebook Page is tagged in
+      description: |
+        Returns the public posts where other people or Pages tagged the connected
+        Facebook Page, as Meta returns them from the Page's `tagged` edge.
+
+        Cursor-paginated: pass `nextCursor` from the previous response as
+        `cursor` to read the next page. `nextCursor` is null when there are no
+        more pages. Meta does not say whether a page is the last one, so the
+        final page can come back empty with `nextCursor` null.
+
+        Works for `facebook` accounts with a Page selected. Meta needs the
+        `pages_read_user_content` permission on the connection: a connection
+        made without it gets Meta's refusal back as `platform_api_error`, and
+        reconnecting the account grants it.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of a connected Facebook account.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Page size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1000
+      responses:
+        '200':
+          description: One page of posts the Page is tagged in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, nextCursor]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FacebookTaggedPost'
+                  nextCursor:
+                    type: [string, "null"]
+                    description: Pass as `cursor` to read the next page. Null when there are no more pages.
+        '400':
+          description: >-
+            Invalid accountId, limit or cursor, an account on another platform (`platform_not_supported`), or Meta
+            refused the request (`platform_api_error`, for example a missing `pages_read_user_content` permission).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The API key is not scoped to this account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account is not reachable by the caller (`account_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/AccountConnectionRequired'
+        '422':
+          description: The connection has no Facebook Page selected (`linked_account_required`). Select a Page or reconnect the account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /v1/accounts/{accountId}/reddit-subreddits:
     get:
@@ -42551,6 +42818,10 @@ paths:
           own posts are never listed, even when they contain its @handle. Their text is read from Instagram
           in the background after the first request, so `content` can be empty on the first read. Pass
           `mediaId` and `commentId` to `POST /v1/inbox/mentions/reply` to answer one.
+        - **Facebook**: post mentions (someone tags the Page in a post) and comment mentions (someone tags
+          it in a comment), delivered by the Page `mention` webhook with their text. Comments on the Page's
+          own posts and anything the Page wrote itself are never listed. Facebook mentions cannot be replied
+          to through `POST /v1/inbox/mentions/reply`.
 
         Requires Inbox addon.
       tags: [Mentions]
@@ -42593,33 +42864,36 @@ paths:
                           description: Mention document ID
                         platform:
                           type: string
-                          enum: [linkedin, instagram]
+                          enum: [linkedin, instagram, facebook]
                         type:
                           type: [string, "null"]
-                          enum: [caption, comment, null]
-                          description: 'Instagram only: `caption` when the account was tagged in a media caption, `comment` when it was tagged in a comment. Null for LinkedIn.'
+                          enum: [caption, post, comment, null]
+                          description: 'Instagram and Facebook: `caption` when the Instagram account was tagged in a media caption, `post` when the Facebook Page was tagged in a post, `comment` when either was tagged in a comment. Null for LinkedIn.'
                         mediaId:
                           type: [string, "null"]
-                          description: 'Instagram only: ID of the media the account was mentioned in (or under). Null for LinkedIn.'
+                          description: 'Instagram only: ID of the media the account was mentioned in (or under). Null for LinkedIn and Facebook.'
+                        postId:
+                          type: [string, "null"]
+                          description: 'Facebook only: ID of the post the Page was mentioned in (or under). Null for LinkedIn and Instagram.'
                         commentId:
                           type: [string, "null"]
-                          description: 'Instagram only: ID of the comment that mentioned the account. Null for caption mentions and LinkedIn.'
+                          description: 'Instagram and Facebook: ID of the comment that mentioned the account. Null for caption and post mentions and for LinkedIn.'
                         accountId:
                           type: string
                         accountUsername:
                           type: string
                         content:
                           type: string
-                          description: 'Text that mentioned you: the post text on LinkedIn, the caption or comment text on Instagram. Empty until it has been read.'
+                          description: 'Text that mentioned you: the post text on LinkedIn, the caption or comment text on Instagram, the post or comment text on Facebook. Empty until it has been read.'
                         permalink:
                           type: [string, "null"]
-                          description: URL to the source post on LinkedIn. Null on Instagram.
+                          description: URL to the source post on LinkedIn. Null on Instagram and Facebook.
                         authorUrn:
                           type: [string, "null"]
-                          description: 'LinkedIn URN of the person who mentioned you, or the Instagram-scoped ID of the commenter on an Instagram comment mention.'
+                          description: 'LinkedIn URN of the person who mentioned you, the Instagram-scoped ID of the commenter on an Instagram comment mention, or the ID of the Facebook user or Page that mentioned your Page when Meta sends it.'
                         authorName:
                           type: [string, "null"]
-                          description: Display name of the author, resolved from authorUrn. Null when LinkedIn does not allow resolving the profile.
+                          description: 'Display name of the author, resolved from authorUrn on LinkedIn (null when LinkedIn does not allow resolving the profile) and taken from the webhook on Facebook.'
                         authorUsername:
                           type: [string, "null"]
                           description: 'LinkedIn vanity name of the author (the slug in their profile URL), or the Instagram username of the commenter or media owner.'
@@ -42628,7 +42902,7 @@ paths:
                           description: Profile picture URL of the author. LinkedIn CDN URLs expire after some time, so fetch promptly rather than storing long-term.
                         organizationalEntity:
                           type: string
-                          description: 'URN of the LinkedIn organization that was mentioned, or the Instagram user ID of the mentioned account.'
+                          description: 'URN of the LinkedIn organization that was mentioned, the Instagram user ID of the mentioned account, or the ID of the mentioned Facebook Page.'
                         publishedAt:
                           type: string
                           format: date-time
@@ -42916,8 +43190,18 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
+        '404':
+          description: "The platform no longer has this review (deleted or not addressable by this account). Permanent for that review: do not retry."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409': { $ref: '#/components/responses/IdempotencyKeyInFlight' }
         '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
+        '502':
+          description: "The platform failed the call (upstream 5xx or an unreadable response). Transient: safe to retry with backoff."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     delete:
       x-resource-group: "engagement"
       operationId: deleteInboxReviewReply
@@ -42953,6 +43237,16 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
+        '404':
+          description: "The platform no longer has this review or its reply. Permanent: do not retry."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '502':
+          description: "The platform failed the call (upstream 5xx or an unreadable response). Transient: safe to retry with backoff."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   # ──────────────────────────────────────────────────────────────────────────
   # WHATSAPP-SPECIFIC ENDPOINTS
   # Templates, business profile, phone numbers: ACTIVE (no cross-platform equivalent)
@@ -49537,6 +49831,7 @@ paths:
                 reuseOptionId: { type: string, description: 'Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.' }
                 reuseFrom: { type: string, description: 'Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.' }
                 areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.' }
+                phoneNumber: { type: string, pattern: '^\+[1-9]\d{6,14}$', description: 'Exact number to order, in E.164, taken from GET /v1/phone-numbers/available. It is ordered as is or the request fails with 409 code phone_number_unavailable; another number is never substituted and a pre-order is never placed. Requires quantity 1 (or omitted). Omit to let the carrier pick a number in the area.' }
                 preOrder: { type: boolean, description: 'With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area. Without areaCode it accepts the pre-order a previous submit offered with 409 code area_pre_order_available (a geographic-match country whose address area has no stock): resend the same body with preOrder true and the order is placed for that area. A whole pair with no stock is pre-ordered without either flag.' }
                 endUserFirstName: { type: string, description: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement. }
                 endUserLastName: { type: string, description: End user's legal last name. Same condition as endUserFirstName. }
@@ -49602,7 +49897,7 @@ paths:
                         phoneNumber: { type: string }
                         country: { type: string }
         '400': { description: "Validation error (e.g. address not in-country, file too large)" }
-        '409': { description: 'code area_pre_order_available: the country requires the number to cover the registered address and that area has no stock, but the carrier can source one. Nothing was created; details carries { areaCode, areaName, estimatedWeeks: "2-4", billedWhenActive: true }. Show it to the customer and, once they agree, resend the same body with preOrder true (optionally with details.areaCode as areaCode). Otherwise: reuse was requested but no prior approved verification exists for this country; or the requested areaCode (or, in a geographic-match country, the area covering the registered address) has no deliverable inventory and cannot be pre-ordered (code: area_code_unavailable; pick another area, or a registered address in an area with stock); or the whole country and type pool has nothing deliverable and cannot be pre-ordered (code: country_out_of_stock; choose an area with stock or set a stock watch). When the only numbers the carrier lists failed WhatsApp registration recently and are held back, the message names the date the first one clears and details.undeliverableUntil carries it as an ISO timestamp.' }
+        '409': { description: 'code area_pre_order_available: the country requires the number to cover the registered address and that area has no stock, but the carrier can source one. Nothing was created; details carries { areaCode, areaName, estimatedWeeks: "2-4", billedWhenActive: true }. Show it to the customer and, once they agree, resend the same body with preOrder true (optionally with details.areaCode as areaCode). Otherwise: reuse was requested but no prior approved verification exists for this country; or the requested areaCode (or, in a geographic-match country, the area covering the registered address) has no deliverable inventory and cannot be pre-ordered (code: area_code_unavailable; pick another area, or a registered address in an area with stock); or the whole country and type pool has nothing deliverable and cannot be pre-ordered (code: country_out_of_stock; choose an area with stock or set a stock watch). When the only numbers the carrier lists failed WhatsApp registration recently and are held back, the message names the date the first one clears and details.undeliverableUntil carries it as an ISO timestamp. When phoneNumber was sent and that exact number is no longer available (or WhatsApp cannot use it), code phone_number_unavailable with param phoneNumber: nothing was ordered, pick another number.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/phone-numbers/kyc/document/{documentId}:
@@ -50601,6 +50896,7 @@ paths:
                 reuseOptionId: { type: string, description: 'Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.' }
                 reuseFrom: { type: string, description: 'Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.' }
                 areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.' }
+                phoneNumber: { type: string, pattern: '^\+[1-9]\d{6,14}$', description: 'Exact number to order, in E.164, taken from GET /v1/whatsapp/phone-numbers/available. It is ordered as is or the request fails with 409 code phone_number_unavailable; another number is never substituted and a pre-order is never placed. Requires quantity 1 (or omitted). Omit to let the carrier pick a number in the area.' }
                 preOrder: { type: boolean, description: 'With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area. Without areaCode it accepts the pre-order a previous submit offered with 409 code area_pre_order_available (a geographic-match country whose address area has no stock): resend the same body with preOrder true and the order is placed for that area. A whole pair with no stock is pre-ordered without either flag.' }
                 endUserFirstName: { type: string, description: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement. }
                 endUserLastName: { type: string, description: End user's legal last name. Same condition as endUserFirstName. }
@@ -50665,7 +50961,7 @@ paths:
                         phoneNumber: { type: string }
                         country: { type: string }
         '400': { description: "Validation error (e.g. address not in-country, file too large)" }
-        '409': { description: 'code area_pre_order_available: the country requires the number to cover the registered address and that area has no stock, but the carrier can source one. Nothing was created; details carries { areaCode, areaName, estimatedWeeks: "2-4", billedWhenActive: true }. Show it to the customer and, once they agree, resend the same body with preOrder true (optionally with details.areaCode as areaCode). Otherwise: reuse was requested but no prior approved verification exists for this country; or the requested areaCode (or, in a geographic-match country, the area covering the registered address) has no deliverable inventory and cannot be pre-ordered (code: area_code_unavailable; pick another area, or a registered address in an area with stock); or the whole country and type pool has nothing deliverable and cannot be pre-ordered (code: country_out_of_stock; choose an area with stock or set a stock watch). When the only numbers the carrier lists failed WhatsApp registration recently and are held back, the message names the date the first one clears and details.undeliverableUntil carries it as an ISO timestamp.' }
+        '409': { description: 'code area_pre_order_available: the country requires the number to cover the registered address and that area has no stock, but the carrier can source one. Nothing was created; details carries { areaCode, areaName, estimatedWeeks: "2-4", billedWhenActive: true }. Show it to the customer and, once they agree, resend the same body with preOrder true (optionally with details.areaCode as areaCode). Otherwise: reuse was requested but no prior approved verification exists for this country; or the requested areaCode (or, in a geographic-match country, the area covering the registered address) has no deliverable inventory and cannot be pre-ordered (code: area_code_unavailable; pick another area, or a registered address in an area with stock); or the whole country and type pool has nothing deliverable and cannot be pre-ordered (code: country_out_of_stock; choose an area with stock or set a stock watch). When the only numbers the carrier lists failed WhatsApp registration recently and are held back, the message names the date the first one clears and details.undeliverableUntil carries it as an ISO timestamp. When phoneNumber was sent and that exact number is no longer available (or WhatsApp cannot use it), code phone_number_unavailable with param phoneNumber: nothing was ordered, pick another number.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
 
@@ -58043,8 +58339,10 @@ paths:
         directly, independent of the `ads` rollup GET /v1/ads/tree uses, so a
         newly created standalone ad group with no ad yet (POST /v1/ads/ad-sets,
         Google only) is visible here even though it is invisible in the tree
-        until an ad joins it via `adSetId` on POST /v1/ads/create. Returns at most 500
-        rows, newest first.
+        until an ad joins it via `adSetId` on POST /v1/ads/create. Rows come newest first
+        (by platform creation time, then id, so pages never overlap), 500 per page unless `limit`
+        says otherwise; `pagination.total` counts every matching ad set and `page` reaches the
+        rest.
 
         **This list is SYNCED, not live** (refreshed by background sync, see below). Each row also
         carries the ad set's config (`targeting`, `bidStrategy`, `bidAmount`, `optimizationGoal`,
@@ -58063,8 +58361,8 @@ paths:
         which reads the switches from the platform now, stores them, and returns `statusReadAt`
         (null when the read failed and the stored values were returned).
         With `live=true` (which needs a `campaignId` or `adSetId` filter) each listed ad set's own
-        switch (`platformAdSetStatus`) is read live, for the first 20 rows; later rows keep their
-        synced value with `statusReadAt: null`. Live reads cover TikTok, Meta, Google, OpenAI and Reddit.
+        switch (`platformAdSetStatus`) is read live, for the first 20 rows of the page; later rows keep their
+        synced value with `statusReadAt: null`. To read more ad sets live, page with `limit=20`. Live reads cover TikTok, Meta, Google, OpenAI and Reddit.
         The rolled-up `status` is not re-derived by a live read. On TikTok the same live read also
         returns the ad group's applied `optimizationGoal` and `billingEvent`, as TikTok's adgroup/get
         reports them, so you can verify the goal TikTok applied rather than the one you requested.
@@ -58083,6 +58381,9 @@ paths:
         - { name: campaignId, in: query, schema: { type: string }, description: Platform campaign ID }
         - { name: adSetId, in: query, schema: { type: string }, description: Platform ad set ID }
         - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit] } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/AdStatus' }, description: "Filter by the ad set's stored `status`, the value each row returns. A live read does not change it. Rows whose `status` is null match no filter." }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
         - $ref: '#/components/parameters/LiveStatusRead'
       responses:
         '200':
@@ -58100,7 +58401,7 @@ paths:
                         platformAdSetId: { type: string }
                         platform: { type: string }
                         adSetName: { type: [string, "null"] }
-                        status: { type: [string, "null"] }
+                        status: { type: [string, "null"], description: "Stored ad set status (active, paused, pending_review, rejected, completed, cancelled, error), as last synced. The `status` filter matches it." }
                         platformAdSetStatus: { type: [string, "null"], description: "Raw platform ad set status. On TikTok the ad group's own switch `operation_status` (ENABLE / DISABLE), independent of its campaign. On Meta and Reddit the ad set's `effective_status` (e.g. CAMPAIGN_PAUSED)." }
                         platformCampaignId: { type: [string, "null"] }
                         platformAdAccountId: { type: string }
@@ -58166,6 +58467,7 @@ paths:
                         promotedObject: { type: [object, "null"], additionalProperties: true, description: "Meta only. The ad set's `promoted_object` verbatim (snake_case, for example pixel_id + custom_event_type, page_id, application_id), as last synced from its most recent ad. Null on other platforms and on an ad set with no ad yet; GET /v1/ads/accounts/live reads it live for every ad set." }
                         nativeSettings: { type: object, additionalProperties: true, description: "TikTok only, only with `live=true` and only on rows read live. A fixed subset of TikTok's adgroup/get record, not the whole record (snake_case, TikTok's own names, enums and values): adgroup_id, campaign_id, operation_status, optimization_goal, optimization_event, billing_event, bid_type, bid_price, budget, budget_mode, pacing, schedule_type, schedule_start_time, schedule_end_time, dayparting, placement_type, placements, location_ids, age_groups, gender, languages, interest_category_ids, interest_keyword_ids, actions, audience_ids, excluded_audience_ids, operating_systems, frequency, frequency_schedule, smart_audience_enabled, smart_interest_behavior_enabled. schedule_start_time and schedule_end_time are UTC wall clocks (YYYY-MM-DD HH:MM:SS). location_ids holds TikTok's native location ids (GeoNames ids for countries); GET /v1/ads/targeting/search?dimension=geo returns them as `platformId` on country results. Plus advertiser_currency and advertiser_timezone from TikTok's advertiser/info. A field TikTok does not return is absent." }
                         configReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `nativeSettings` was read from the platform. Null on every row whose native settings were not read now (row past the cap, failed read, or a platform without a native read)." }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
@@ -60662,13 +60964,14 @@ paths:
         carousel under its own material id, so those entries come back with the review verdict and
         null descriptive fields. TikTok returns no review timestamp; `readAt` is when Zernio read it.
 
-        TikTok's review endpoint has a strict quota of its own. One TikTok call reads the review of
-        every live Smart+ ad of the ad group (up to 100), and each review is cached for 10 minutes per
-        connection, advertiser and Smart+ ad, so sibling ads are answered from the cache and `readAt`
-        can be up to 10 minutes old. Read reviews when you need them instead of sweeping every ad on a
-        loop. When TikTok answers over quota, Zernio returns 429 with `Retry-After: 60` and answers
-        429 for that advertiser and connection without calling TikTok until the minute is over; cached
-        reviews are still served.
+        TikTok's review endpoint has a strict quota of its own, which behaves per advertiser. One TikTok call reads the
+        review of the live Smart+ ads of the ad group up to 50 creatives in total (TikTok refuses more),
+        and each review is cached for 10 minutes per connection, advertiser and Smart+ ad, so sibling ads
+        are answered from the cache and `readAt` can be up to 10 minutes old. Read reviews when you need
+        them instead of sweeping every ad on a loop. When TikTok answers over quota, Zernio returns 429
+        and answers 429 for that advertiser and connection without calling TikTok for 60 seconds, then
+        120, then 240 while TikTok keeps refusing (back to 60 after a successful call), with the time left
+        as `Retry-After`; cached reviews are still served.
       security:
         - bearerAuth: []
       parameters:
@@ -60695,7 +60998,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: "Ad not found, it has no TikTok ad or ad group id yet, or no Smart+ ad of its ad group holds it. In the last case `details.listedSmartPlusAds` is how many Smart+ ads TikTok lists in the ad group, deleted ones included: 0 means the ad group lists none." }
         '422': { description: "The TikTok ad is not an Upgraded Smart+ ad (read it with GET /v1/ads/{adId}/review)" }
-        '429': { description: "Rate limited. TikTok's general limit answers `Retry-After: 10`; its stricter Smart+ review quota answers `Retry-After` of up to 60 seconds, the time left before Zernio calls TikTok's review endpoint again for this advertiser and connection.", $ref: '#/components/responses/RateLimited' }
+        '429': { description: "Rate limited. TikTok's general limit answers `Retry-After: 10`; its stricter Smart+ review quota (which behaves per advertiser) answers `Retry-After` of up to 240 seconds, the time left before Zernio calls TikTok's review endpoint again for this advertiser and connection.", $ref: '#/components/responses/RateLimited' }
         '501': { description: "Only supported on TikTok" }
 
   /v1/ads/{adId}/media:
@@ -61998,7 +62301,7 @@ paths:
       tags: ["Ad Insights"]
       x-platforms: ["tiktok"]
       summary: Per-creative performance inside TikTok Smart+ ads
-      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. A row is identified by `smartPlusAdId` + `materialId` at `level=ad` and by `adGroupId` + `materialId` at `level=adGroup`; each appears once across all pages. Rows are sorted by `spend` descending, then the Smart+ ad or ad group id, then `materialId`, and the full result is cached for 10 minutes per account, advertiser and query, so pages read within that window are consistent and `totalRows` counts distinct rows. The result can hold more rows than TikTok's unfiltered report declares, because the per-ad reads also return listed Smart+ ads that report leaves out. When the slices come back with fewer rows than TikTok declares on two reads, the call answers 502 instead of a short result. Metrics TikTok returns empty come back as null."
+      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. A row is identified by `smartPlusAdId` + `materialId` at `level=ad` and by `adGroupId` + `materialId` at `level=adGroup`; each appears once across all pages. Rows are sorted by `spend` descending, then the Smart+ ad or ad group id, then `materialId`, and the full result is cached for 10 minutes per account, advertiser and query, so pages read within that window are consistent and `totalRows` counts distinct rows. When the result spans more than one TikTok page it is read per Smart+ ad (or ad group) listed on the advertiser, every status included, and those reads can return more rows than TikTok's unfiltered report declares, so `totalRows` can be larger than that count; when the unfiltered report fits one page (100 rows or fewer) it is served as is. Each TikTok read is checked against the row count it declares itself, and a short read is retried once. A shortfall of at most 2 rows (or 1% of the rows, whichever is more) is served with `missingRows` set to that number; a larger one answers 502 instead of a short result. Metrics TikTok returns empty come back as null."
       security:
         - bearerAuth: []
       parameters:
@@ -62027,6 +62330,7 @@ paths:
                   pageSize: { type: integer }
                   totalRows: { type: integer }
                   totalPages: { type: integer }
+                  missingRows: { type: integer, description: "Rows TikTok declared that a read and its retry could not return. 0 when the result is complete." }
                   rows:
                     type: array
                     items:
@@ -62057,7 +62361,7 @@ paths:
         '404': { $ref: '#/components/responses/AccountUnavailable' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '422': { description: "The TikTok connection has no TikTok Ads token: connect TikTok Ads first (code ads_connection_required)." }
-        '502': { description: "TikTok's material report slices came back with fewer rows than the row count it declared, on two reads. Retry later." }
+        '502': { description: "More rows than the tolerance (2, or 1% of the rows) were missing from TikTok's material report after a retry (`details` carries `totalNumber`, `distinctRows` and `missingRows`), or TikTok's Smart+ ad listing returned fewer ads than it declared (`details` carries `declaredAds`, `listedAds` and `listingTruncated`; with `listingTruncated` the advertiser has more than 2,000 Smart+ ads, so pass `smartPlusAdIds` or `adGroupIds`). Retry later." }
   /v1/ads/tiktok-smart-plus-reviews:
     get:
       x-resource-group: "ads"
@@ -62068,13 +62372,13 @@ paths:
       description: |-
         Returns the review verdict of every Upgraded Smart+ ad of one TikTok advertiser, with each creative's verdict, in one paginated read. Use it to refresh reviews periodically: one call (plus its pages) per advertiser per refresh, instead of `GET /v1/ads/{adId}/tiktok-smart-plus-review` per ad.
 
-        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`; the listing is cached for 5 minutes) and reads `/smart_plus/ad/review_info/` for up to 100 Smart+ ads per call, across ad groups, one call after another. A full refresh of N Smart+ ads costs about `ceil(N / 100)` listing calls and `ceil(N / 100)` review calls on TikTok. Each review is cached for 10 minutes per connection, advertiser and Smart+ ad, shared with the single-ad read, so cached reviews are served without calling TikTok and `readAt` can be up to 10 minutes old.
+        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`; the listing is cached for 10 minutes) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size. Each review is cached for 10 minutes per connection, advertiser and Smart+ ad, shared with the single-ad read, so cached reviews are served without calling TikTok and `readAt` can be up to 10 minutes old.
 
-        TikTok's review endpoint has a strict quota of its own. When it is over quota (or Zernio is holding review reads for this advertiser and connection after an overage), Zernio stops calling TikTok and answers 200 with the reviews it has: `incomplete: true`, the Smart+ ads still to read in `pendingSmartPlusAdIds`, and `retryAfterSeconds` (also in the `Retry-After` header). Every Smart+ ad of the page is in `items`, `failedSmartPlusAds` or `pendingSmartPlusAdIds`. Wait `retryAfterSeconds` and read the same page again: only the pending ads reach TikTok.
+        TikTok's review endpoint has a strict quota of its own, which behaves per advertiser. When it is over quota (or Zernio is holding review reads for this advertiser and connection after an overage: 60 seconds, then 120, then 240 while TikTok keeps refusing, back to 60 after a successful call), Zernio stops calling TikTok and answers 200 with the reviews it has: `incomplete: true`, the Smart+ ads still to read in `pendingSmartPlusAdIds`, and `retryAfterSeconds` (also in the `Retry-After` header). Every Smart+ ad of the page is in `items`, `failedSmartPlusAds` or `pendingSmartPlusAdIds`. Wait `retryAfterSeconds` and read the same page again: only the pending ads reach TikTok.
 
         A Smart+ ad whose review TikTok refuses on its own (for example one deleted on TikTok since the listing was cached) is returned in `failedSmartPlusAds` with TikTok's error, and the rest of the page is still read. Zernio finds it by splitting the refused batch in halves, at most 16 extra TikTok calls per page; ads still unresolved after that come back in `failedSmartPlusAds` with the batch error. A refusal of a single ad is remembered for 10 minutes. When both halves of a refused batch are refused with the same TikTok error (for example a permission error), the whole request fails with that error instead.
 
-        Items are sorted by `adGroupId`, then `smartPlusAdId`, so pages are stable. Read the pages of one advertiser one after another, not in parallel: parallel pages spend the review quota at the same time and come back incomplete.
+        Items are sorted by `adGroupId`, then `smartPlusAdId`, so pages are stable. Keep one page in flight per advertiser and read its pages one after another: parallel pages of one advertiser spend its review quota at the same time and come back incomplete. The quota behaves per advertiser (observed, not documented by TikTok), so different advertisers can be read in parallel.
       security:
         - bearerAuth: []
       parameters:
@@ -69169,7 +69473,7 @@ paths:
       description: |
         Creates a lead form on a Facebook Page or LinkedIn Company Page to collect contact details from ads.
 
-        The form content goes inside `platformSpecificData` for both platforms (the shape is selected by the accountId's platform). Meta: created on the connected Facebook Page (POST /{page-id}/leadgen_forms), where `accountId` may be the `metaads` ads connection (its Page comes from the Facebook account linked to the same profile), an Instagram account (the Page its ads run under: its own linked Page, else the Facebook or business-login Meta ads account on the same profile) or the Facebook account itself; the old top-level Meta fields (questions, thankYou*, contextCard, …) are DEPRECATED but still accepted while platformSpecificData is absent; mixing both shapes is a 400. LinkedIn: created on the ad account's Company Page. NOT idempotent: a retry creates a second form. Meta prefilled question types (EMAIL, PHONE, FULL_NAME, …) must omit label/key; CUSTOM questions require both. LinkedIn exposes only free-text and multiple-choice questions via API (prefilled-from-profile fields are Campaign Manager UI-only). Requires the Ads add-on.
+        The form content goes inside `platformSpecificData` for both platforms (the shape is selected by the accountId's platform). Meta: created on the connected Facebook Page (POST /{page-id}/leadgen_forms), where `accountId` may be the `metaads` ads connection (its Page comes from the Facebook account linked to the same profile), an Instagram account (the Page its ads run under: its own linked Page, else the Facebook or business-login Meta ads account on the same profile) or the Facebook account itself; the old top-level Meta fields (questions, thankYou*, contextCard, …) are DEPRECATED but still accepted while platformSpecificData is absent; mixing both shapes is a 400. thankYouEnableMessenger, isPhoneSmsVerifyEnabled and customDisclaimer are accepted only inside platformSpecificData (top-level is a 400). LinkedIn: created on the ad account's Company Page. NOT idempotent: a retry creates a second form. Meta prefilled question types (EMAIL, PHONE, FULL_NAME, …) must omit label/key; CUSTOM questions require both. LinkedIn exposes only free-text and multiple-choice questions via API (prefilled-from-profile fields are Campaign Manager UI-only). Requires the Ads add-on.
       requestBody:
         required: true
         content:
@@ -69229,9 +69533,9 @@ paths:
                         thankYouTitle: { type: string }
                         thankYouBody: { type: string }
                         thankYouButtonText: { type: string }
-                        thankYouButtonType: { type: string, example: VIEW_WEBSITE }
+                        thankYouButtonType: { type: string, example: VIEW_WEBSITE, description: "Meta thank_you_page.button_type. Defaults to VIEW_WEBSITE. Meta rejects MESSAGE_BUSINESS on thank-you pages with (#100) This button type is not yet supported for Thank You Page." }
                         thankYouWebsiteUrl: { type: string, format: uri }
-                        thankYouEnableMessenger: { type: boolean, default: false, description: "Adds a 'Continue in Messenger' option to the thank-you page (Meta thank_you_page.enable_messenger), so the lead can carry on chatting with the Page. Set thankYouButtonType to MESSAGE_BUSINESS or P2B_MESSENGER to make the chat the primary button." }
+                        thankYouEnableMessenger: { type: boolean, default: false, description: "Sent as Meta thank_you_page.enable_messenger (boolean). Accepted only inside platformSpecificData: a top-level thankYouEnableMessenger is a 400." }
                         isOptimizedForQuality: { type: boolean, description: 'Set true for a higher-intent form (adds a review step before submit).' }
                         isPhoneSmsVerifyEnabled: { type: boolean, default: false, description: "Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE question. Meta can restrict this parameter to apps holding a capability: when it does, the create fails with a 422 naming platformSpecificData.isPhoneSmsVerifyEnabled, and the toggle then has to be set in Meta's form builder." }
                         blockDisplayForNonTargetedViewer: { type: boolean }
@@ -71665,7 +71969,7 @@ paths:
                 properties:
                   message: { type: string }
                   numReceived: { type: integer }
-                  numInvalid: { type: integer }
+                  numInvalid: { type: integer, description: "Rows the platform could not read. Returned on Meta only." }
         '400':
           description: Invalid input (malformed audienceId, empty users array, missing email/phone)
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -71675,6 +71979,65 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
           description: Audience is not a customer_list type or has no platform ID yet
+    delete:
+      x-resource-group: "ads"
+      operationId: removeUsersFromAdAudience
+      tags: ["Ad Audiences"]
+      x-platforms: ["meta"]
+      summary: Remove users from audience
+      description: |
+        Removes customer emails and phone numbers from a Meta customer list audience. Same body as
+        `POST /v1/ads/audiences/{audienceId}/users`: send plaintext rows, they are normalized and
+        SHA256-hashed server-side exactly like an upload, so a row removes the person it added.
+
+        Meta only, customer_list only. Every other platform returns 422 with code `feature_not_available`,
+        and every other audience type returns 422. Max 10,000 users per request. Meta applies the removal
+        asynchronously, so the audience size does not drop immediately.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: audienceId, in: path, required: true, schema: { type: string }, description: "The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [users]
+              properties:
+                users:
+                  type: array
+                  minItems: 1
+                  maxItems: 10000
+                  items:
+                    type: object
+                    properties:
+                      email: { type: string, format: email }
+                      phone: { type: string }
+                    description: Each user must have at least email or phone
+      responses:
+        '200':
+          description: Users removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  numReceived: { type: integer, description: "Rows Meta received." }
+                  numInvalid: { type: integer, description: "Rows Meta could not read." }
+                  invalidEntrySamples:
+                    type: object
+                    additionalProperties: { type: string }
+                    description: "A sample of the rows Meta could not read, passed through as Meta returns it. Empty when every row was valid."
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: |
+            Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans. Also returned with code `ad_account_not_selected` when the connection has selected ad accounts and the ad account this request targets is not among them; `details` carries `accountId`, `adAccountId` and `selectedAdAccountIds`. Add the ad account to the selection (GET /v1/connect/{platform}/ads with adAccountIds, which replaces the selection) or use a connection that has it selected.
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: "The audience is not a customer_list, is not on Meta (code `feature_not_available`), or has no platform ID yet."
 
   /v1/ads/audiences/{audienceId}/companies:
     post:
@@ -73439,7 +73802,7 @@ paths:
                           description: When the event was sent to Meta.
                         eventName:
                           type: string
-                          description: One of LeadSubmitted, Purchase, AddToCart, InitiateCheckout, ViewContent.
+                          description: 'One of LeadSubmitted, QualifiedLead, Purchase, AddToCart, InitiateCheckout, ViewContent, OrderCreated, OrderCanceled, OrderReturned.'
                         conversationId:
                           type: [string, "null"]
                         eventsReceived:
@@ -73462,8 +73825,9 @@ paths:
       summary: Send WhatsApp conversion event
       description: |
         Forward a WhatsApp Business Messaging conversion event (`LeadSubmitted`,
-        `Purchase`, `AddToCart`, `InitiateCheckout`, `ViewContent`) to Meta's
-        Conversions API with `action_source = business_messaging` and
+        `QualifiedLead`, `Purchase`, `AddToCart`, `InitiateCheckout`,
+        `ViewContent`, `OrderCreated`, `OrderCanceled`, `OrderReturned`) to
+        Meta's Conversions API with `action_source = business_messaging` and
         `messaging_channel = whatsapp`. The endpoint looks up the originating
         CTWA click ID (`ctwa_clid`) captured on the first inbound message of
         the conversation and replays it on every event so Meta can attribute
@@ -73512,11 +73876,10 @@ paths:
                   description: WhatsApp SocialAccount ID.
                 eventName:
                   type: string
-                  enum: [LeadSubmitted, Purchase, AddToCart, InitiateCheckout, ViewContent]
+                  enum: [LeadSubmitted, QualifiedLead, Purchase, AddToCart, InitiateCheckout, ViewContent, OrderCreated, OrderCanceled, OrderReturned]
                   description: |
-                    Live-verified allowlist of event names accepted by Meta's
-                    CAPI for Business Messaging (Graph API v25.0). Other
-                    standard pixel events including `Lead`,
+                    Event names accepted by Meta's CAPI for Business
+                    Messaging. Other standard pixel events including `Lead`,
                     `CompleteRegistration`, `Subscribe`, `Schedule`, `Contact`,
                     `StartTrial`, `AddPaymentInfo`, `Search`, and
                     `SubmitApplication` are rejected with subcode 2804066
@@ -73524,7 +73887,11 @@ paths:
                     `action_source = business_messaging` events. Custom event
                     names are also rejected.
 
-                    Use `LeadSubmitted` (NOT `Lead`) for lead-style conversions.
+                    Use `LeadSubmitted` (NOT `Lead`) when a lead comes in and
+                    `QualifiedLead` once your team qualifies it. `OrderCreated`,
+                    `OrderCanceled` and `OrderReturned` track an order placed in
+                    the chat; send `value` and `currency` with them (and with
+                    `Purchase`) to report the order amount.
                 eventTime:
                   type: number
                   description: |

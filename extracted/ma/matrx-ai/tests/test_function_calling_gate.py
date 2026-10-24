@@ -381,3 +381,80 @@ def test_dispatch_decoration_gate_covers_non_fc_only():
     )
     _strip_chat_decorations_if_non_fc(chat_cfg, _caps("gemini-2.5-flash", features=_CHAT))
     assert chat_cfg.system_instruction.include_date is True  # untouched for chat
+
+
+# ── Only what the agent or request listed is announced (live 2026-10-23) ─────
+# An image agent with no tools (3f3247d5, gpt-image-2) read "This model can't use tools, so
+# its tools were off for this reply." because the automatic layer had added a connected
+# desktop's ``load_desktop_tools``. The strip still removes and records it; nobody is told.
+
+
+def test_strip_of_automatic_tools_only_is_silent():
+    from matrx_ai.providers.unified_client import _strip_tools_for_no_function_calling
+
+    cfg = SimpleNamespace(
+        tools=["load_desktop_tools"],
+        authored_tools=[],
+        dynamic_tool_sources={"load_desktop_tools": "request"},
+        custom_tools=[],
+        mcp_servers=[],
+        internal_url_context=None,
+        model="gpt-image-2",
+    )
+    adaptation = _strip_tools_for_no_function_calling(cfg, _caps("gpt-image-2", output=["image"]), "openai_image")
+    assert cfg.tools == []
+    assert adaptation is not None and adaptation.silent is True
+    assert adaptation.as_record()["silent"] is True
+
+
+def test_strip_of_an_agent_listed_tool_is_announced():
+    from matrx_ai.providers.unified_client import _strip_tools_for_no_function_calling
+
+    cfg = SimpleNamespace(
+        tools=["web", "load_desktop_tools"],
+        authored_tools=["web"],
+        dynamic_tool_sources={"load_desktop_tools": "request"},
+        custom_tools=[],
+        mcp_servers=[],
+        internal_url_context=None,
+        model="gpt-image-2",
+    )
+    adaptation = _strip_tools_for_no_function_calling(cfg, _caps("gpt-image-2", output=["image"]), "openai_image")
+    assert adaptation is not None and adaptation.silent is False
+
+
+def test_strip_of_a_request_listed_tool_is_announced(monkeypatch):
+    import matrx_connect.context.app_context as app_context
+
+    from matrx_ai.providers.tool_adaptation import REQUEST_LISTED_TOOLS_KEY
+    from matrx_ai.providers.unified_client import _strip_tools_for_no_function_calling
+
+    cfg = SimpleNamespace(
+        tools=["news"],
+        authored_tools=[],
+        dynamic_tool_sources={"news": "request"},
+        custom_tools=[],
+        mcp_servers=[],
+        internal_url_context=None,
+        model="gpt-image-2",
+    )
+    monkeypatch.setattr(
+        app_context, "try_get_app_context", lambda: SimpleNamespace(metadata={REQUEST_LISTED_TOOLS_KEY: ["news"]})
+    )
+    adaptation = _strip_tools_for_no_function_calling(cfg, _caps("gpt-image-2", output=["image"]), "openai_image")
+    assert adaptation is not None and adaptation.silent is False
+
+
+def test_silent_adaptation_never_reaches_the_person():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from matrx_ai.providers.tool_adaptation import NO_FUNCTION_CALLING, ToolAdaptation, announce_tool_adaptations
+
+    emitter = SimpleNamespace(send_warning=AsyncMock())
+    silent = ToolAdaptation(code=NO_FUNCTION_CALLING, model="m", wire_format="w", removed=["x"], reason="r", silent=True)
+    loud = ToolAdaptation(code=NO_FUNCTION_CALLING, model="m", wire_format="w", removed=["y"], reason="r")
+    asyncio.run(announce_tool_adaptations([silent], emitter=emitter))
+    emitter.send_warning.assert_not_called()
+    asyncio.run(announce_tool_adaptations([loud], emitter=emitter))
+    emitter.send_warning.assert_called_once()

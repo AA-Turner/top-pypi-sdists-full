@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 2.12.0
+Version: 2.13.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.11
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: aiosqlite>=0.21
-Requires-Dist: authlib>=1.6.6,<2
+Requires-Dist: authlib>=1.9.1,<2
 Requires-Dist: click>=8.1.8,<9
 Requires-Dist: cryptography>=42
 Requires-Dist: fastapi>=0.133,<1
@@ -29,8 +29,8 @@ Requires-Dist: google-genai>=2.30,<3
 Requires-Dist: graphviz>=0.20.2,<1
 Requires-Dist: httpx>=0.27,<1
 Requires-Dist: jsonschema>=4.23,<5
-Requires-Dist: opentelemetry-api>=1.39,<=1.42.1
-Requires-Dist: opentelemetry-sdk>=1.39,<=1.42.1
+Requires-Dist: opentelemetry-api>=1.39,<=1.44
+Requires-Dist: opentelemetry-sdk>=1.39,<=1.44
 Requires-Dist: packaging>=21
 Requires-Dist: pydantic>=2.12,<3
 Requires-Dist: python-dotenv>=1,<2
@@ -85,7 +85,7 @@ Requires-Dist: k8s-agent-sandbox>=0.1.1.post3 ; extra == "all"
 Requires-Dist: kubernetes>=29 ; extra == "all"
 Requires-Dist: langgraph>=1.0.10,<2 ; extra == "all"
 Requires-Dist: langgraph-checkpoint>=4.1.1,<5 ; extra == "all"
-Requires-Dist: litellm>=1.84 ; extra == "all"
+Requires-Dist: litellm>=1.84,<1.106.3 ; extra == "all"
 Requires-Dist: livekit>=1,<2 ; extra == "all"
 Requires-Dist: livekit-api>=1,<2 ; extra == "all"
 Requires-Dist: llama-index-embeddings-google-genai>=0.3 ; extra == "all"
@@ -101,7 +101,7 @@ Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0,<=1.12.0a0 ; extra ==
 Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.9.0a0,<2 ; extra == "all"
 Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9,<2 ; extra == "all"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36 ; extra == "all"
-Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<1 ; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<2 ; extra == "all"
 Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "all"
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "all"
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0,<2 ; extra == "all"
@@ -173,7 +173,7 @@ Requires-Dist: k8s-agent-sandbox>=0.1.1.post3 ; extra == "extensions"
 Requires-Dist: kubernetes>=29 ; extra == "extensions"
 Requires-Dist: langgraph>=1.0.10,<2 ; extra == "extensions"
 Requires-Dist: langgraph-checkpoint>=4.1.1,<5 ; extra == "extensions"
-Requires-Dist: litellm>=1.84 ; extra == "extensions"
+Requires-Dist: litellm>=1.84,<1.106.3 ; extra == "extensions"
 Requires-Dist: llama-index-embeddings-google-genai>=0.3 ; extra == "extensions"
 Requires-Dist: llama-index-readers-file>=0.4 ; extra == "extensions"
 Requires-Dist: lxml>=5.3 ; extra == "extensions"
@@ -213,9 +213,11 @@ Requires-Dist: pymongo>=4.9,<5 ; extra == "mongodb"
 Requires-Dist: oci>=2.126 ; extra == "oci"
 Requires-Dist: openai>=2.20,<3 ; extra == "openai"
 Requires-Dist: opensandbox>=0.1.15,<0.2 ; extra == "opensandbox"
-Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<1 ; extra == "otel-gcp"
-Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "otel-gcp"
-Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "otel-gcp"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36 ; extra == "otel"
+Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<2 ; extra == "otel"
+Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "otel"
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "otel"
+Requires-Dist: google-adk[otel] ; extra == "otel-gcp"
 Requires-Dist: redis>=4.2 ; extra == "redis"
 Requires-Dist: aiohttp!=3.14.2 ; extra == "slack"
 Requires-Dist: slack-bolt>=1.22 ; extra == "slack"
@@ -255,7 +257,7 @@ Requires-Dist: kubernetes>=29 ; extra == "test"
 Requires-Dist: langchain-community>=0.3.17 ; extra == "test"
 Requires-Dist: langgraph>=1.0.10,<2 ; extra == "test"
 Requires-Dist: langgraph-checkpoint>=4.1.1,<5 ; extra == "test"
-Requires-Dist: litellm>=1.84 ; extra == "test"
+Requires-Dist: litellm>=1.84,<1.106.3 ; extra == "test"
 Requires-Dist: livekit>=1,<2 ; extra == "test"
 Requires-Dist: livekit-api>=1,<2 ; extra == "test"
 Requires-Dist: llama-index-readers-file>=0.4 ; extra == "test"
@@ -317,6 +319,7 @@ Provides-Extra: mongodb
 Provides-Extra: oci
 Provides-Extra: openai
 Provides-Extra: opensandbox
+Provides-Extra: otel
 Provides-Extra: otel-gcp
 Provides-Extra: redis
 Provides-Extra: slack
@@ -402,7 +405,7 @@ pip install google-adk
 
 **Requirements:** Python 3.11+.
 
-For transitive dependency protection, we recommend to install with our companion
+For transitive dependency protection, we recommend installing with our companion
 constraints files (for python 3.11 to 3.15).
 
 Choose the constraints file matching your Python version:
@@ -546,7 +549,7 @@ of the ADK.
 
 ## Vibe Coding
 
-If you want to develop an agent via vibe coding the [llms.txt](https://adk.dev/llms.txt) and the [llms-full.txt](https://adk.dev/llms-full.txt) published on the ADK documentation site can be used as context to an LLM. While the former one is a summarized one and the latter one has the full information in case your LLM has a big enough context window.
+If you want to develop an agent via vibe coding, the [llms.txt](https://adk.dev/llms.txt) and [llms-full.txt](https://adk.dev/llms-full.txt) files published on the ADK documentation site can be used as context for an LLM. The former is a summarized version, while the latter contains the full documentation for LLMs with a large context window.
 
 ## Community Events
 

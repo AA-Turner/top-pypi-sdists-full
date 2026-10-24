@@ -2,7 +2,6 @@ import { Markup } from "@bokehjs/models/widgets/markup";
 import { PanelMarkupView } from "./layout";
 import { html_decode } from "./html";
 export class PDFView extends PanelMarkupView {
-    static __name__ = "PDFView";
     connect_signals() {
         super.connect_signals();
         const { text, width, height, embed, start_page } = this.model.properties;
@@ -39,7 +38,6 @@ export class PDFView extends PanelMarkupView {
     }
 }
 export class PDF extends Markup {
-    static __name__ = "PDF";
     constructor(attrs) {
         super(attrs);
     }

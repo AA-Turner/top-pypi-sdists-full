@@ -109,8 +109,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -186,8 +188,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -263,8 +267,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -412,8 +418,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -497,8 +505,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -582,8 +592,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -690,7 +702,7 @@ class ClusterExecutionsApi:
     ) -> ClusterExecutionResult:
         """Get Latest Cluster Execution
 
-        Get the most recent execution results for a cluster.      Returns execution metadata including:     - Execution status (pending, processing, completed, failed)     - Clustering metrics (silhouette score, Davies-Bouldin index, etc.)     - Number of clusters found and documents processed     - Centroid information with labels and summaries     - Execution timestamps      Useful for:     - Displaying cluster statistics in dashboards     - Showing cluster quality metrics to users     - Rendering cluster labels and summaries in the UI     - Tracking execution status and errors
+        Get the most recent execution results for a cluster.      The response is a single execution object, not a list, even though the path     is plural. A cluster that has never been executed returns 200 with a null     body. To list past executions, call     POST /v1/clusters/{cluster_id}/executions/list, which returns them under     `results`. To read one specific run, call     GET /v1/clusters/{cluster_id}/executions/{run_id}.      Returns execution metadata including:     - Execution status (pending, processing, completed, failed)     - Clustering metrics (silhouette score, Davies-Bouldin index, etc.)     - Number of clusters found and documents processed     - Centroid information with labels and summaries     - Execution timestamps      Useful for:     - Displaying cluster statistics in dashboards     - Showing cluster quality metrics to users     - Rendering cluster labels and summaries in the UI     - Tracking execution status and errors
 
         :param cluster_id: Cluster ID (required)
         :type cluster_id: str
@@ -733,8 +745,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -767,7 +781,7 @@ class ClusterExecutionsApi:
     ) -> ApiResponse[ClusterExecutionResult]:
         """Get Latest Cluster Execution
 
-        Get the most recent execution results for a cluster.      Returns execution metadata including:     - Execution status (pending, processing, completed, failed)     - Clustering metrics (silhouette score, Davies-Bouldin index, etc.)     - Number of clusters found and documents processed     - Centroid information with labels and summaries     - Execution timestamps      Useful for:     - Displaying cluster statistics in dashboards     - Showing cluster quality metrics to users     - Rendering cluster labels and summaries in the UI     - Tracking execution status and errors
+        Get the most recent execution results for a cluster.      The response is a single execution object, not a list, even though the path     is plural. A cluster that has never been executed returns 200 with a null     body. To list past executions, call     POST /v1/clusters/{cluster_id}/executions/list, which returns them under     `results`. To read one specific run, call     GET /v1/clusters/{cluster_id}/executions/{run_id}.      Returns execution metadata including:     - Execution status (pending, processing, completed, failed)     - Clustering metrics (silhouette score, Davies-Bouldin index, etc.)     - Number of clusters found and documents processed     - Centroid information with labels and summaries     - Execution timestamps      Useful for:     - Displaying cluster statistics in dashboards     - Showing cluster quality metrics to users     - Rendering cluster labels and summaries in the UI     - Tracking execution status and errors
 
         :param cluster_id: Cluster ID (required)
         :type cluster_id: str
@@ -810,8 +824,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -844,7 +860,7 @@ class ClusterExecutionsApi:
     ) -> RESTResponseType:
         """Get Latest Cluster Execution
 
-        Get the most recent execution results for a cluster.      Returns execution metadata including:     - Execution status (pending, processing, completed, failed)     - Clustering metrics (silhouette score, Davies-Bouldin index, etc.)     - Number of clusters found and documents processed     - Centroid information with labels and summaries     - Execution timestamps      Useful for:     - Displaying cluster statistics in dashboards     - Showing cluster quality metrics to users     - Rendering cluster labels and summaries in the UI     - Tracking execution status and errors
+        Get the most recent execution results for a cluster.      The response is a single execution object, not a list, even though the path     is plural. A cluster that has never been executed returns 200 with a null     body. To list past executions, call     POST /v1/clusters/{cluster_id}/executions/list, which returns them under     `results`. To read one specific run, call     GET /v1/clusters/{cluster_id}/executions/{run_id}.      Returns execution metadata including:     - Execution status (pending, processing, completed, failed)     - Clustering metrics (silhouette score, Davies-Bouldin index, etc.)     - Number of clusters found and documents processed     - Centroid information with labels and summaries     - Execution timestamps      Useful for:     - Displaying cluster statistics in dashboards     - Showing cluster quality metrics to users     - Rendering cluster labels and summaries in the UI     - Tracking execution status and errors
 
         :param cluster_id: Cluster ID (required)
         :type cluster_id: str
@@ -887,8 +903,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1034,8 +1052,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1115,8 +1135,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1196,8 +1218,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1291,7 +1315,7 @@ class ClusterExecutionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_cluster_executions_request: Optional[ListClusterExecutionsRequest] = None,
+        list_cluster_executions_request: Annotated[Optional[ListClusterExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1327,7 +1351,7 @@ class ClusterExecutionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_cluster_executions_request:
+        :param list_cluster_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_cluster_executions_request: ListClusterExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1374,8 +1398,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1400,7 +1426,7 @@ class ClusterExecutionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_cluster_executions_request: Optional[ListClusterExecutionsRequest] = None,
+        list_cluster_executions_request: Annotated[Optional[ListClusterExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1436,7 +1462,7 @@ class ClusterExecutionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_cluster_executions_request:
+        :param list_cluster_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_cluster_executions_request: ListClusterExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1483,8 +1509,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1509,7 +1537,7 @@ class ClusterExecutionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_cluster_executions_request: Optional[ListClusterExecutionsRequest] = None,
+        list_cluster_executions_request: Annotated[Optional[ListClusterExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1545,7 +1573,7 @@ class ClusterExecutionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_cluster_executions_request:
+        :param list_cluster_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_cluster_executions_request: ListClusterExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1592,8 +1620,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1728,7 +1758,7 @@ class ClusterExecutionsApi:
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
         run_id: Annotated[StrictStr, Field(description="Run ID whose labels to rename")],
-        patch_execution_labels_request: PatchExecutionLabelsRequest,
+        patch_execution_labels_request: Annotated[PatchExecutionLabelsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1750,7 +1780,7 @@ class ClusterExecutionsApi:
         :type cluster_id: str
         :param run_id: Run ID whose labels to rename (required)
         :type run_id: str
-        :param patch_execution_labels_request: (required)
+        :param patch_execution_labels_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_execution_labels_request: PatchExecutionLabelsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1790,8 +1820,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1809,7 +1841,7 @@ class ClusterExecutionsApi:
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
         run_id: Annotated[StrictStr, Field(description="Run ID whose labels to rename")],
-        patch_execution_labels_request: PatchExecutionLabelsRequest,
+        patch_execution_labels_request: Annotated[PatchExecutionLabelsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1831,7 +1863,7 @@ class ClusterExecutionsApi:
         :type cluster_id: str
         :param run_id: Run ID whose labels to rename (required)
         :type run_id: str
-        :param patch_execution_labels_request: (required)
+        :param patch_execution_labels_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_execution_labels_request: PatchExecutionLabelsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1871,8 +1903,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1890,7 +1924,7 @@ class ClusterExecutionsApi:
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
         run_id: Annotated[StrictStr, Field(description="Run ID whose labels to rename")],
-        patch_execution_labels_request: PatchExecutionLabelsRequest,
+        patch_execution_labels_request: Annotated[PatchExecutionLabelsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1912,7 +1946,7 @@ class ClusterExecutionsApi:
         :type cluster_id: str
         :param run_id: Run ID whose labels to rename (required)
         :type run_id: str
-        :param patch_execution_labels_request: (required)
+        :param patch_execution_labels_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_execution_labels_request: PatchExecutionLabelsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1952,8 +1986,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2051,7 +2087,7 @@ class ClusterExecutionsApi:
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
         run_id: Annotated[StrictStr, Field(description="Run ID to name")],
-        patch_execution_run_name_request: PatchExecutionRunNameRequest,
+        patch_execution_run_name_request: Annotated[PatchExecutionRunNameRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2073,7 +2109,7 @@ class ClusterExecutionsApi:
         :type cluster_id: str
         :param run_id: Run ID to name (required)
         :type run_id: str
-        :param patch_execution_run_name_request: (required)
+        :param patch_execution_run_name_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_execution_run_name_request: PatchExecutionRunNameRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2113,8 +2149,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2132,7 +2170,7 @@ class ClusterExecutionsApi:
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
         run_id: Annotated[StrictStr, Field(description="Run ID to name")],
-        patch_execution_run_name_request: PatchExecutionRunNameRequest,
+        patch_execution_run_name_request: Annotated[PatchExecutionRunNameRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2154,7 +2192,7 @@ class ClusterExecutionsApi:
         :type cluster_id: str
         :param run_id: Run ID to name (required)
         :type run_id: str
-        :param patch_execution_run_name_request: (required)
+        :param patch_execution_run_name_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_execution_run_name_request: PatchExecutionRunNameRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2194,8 +2232,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2213,7 +2253,7 @@ class ClusterExecutionsApi:
         self,
         cluster_id: Annotated[StrictStr, Field(description="Cluster ID")],
         run_id: Annotated[StrictStr, Field(description="Run ID to name")],
-        patch_execution_run_name_request: PatchExecutionRunNameRequest,
+        patch_execution_run_name_request: Annotated[PatchExecutionRunNameRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2235,7 +2275,7 @@ class ClusterExecutionsApi:
         :type cluster_id: str
         :param run_id: Run ID to name (required)
         :type run_id: str
-        :param patch_execution_run_name_request: (required)
+        :param patch_execution_run_name_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_execution_run_name_request: PatchExecutionRunNameRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2275,8 +2315,10 @@ class ClusterExecutionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

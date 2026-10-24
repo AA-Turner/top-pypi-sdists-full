@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 
 import pytest
 import sqlalchemy as sa
@@ -9,12 +9,12 @@ from tests import TestCase
 
 
 class TestParentTable(TestCase):
-    def create_models(self):
-        super().create_models()
+    def create_models(self, decl_base, versioning_options):
+        super().create_models(decl_base=decl_base, versioning_options=versioning_options)
 
         article_author_table = sa.Table(
             "article_author",
-            self.Model.metadata,
+            decl_base.metadata,
             sa.Column("article_id", sa.Integer, sa.ForeignKey("article.id"), primary_key=True, nullable=False),
             sa.Column("author_id", sa.Integer, sa.ForeignKey("author.id"), primary_key=True, nullable=False),
             sa.Column(
@@ -22,13 +22,13 @@ class TestParentTable(TestCase):
                 sa.DateTime,
                 nullable=False,
                 server_default=sa.func.current_timestamp(),
-                default=lambda: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
+                default=lambda: dt.datetime.now(dt.timezone.utc).replace(tzinfo=None),
             ),
         )
 
-        class Author(self.Model):
+        class Author(decl_base):
             __tablename__ = "author"
-            __versioned__ = {"baseclass": (self.Model,)}
+            __versioned__ = {"baseclass": (decl_base,)}
             id = sa.Column(sa.Integer, autoincrement=True, primary_key=True)
             name = sa.Column(sa.Unicode(255))
             articles = relationship("Article", secondary=article_author_table, backref="author")

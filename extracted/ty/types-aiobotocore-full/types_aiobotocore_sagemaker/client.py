@@ -111,6 +111,7 @@ from .paginator import (
     ListTrainingJobsForHyperParameterTuningJobPaginator,
     ListTrainingJobsPaginator,
     ListTrainingPlansPaginator,
+    ListTrainingSessionsPaginator,
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
@@ -270,6 +271,8 @@ from .type_defs import (
     CreateTrainingJobResponseTypeDef,
     CreateTrainingPlanRequestTypeDef,
     CreateTrainingPlanResponseTypeDef,
+    CreateTrainingSessionRequestTypeDef,
+    CreateTrainingSessionResponseTypeDef,
     CreateTransformJobRequestTypeDef,
     CreateTransformJobResponseTypeDef,
     CreateTrialComponentRequestTypeDef,
@@ -353,6 +356,7 @@ from .type_defs import (
     DeleteStudioLifecycleConfigRequestTypeDef,
     DeleteTagsInputTypeDef,
     DeleteTrainingJobRequestTypeDef,
+    DeleteTrainingSessionRequestTypeDef,
     DeleteTrialComponentRequestTypeDef,
     DeleteTrialComponentResponseTypeDef,
     DeleteTrialRequestTypeDef,
@@ -502,6 +506,8 @@ from .type_defs import (
     DescribeTrainingPlanExtensionHistoryResponseTypeDef,
     DescribeTrainingPlanRequestTypeDef,
     DescribeTrainingPlanResponseTypeDef,
+    DescribeTrainingSessionRequestTypeDef,
+    DescribeTrainingSessionResponseTypeDef,
     DescribeTransformJobRequestTypeDef,
     DescribeTransformJobResponseTypeDef,
     DescribeTrialComponentRequestTypeDef,
@@ -700,6 +706,8 @@ from .type_defs import (
     ListTrainingJobsResponseTypeDef,
     ListTrainingPlansRequestTypeDef,
     ListTrainingPlansResponseTypeDef,
+    ListTrainingSessionsRequestTypeDef,
+    ListTrainingSessionsResponseTypeDef,
     ListTransformJobsRequestTypeDef,
     ListTransformJobsResponseTypeDef,
     ListTrialComponentsRequestTypeDef,
@@ -767,6 +775,7 @@ from .type_defs import (
     StopPipelineExecutionResponseTypeDef,
     StopProcessingJobRequestTypeDef,
     StopTrainingJobRequestTypeDef,
+    StopTrainingSessionRequestTypeDef,
     StopTransformJobRequestTypeDef,
     UpdateActionRequestTypeDef,
     UpdateActionResponseTypeDef,
@@ -1703,6 +1712,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_training_plan)
         """
 
+    async def create_training_session(
+        self, **kwargs: Unpack[CreateTrainingSessionRequestTypeDef]
+    ) -> CreateTrainingSessionResponseTypeDef:
+        """
+        Creates a training session in Amazon SageMaker.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_training_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_training_session)
+        """
+
     async def create_transform_job(
         self, **kwargs: Unpack[CreateTransformJobRequestTypeDef]
     ) -> CreateTransformJobResponseTypeDef:
@@ -2329,6 +2348,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_training_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_training_job)
+        """
+
+    async def delete_training_session(
+        self, **kwargs: Unpack[DeleteTrainingSessionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a training session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_training_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_training_session)
         """
 
     async def delete_trial(
@@ -3105,6 +3134,18 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_training_plan_extension_history.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_training_plan_extension_history)
+        """
+
+    async def describe_training_session(
+        self, **kwargs: Unpack[DescribeTrainingSessionRequestTypeDef]
+    ) -> DescribeTrainingSessionResponseTypeDef:
+        """
+        Retrieves detailed information about a training session, including its current
+        status, model configuration, Low-Rank Adaptation (LoRA) parameters, and
+        timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_training_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_training_session)
         """
 
     async def describe_transform_job(
@@ -4121,6 +4162,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_training_plans)
         """
 
+    async def list_training_sessions(
+        self, **kwargs: Unpack[ListTrainingSessionsRequestTypeDef]
+    ) -> ListTrainingSessionsResponseTypeDef:
+        """
+        Lists training sessions in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_training_sessions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_training_sessions)
+        """
+
     async def list_transform_jobs(
         self, **kwargs: Unpack[ListTransformJobsRequestTypeDef]
     ) -> ListTransformJobsResponseTypeDef:
@@ -4542,6 +4593,17 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/stop_training_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#stop_training_job)
+        """
+
+    async def stop_training_session(
+        self, **kwargs: Unpack[StopTrainingSessionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running training session and sets the session status to
+        <code>Stopping</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/stop_training_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#stop_training_session)
         """
 
     async def stop_transform_job(
@@ -5898,6 +5960,17 @@ class SageMakerClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_training_plans"]
     ) -> ListTrainingPlansPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_training_sessions"]
+    ) -> ListTrainingSessionsPaginator:
         """
         Create a paginator for an operation.
 

@@ -64,6 +64,7 @@ from ......schema_classes import PostKeyClass
 from ......schema_classes import QueryKeyClass
 from ......schema_classes import RoleKeyClass
 from ......schema_classes import SchemaFieldKeyClass
+from ......schema_classes import SearchTemplateKeyClass
 from ......schema_classes import SemanticModelKeyClass
 from ......schema_classes import TagKeyClass
 from ......schema_classes import TelemetryKeyClass
@@ -128,6 +129,7 @@ PostKey = PostKeyClass
 QueryKey = QueryKeyClass
 RoleKey = RoleKeyClass
 SchemaFieldKey = SchemaFieldKeyClass
+SearchTemplateKey = SearchTemplateKeyClass
 SemanticModelKey = SemanticModelKeyClass
 TagKey = TagKeyClass
 TelemetryKey = TelemetryKeyClass

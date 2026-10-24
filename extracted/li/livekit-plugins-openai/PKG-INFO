@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-openai
-Version: 1.8.8
+Version: 1.8.9
 Summary: Agent Framework plugin for services from OpenAI
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,15 +18,15 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: httpx2<3,>=2.12
-Requires-Dist: livekit-agents[codecs,images]>=1.8.8
-Requires-Dist: openai<4,>=3.19
+Requires-Dist: livekit-agents[codecs,images]>=1.8.9
+Requires-Dist: openai<4,>=3.28
 Provides-Extra: vertex
 Requires-Dist: google-auth>=2.0.0; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # OpenAI plugin for LiveKit Agents
 
-Support for OpenAI Realtime API, Responses API, LLM, TTS, and STT APIs.
+Support for OpenAI Realtime API, Responses API, Decisions API, LLM, TTS, and STT APIs.
 
 Also includes support for a large number of OpenAI-compatible APIs including [Azure OpenAI](https://docs.livekit.io/agents/integrations/llm/azure-openai/), [Cerebras](https://docs.livekit.io/agents/integrations/cerebras/), [Fireworks](https://docs.livekit.io/agents/integrations/llm/fireworks/), [Perplexity](https://docs.livekit.io/agents/integrations/llm/perplexity/), [Telnyx](https://docs.livekit.io/agents/integrations/llm/telnyx/), [xAI](https://docs.livekit.io/agents/integrations/llm/xai/), [Ollama](https://docs.livekit.io/agents/integrations/llm/ollama/), [DeepSeek](https://docs.livekit.io/agents/integrations/llm/deepseek/), and [SambaNova](https://docs.livekit.io/agents/integrations/llm/sambanova/).
 

@@ -121,7 +121,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 47
+POINTER_VERSION = 48
 
 POINTER_BODY = """## Probe Research
 
@@ -182,6 +182,9 @@ Do not call Probe for:
 better, say what happened and what would have helped. The researcher is asked
 before anything is sent.
 
+`probe doctor --send` - when Probe itself breaks (an error, a daemon that
+stopped), send the Probe team a diagnostic report; quote its id in feedback.
+
 ### FYI:
 
 - Everything is a tree of projects. A project has a `kind`
@@ -234,6 +237,8 @@ Before writing code for ML research - reproducing a paper, building on a paper's
 ### FEEDBACK:
 
 `probe feedback send "<text>"` - when Probe gets in your way, say what happened and what would have helped. The researcher is asked before anything is sent.
+
+`probe doctor --send` - when Probe itself breaks (an error, a daemon that stopped), send the Probe team a diagnostic report; quote its id in feedback.
 """
 
 

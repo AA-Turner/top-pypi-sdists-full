@@ -64,7 +64,7 @@ class AgentExecutionManager:
         agent_config: AgentConfig,
         runtime_factory: Callable[[], Runtime],
         world_runtime_info: RuntimeInfo | None = None,
-        checkpoint: Callable[[str], Awaitable[None]] | None = None,
+        request_checkpoint: Callable[[str], None] | None = None,
         primary_workspace: Workspace | None = None,
         primary_mount: AgentWorkspaceMount | None = None,
         total_agents: int | None = None,
@@ -77,7 +77,7 @@ class AgentExecutionManager:
 
         self._agent_config = agent_config
         self._world_runtime_info = world_runtime_info
-        self._checkpoint = checkpoint
+        self._request_checkpoint = request_checkpoint
         self._primary_workspace = primary_workspace
         self._primary_mount = primary_mount
         self._min_warmpool_timeout = min_warmpool_timeout
@@ -353,11 +353,11 @@ class AgentExecutionManager:
             and published_transport is not None
             and published_transport.published_ref is not None
         ):
-            task.merged_commit = await self._integrate_published_ref(
+            await self._integrate_published_ref(
+                task=task,
                 task_name=task_name,
                 published_ref=published_transport.published_ref,
             )
-            task.merged = True
         return agent_id
 
     def _attach_review_gate(
@@ -392,19 +392,15 @@ class AgentExecutionManager:
                 if not result.merged:
                     return ReviewGateMergeResult(merged=False, conflict_files=result.unmerged_files)
 
-                await primary_transport._refresh_local_workspace_from_main()
-
-                # Checkpoint tracked workspace
-                workspace = self._primary_workspace
-                if workspace is not None and workspace.tracked and self._checkpoint is not None:
-                    step_name = f"parallel_agents.{task_name}.{result.commit_sha[:12]}"
-                    await workspace.ensure_fuse_mount()
-                    await workspace.materialize_current_tree_into_overlay()
-                    await self._checkpoint(step_name)
-
-                await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
+                # Mark the merge as soon as main has it: a call timeout during
+                # the steps below must still report the merge that landed.
                 task.merged = True
                 task.merged_commit = result.commit_sha or None
+                try:
+                    await primary_transport._refresh_local_workspace_from_main()
+                    await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
+                finally:
+                    self._request_tracked_checkpoint(f"parallel_agents.{task_name}.{result.commit_sha[:12]}")
                 return ReviewGateMergeResult(merged=True)
 
         result_dir = self._primary_mount.world_path if self._primary_mount else None
@@ -485,12 +481,14 @@ class AgentExecutionManager:
     async def _integrate_published_ref(
         self,
         *,
+        task: AgentTask,
         task_name: str,
         published_ref: GitPublishedRef,
-    ) -> str | None:
-        """Squash-merge ``published_ref`` into main; returns the new main commit SHA."""
+    ) -> None:
+        """Squash-merge ``published_ref`` into main; sets ``task.merged`` and ``task.merged_commit``."""
         if self._primary_mount is None or self._primary_mount.transport_kind != "git":
-            return None
+            task.merged = True
+            return
 
         transport = _git_transport_from_mount(self._primary_mount)
 
@@ -504,19 +502,21 @@ class AgentExecutionManager:
             if not result.merged:
                 raise RuntimeError(f"Merge conflict integrating task {task_name}")
 
-            await transport._refresh_local_workspace_from_main()
-            await self._checkpoint_tracked_workspace(task_name, published_ref)
-            await delete_remote_ref(transport.bare_repo_path, published_ref.ref)
-            return result.commit_sha or None
+            task.merged = True
+            task.merged_commit = result.commit_sha or None
+            try:
+                await transport._refresh_local_workspace_from_main()
+                await delete_remote_ref(transport.bare_repo_path, published_ref.ref)
+            finally:
+                self._request_tracked_checkpoint(f"parallel_agents.{task_name}.{published_ref.commit_sha[:12]}")
 
-    async def _checkpoint_tracked_workspace(self, task_name: str, published_ref: GitPublishedRef) -> None:
+    def _request_tracked_checkpoint(self, step_name: str) -> None:
+        """Ask the world to checkpoint the merged tree after the locks are released; the world coalesces a burst."""
         workspace = self._primary_workspace
-        if workspace is None or not workspace.tracked or self._checkpoint is None:
+        if workspace is None or not workspace.tracked or self._request_checkpoint is None:
             return
-        step_name = f"parallel_agents.{task_name}.{published_ref.commit_sha[:12]}"
-        await workspace.ensure_fuse_mount()
-        await workspace.materialize_current_tree_into_overlay()
-        await self._checkpoint(step_name)
+        workspace.mark_tree_changed()
+        self._request_checkpoint(step_name)
 
 
 @asynccontextmanager

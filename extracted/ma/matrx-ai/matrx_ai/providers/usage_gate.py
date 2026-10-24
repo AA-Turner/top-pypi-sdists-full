@@ -12,10 +12,10 @@ call it reads ONLY that memory:
   ``code="usage_state"``, on the request's own stream);
 * nothing cached → run, fully honored. A miss never refuses, waits or fetches;
 * a running request is NEVER stopped: the decision is made once, at the
-  request's first paid call, and every later paid call carrying the same
-  ``AppContext.request_id`` (sub-agents, workflow steps, tool-loop iterations,
-  retries) is admitted without asking again — even if the person crosses the
-  line mid-request.
+  request's first paid call, and every later paid call in the same request TREE
+  (``AppContext.tree_request_id`` — sub-agents, which own their own turn ids,
+  fan-out siblings, workflow steps, tool-loop iterations, retries) is admitted
+  without asking again — even if the person crosses the line mid-request.
 
 ADMISSION SURVIVES PROCESSES. The memo above is per process. A request that
 pauses (client tool results, an answer to a question) and resumes keeps its
@@ -209,11 +209,22 @@ def _remember(request_id: str) -> None:
         _admitted.popitem(last=False)
 
 
+def _admission_key(ctx: Any) -> str:
+    """The id admission is decided and remembered under: the request TREE's root
+    (``AppContext.tree_request_id``). Every child agent run owns its own turn id, so a
+    memo keyed on ``request_id`` would judge each helper — and each fan-out sibling —
+    afresh, and could refuse one mid-action."""
+    from matrx_connect.context.app_context import tree_request_id_of
+
+    return tree_request_id_of(ctx)
+
+
 def _already_admitted(ctx: Any) -> bool:
     if bool(getattr(ctx, "usage_admitted", False)):
         return True
-    request_id = str(getattr(ctx, "request_id", "") or "")
-    return bool(request_id) and request_id in _admitted
+    key = _admission_key(ctx)
+    own = str(getattr(ctx, "request_id", "") or "")
+    return (bool(key) and key in _admitted) or (bool(own) and own in _admitted)
 
 
 def admission_of(ctx: Any = None) -> bool:
@@ -352,8 +363,8 @@ async def admit_paid_call() -> None:
             log_level="WARNING",
         )
         raise UsageLimitReachedError(verdict.usage)
-    if request_id:
-        _remember(request_id)
+    if _admission_key(ctx):
+        _remember(_admission_key(ctx))
     if verdict is not None and verdict.state in ("near", "over"):
         await _tell_near(ctx, verdict)
 
@@ -404,8 +415,8 @@ async def admit_person_own_run(ctx: Any) -> None:
             log_level="WARNING",
         )
         raise UsageLimitReachedError(verdict.usage)
-    if request_id:
-        _remember(request_id)
+    if _admission_key(ctx):
+        _remember(_admission_key(ctx))
     if verdict is not None and verdict.state in ("near", "over"):
         await _tell_near(ctx, verdict)
 

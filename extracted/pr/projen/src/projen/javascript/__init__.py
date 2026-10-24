@@ -1560,6 +1560,7 @@ class Destination(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Destinat
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STDERR")
+    @builtins.classmethod
     def STDERR(cls) -> "Destination":
         '''(experimental) Write to standard error.
 
@@ -1569,6 +1570,7 @@ class Destination(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Destinat
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STDOUT")
+    @builtins.classmethod
     def STDOUT(cls) -> "Destination":
         '''(experimental) Write to standard output.
 
@@ -10868,6 +10870,7 @@ class NodeProject(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
         auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -11006,6 +11009,7 @@ class NodeProject(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
         :param auto_merge_options: (experimental) Configure options for automatic merging on GitHub. Has no effect if ``github.mergify`` or ``autoMerge`` is set to false. Default: - see defaults in ``AutoMergeOptions``
@@ -11146,6 +11150,7 @@ class NodeProject(
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
             workflow_package_cache=workflow_package_cache,
+            workflow_permissions=workflow_permissions,
             auto_approve_options=auto_approve_options,
             auto_merge=auto_merge,
             auto_merge_options=auto_merge_options,
@@ -11766,6 +11771,7 @@ class NodeProject(
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_package_cache": "workflowPackageCache",
+        "workflow_permissions": "workflowPermissions",
     },
 )
 class NodeProjectOptions(
@@ -11912,6 +11918,7 @@ class NodeProjectOptions(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
@@ -12050,6 +12057,7 @@ class NodeProjectOptions(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
 
         :stability: experimental
         '''
@@ -12109,6 +12117,8 @@ class NodeProjectOptions(
             projenrc_js_options = ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
+        if isinstance(workflow_permissions, dict):
+            workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7eeaee29)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -12247,6 +12257,7 @@ class NodeProjectOptions(
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
+            check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -12520,6 +12531,8 @@ class NodeProjectOptions(
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_package_cache is not None:
             self._values["workflow_package_cache"] = workflow_package_cache
+        if workflow_permissions is not None:
+            self._values["workflow_permissions"] = workflow_permissions
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -14294,6 +14307,28 @@ class NodeProjectOptions(
         '''
         result = self._values.get("workflow_package_cache")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def workflow_permissions(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
+        '''(experimental) Permissions for the main build, release and dependency upgrade jobs.
+
+        Defined scopes override the job defaults and automatically inferred permissions,
+        including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults.
+        Use ``JobPermission.NONE`` to explicitly remove a permission.
+
+        ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic
+        permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual
+        scopes. Applies to all release branches, but not to separate package, publishing,
+        self-mutation or pull request creation jobs, or unrelated workflows.
+
+        :default: - Use the job defaults and automatically inferred permissions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_permissions")
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22875,7 +22910,7 @@ class UpgradeDependencies(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082afa0010)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "containerOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "containerOptions", value)
 
 
 @jsii.data_type(
@@ -23206,6 +23241,7 @@ class UpgradeDependenciesSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DAILY")
+    @builtins.classmethod
     def DAILY(cls) -> "UpgradeDependenciesSchedule":
         '''(experimental) At 00:00.
 
@@ -23215,6 +23251,7 @@ class UpgradeDependenciesSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MONTHLY")
+    @builtins.classmethod
     def MONTHLY(cls) -> "UpgradeDependenciesSchedule":
         '''(experimental) At 00:00 on day-of-month 1.
 
@@ -23224,6 +23261,7 @@ class UpgradeDependenciesSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEVER")
+    @builtins.classmethod
     def NEVER(cls) -> "UpgradeDependenciesSchedule":
         '''(experimental) Disables automatic upgrades.
 
@@ -23233,6 +23271,7 @@ class UpgradeDependenciesSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WEEKDAY")
+    @builtins.classmethod
     def WEEKDAY(cls) -> "UpgradeDependenciesSchedule":
         '''(experimental) At 00:00 on every day-of-week from Monday through Friday.
 
@@ -23242,6 +23281,7 @@ class UpgradeDependenciesSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WEEKLY")
+    @builtins.classmethod
     def WEEKLY(cls) -> "UpgradeDependenciesSchedule":
         '''(experimental) At 00:00 on Monday.
 
@@ -31443,6 +31483,7 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+    workflow_permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

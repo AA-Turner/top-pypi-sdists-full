@@ -280,21 +280,25 @@ address orders_eu_table;
 
 When Trilogy needs `order_id` it will union `orders_us` and `orders_eu` automatically.
 
-**The union only forms when the arms provably cover the whole population.** Trilogy has to
-prove that the disjunction of the arms' `complete where` predicates is a tautology over the
-discriminator's domain — otherwise a row whose `region` is neither `'US'` nor `'EU'` would
-silently disappear from an unfiltered query. That proof needs a domain to check against, so
-the discriminator must be one of:
+**The union only forms when the arms provably partition the whole population.** Trilogy has
+to prove that every value of the discriminator satisfies exactly one arm's `complete where`:
+a row in no arm would silently disappear from an unfiltered query, and a row in two would be
+counted twice. A nullable discriminator (`region string?`) also needs an arm for its NULLs
+(`complete where region is null`), unless the query's own `where` rules NULL out. That proof
+needs a domain to check against, so the discriminator must be one of:
 
 - an `enum` whose values the arms exhaust (`region` above);
-- a numeric/date/bool concept whose arms cover the full range (`complete where created_at <
+- a numeric/date/bool concept whose arms split the full range without overlap (`complete where created_at <
   '2024-01-01'` plus `complete where created_at >= '2024-01-01'`);
-- a `::ranged` validated type whose declared ranges the arms cover.
+- a `::ranged` validated type whose declared ranges the arms cover;
+- a plain `string` split by equality alone, with one arm for everything else
+  (`shard = 'a'`, `shard != 'a'`).
 
-A plain `string` discriminator has no enumerable domain, so `complete where shard = 'a'` and
-`complete where shard = 'b'` can never be proven complete. Such a family stays partial, and an
-unfiltered `select` over it fails with "no complete sources found for output concepts". Give
-the discriminator an `enum` type to make the coverage checkable. A query whose own `where`
+A plain `string` has no enumerable domain, so `complete where shard = 'a'` and
+`complete where shard = 'b'` can never be proven complete: some other string is in no arm.
+Such a family stays partial, and an unfiltered `select` over it fails with "no complete
+sources found for output concepts". Give the discriminator an `enum` type, or add a `!=` arm.
+A materialized copy of one arm beside the family is fine: the union picks one copy. A query whose own `where`
 *implies* one arm's `complete where` still resolves against that arm alone, typed or not.
 
 Partial datasources can also carry `incremental by` for time-partitioned appends:

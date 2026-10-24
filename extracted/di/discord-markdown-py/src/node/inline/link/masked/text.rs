@@ -15,7 +15,7 @@ use crate::{
 	span::{Span, TraceOk, TraceParse},
 };
 
-use super::{Grammar, has_no_link};
+use super::{Scope, has_no_link};
 
 /// Whether the parsed text segment of a masked link is free of anything that reads as a link.
 ///
@@ -25,11 +25,8 @@ use super::{Grammar, has_no_link};
 /// the ones that do not, like the underscores in `http_s_://foo`, stay as text.
 #[tracing::instrument(level = Level::TRACE)]
 fn segment_has_no_link<S: Span>(nodes: &Elements<'_, S>, context: &Context) -> bool {
-	let rendered = range::resolve_inline(
-		nodes.value.clone(),
-		context.allowed_rules,
-		&mut Ids::default(),
-	);
+	let rendered =
+		range::resolve_inline(nodes.value.clone(), context.syntaxes, &mut Ids::default());
 	// TODO: figure out lifetimes to avoid this
 	let text = rendered
 		.iter()
@@ -82,7 +79,7 @@ where
 		delimited(
 			char('['),
 			verify(
-				inline::inline(self.context.clone().with_grammar(Grammar::MaskedLinkText)),
+				inline::inline(self.context.clone().with_scope(Scope::MaskedLinkText)),
 				|nodes| {
 					segment_has_no_link::<S>(nodes, &self.context)
 						&& segment_is_not_whitespace(nodes)

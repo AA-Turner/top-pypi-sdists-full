@@ -26,12 +26,13 @@ from typing_extensions import Self
 
 class BatchCost(BaseModel):
     """
-    Dollar cost of a batch, derived from recorded credit usage.  Mixpeek meters work in *credits* (recorded in the usage_records collection at credit-consume time, keyed by ``resource_id=batch_id`` / ``resource_type=\"batch\"``). There is no separately-stored per-batch USD figure, so cost is derived at read time as ``credits_consumed * CREDIT_RATE_USD`` using the same canonical $0.001/credit rate the billing/invoicing path uses. This lets callers answer \"what did this batch cost?\" from the batch GET response without GCP billing labels or a separate billing query.
+    Dollar cost of a batch, derived from recorded credit usage.  Mixpeek meters work in *credits* (recorded in the usage_records collection at credit-consume time, keyed by ``resource_id=batch_id`` / ``resource_type=\"batch\"``). There is no separately-stored per-batch USD figure, so cost is derived at read time as ``credits_consumed * CREDIT_RATE_USD`` using the same canonical $0.001/credit rate the billing/invoicing path uses. This lets callers answer \"what did this batch cost?\" from the batch GET response without GCP billing labels or a separate billing query.  credits_consumed/cost_usd read 0 for org classes the credits system was never meant to charge at all (enterprise contract-billed, internal, failed batches -- see shared/billing/cost_plus_floor.py), even though those batches incurred real, known provider spend. metered_model_usd surfaces that real figure (already computed and stored on the batch's own cost_plus block) so this response never reads a flat 0 for a batch that actually cost something. Additive only: cost_usd keeps its existing credits*rate meaning for every consumer that already depends on it.
     """ # noqa: E501
     credits_consumed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Total credits recorded against this batch in usage_records (resource_type='batch'). 0 if no usage has been recorded yet (e.g. DRAFT batches, ENTERPRISE tiers that skip credit consumption, or batches submitted before metering existed).")
-    cost_usd: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=0.0, description="Derived dollar cost = credits_consumed * $0.001/credit (CREDIT_RATE_USD). Same rate used by monthly invoicing, so this matches what the batch contributes to the bill.")
+    cost_usd: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=0.0, description="Derived dollar cost = credits_consumed * $0.001/credit (CREDIT_RATE_USD). Same rate used by monthly invoicing, so this matches what the batch contributes to the bill. Reads 0 for org classes the credits system floors or skips entirely (enterprise, internal, failed batches) -- see metered_model_usd for what this batch's work actually cost in that case.")
     credit_rate_usd: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.001, description="USD per credit used to derive cost_usd ($0.001/credit).")
-    __properties: ClassVar[List[str]] = ["credits_consumed", "cost_usd", "credit_rate_usd"]
+    metered_model_usd: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="The batch's real metered provider cost (e.g. Gemini token spend), from its stored cost_plus block, when the batch has finished and that block exists. This is the figure that still reflects real spend for org classes cost_usd reads 0 for (enterprise, internal, failed batches) -- see shared/billing/cost_plus_floor.py. None, not 0, when no cost_plus block exists yet (not yet computed, or the batch predates the cost-plus floor).")
+    __properties: ClassVar[List[str]] = ["credits_consumed", "cost_usd", "credit_rate_usd", "metered_model_usd"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,7 +87,8 @@ class BatchCost(BaseModel):
         _obj = cls.model_validate({
             "credits_consumed": obj.get("credits_consumed") if obj.get("credits_consumed") is not None else 0,
             "cost_usd": obj.get("cost_usd") if obj.get("cost_usd") is not None else 0.0,
-            "credit_rate_usd": obj.get("credit_rate_usd") if obj.get("credit_rate_usd") is not None else 0.001
+            "credit_rate_usd": obj.get("credit_rate_usd") if obj.get("credit_rate_usd") is not None else 0.001,
+            "metered_model_usd": obj.get("metered_model_usd")
         })
         return _obj
 

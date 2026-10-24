@@ -34,7 +34,8 @@ class CreateClusterRequest(BaseModel):
     """
     Create a clustering job for one or more collections.
     """ # noqa: E501
-    collection_ids: Annotated[List[StrictStr], Field(min_length=1)] = Field(description="Collections to cluster together")
+    collection_ids: Optional[Annotated[List[StrictStr], Field(min_length=1)]] = Field(default=None, description="Collections to cluster together. Required unless source_cluster_ids is set, in which case it defaults to the source clusters' input collections.")
+    source_cluster_ids: Optional[Annotated[List[StrictStr], Field(min_length=1)]] = Field(default=None, description="Makes this a composite cluster: it groups the centroids of these clusters' runs instead of documents. Each id must be a vector cluster in this namespace with the same feature_uris as this one. Executing a composite cluster without a mode runs mode 'composite' over the newest completed run of each source cluster, one per partition (a partition is a run's filters). Vector clusters only.")
     cluster_name: Optional[StrictStr] = Field(default=None, description="Optional human-friendly name for the clustering job")
     description: Optional[StrictStr] = Field(default=None, description="Optional description of the cluster, stored with it")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional caller metadata, stored with the cluster")
@@ -48,7 +49,7 @@ class CreateClusterRequest(BaseModel):
     auto_execute_on_batch: Optional[StrictBool] = Field(default=False, description="Automatically execute this cluster whenever a batch completes on any of its input collections. When True, a ClusterApplicationConfig entry is added to each input collection's cluster_applications field at creation time. The cluster will then auto-trigger after each batch completion (subject to cooldown and document threshold). When False (default), the cluster must be executed manually via the API.")
     auto_execute_min_documents: Optional[StrictInt] = Field(default=None, description="Minimum number of documents required before auto-executing cluster. Only used when auto_execute_on_batch=True. If the collection has fewer documents than this threshold, clustering is skipped.")
     auto_execute_cooldown_seconds: Optional[StrictInt] = Field(default=3600, description="Minimum time (in seconds) between automatic cluster executions. Only used when auto_execute_on_batch=True. Default: 3600 (1 hour).")
-    __properties: ClassVar[List[str]] = ["collection_ids", "cluster_name", "description", "metadata", "cluster_type", "vector_config", "attribute_config", "filters", "llm_labeling", "enrich_source_collection", "source_enrichment_config", "auto_execute_on_batch", "auto_execute_min_documents", "auto_execute_cooldown_seconds"]
+    __properties: ClassVar[List[str]] = ["collection_ids", "source_cluster_ids", "cluster_name", "description", "metadata", "cluster_type", "vector_config", "attribute_config", "filters", "llm_labeling", "enrich_source_collection", "source_enrichment_config", "auto_execute_on_batch", "auto_execute_min_documents", "auto_execute_cooldown_seconds"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,6 +118,7 @@ class CreateClusterRequest(BaseModel):
 
         _obj = cls.model_validate({
             "collection_ids": obj.get("collection_ids"),
+            "source_cluster_ids": obj.get("source_cluster_ids"),
             "cluster_name": obj.get("cluster_name"),
             "description": obj.get("description"),
             "metadata": obj.get("metadata"),

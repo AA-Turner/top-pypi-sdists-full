@@ -529,7 +529,10 @@ class AuditLane:
         from probe.daemon import agent as agent_mod
 
         if not mailbox.enabled(source=self.w.session.source):
-            log.info("audit report (no mailbox for %s): %s", self.w.session.source, text)
+            # Its length, never its text: worker.log ships in debug logs and
+            # diagnostic reports, and the report is about the researcher's work.
+            log.info("audit report not delivered (no mailbox for %s): %d characters", self.w.session.source,
+                     len(text))
             return
         msg = mailbox.Message(id=mailbox.new_message_id(), session=self.sid, kind=mailbox.Kind.MESSAGE,
                               text=agent_mod.AUDIT_REPORT_PREFIX + text, origin_turn=self.store.current_turn(),

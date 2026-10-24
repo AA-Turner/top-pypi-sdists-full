@@ -20,8 +20,8 @@ alphabet up front (:func:`to_legacy_codes`) and every branch below is the
 original's, unchanged. That keeps this reader valid for both workbook
 generations, which the reference comparison in the test suite relies on.
 
-Two day-of-year conventions
----------------------------
+Three day-of-year conventions
+-----------------------------
 The original converts a fortnight index to a day with a flat ``index * 15``,
 which makes the GEOGLAM year 360 days long and drifts up to five days late by
 December. geocif already has a true month-half conversion in
@@ -29,6 +29,13 @@ December. geocif already has a true month-half conversion in
 bin indices, and :func:`to_days` renders them under either convention. The
 legacy one exists so published thresholds stay comparable; the calendar one is
 the default for new work.
+
+Both put each transition on a bin EDGE (planting on the first day of its bin,
+the other three on the last day). ``mid`` instead puts all four on the middle
+day of the same bins: the workbook only says a stage occupies a fortnight, not
+when inside it the stage starts or ends, so the midpoint is the unbiased guess.
+Against ``calendar`` it moves planting 7-8 days later and the other three 6-8
+days earlier.
 """
 from __future__ import annotations
 
@@ -249,8 +256,9 @@ def to_days(bins: StageDates, *, convention: str = "calendar") -> dict[str, int]
         bins: output of :func:`stage_bins`.
         convention: ``"calendar"`` uses real month halves via
             :func:`geocif.aquacrop.calendar._bin_to_doy` (a 365-day year);
-            ``"legacy"`` reproduces the original's flat ``index * 15``
-            (a 360-day year).
+            ``"mid"`` uses the same month halves but the middle day of each
+            bin rather than its edge; ``"legacy"`` reproduces the original's
+            flat ``index * 15`` (a 360-day year).
 
     Returns:
         ``{plant, midgreenup, midgreendown, harvest, len_stage1..3}`` in days.
@@ -265,10 +273,20 @@ def to_days(bins: StageDates, *, convention: str = "calendar") -> dict[str, int]
             "len_stage2": bins.len_stage2_bins * LEGACY_DAYS_PER_BIN,
             "len_stage3": bins.len_stage3_bins * LEGACY_DAYS_PER_BIN,
         }
-    if convention != "calendar":
+    if convention not in ("calendar", "mid"):
         raise ValueError(f"unknown convention {convention!r}")
 
     year = REFERENCE_YEAR
+    if convention == "mid":
+        return {
+            "plant": _bin_mid_doy(bins.plant_bin % N_BINS, year),
+            "midgreenup": _bin_mid_doy(bins.midgreenup_bin % N_BINS, year),
+            "midgreendown": _bin_mid_doy(bins.midgreendown_bin % N_BINS, year),
+            "harvest": _bin_mid_doy(bins.harvest_bin % N_BINS, year),
+            "len_stage1": _bin_days(bins.len_stage1_bins),
+            "len_stage2": _bin_days(bins.len_stage2_bins),
+            "len_stage3": _bin_days(bins.len_stage3_bins),
+        }
     return {
         "plant": _bin_to_doy(bins.plant_bin % N_BINS, year, edge="start"),
         "midgreenup": _bin_to_doy(bins.midgreenup_bin % N_BINS, year, edge="end"),
@@ -278,6 +296,14 @@ def to_days(bins: StageDates, *, convention: str = "calendar") -> dict[str, int]
         "len_stage2": _bin_days(bins.len_stage2_bins),
         "len_stage3": _bin_days(bins.len_stage3_bins),
     }
+
+
+def _bin_mid_doy(bin_idx: int, year: int) -> int:
+    """Middle day of a fortnight bin, a half day rounded up: ``jan_1`` (days
+    1-14) -> 8, ``jan_15`` (15-31) -> 23, ``feb_15`` (46-59) -> 53."""
+    start = _bin_to_doy(bin_idx, year, edge="start")
+    end = _bin_to_doy(bin_idx, year, edge="end")
+    return (start + end + 1) // 2
 
 
 def _bin_days(n_bins: int) -> int:

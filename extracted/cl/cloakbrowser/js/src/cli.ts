@@ -68,18 +68,11 @@ function moduleAvailable(name: string): boolean {
 /**
  * Launch `<binary> --version` to prove it runs.
  *
- * Chromium only handles --version on POSIX, so on Windows the switch is ignored
- * and a browser starts instead of printing — the probe then times out and a
- * healthy install looks broken. --no-startup-window makes it exit right away
- * without putting a window on screen; a broken binary still exits non-zero, so
- * the check keeps its meaning. It just reports no version there, as nothing is
- * printed.
+ * POSIX only: Windows ignores --version and starts a browser instead.
  */
 function binaryVersion(binaryPath: string): { ok: boolean; version: string; error: string } {
-  const argv = ["--version"];
-  if (os.platform() === "win32") argv.push("--no-startup-window");
   try {
-    const out = execFileSync(binaryPath, argv, {
+    const out = execFileSync(binaryPath, ["--version"], {
       encoding: "utf8",
       timeout: 10000,
       killSignal: "SIGKILL",
@@ -262,6 +255,13 @@ export async function collectDiagnostics(
     diag.launch = { tested: false, reason: "skipped (--quick)" };
   } else if (!binPath || !(installed || fs.existsSync(binPath))) {
     diag.launch = { tested: false, reason: "binary not installed" };
+  } else if (os.platform() === "win32") {
+    // Windows ignores --version and starts a real browser, which takes a
+    // license seat and never frees it. Read the version manifest instead.
+    const manifest = fs.readdirSync(path.dirname(binPath)).find((f) => f.endsWith(".manifest"));
+    let reason = "not launched on Windows (it would take a license seat)";
+    if (manifest) reason += `; binary ${manifest.slice(0, -".manifest".length)}`;
+    diag.launch = { tested: false, reason };
   } else {
     const { ok, version, error } = binaryVersion(binPath);
     diag.launch = { tested: true, ok, version, error };

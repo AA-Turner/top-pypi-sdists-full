@@ -41,15 +41,35 @@ The lease
 The unit of leasing is the host, because the slot's project name and ports are
 fixed. The lease is a directory on the host (``mkdir`` is atomic on macOS and
 Linux) holding ``lease.json`` with the holder and an absolute expiry. An
-expired lease is broken; a live one held by someone else is refused. The ledger
-is read, never written: a live ``HOLD`` naming the host's surface, placed by
-another lane, makes the host busy. The HOLD and RELEASE rows themselves are
-the calling lane's to write through ``/omni:ledger-msg``; this file prints the
-text for them.
+expired lease is broken; a live one held by someone else is refused. Release
+runs under the same guard as the break. The ledger is read, never written: a
+live ``HOLD`` naming the host's surface, placed by another lane, makes the host
+busy. The HOLD and RELEASE rows themselves are the calling lane's to write
+through ``/omni:ledger-msg``; this file prints the text for them.
+The verify driver renews the lease before every phase inside the same remote
+command that starts it, and stops without teardown when the lease is no longer
+its own. Each phase is killed on the host when its budget ends.
 
 Exit status: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (the stack never became
 provable for a reason outside the PR), 3 no free host, 4 lease refused,
 5 usage or configuration error.
+
+``verify`` (OMN-20085)
+----------------------
+One call proves a branch or a sha, with no pull request, on the first free
+pre-PR slot: ``verify --repo <omnibase_infra|omnimarket> --ref <branch
+or 40-hex sha> --holder <lane> (--tests <repo>:<path> ... | --suite)
+[--result-out <file>]``. It resolves the ref against the lane's canonical clone
+before anything is leased (an unresolved ref exits 5), takes only prepr-slot
+members, leases the first free one and tries the next when a peer took it
+between the survey and the lease (exit 3 when none is free), builds the slot
+from the ref's test merge into dev, runs the named tests or the repo's unit
+suite, and tears down. ``--result-out`` gets one ``onex.prepr.verify-result.v1``
+JSON file for every outcome, whose ``exit_code`` equals the process exit code.
+A SIGTERM, SIGHUP or SIGINT tears the slot down, releases the lease and exits
+128+signal with outcome INTERRUPTED; a signal during teardown, snap-post, lease
+take or lease release is held until that step finishes. A hard kill is
+OMN-18896's reaper.
 """
 
 from __future__ import annotations
@@ -57,17 +77,23 @@ from __future__ import annotations
 import argparse
 import base64
 import concurrent.futures
+import contextlib
 import datetime as dt
+import getpass
 import gzip
 import hashlib
 import importlib.util
+import ipaddress
 import json
 import os
 import re
 import shlex
+import shutil
+import signal
 import socket
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -86,6 +112,7 @@ POOL_CONFIG_RELATIVE = Path("config") / "lab" / "prepr_runtime_pool.yaml"
 # where it is read from.
 LANE_CENSUS_PLAN_PY = SCRIPT_DIR.parent / "lane_census_plan.py"
 PROVE_SH = SCRIPT_DIR / "prepr_pool_prove.sh"
+SLOT_LEASE_PY = SCRIPT_DIR / "prepr_teardown_slot.py"
 SLOT_POLICY_PY = SCRIPT_DIR / "prepr_slot_policy.py"
 # OMN-19566: the receipt module, the fact publisher and the profile registry
 LAB_PASS_RECEIPT_PY = SCRIPT_DIR.parent / "ci" / "lab_pass_receipt.py"
@@ -102,6 +129,10 @@ EXIT_INCONCLUSIVE = 2
 EXIT_NO_FREE_HOST = 3
 EXIT_LEASE_REFUSED = 4
 EXIT_USAGE = 5
+LEASE_LOST = "LEASE-LOST"
+EXIT_LEASE_LOST_REMOTE = 97
+RENEW_MARGIN_S = 300
+HOST_KILL_GRACE_S = 30
 
 PHASES = ("snap-pre", "clone", "build", "probe", "tests", "teardown", "snap-post")
 NO_FOCUSED_TESTS_MARKER = "no-focused-tests: the PR changes no test files"
@@ -161,6 +192,10 @@ class PoolConfig:
     model_endpoint: str
     max_load_ratio: float
     hosts: tuple[PoolHost, ...]
+    # the lane overlays beside the pool table (config/lab/lane-overlays), where
+    # a pre-PR slot's own Bifrost overlay is read from (OMN-19064); where the
+    # table was read, not what it says, so two reads of one table compare equal
+    lane_overlay_dir: Path | None = field(default=None, compare=False)
 
     def host(self, name: str) -> PoolHost:
         for h in self.hosts:
@@ -294,6 +329,7 @@ def load_pool_config(path: Path | None = None) -> PoolConfig:
         work_root_prefix=slot["work_root_prefix"],
         model_endpoint=slot["model_endpoint"],
         max_load_ratio=float(slot["max_load_ratio"]),
+        lane_overlay_dir=path.parent / "lane-overlays",
         hosts=tuple(hosts),
     )
 
@@ -330,8 +366,39 @@ def declared_lane_projects(path: Path | None = None) -> set[str]:
 # --------------------------------------------------------------------------- transport
 
 
+def _bindable(addr: str) -> bool:
+    """Whether an IP, or the IPv4 address a name resolves to, belongs to this machine."""
+    try:
+        try:
+            ipaddress.ip_address(addr)
+        except ValueError:
+            addr = socket.gethostbyname(addr)
+        family = socket.AF_INET6 if ":" in addr else socket.AF_INET
+        with socket.socket(family, socket.SOCK_DGRAM) as sock:
+            sock.bind((addr, 0))
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def is_this_host(
+    ssh_target: str,
+    user: str | None = None,
+    bind: Callable[[str], bool] | None = None,
+) -> bool:
+    """Whether the target names this machine and the current user.
+
+    A host may not accept its own key over loopback ssh; reaching it locally
+    needs no credential.
+    """
+    target_user, sep, addr = ssh_target.rpartition("@")
+    if sep and target_user != (getpass.getuser() if user is None else user):
+        return False
+    return (bind or _bindable)(addr)
+
+
 class Transport(Protocol):
-    """How the driver reaches a host. The real one is ssh; tests pass a fake."""
+    """Reach a host over ssh, or a local shell for a pool host that is this machine."""
 
     def run(self, host: PoolHost, command: str, timeout: float) -> tuple[int, str]: ...
 
@@ -339,7 +406,13 @@ class Transport(Protocol):
 
 
 class SshTransport:
-    def __init__(self, connect_timeout: int = 10) -> None:
+    def __init__(
+        self,
+        connect_timeout: int = 10,
+        local_check: Callable[[str], bool] = is_this_host,
+    ) -> None:
+        self._local_check = local_check
+        self._local_cache: dict[str, bool] = {}
         self._opts = [
             "-o",
             "BatchMode=yes",
@@ -347,25 +420,115 @@ class SshTransport:
             f"ConnectTimeout={connect_timeout}",
         ]
 
+    def _local(self, host: PoolHost) -> bool:
+        if host.ssh_target not in self._local_cache:
+            self._local_cache[host.ssh_target] = self._local_check(host.ssh_target)
+        return self._local_cache[host.ssh_target]
+
     def run(self, host: PoolHost, command: str, timeout: float) -> tuple[int, str]:
         try:
-            proc = subprocess.run(
-                ["ssh", *self._opts, host.ssh_target, REMOTE_PATH + command],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                check=False,
-            )
+            if self._local(host):
+                proc = subprocess.run(
+                    ["bash", "-c", command],
+                    cwd=Path.home(),
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    check=False,
+                )
+            else:
+                proc = subprocess.run(
+                    ["ssh", *self._opts, host.ssh_target, REMOTE_PATH + command],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    check=False,
+                )
         except subprocess.TimeoutExpired as exc:
             out = exc.stdout if isinstance(exc.stdout, str) else ""
             return 124, out + f"\n[timeout after {timeout:.0f}s]"
         return proc.returncode, proc.stdout + proc.stderr
 
     def put(self, host: PoolHost, local: Path, remote: str) -> int:
+        if self._local(host):
+            try:
+                shutil.copyfile(local, remote)
+            except OSError:
+                return 1
+            return 0
         return subprocess.run(
             ["scp", "-q", *self._opts, str(local), f"{host.ssh_target}:{remote}"],
             check=False,
         ).returncode
+
+
+class LocalTransport:
+    """Run pool commands as the current user on this machine."""
+
+    def run(self, host: PoolHost, command: str, timeout: float) -> tuple[int, str]:
+        env = {
+            key: os.environ[key]
+            for key in ("HOME", "USER", "LOGNAME", "SHELL", "LANG")
+            if key in os.environ
+        }
+        # the PATH a non-interactive sshd session starts with, so a local run
+        # finds the same tools an ssh one does
+        env["PATH"] = (
+            "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+        )
+        proc = subprocess.Popen(
+            ["bash", "-c", REMOTE_PATH + command],
+            cwd=Path.home(),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            stdout, stderr = proc.communicate()
+            return 124, stdout + stderr + f"\n[timeout after {timeout:.0f}s]"
+        return proc.returncode, stdout + stderr
+
+    def put(self, host: PoolHost, local: Path, remote: str) -> int:
+        try:
+            shutil.copyfile(local, remote)
+            return 0
+        except OSError:
+            return 1
+
+
+class HostRoutingTransport:
+    """Choose a local shell or ssh once per target."""
+
+    def __init__(
+        self,
+        ssh: Transport | None = None,
+        local: Transport | None = None,
+        is_local: Callable[[str], bool] | None = None,
+    ) -> None:
+        self._ssh = (
+            ssh if ssh is not None else SshTransport(local_check=lambda _target: False)
+        )
+        self._local = local if local is not None else LocalTransport()
+        self._is_local = is_local if is_local is not None else is_this_host
+        self._targets: dict[str, bool] = {}
+
+    def _transport(self, host: PoolHost) -> Transport:
+        target = host.ssh_target
+        if target not in self._targets:
+            self._targets[target] = self._is_local(target)
+        return self._local if self._targets[target] else self._ssh
+
+    def run(self, host: PoolHost, command: str, timeout: float) -> tuple[int, str]:
+        return self._transport(host).run(host, command, timeout)
+
+    def put(self, host: PoolHost, local: Path, remote: str) -> int:
+        return self._transport(host).put(host, local, remote)
 
 
 # --------------------------------------------------------------------------- ledger
@@ -609,31 +772,91 @@ def acquire_lease(
     if held.get("holder") == holder:
         return True, "already held by this holder"
     if held_until is not None and held_until <= now:
-        # Expired: break it and try once more, still atomically.
-        transport.run(host, f"rm -rf {lease}", timeout=30)
-        rc, out = transport.run(host, cmd, timeout=30)
+        # Expired: break it and take it in one step that admits one breaker at a
+        # time. The breaker holds a guard directory (mkdir is atomic), re-reads the
+        # lease inside it and breaks only the exact lease it judged expired, so two
+        # acquirers that read the same expired lease cannot both break and both
+        # hold it: the second finds the first's fresh lease, or the guard, and is
+        # refused (OMN-20085).
+        guard = f"{lease}.break"
+        held_now = f"echo HELD; cat {lease}/lease.json 2>/dev/null"
+        break_cmd = (
+            f"if mkdir {guard} 2>/dev/null; then "
+            f'if [ "$(cat {lease}/lease.json 2>/dev/null)" = {shlex.quote(held_raw)} ]; then '
+            f"{{ rm -rf {lease} && mkdir {lease} && "
+            f"printf '%s' {shlex.quote(body)} > {lease}/lease.json && echo ACQUIRED; }} "
+            f"|| {{ {held_now}; }}; "
+            f"else {held_now}; fi; rmdir {guard}; "
+            f"else {held_now}; fi"
+        )
+        rc, out = transport.run(host, break_cmd, timeout=30)
         if rc == 0 and "ACQUIRED" in out:
             return (
                 True,
                 f"acquired after breaking the lease {held.get('holder')} let expire at {held.get('until')}",
             )
+        if "HELD" in out:
+            again = out.split("HELD", 1)[1].strip()
+            try:
+                held = json.loads(again) if again else held
+            except json.JSONDecodeError:
+                pass
     return False, f"held by {held.get('holder', '?')} until {held.get('until', '?')}"
+
+
+def renew_lease_command(
+    host: PoolHost, holder: str, until: dt.datetime, now: dt.datetime
+) -> str:
+    """Renew only our lease under the break guard, before starting a phase."""
+    lease = f"$HOME/{host.lease_dir}"
+    guard = f"{lease}.break"
+    body = json.dumps(
+        {
+            "holder": holder,
+            "until": until.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "taken": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+    )
+    return (
+        f"(i=0; until mkdir {guard} 2>/dev/null; do "
+        'i=$((i + 1)); if [ "$i" -ge 20 ]; then '
+        f"echo '{LEASE_LOST} guard busy'; exit {EXIT_LEASE_LOST_REMOTE}; "
+        "fi; sleep 0.5; done; "
+        f"H=$(cat {lease}/lease.json 2>/dev/null); "
+        f'case "$H" in *\'"holder": "{holder}"\'*) '
+        f"printf '%s' {shlex.quote(body)} > {lease}/lease.json.tmp && "
+        f"mv {lease}/lease.json.tmp {lease}/lease.json; "
+        f'R=$?; rmdir {guard}; exit "$R";; '
+        f"*) rmdir {guard}; printf '%s %s\\n' {LEASE_LOST} \"$H\"; "
+        f"exit {EXIT_LEASE_LOST_REMOTE};; esac)"
+    )
 
 
 def release_lease(
     cfg: PoolConfig, transport: Transport, host: PoolHost, holder: str
 ) -> tuple[bool, str]:
     lease = f"$HOME/{host.lease_dir}"
+    # An expired holder can read its lease before a breaker replaces it, then
+    # remove the breaker's fresh lease. Guard the read and removal with the same
+    # directory the break holds, so release cannot erase a new holder (OMN-20085).
+    guard = f"{lease}.break"
     cmd = (
+        f"mkdir -p $(dirname {lease}); "
+        "GOTGUARD=0; i=0; while [ $i -lt 100 ]; do "
+        f"if mkdir {guard} 2>/dev/null; then GOTGUARD=1; break; fi; "
+        'i=$((i+1)); sleep 0.1; done; if [ "$GOTGUARD" = 1 ]; then '
         f"H=$(cat {lease}/lease.json 2>/dev/null); "
         f'case "$H" in *\'"holder": "{holder}"\'*) rm -rf {lease} && echo RELEASED;; '
-        "'') echo ABSENT;; *) echo FOREIGN;; esac"
+        f"'') echo ABSENT;; *) echo FOREIGN;; esac; rmdir {guard}; "
+        "else echo GUARDBUSY; fi"
     )
     rc, out = transport.run(host, cmd, timeout=30)
     if "RELEASED" in out:
         return True, "released"
     if "ABSENT" in out:
         return True, "no lease was present"
+    if "GUARDBUSY" in out:
+        return False, f"lease guard {guard} held past the wait; lease left to expire"
     return False, f"lease is not this holder's (rc={rc}): {out.strip()[:200]}"
 
 
@@ -939,7 +1162,7 @@ def judge(
             "changed path not applicable, runs in no runtime (no topics, no runtime "
             "profile): " + ", ".join(not_applicable)
         )
-    rcs = re.findall(r"^(\S+) focused rc=(\d+)", tests, re.M)
+    rcs = re.findall(r"^(\S+) (?:focused|suite) rc=(\d+)", tests, re.M)
     failed_ids = re.findall(r"^FAILED (\S+)", tests, re.M)
     # pytest rc 1 = tests failed; a dev control at rc 1 means the test fails at
     # dev too. rc 4/5 (no such test at dev) means the PR introduced it.
@@ -1024,6 +1247,72 @@ def judge(
 EXERCISE_TAIL_LINES = 15
 
 
+def neighbour_projects(host: PoolHost) -> str:
+    """The declared lanes a pre-PR slot's run reads by container id (OMN-19064).
+
+    The slot policy's declared-lane table, pipe-joined for the on-host script;
+    empty for an isolated member, whose snapshot already covers the whole host.
+    """
+    if host.kind != "prepr-slot":
+        return ""
+    return "|".join(sorted(_slot_policy().DECLARED_LANE_PROJECTS))
+
+
+def judge_slot_isolation(rb: Readback, outputs: Mapping[str, str]) -> None:
+    """Hold a pre-PR slot's run to its reserved ports and read its neighbours.
+
+    OMN-19064 AC-2: the slot's project publishes only its reserved block. The
+    probe's ``slot-published-ports`` line decides it, and a missing line, or a
+    slot that published nothing, is a fail, never a quiet pass.
+
+    OMN-19064 AC-1: no container of a declared lane was recreated or restarted
+    during the run, read by id, start time and restart count in snap-pre and
+    snap-post. That reading is a note and not a check: the declared lanes
+    redeploy on their own schedule, so a change there is not the slot's by
+    this readback alone, and the changed lines ride in the readback to be read.
+    """
+    probe = outputs.get("probe", "")
+    m = re.search(r"^slot-published-ports=(\S+) outside-block=(\S+)$", probe, re.M)
+    rb.checks["slot_ports_in_block"] = (
+        m is not None and m.group(1) != "none" and m.group(2) == "none"
+    )
+    if m is None:
+        rb.notes.append("slot ports: the probe printed no slot-published-ports line")
+    elif m.group(1) == "none":
+        rb.notes.append("slot ports: the slot's project published no host port")
+    elif m.group(2) != "none":
+        rb.notes.append(
+            f"slot ports: published {m.group(2)} outside the reserved block"
+        )
+    else:
+        rb.notes.append(
+            f"slot ports: published {m.group(1)}, all in the reserved block"
+        )
+    post = outputs.get("snap-post", "")
+    n = re.search(r"^neighbour-diff=(\d+) neighbours=(\d+)$", post, re.M)
+    if n is None:
+        rb.notes.append("neighbours: snap-post printed no neighbour readback")
+    elif n.group(2) == "0":
+        rb.notes.append(
+            "neighbours: no declared-lane container was read before the run, "
+            "so an unchanged readback shows nothing"
+        )
+    elif n.group(1) == "0":
+        rb.notes.append(
+            f"neighbours: {n.group(2)} declared-lane containers, none recreated "
+            "or restarted during the run (id, start time and restart count unchanged)"
+        )
+    else:
+        rb.notes.append(
+            f"neighbours: {n.group(1)} changed lines across {n.group(2)} "
+            "declared-lane containers during the run; the declared lanes "
+            "redeploy on their own, so read them before attributing them to the slot"
+        )
+        rb.notes.extend(
+            ln for ln in post.splitlines() if ln.startswith("neighbour-changed ")
+        )
+
+
 def judge_exercise(rb: Readback, output: str) -> None:
     """Hold the readback to the post-up command's exit code (the exercise phase).
 
@@ -1064,6 +1353,14 @@ def render_readback(
             f"omnimarket#{n} head {h[:10]}"
             for n, h in group_members(params["MARKET_GROUP"], name="MARKET_GROUP")
         )
+    for key, repo in (
+        ("INFRA_REF_SHA", "omnibase_infra"),
+        ("MARKET_REF_SHA", "omnimarket"),
+    ):
+        if params.get(key):
+            subject.append(
+                f"{repo}@{params[key][:10]} (ref {params.get('VERIFY_REF', '?')})"
+            )
     if params.get("INFRA_PR"):
         subject.append(
             f"omnibase_infra#{params['INFRA_PR']} head {params.get('INFRA_HEAD', '?')[:10]}"
@@ -1260,6 +1557,10 @@ def _check_map(
             _lines(probe, r"^\S+ lines=\d+ autowire-fail=.*$"),
         ),
         "focused_tests": ("focused_tests", _lines(tests, r"^\S+ focused rc=.*$")),
+        "slot_ports_in_block": (
+            "slot_ports_in_reserved_block",
+            _lines(probe, r"^slot-published-ports=.*$"),
+        ),
         "post_bringup": (
             "post_bringup",
             _lines(outputs.get("post-bringup", ""), r"^post-bringup .*$"),
@@ -1764,6 +2065,8 @@ def run_proof(
         log(f"lease {host.name}: {rwhy}")
     if not released:
         rb.notes.append(f"lease not released: {rwhy}")
+    if host.kind == "prepr-slot":
+        judge_slot_isolation(rb, outputs)
     if post_up_command is not None:
         judge_exercise(rb, outputs.get("exercise", ""))
     finished_at = now_fn()
@@ -1811,10 +2114,36 @@ RESERVED_PARAMS = (
     "EFFECTS_PORT",
     "SLOT_PORTS",
     "POSITIVE_CONTROL",
+    "NEIGHBOUR_PROJECTS",
     "REASON",
     "OVERLAY_FILE",
     "POST_UP_COMMAND",
+    "ONEX_PREPR_LEASE_TOKEN",
+    "ONEX_PREPR_LEASE_DIR",
+    "ONEX_PREPR_REAPER_HELD",
+    "ONEX_LANE_LOCK_HELD",
+    "ONEX_LANE_LOCK_DIR",
 )
+
+
+def slot_lane_overlay(cfg: PoolConfig, host: PoolHost) -> Path | None:
+    """A pre-PR slot's own Bifrost overlay on the launching host (OMN-19064).
+
+    Lab lane overlays live in the private workspace config (OMN-20932), and the
+    slot entrypoint refuses a slot with none before any build. The pool runs its
+    on-host script over a non-login ssh shell that names no config root, so the
+    driver ships the slot's overlay itself, read where the compose helper reads
+    it: ``$ONEX_LANE_OVERLAY_DIR``, else the lane-overlays directory beside the
+    pool table. None when the file is absent, and the on-host refusal names it.
+    """
+    if host.kind != "prepr-slot":
+        return None
+    configured = os.environ.get("ONEX_LANE_OVERLAY_DIR", "").strip()
+    root = Path(configured) if configured else cfg.lane_overlay_dir
+    if root is None:
+        return None
+    candidate = root / f"{host.compose_project}.bifrost.yaml"
+    return candidate if candidate.is_file() else None
 
 
 def _run_stack(
@@ -1829,12 +2158,17 @@ def _run_stack(
     log: Callable[[str], None],
     overlay: Path | None = None,
     post_up_command: str | None = None,
+    tests_budget: float = 2400,
+    outputs_sink: dict[str, str] | None = None,
+    renew: Callable[[float], str] | None = None,
 ) -> dict[str, str]:
-    """One stack on the leased host: every phase, then ALWAYS teardown.
+    """One stack on the leased host: every phase, then teardown unless lease lost.
 
     ``overlay`` replaces the stack's Bifrost overlay; ``post_up_command`` runs
     once against the live stack after the probe (the ``exercise`` phase).
     """
+    if overlay is None:
+        overlay = slot_lane_overlay(cfg, host)
     # A path on the REMOTE host, private to this run and removed at the end.
     remote_dir = f"/tmp/{tag}"  # noqa: S108
     # keyed by member as well as holder: one lane may hold both .201 slots at
@@ -1856,6 +2190,7 @@ def _run_stack(
         f"EFFECTS_PORT={host.effects_port}",
         f"SLOT_PORTS={shlex.quote('|'.join(str(p) for p in host.ports))}",
         f"POSITIVE_CONTROL={shlex.quote(host.positive_control)}",
+        f"NEIGHBOUR_PROJECTS={shlex.quote(neighbour_projects(host))}",
         f"REASON={shlex.quote(f'lab pool run {tag} by {holder} (OMN-18893)')}",
     ]
     if overlay is not None:
@@ -1881,18 +2216,42 @@ def _run_stack(
         "probe": 1800,
         "exercise": 1800,
         "post-bringup": 1800,
-        "tests": 2400,
+        "tests": tests_budget,
     }
-    outputs: dict[str, str] = {}
+    outputs: dict[str, str] = outputs_sink if outputs_sink is not None else {}
 
     def phase_run(phase: str, timeout: float) -> int:
+        command = f"bash {remote_dir}/prove.sh {remote_dir}/params.env {phase}"
+        if host.kind == "prepr-slot" and phase != "snap-post":
+            # A host-local heartbeat survives a lost SSH caller while the
+            # remote phase still runs, then expires after the owner dies.
+            lease_command = (
+                f"exec python3 {remote_dir}/slot-lease.py run --slot {host.slot} "
+                f'--holder {shlex.quote(holder)} --token {shlex.quote(tag)} -- "$@"'
+            )
+            # Keep the phase arguments separate from the lease command, with
+            # bash exec replacing the shell so timeout signals reach its owner.
+            command = (
+                f"bash -c {shlex.quote(lease_command)} slot-resource-lease {command}"
+            )
+        if renew is not None:
+            command = (
+                f"{renew(timeout)} && timeout -k {HOST_KILL_GRACE_S} "
+                f"{int(timeout)} {command}"
+            )
+            timeout += 2 * HOST_KILL_GRACE_S
         rc, out = transport.run(
             host,
-            f"bash {remote_dir}/prove.sh {remote_dir}/params.env {phase}",
+            command,
             timeout=timeout,
         )
         outputs[phase] = out
         log(f"[{host.name} {tag} {phase} rc={rc}]\n{out.rstrip()}")
+        if LEASE_LOST in out:
+            outputs["lease-lost"] = phase
+            log(
+                f"lease lost before {phase}: the slot was left to its new holder, not torn down"
+            )
         return rc
 
     try:
@@ -1901,24 +2260,465 @@ def _run_stack(
             host, local_env, f"{remote_dir}/params.env"
         ):
             raise RuntimeError("copy to host failed")
+        if host.kind == "prepr-slot":
+            for local, name in (
+                (SLOT_LEASE_PY, "slot-lease.py"),
+                (SLOT_POLICY_PY, "prepr_slot_policy.py"),
+            ):
+                if transport.put(host, local, f"{remote_dir}/{name}"):
+                    raise RuntimeError("copy of the slot resource-lease helper failed")
         if overlay is not None and transport.put(
             host, overlay, f"{remote_dir}/overlay.bifrost.yaml"
         ):
             raise RuntimeError("copy of the overlay to host failed")
         for phase in phases:
-            if phase_run(phase, budget.get(phase, 120)) != 0 and phase in (
-                "clone",
-                "build",
-            ):
+            rc = phase_run(phase, budget.get(phase, 120))
+            if "lease-lost" in outputs or (rc != 0 and phase in ("clone", "build")):
                 break
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         # teardown below must run whatever failed above
         log(f"run aborted before teardown: {exc}")
     finally:
-        for phase in ("teardown", "snap-post"):
-            phase_run(phase, 600)
-        transport.run(host, f"rm -rf {remote_dir} /tmp/{tag}-*", timeout=30)
+        with defer_interrupts():
+            for phase in ("teardown", "snap-post"):
+                if "lease-lost" in outputs:
+                    break
+                phase_run(phase, 600)
+            transport.run(host, f"rm -rf {remote_dir} /tmp/{tag}-*", timeout=30)
     return outputs
+
+
+# --------------------------------------------------------------------------- verify
+
+VERIFY_SCHEMA = "onex.prepr.verify-result.v1"
+#: the subject repositories a ref can be verified in, and the prove.sh param that names each
+VERIFY_REPOS = {"omnibase_infra": "INFRA_REF_SHA", "omnimarket": "MARKET_REF_SHA"}
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+TEST_SPEC_RE = re.compile(r"^(omnibase_infra|omnimarket):[A-Za-z0-9_./:\[\]-]+$")
+HOLDER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+VERIFY_SIGNALS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
+EXIT_SIGNAL_BASE = 128
+DEFAULT_VERIFY_TTL_MINUTES = 150
+DEFAULT_SUITE_BUDGET_S = 3600
+DEFAULT_SUITE_WORKERS = 4
+
+
+class RefUnresolvedError(ValueError):
+    """The ref names no commit the canonical clone holds."""
+
+
+class VerifyInterrupted(BaseException):
+    """A catchable termination signal reached a verify run.
+
+    A BaseException on purpose: nothing between the signal and the run's own
+    cleanup may swallow it, and the cleanup (teardown, lease release) is in
+    ``finally`` blocks that run as it passes.
+    """
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
+
+
+@dataclass
+class _InterruptState:
+    """The guard's state: whether it is armed, deferral depth, a held signal."""
+
+    active: bool = False
+    depth: int = 0
+    pending: int | None = None
+
+
+_interrupt_state = _InterruptState()
+
+
+@contextlib.contextmanager
+def defer_interrupts() -> Any:
+    """Hold a signal that arrives inside the block until the block ends.
+
+    Cleanup (teardown, snap-post, the lease take and release) runs inside one,
+    so a first signal reaching it no longer cuts it short (2026-10-20T15:20Z,
+    pre-PR slot 2). The outermost block raises the held signal on a clean exit;
+    an exception already leaving the block keeps it for an outer block.
+    """
+    if not _interrupt_state.active:
+        yield
+        return
+    _interrupt_state.depth += 1
+    try:
+        yield
+    finally:
+        _interrupt_state.depth -= 1
+    if _interrupt_state.depth == 0 and _interrupt_state.pending is not None:
+        signum, _interrupt_state.pending = _interrupt_state.pending, None
+        raise VerifyInterrupted(signum)
+
+
+@contextlib.contextmanager
+def interrupt_guard() -> Any:
+    """Turn the first SIGTERM, SIGHUP or SIGINT into ``VerifyInterrupted``.
+
+    Cleanup defers the first signal until it finishes. Later signals are
+    ignored, and the previous handlers come back on exit.
+    """
+
+    def handler(signum: int, frame: Any) -> None:
+        for sig in VERIFY_SIGNALS:
+            signal.signal(sig, signal.SIG_IGN)
+        if _interrupt_state.depth:
+            _interrupt_state.pending = signum
+            return
+        raise VerifyInterrupted(signum)
+
+    _interrupt_state.active = True
+    _interrupt_state.depth = 0
+    _interrupt_state.pending = None
+    previous = {sig: signal.signal(sig, handler) for sig in VERIFY_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, old in previous.items():
+            signal.signal(sig, old)
+        _interrupt_state.active = False
+        _interrupt_state.depth = 0
+        _interrupt_state.pending = None
+
+
+def resolve_ref_in_clone(clone: Path, ref: str) -> str:
+    """The full sha ``ref`` names in a canonical clone, read locally.
+
+    A 40-hex ref must be a commit the clone holds; anything else is a branch
+    read as ``origin/<ref>``, which the canonical-clone sync keeps current.
+    Nothing is fetched here, so a branch pushed in the last minutes needs the
+    sync's refresh first.
+    """
+    if SHA_RE.match(ref):
+        spec, remote = f"{ref}^{{commit}}", False
+    elif REF_RE.match(ref) and ".." not in ref and not ref.endswith((".lock", "/")):
+        spec, remote = f"refs/remotes/origin/{ref}^{{commit}}", True
+    else:
+        raise RefUnresolvedError(f"{ref!r} is neither a 40-hex sha nor a branch name")
+    if not (clone / ".git").exists() and not (clone / "HEAD").exists():
+        raise RefUnresolvedError(f"{clone} is not a git clone")
+    proc = subprocess.run(
+        ["git", "-C", str(clone), "rev-parse", "--verify", "--quiet", spec],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+        # a git hook's GIT_DIR would override -C and read some other repository
+        env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+    )
+    sha = proc.stdout.strip()
+    if proc.returncode != 0 or not SHA_RE.match(sha):
+        where = "origin branch" if remote else "commit"
+        raise RefUnresolvedError(f"{ref!r} is not a {where} in {clone}")
+    return sha
+
+
+def validate_verify_request(
+    repo: str, holder: str, tests: Sequence[str], suite: bool
+) -> str | None:
+    """The reason a verify call is refused before it touches anything, or None."""
+    if repo not in VERIFY_REPOS:
+        return f"--repo {repo!r} is not one of {', '.join(sorted(VERIFY_REPOS))}"
+    if not HOLDER_RE.match(holder):
+        return f"--holder {holder!r} is not a lane name"
+    if not tests and not suite:
+        return (
+            "verify names no tests: pass --tests <repo>:<path> (repeatable) "
+            "or --suite; a run with no tests cannot pass its focused_tests check"
+        )
+    for spec in tests:
+        if not TEST_SPEC_RE.match(spec):
+            return f"--tests {spec!r} is not <omnibase_infra|omnimarket>:<test path>"
+    return None
+
+
+@dataclass
+class _VerifyFacts:
+    """What a verify run knows so far; the result file is built from it at any exit."""
+
+    repo: str
+    ref: str
+    holder: str
+    tests: tuple[str, ...]
+    suite: bool
+    sha: str = ""
+    host: PoolHost | None = None
+    started: str = ""
+    readback: Readback | None = None
+    lease_note: str = ""
+    lease_released: bool = False
+    lease_release_note: str = "not attempted"
+    outputs: dict[str, str] = field(default_factory=dict)
+    refused: list[str] = field(default_factory=list)
+
+
+def verify_result(
+    facts: _VerifyFacts, outcome: str, code: int, finished: str, text: str
+) -> dict[str, Any]:
+    rb = facts.readback
+    return {
+        "schema": VERIFY_SCHEMA,
+        "repo": facts.repo,
+        "ref": facts.ref,
+        "sha": facts.sha,
+        "holder": facts.holder,
+        "tests": list(facts.tests),
+        "suite": facts.suite,
+        "outcome": outcome,
+        "exit_code": code,
+        "slot": facts.host.name if facts.host else "",
+        "surface": facts.host.surface if facts.host else "",
+        "project": facts.host.compose_project if facts.host else "",
+        "started": facts.started,
+        "finished": finished,
+        "checks": dict(rb.checks) if rb else {},
+        "notes": list(rb.notes) if rb else [],
+        "restored": bool(rb.restored) if rb else False,
+        "residue": rb.residue if rb else "",
+        "slots_refused": list(facts.refused),
+        "summary": text.splitlines()[0] if text else "",
+    }
+
+
+def write_verify_result(path: Path, result: Mapping[str, Any]) -> None:
+    """Write the result file whole or not at all."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    tmp.replace(path)
+
+
+def _utc_text(moment: dt.datetime) -> str:
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def run_verify(
+    cfg: PoolConfig,
+    transport: Transport,
+    *,
+    repo: str,
+    ref: str,
+    holder: str,
+    tests: Sequence[str],
+    suite: bool,
+    resolver: Callable[[str, str], str],
+    ledger_lines: Sequence[str],
+    ttl_minutes: int = DEFAULT_VERIFY_TTL_MINUTES,
+    suite_budget_s: float = DEFAULT_SUITE_BUDGET_S,
+    suite_workers: int = DEFAULT_SUITE_WORKERS,
+    result_out: Path | None = None,
+    workdir: Path | None = None,
+    now_fn: Callable[[], dt.datetime] = _utcnow,
+    log: Callable[[str], None] = lambda s: print(s, file=sys.stderr),
+    handle_signals: bool = False,
+) -> tuple[int, str]:
+    """Verify a branch or sha on the first free pre-PR slot (OMN-20085).
+
+    Returns the exit code and the readback text; when ``result_out`` is given
+    the typed result file is written for every outcome, whose ``exit_code`` is
+    the code returned here.
+    """
+    facts = _VerifyFacts(repo, ref, holder, tuple(tests), suite)
+    facts.started = _utc_text(now_fn())
+    outcome, code, text = "USAGE", EXIT_USAGE, ""
+    guard = interrupt_guard() if handle_signals else contextlib.nullcontext()
+    with guard:
+        try:
+            outcome, code, text = _verify_steps(
+                cfg,
+                transport,
+                facts,
+                resolver=resolver,
+                ledger_lines=ledger_lines,
+                ttl_minutes=ttl_minutes,
+                suite_budget_s=suite_budget_s,
+                suite_workers=suite_workers,
+                workdir=workdir,
+                now_fn=now_fn,
+                log=log,
+            )
+        except VerifyInterrupted as exc:
+            name = signal.Signals(exc.signum).name
+            outcome, code = "INTERRUPTED", EXIT_SIGNAL_BASE + exc.signum
+            text = f"VERIFY INTERRUPTED: {name} stopped {repo}@{ref}"
+            if facts.host is None:
+                text += "; nothing was leased"
+            else:
+                ran = facts.outputs
+                text += f" on {facts.host.name}; "
+                if "lease-lost" in ran:
+                    text += "the slot was not torn down (the lease was lost to a peer)"
+                elif "teardown" in ran and "snap-post" in ran:
+                    text += "the slot was torn down"
+                elif not ran:
+                    text += "the slot was not torn down (no slot phase had run)"
+                else:
+                    text += "the slot was not torn down (cleanup did not finish)"
+                if facts.lease_released:
+                    text += "; the lease was released"
+                else:
+                    text += f"; the lease was NOT released: {facts.lease_release_note}"
+            if facts.host is not None and facts.readback is not None:
+                text += f"\n  restored={'yes' if facts.readback.restored else 'no'} ({facts.readback.residue})"
+                text += (
+                    f"\n  ledger: RELEASE re=<your HOLD id> surface={facts.host.surface} "
+                    f"result=ABORTED restored={'yes' if facts.readback.restored else 'no'}"
+                )
+    if result_out is not None:
+        write_verify_result(
+            result_out, verify_result(facts, outcome, code, _utc_text(now_fn()), text)
+        )
+    return code, text
+
+
+def _verify_steps(
+    cfg: PoolConfig,
+    transport: Transport,
+    facts: _VerifyFacts,
+    *,
+    resolver: Callable[[str, str], str],
+    ledger_lines: Sequence[str],
+    ttl_minutes: int,
+    suite_budget_s: float,
+    suite_workers: int,
+    workdir: Path | None,
+    now_fn: Callable[[], dt.datetime],
+    log: Callable[[str], None],
+) -> tuple[str, int, str]:
+    refusal = validate_verify_request(
+        facts.repo, facts.holder, facts.tests, facts.suite
+    )
+    if refusal:
+        return "USAGE", EXIT_USAGE, refusal
+    try:
+        facts.sha = resolver(facts.repo, facts.ref)
+    except RefUnresolvedError as exc:
+        return "USAGE", EXIT_USAGE, f"ref does not resolve, nothing leased: {exc}"
+    now = now_fn()
+    holds = live_surface_holds(ledger_lines, now)
+    states = survey(cfg, transport, holds, now, me=facts.holder)
+    slots = sorted(
+        (s for s in states if s.host.kind == "prepr-slot"),
+        key=lambda s: (s.host.slot, s.host.name),
+    )
+    free = [s for s in slots if s.verdict == "FREE"]
+    if not free:
+        return (
+            "NO_FREE_SLOT",
+            EXIT_NO_FREE_HOST,
+            "no free pre-PR slot: "
+            + "; ".join(f"{s.host.name} {s.verdict} {s.detail}" for s in slots)
+            if slots
+            else "the pool has no pre-PR slot member",
+        )
+    until = now + dt.timedelta(minutes=ttl_minutes)
+    host: PoolHost | None = None
+    own_dir = workdir is None
+    work = workdir
+    outputs = facts.outputs
+    try:
+        try:
+            with defer_interrupts():
+                for candidate in free:
+                    ok, why = acquire_lease(
+                        cfg, transport, candidate.host, facts.holder, until, now
+                    )
+                    if ok:
+                        host = facts.host = candidate.host
+                        facts.lease_note = why
+                        break
+                    facts.refused.append(f"{candidate.host.name}: {why}")
+                    log(
+                        f"lease {candidate.host.name} refused ({why}); trying the next free slot"
+                    )
+            if host is None:
+                return (
+                    "NO_FREE_SLOT",
+                    EXIT_NO_FREE_HOST,
+                    "no free pre-PR slot: every free slot was taken before its lease: "
+                    + "; ".join(facts.refused),
+                )
+            log(f"lease {host.name}: {facts.lease_note}; until {_utc_text(until)}")
+            log(
+                f"ledger: write HOLD surface={host.surface} until={_utc_text(until)} through /omni:ledger-msg now"
+            )
+            work = workdir or Path(tempfile.mkdtemp(prefix="prepr-verify-"))
+            work.mkdir(parents=True, exist_ok=True)
+            params = {
+                VERIFY_REPOS[facts.repo]: facts.sha,
+                "VERIFY_REF": facts.ref,
+            }
+            if facts.tests:
+                params["TESTS"] = " ".join(facts.tests)
+            if facts.suite:
+                params["SUITE_REPO"] = facts.repo
+                params["SUITE_WORKERS"] = str(suite_workers)
+            params_path = work / "verify.env"
+            params_path.write_text(
+                "".join(f"{k}={v}\n" for k, v in params.items()), encoding="utf-8"
+            )
+            _run_stack(
+                cfg,
+                transport,
+                host,
+                params,
+                params_path,
+                f"verify-{facts.holder}-{now:%H%M%S}",
+                facts.holder,
+                with_tests=True,
+                log=log,
+                tests_budget=suite_budget_s if facts.suite else 2400,
+                outputs_sink=outputs,
+                renew=lambda budget: renew_lease_command(
+                    host,
+                    facts.holder,
+                    now_fn() + dt.timedelta(seconds=budget + RENEW_MARGIN_S),
+                    now_fn(),
+                ),
+            )
+        finally:
+            if host is not None:
+                with defer_interrupts():
+                    facts.lease_released, facts.lease_release_note = release_lease(
+                        cfg, transport, host, facts.holder
+                    )
+                    log(f"lease {host.name}: {facts.lease_release_note}")
+        ports = (host.main_port, host.effects_port)
+        rb = judge(outputs, None, ports)
+        if host.kind == "prepr-slot":
+            judge_slot_isolation(rb, outputs)
+        facts.readback = rb
+        outcome = "INCONCLUSIVE" if "lease-lost" in outputs else rb.outcome
+        if not facts.lease_released:
+            rb.notes.append(f"lease not released: {facts.lease_release_note}")
+        finished = _utc_text(now_fn())
+        text = render_readback(rb, host, params, facts.started, finished)
+        if "lease-lost" in outputs:
+            text = text.replace(f"LAB PROOF {rb.outcome}:", f"LAB PROOF {outcome}:", 1)
+            text += (
+                f"\n  lease lost before {outputs['lease-lost']}: "
+                "the slot was left to its new holder, not torn down"
+            )
+        release_result = outcome if outcome in ("PASS", "FAIL") else "ABORTED"
+        text += (
+            f"\n  ledger: RELEASE re=<your HOLD id> surface={host.surface} "
+            f"result={release_result} restored={'yes' if rb.restored else 'no'}"
+        )
+        code = {"PASS": EXIT_PASS, "FAIL": EXIT_FAIL}.get(outcome, EXIT_INCONCLUSIVE)
+        return outcome, code, text
+    except VerifyInterrupted:
+        if host is not None and outputs:
+            facts.readback = judge(outputs, None, (host.main_port, host.effects_port))
+        raise
+    finally:
+        if own_dir and work is not None:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 # --------------------------------------------------------------------------- cli
@@ -2045,6 +2845,48 @@ def build_parser() -> argparse.ArgumentParser:
         "--post-up-command",
         help="a shell command run once against the live stack after the probe, from the build tree, with MAIN_PORT, EFFECTS_PORT and PROJECT exported; the proof fails unless it exits 0",
     )
+    vf = sub.add_parser(
+        "verify",
+        help="verify a branch or sha, with no PR, on the first free pre-PR slot",
+    )
+    vf.add_argument("--repo", required=True, choices=sorted(VERIFY_REPOS))
+    vf.add_argument(
+        "--ref",
+        required=True,
+        help="a branch of the canonical clone's origin, or a 40-hex sha",
+    )
+    vf.add_argument("--holder", required=True, help="your ledger lane name")
+    vf.add_argument(
+        "--tests",
+        action="append",
+        default=[],
+        metavar="REPO:PATH",
+        help="a focused test path on the slot host, repeatable (omnibase_infra:tests/unit/x.py)",
+    )
+    vf.add_argument(
+        "--suite",
+        action="store_true",
+        help="run the repo's whole unit suite (tests/unit) under its own budget, with a bounded dev control",
+    )
+    vf.add_argument("--suite-budget-s", type=float, default=DEFAULT_SUITE_BUDGET_S)
+    vf.add_argument("--suite-workers", type=int, default=DEFAULT_SUITE_WORKERS)
+    vf.add_argument("--ttl-minutes", type=int, default=DEFAULT_VERIFY_TTL_MINUTES)
+    vf.add_argument(
+        "--result-out",
+        type=Path,
+        help=f"write one {VERIFY_SCHEMA} JSON file for every outcome; its exit_code is this process's exit code",
+    )
+    vf.add_argument(
+        "--clone-root",
+        type=Path,
+        default=Path(os.environ["OMNI_HOME"]) if os.environ.get("OMNI_HOME") else None,
+        help="the registry root holding the canonical clones the ref is resolved in (default $OMNI_HOME)",
+    )
+    vf.add_argument(
+        "--workdir",
+        type=Path,
+        help="where the run's params files go (default a temporary directory)",
+    )
     rl = sub.add_parser("release", help="release a lease this holder left behind")
     rl.add_argument("--host", required=True)
     rl.add_argument("--holder", required=True)
@@ -2058,8 +2900,23 @@ def main(argv: Sequence[str] | None = None, transport: Transport | None = None) 
         cfg = load_pool_config(args.config)
     except (OSError, ValueError, KeyError) as exc:
         print(f"config error: {exc}", file=sys.stderr)
+        if args.cmd == "verify" and args.result_out is not None:
+            refused = _VerifyFacts(
+                args.repo, args.ref, args.holder, tuple(args.tests), args.suite
+            )
+            refused.started = _utc_text(_utcnow())
+            write_verify_result(
+                args.result_out,
+                verify_result(
+                    refused,
+                    "USAGE",
+                    EXIT_USAGE,
+                    refused.started,
+                    f"config error: {exc}",
+                ),
+            )
         return EXIT_USAGE
-    tp = transport or SshTransport()
+    tp = transport or HostRoutingTransport()
     now = _utcnow()
     if args.cmd in ("status", "pick"):
         holds = live_surface_holds(_ledger_lines(args.ledger), now)
@@ -2092,6 +2949,56 @@ def main(argv: Sequence[str] | None = None, transport: Transport | None = None) 
         else:
             print(_status_table(states))
         return EXIT_PASS
+    if args.cmd == "verify":
+        clone_root: Path | None = args.clone_root
+
+        def resolver(repo: str, ref: str) -> str:
+            if clone_root is None:
+                raise RefUnresolvedError(
+                    "no clone root: pass --clone-root or set OMNI_HOME"
+                )
+            return resolve_ref_in_clone(clone_root / repo, ref)
+
+        try:
+            ledger_lines = _ledger_lines(args.ledger)
+        except OSError as exc:
+            # a ledger that cannot be read cannot show a peer's HOLD: refuse, and say so in the file
+            print(f"ledger error: {exc}", file=sys.stderr)
+            if args.result_out is not None:
+                refused = _VerifyFacts(
+                    args.repo, args.ref, args.holder, tuple(args.tests), args.suite
+                )
+                refused.started = _utc_text(now)
+                write_verify_result(
+                    args.result_out,
+                    verify_result(
+                        refused,
+                        "USAGE",
+                        EXIT_USAGE,
+                        refused.started,
+                        f"ledger error: {exc}",
+                    ),
+                )
+            return EXIT_USAGE
+        code, text = run_verify(
+            cfg,
+            tp,
+            repo=args.repo,
+            ref=args.ref,
+            holder=args.holder,
+            tests=args.tests,
+            suite=args.suite,
+            resolver=resolver,
+            ledger_lines=ledger_lines,
+            ttl_minutes=args.ttl_minutes,
+            suite_budget_s=args.suite_budget_s,
+            suite_workers=args.suite_workers,
+            result_out=args.result_out,
+            workdir=args.workdir,
+            handle_signals=True,
+        )
+        print(text)
+        return code
     if args.cmd == "release":
         ok, why = release_lease(cfg, tp, cfg.host(args.host), args.holder)
         print(why)

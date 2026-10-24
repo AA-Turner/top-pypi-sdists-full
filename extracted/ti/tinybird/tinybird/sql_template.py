@@ -1389,10 +1389,6 @@ _namespace = {
     "__doc__": {},
     "__name__": {},
     "__package__": {},
-    "open": None,
-    "close": None,
-    "print": None,
-    "input": None,
 }
 
 
@@ -1405,6 +1401,14 @@ for p in DEFAULT_PARAM_NAMES:  # we handle these in an specific manner
 # Allow 'id' as a template parameter name despite being a builtin - https://gitlab.com/tinybird/analytics/-/issues/19119
 reserved_vars.discard("id")
 error_vars = ["error", "custom_error"]
+
+
+_SQL_COMMENT_UNSAFE_CHARS = re.compile(r"[\x00-\x1f\x7f\u2028\u2029]")
+
+
+def _sql_comment_safe(value: Any) -> str:
+    """Make a value safe to put in a `--` SQL comment: a line break would end the comment."""
+    return _SQL_COMMENT_UNSAFE_CHARS.sub(" ", str(value))
 
 
 def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
@@ -1447,16 +1451,17 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
 
     def set_max_threads(x):
         try:
-            template_execution_results["max_threads"] = int(x)
-            return Expression(f"-- max_threads {x}\n")
+            max_threads = int(x)
         except Exception:
-            return Expression(f"-- max_threads: wrong argument {x}\n")
+            return Expression("-- max_threads: wrong argument\n")
+        template_execution_results["max_threads"] = max_threads
+        return Expression(f"-- max_threads {max_threads}\n")
 
     def set_backend_hint(hint):
         template_execution_results["backend_hint"] = str(hint)
         if hint is None or hint is False:
             template_execution_results["backend_hint"] = None
-        return Expression(f"-- backend_hint {hint}\n")
+        return Expression(f"-- backend_hint {_sql_comment_safe(hint)}\n")
 
     def set_cache_ttl(ttl_expression):
         valid_ttl_expressions = ("5s", "1m", "5m", "30m", "1h")

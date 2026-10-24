@@ -38,6 +38,7 @@ from .literals import (
     DataSourceStatusType,
     DataSourceType,
     DetectionRuleConfigurationStatusType,
+    DetectionRuleDataSourceType,
     DetectionRuleFilterConditionType,
     DetectionRuleSeverityType,
     DetectionSourceType,
@@ -228,9 +229,14 @@ __all__ = (
     "DescribePublishingDestinationResponseTypeDef",
     "DestinationPropertiesTypeDef",
     "DestinationTypeDef",
+    "DetectionRuleEc2RequirementsTypeDef",
+    "DetectionRuleEcsFargateRequirementsTypeDef",
+    "DetectionRuleEksRequirementsTypeDef",
     "DetectionRuleFilterTypeDef",
     "DetectionRuleOrgConfigurationSummaryTypeDef",
     "DetectionRuleOrgConfigurationTypeDef",
+    "DetectionRuleRuntimeMonitoringDetailsTypeDef",
+    "DetectionRuleRuntimePlatformsTypeDef",
     "DetectionTypeDef",
     "DetectorAdditionalConfigurationResultTypeDef",
     "DetectorAdditionalConfigurationTypeDef",
@@ -958,6 +964,7 @@ class CreateS3BucketResourceTypeDef(TypedDict):
 class DestinationPropertiesTypeDef(TypedDict):
     DestinationArn: NotRequired[str]
     KmsKeyArn: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class CreateSampleFindingsRequestTypeDef(TypedDict):
@@ -1117,6 +1124,18 @@ class DestinationTypeDef(TypedDict):
     DestinationId: str
     DestinationType: Literal["S3"]
     Status: PublishingStatusType
+
+
+class DetectionRuleEc2RequirementsTypeDef(TypedDict):
+    MinAgentVersion: NotRequired[str]
+
+
+class DetectionRuleEcsFargateRequirementsTypeDef(TypedDict):
+    MinAgentVersion: NotRequired[str]
+
+
+class DetectionRuleEksRequirementsTypeDef(TypedDict):
+    MinAgentVersion: NotRequired[str]
 
 
 class DetectionRuleFilterTypeDef(TypedDict):
@@ -1530,7 +1549,7 @@ class RuleSummaryTypeDef(TypedDict):
     Name: str
     Description: str
     Severity: DetectionRuleSeverityType
-    DataSource: Literal["CloudTrailManagementEvent"]
+    DataSource: DetectionRuleDataSourceType
     Tactic: str
     Technique: str
     Service: str
@@ -2349,6 +2368,12 @@ class ListPublishingDestinationsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DetectionRuleRuntimePlatformsTypeDef(TypedDict):
+    Eks: NotRequired[DetectionRuleEksRequirementsTypeDef]
+    Ec2: NotRequired[DetectionRuleEc2RequirementsTypeDef]
+    EcsFargate: NotRequired[DetectionRuleEcsFargateRequirementsTypeDef]
+
+
 class ListCustomDetectionRulesRequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[Sequence[DetectionRuleFilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2708,23 +2733,6 @@ class ScanConfigurationRecoveryPointTypeDef(TypedDict):
     ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
 
 
-class RuleDetailTypeDef(TypedDict):
-    RuleId: str
-    Arn: str
-    Name: str
-    Description: str
-    Severity: DetectionRuleSeverityType
-    DataSource: Literal["CloudTrailManagementEvent"]
-    Tactic: str
-    Technique: str
-    Service: str
-    Definition: RuleDefinitionTypeDef
-    CreatedAt: datetime
-    Language: NotRequired[Literal["SQL"]]
-    Schema: NotRequired[Literal["CloudTrail"]]
-    UpdatedAt: NotRequired[datetime]
-
-
 class SendObjectMalwareScanRequestTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectForSendObjectMalwareScanTypeDef]
 
@@ -2890,6 +2898,10 @@ class DataSourcesFreeTrialTypeDef(TypedDict):
     S3Logs: NotRequired[DataSourceFreeTrialTypeDef]
     Kubernetes: NotRequired[KubernetesDataSourceFreeTrialTypeDef]
     MalwareProtection: NotRequired[MalwareProtectionDataSourceFreeTrialTypeDef]
+
+
+class DetectionRuleRuntimeMonitoringDetailsTypeDef(TypedDict):
+    Platforms: NotRequired[DetectionRuleRuntimePlatformsTypeDef]
 
 
 class ScannedResourceTypeDef(TypedDict):
@@ -3150,11 +3162,6 @@ class ScanConfigurationTypeDef(TypedDict):
     RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
 
 
-class GetCustomDetectionRuleResponseTypeDef(TypedDict):
-    Rule: RuleDetailTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ScanResourceCriteriaOutputTypeDef(TypedDict):
     Include: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
     Exclude: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
@@ -3313,6 +3320,24 @@ class AccountFreeTrialInfoTypeDef(TypedDict):
     AccountId: NotRequired[str]
     DataSources: NotRequired[DataSourcesFreeTrialTypeDef]
     Features: NotRequired[list[FreeTrialFeatureConfigurationResultTypeDef]]
+
+
+class RuleDetailTypeDef(TypedDict):
+    RuleId: str
+    Arn: str
+    Name: str
+    Description: str
+    Severity: DetectionRuleSeverityType
+    DataSource: DetectionRuleDataSourceType
+    Tactic: str
+    Technique: str
+    Service: str
+    Definition: RuleDefinitionTypeDef
+    CreatedAt: datetime
+    Language: NotRequired[Literal["SQL"]]
+    Schema: NotRequired[Literal["CloudTrail"]]
+    RuntimeMonitoringDetails: NotRequired[DetectionRuleRuntimeMonitoringDetailsTypeDef]
+    UpdatedAt: NotRequired[datetime]
 
 
 class DataSourceConfigurationsResultTypeDef(TypedDict):
@@ -3522,6 +3547,11 @@ class GetRemainingFreeTrialDaysResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetCustomDetectionRuleResponseTypeDef(TypedDict):
+    Rule: RuleDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetDetectorResponseTypeDef(TypedDict):
     CreatedAt: str
     FindingPublishingFrequency: FindingPublishingFrequencyType
@@ -3689,6 +3719,7 @@ FindingTypeDef = TypedDict(
         "Service": NotRequired[ServiceTypeDef],
         "Title": NotRequired[str],
         "AssociatedAttackSequenceArn": NotRequired[str],
+        "CustomDetectionRuleName": NotRequired[str],
     },
 )
 

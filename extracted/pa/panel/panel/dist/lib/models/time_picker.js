@@ -1,6 +1,5 @@
 import { TimePicker as BkTimePicker, TimePickerView as BkTimePickerView } from "@bokehjs/models/widgets/time_picker";
 export class TimePickerView extends BkTimePickerView {
-    static __name__ = "TimePickerView";
     _offset_time(value) {
         const baseDate = new Date(value);
         const timeZoneOffset = baseDate.getTimezoneOffset() * 60 * 1000;
@@ -34,7 +33,6 @@ export class TimePickerView extends BkTimePickerView {
     }
 }
 export class TimePicker extends BkTimePicker {
-    static __name__ = "TimePicker";
     constructor(attrs) {
         super(attrs);
     }

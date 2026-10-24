@@ -209,11 +209,9 @@ fn make_payload(size: usize, seed: u8) -> Bytes {
 /// Tests round-trip data integrity across the full range of valid message sizes
 /// for a single WebRTCDataChannel::send() call.
 ///
-/// The ceiling here is OUR_MAX_MESSAGE_SIZE (65_536 bytes, exclusive). Messages
-/// larger than that go through the fragmentation layer in send_with_event_backpressure()
-/// in connections.rs, which splits them into ≤16 KB chunks before reaching send().
-/// Testing those sizes here (directly against send()) would bypass fragmentation
-/// and hit raw SCTP, which rejects them.
+/// Raw messages preserve their boundaries up to the 65,535-byte native receive
+/// limit. Complete tube data frames use independently framed payload chunks;
+/// their stream behavior is covered by the backpressure regression suite.
 ///
 /// Buckets covered:
 ///   1 B       — minimum, single byte
@@ -252,10 +250,8 @@ async fn test_data_integrity_all_size_buckets() {
 
 /// All powers of two up to 32 KB — tests every doubling within send() range.
 ///
-/// Stops at 32_768: the next power of two (65_536) equals OUR_MAX_MESSAGE_SIZE
-/// exactly and is silently dropped by the SCTP layer (no error, just no delivery).
-/// The 65_535 ceiling is already covered by test_data_integrity_all_size_buckets
-/// and test_data_integrity_boundary_sizes.
+/// Stops at 32,768: 65,536 exceeds the native receive limit and is rejected.
+/// The exact 65,535-byte boundary is covered by the size-bucket tests.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_data_integrity_powers_of_two() {
     let (sender, receiver) = make_loopback_channel_pair("pow2").await;

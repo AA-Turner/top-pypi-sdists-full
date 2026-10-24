@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seeq-spy"
-version = "202.19"
+version = "202.20"
 description = "Easy-to-use Python interface for Seeq"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -27,6 +27,9 @@ dependencies = [
     "urllib3 >= 1.21.1",
 ]
 [project.optional-dependencies]
+keychain = [
+    "keyring >= 23.0.0",
+]
 widgets = [
     "ipython >= 7.6.1",
     "ipywidgets >= 7.6.0",
@@ -77,6 +80,7 @@ all = [
     "Mako >= 1.1.0",
     "seeq-data-lab-env-mgr >= 0.1.0",
     "jupyter_client >= 7.2.0",
+    "keyring >= 23.0.0",
 ]
 [project.urls]
 Homepage = "https://www.seeq.com"

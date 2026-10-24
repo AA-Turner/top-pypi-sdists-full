@@ -4,7 +4,7 @@ Utility Functions
 
 import typing as t
 from collections import defaultdict
-from inspect import isclass
+from inspect import isclass, signature
 from itertools import chain
 
 import sqlalchemy as sa
@@ -14,13 +14,19 @@ from sqlalchemy.orm.attributes import QueryableAttribute, get_history
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql import ClauseElement
 from sqlalchemy.sql.visitors import ReplacingCloningVisitor
-from sqlalchemy_utils.functions import get_primary_keys, identity, naturally_equivalent
 
+from sqlalchemy_history._compat.sqlalchemy_utils import get_primary_keys, identity, naturally_equivalent
 from sqlalchemy_history.exc import ClassNotVersioned, TableNotVersioned
 
 
 if t.TYPE_CHECKING:
     from sqlalchemy_history.manager import VersioningManager
+
+
+def ordered_sequence(name):
+    """Preserve Oracle sequence ordering without SQLAlchemy 2.1 deprecations."""
+    order_key = "oracle_order" if "dialect_kw" in signature(sa.Sequence).parameters else "order"
+    return sa.Sequence(name, start=1, **{order_key: True})
 
 
 def get_versioning_manager(item) -> "VersioningManager":
@@ -140,7 +146,7 @@ def version_class(model):
     return manager.version_class_map.get(model, None)
 
 
-def version_table(table: sa.Table) -> t.Optional[sa.Table]:
+def version_table(table: sa.Table) -> sa.Table | None:
     """
     Return associated version table for given SQLAlchemy Table object.
 
@@ -384,14 +390,14 @@ def changeset(obj) -> dict[str, list[t.Any]]:
 
 
 class VersioningClauseAdapter(ReplacingCloningVisitor):
-    def replace(self, col: sa.Column) -> t.Optional[sa.Column]:
+    def replace(self, col: sa.Column) -> sa.Column | None:
         if isinstance(col, sa.Column):
             table = version_table(col.table)
             return table.c.get(col.key)
         return None
 
 
-def adapt_columns(expr: ClauseElement) -> t.Optional[ClauseElement]:
+def adapt_columns(expr: ClauseElement) -> ClauseElement | None:
     return VersioningClauseAdapter().traverse(expr)
 
 

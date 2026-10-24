@@ -57,6 +57,7 @@ __all__ = (
     "GuardrailContentFiltersTierNameType",
     "GuardrailContextualGroundingActionType",
     "GuardrailContextualGroundingFilterTypeType",
+    "GuardrailContextualGroundingTierNameType",
     "GuardrailFilterStrengthType",
     "GuardrailManagedWordsTypeType",
     "GuardrailModalityType",
@@ -204,6 +205,7 @@ GuardrailContentFilterTypeType = Literal[
 GuardrailContentFiltersTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailContextualGroundingActionType = Literal["BLOCK", "NONE"]
 GuardrailContextualGroundingFilterTypeType = Literal["GROUNDING", "RELEVANCE"]
+GuardrailContextualGroundingTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 GuardrailManagedWordsTypeType = Literal["PROFANITY"]
 GuardrailModalityType = Literal["IMAGE", "TEXT"]
@@ -472,13 +474,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -546,6 +547,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -680,6 +682,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -730,7 +733,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

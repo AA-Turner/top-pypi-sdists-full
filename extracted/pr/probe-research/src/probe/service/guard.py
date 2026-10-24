@@ -120,18 +120,14 @@ def read() -> dict | None:
 
 
 def _lock_free() -> bool:
-    import fcntl
-
     try:
         fd = os.open(paths.lock_path(), os.O_RDWR | os.O_CREAT, 0o600)
     except OSError:
         return False
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        return False
-    else:
-        fcntl.flock(fd, fcntl.LOCK_UN)
+        if not paths.try_lock(fd):
+            return False
+        paths.unlock(fd)
         return True
     finally:
         os.close(fd)
@@ -195,6 +191,11 @@ def _wait(predicate, seconds: float):
 
 def check(to_version: str, *, watch_s: float, old_pid: int | None = None, old_start: str | None = None) -> str | None:
     """None when `to_version` started and kept answering; else why not."""
+    if client.no_new_privs():
+        # From here `ensure` starts no service (it would have no_new_privs and
+        # serve no one): there is nothing to watch, and that says nothing
+        # against the new version, which the next start outside runs.
+        return None
     if not _wait(_gone(old_pid, old_start), GONE_S):
         return "the previous service did not exit"
 
@@ -278,7 +279,7 @@ def _stop_new(old_python: str) -> None:
     if found is not None and holder() == found:
         log(f"the new service (pid {pid}) did not stop: killing it")
         with contextlib.suppress(ProcessLookupError, PermissionError):
-            os.kill(pid, signal.SIGKILL)
+            os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))  # Windows: TerminateProcess either way
         _wait(_lock_free, 5.0)
 
 

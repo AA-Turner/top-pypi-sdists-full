@@ -10,6 +10,7 @@
 // - log() overhead: ~100-200ns (string formatting + channel send)
 // - vs pyo3-log: ~50-100μs (500-1000× improvement due to no GIL contention)
 
+use guacr_handlers::operational_diagnostics::{project_record, TARGET};
 use log::{LevelFilter, Metadata, Record};
 use std::sync::atomic::{AtomicU8, Ordering};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -62,6 +63,14 @@ impl ChannelLogger {
             level_filter: AtomicU8::new(level_filter as u8),
         }
     }
+
+    pub(crate) fn level_enabled(&self, level: log::Level) -> bool {
+        level as u8 <= self.level_filter.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn send(&self, record: LogRecord) {
+        let _ = self.sender.send(record);
+    }
 }
 
 impl log::Log for ChannelLogger {
@@ -69,21 +78,7 @@ impl log::Log for ChannelLogger {
     ///
     /// Performance: ~1-2ns (single atomic load with Relaxed ordering)
     fn enabled(&self, metadata: &Metadata) -> bool {
-        let filter_value = self.level_filter.load(Ordering::Relaxed);
-
-        // Convert u8 back to LevelFilter
-        // Values: Off=0, Error=1, Warn=2, Info=3, Debug=4, Trace=5
-        let filter = match filter_value {
-            0 => LevelFilter::Off,
-            1 => LevelFilter::Error,
-            2 => LevelFilter::Warn,
-            3 => LevelFilter::Info,
-            4 => LevelFilter::Debug,
-            5 => LevelFilter::Trace,
-            _ => LevelFilter::Off, // Fallback for invalid values
-        };
-
-        metadata.level() <= filter
+        self.level_enabled(metadata.level())
     }
 
     /// Log a record by sending it to the channel
@@ -100,19 +95,35 @@ impl log::Log for ChannelLogger {
             return;
         }
 
-        // Create owned log record (no Python objects!)
+        // Project before formatting or capturing any driver arguments.
+        let projected = project_record(record);
+        let is_projected = projected.is_some();
+        let (target, message) = match projected {
+            Some(message) => (TARGET, message),
+            None => (record.target(), format!("{}", record.args())),
+        };
         let log_record = LogRecord {
             level: record.level(),
-            target: record.target().to_string(),
-            message: format!("{}", record.args()),
-            module_path: record.module_path().map(String::from),
-            file: record.file().map(String::from),
+            target: target.to_string(),
+            message,
+            module_path: if is_projected {
+                record.module_path_static()
+            } else {
+                record.module_path()
+            }
+            .map(String::from),
+            file: if is_projected {
+                record.file_static()
+            } else {
+                record.file()
+            }
+            .map(String::from),
             line: record.line(),
         };
 
         // Send to channel (non-blocking, no GIL!)
         // If channel is closed (shutdown), silently drop the log
-        let _ = self.sender.send(log_record);
+        self.send(log_record);
     }
 
     /// Flush is a no-op for channel-based logger

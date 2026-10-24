@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.snapshot_import_source import SnapshotImportSource
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,8 +29,9 @@ class CreateSnapshotRequest(BaseModel):
     CreateSnapshotRequest
     """ # noqa: E501
     copy_s3_objects: Optional[StrictBool] = Field(default=False, description="If true, S3 objects are copied to the snapshot prefix (slower, uses more storage). Required for restoring after namespace deletion.")
-    include_vectors: Optional[StrictBool] = Field(default=True, description="If false, creates a METADATA-ONLY snapshot (no vector export). Advanced — on restore the vectors are stitched from the shard representative's export (see). Daily sweeps use this to coalesce the full-dataset vector export to one per physical shard.")
-    __properties: ClassVar[List[str]] = ["copy_s3_objects", "include_vectors"]
+    include_vectors: Optional[StrictBool] = Field(default=True, description="If false, creates a metadata-only snapshot: the namespace's records without its vector points. Restoring it writes no vectors, so it is not a backup of the namespace's data.")
+    import_from: Optional[SnapshotImportSource] = Field(default=None, description="Import a snapshot taken on another plane instead of taking one: its artifacts are copied from this bucket and prefix into this namespace's snapshots, every artifact is checked against the sha256 its manifest records, and the snapshot is completed only if verify finds it restorable. copy_s3_objects and include_vectors do not apply.")
+    __properties: ClassVar[List[str]] = ["copy_s3_objects", "include_vectors", "import_from"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -70,6 +72,9 @@ class CreateSnapshotRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of import_from
+        if self.import_from:
+            _dict['import_from'] = self.import_from.to_dict()
         return _dict
 
     @classmethod
@@ -83,7 +88,8 @@ class CreateSnapshotRequest(BaseModel):
 
         _obj = cls.model_validate({
             "copy_s3_objects": obj.get("copy_s3_objects") if obj.get("copy_s3_objects") is not None else False,
-            "include_vectors": obj.get("include_vectors") if obj.get("include_vectors") is not None else True
+            "include_vectors": obj.get("include_vectors") if obj.get("include_vectors") is not None else True,
+            "import_from": SnapshotImportSource.from_dict(obj["import_from"]) if obj.get("import_from") is not None else None
         })
         return _obj
 

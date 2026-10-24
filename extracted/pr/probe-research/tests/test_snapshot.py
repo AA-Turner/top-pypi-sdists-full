@@ -662,6 +662,11 @@ def test_budget_holds_for_a_small_file_too(client, app, tmp_path, monkeypatch, b
 #: read the whole line around it. Before: 24 s, over 150 s, 27 s and over
 #: 150 s here (the reviewer measured 37 s and 550 s); now 0.2-1.4 s. The
 #: ceiling leaves room for a slow CI machine; the verdict is checked too.
+#: Timed in this thread's CPU seconds, not wall time: a scan is CPU-bound on
+#: the calling thread, and wall time also counts every other runnable thread
+#: in the worker (they share the GIL) and every other process on a 2-vCPU
+#: runner. agent-ci read 20 s and 24 s for a scan that takes ~3 s there; three
+#: spinning threads here make 1.4 s read 6.7 s of wall time and 1.6 s of CPU.
 LONG_LINES = {
     "camel-comma-2mb": ("x.json", "dbPassword=a8Kd93jLm2Qx,", 2_000_000, ()),
     "vendor-key-1mb": ("x.yaml", "azure_openai_key=abcdef0123456789ABCDEFgh ", 1_000_000, ("anchored-secret",)),
@@ -674,11 +679,11 @@ LONG_LINES = {
 def test_one_long_line_is_scanned_in_linear_time(case):
     name, unit, size, expected = LONG_LINES[case]
     raw = (unit * (size // len(unit) + 1))[:size].encode()
-    started = time.perf_counter()
+    started = time.thread_time()
     rules = _snap_mod.credential_rules(raw, name)
-    elapsed = time.perf_counter() - started
+    elapsed = time.thread_time() - started
     assert rules == expected
-    assert elapsed < 10.0, f"{case}: {elapsed:.1f}s"
+    assert elapsed < 10.0, f"{case}: {elapsed:.1f}s of CPU"
 
 
 def test_budget_env_zero_means_no_limit(monkeypatch):

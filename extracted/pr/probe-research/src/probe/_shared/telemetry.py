@@ -170,10 +170,18 @@ EVENT_OUTBOX_DRAINED = "outbox.drained"
 #: will not fork a worker while either persists. The next `probe` command is the
 #: only process that ever sees a queue that has been wedged since yesterday.
 EVENT_OUTBOX_STUCK = "outbox.stuck"
+#: Writes stranded under a dead credential of the logged-in account were handed
+#: to the login and sent (`journal.rescue_stranded`): what an `outbox.stuck`
+#: with `auth_blocked` turns into on its own, without the user doing anything.
+EVENT_OUTBOX_RESCUED = "outbox.rescued"
 #: A TRAINING process's delivery counts (plan 1.12): every 15 min while it
 #: writes and at each run's close. Deltas since its last report, counts only --
 #: never a key, body, name or path -- so we see loss before a customer does.
 EVENT_DELIVERY_SUMMARY = "sdk.delivery.summary"
+#: An automatic diagnostic report the API refused with every credential on the
+#: machine (`probe.core.report`): the one way such a machine still reaches us.
+#: A PostHog destination posts it to #eng-alerts. Slugs only, never a report.
+EVENT_REPORT_UNDELIVERABLE = "service.report_undeliverable"
 #: The daemon hit an error an engineer should look at (`probe.daemon.alerts`).
 #: A PostHog destination posts it to #eng-alerts.
 EVENT_DAEMON_ERROR = "daemon.error"
@@ -195,6 +203,8 @@ class Via(StrEnum):
     IMPORT_JOB = "import_job"
     #: The daemon's worker (`probe.daemon.alerts`).
     DAEMON = "daemon"
+    #: The Probe service's automatic diagnostic reports (`probe.core.report`).
+    SERVICE = "service"
     NONE = "none"  # null_context — never reaches the wire
 
 
@@ -361,7 +371,18 @@ def _post_batch(entries: list[dict]) -> None:
 
     The envelope lives in the core so both surfaces send one; the trust is
     the SDK's, so telemetry and SDK writes can never disagree about whether
-    a proxy's certificate is good (plan item (l))."""
+    a proxy's certificate is good (plan item (l)).
+
+    A running Probe service takes the batch instead when it can (plan Q5,
+    `service_handoff.telemetry`: no proxy or certificate settings here, which
+    its sender would not have), so an exiting training process does not wait
+    on PostHog; it answers within a quarter second or this POSTs it. Each
+    entry carries a `uuid` first, so a batch that both send counts once."""
+    from probe.sdk import service_handoff
+
+    service_handoff.stamp(entries)
+    if service_handoff.telemetry(entries):
+        return
     core.post_batch(entries, context=ssl_context())
 
 
@@ -767,6 +788,10 @@ _STUCK_STAMP = "telemetry-stuck.stamp"
 #: out thousands of times to at most four reports a day while still bounding how
 #: long a newly-wedged queue stays invisible.
 STUCK_REPORT_INTERVAL_S = 6 * 3600.0
+#: Held writes (set aside for a credential nothing on the machine can send)
+#: whose oldest is this old make a queue stuck: a held write is not retried
+#: until that credential is back, which for a revoked one is never.
+STUCK_HELD_S = 3600.0
 
 
 def outbox_context(base_url: str | None) -> TelemetryContext:
@@ -822,6 +847,21 @@ def _age_hours(stamp: str | None) -> float | None:
     return round(max(delta, 0.0) / 3600.0, 2)
 
 
+def emit_report_undeliverable(*, family: str, reason: str, base_url: str | None) -> bool:
+    """`service.report_undeliverable`: the report (`family`, `reason`, both
+    slugs) could not go because the API refused every credential here, or none
+    is held. Gated like every client event (opt-out, hosted backend only). True
+    when it was handed to the sender. Never raises."""
+    try:
+        ctx = detached_context(base_url, via=Via.SERVICE)
+        if not ctx.enabled:
+            return False
+        ctx.emit(EVENT_REPORT_UNDELIVERABLE, family=str(family)[:64], reason=str(reason)[:64])
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
 def emit_outbox_drained(
     *,
     base_url: str | None,
@@ -842,6 +882,31 @@ def emit_outbox_drained(
             remaining=remaining,
             passes=passes,
             duration_s=round(duration_s, 2),
+        )
+    except Exception:
+        pass  # observability must never become observable
+
+
+def emit_outbox_rescued(
+    *,
+    base_url: str | None,
+    credentials: int,
+    writes: int,
+    delivered: int,
+    dead_lettered: int,
+    remaining: int,
+) -> None:
+    """Report one automatic rescue: how many credentials were adopted, how
+    many of their writes, and what its pass did with them; counts only.
+    Never raises."""
+    try:
+        outbox_context(base_url).emit(
+            EVENT_OUTBOX_RESCUED,
+            credentials=credentials,
+            writes=writes,
+            delivered=delivered,
+            dead_lettered=dead_lettered,
+            remaining=remaining,
         )
     except Exception:
         pass  # observability must never become observable
@@ -975,14 +1040,21 @@ def stuck_status(status: dict) -> bool:
     month. That is a false positive with an unbounded tail, on the event whose
     whole job is to mean "someone must act".
 
-    Stuck is: blocked on credentials, or holding work it has stopped draining.
-    The dead-letter count still RIDES the event as a property.
+    Stuck is: blocked on credentials, holding work it has stopped draining, or
+    one queue holding writes for a credential nothing here can send, that
+    queue's oldest write STUCK_HELD_S old (`blocked_oldest_pending`, which
+    `Journal.read_status` judges per queue and which leaves out a run close
+    waiting on its data). The dead-letter count still RIDES the event as a
+    property.
     """
     from probe.sdk.journal import auth_blocked_since
 
     if auth_blocked_since(status):
         return True
-    return bool(status.get("pending")) and bool(status.get("paused"))
+    if bool(status.get("pending")) and bool(status.get("paused")):
+        return True
+    blocked_hours = _age_hours(status.get("blocked_oldest_pending"))
+    return blocked_hours is not None and blocked_hours * 3600 >= STUCK_HELD_S
 
 
 def emit_outbox_stuck(status: dict, *, spool_dir: str | None, base_url: str | None) -> bool:
@@ -1022,6 +1094,8 @@ def emit_outbox_stuck(status: dict, *, spool_dir: str | None, base_url: str | No
             auth_blocked_age_hours=_age_hours(blocked_since),
             oldest_pending_age_hours=_age_hours(status.get("oldest_pending")),
             last_error_kind=_error_kind(status.get("last_error")),
+            held=int(status.get("held") or 0),
+            refused_credentials=len(status.get("refused_fingerprints") or {}),
         )
         return True
     except Exception:

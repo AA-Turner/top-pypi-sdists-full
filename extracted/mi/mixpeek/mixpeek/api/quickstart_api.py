@@ -17,6 +17,8 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field
+from typing_extensions import Annotated
 from mixpeek.models.docs_search_request import DocsSearchRequest
 from mixpeek.models.docs_search_response import DocsSearchResponse
 
@@ -41,7 +43,7 @@ class QuickstartApi:
     @validate_call
     def provision_docs_search_quickstart(
         self,
-        docs_search_request: DocsSearchRequest,
+        docs_search_request: Annotated[DocsSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -59,7 +61,7 @@ class QuickstartApi:
 
         One-call provisioning of a complete documentation search pipeline. Creates a namespace, bucket, web crawl collection, retriever with semantic + code search, publishes it, and generates a scoped API key. Returns everything needed to embed the search widget.
 
-        :param docs_search_request: (required)
+        :param docs_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type docs_search_request: DocsSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -97,8 +99,10 @@ class QuickstartApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -114,7 +118,7 @@ class QuickstartApi:
     @validate_call
     def provision_docs_search_quickstart_with_http_info(
         self,
-        docs_search_request: DocsSearchRequest,
+        docs_search_request: Annotated[DocsSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -132,7 +136,7 @@ class QuickstartApi:
 
         One-call provisioning of a complete documentation search pipeline. Creates a namespace, bucket, web crawl collection, retriever with semantic + code search, publishes it, and generates a scoped API key. Returns everything needed to embed the search widget.
 
-        :param docs_search_request: (required)
+        :param docs_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type docs_search_request: DocsSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -170,8 +174,10 @@ class QuickstartApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -187,7 +193,7 @@ class QuickstartApi:
     @validate_call
     def provision_docs_search_quickstart_without_preload_content(
         self,
-        docs_search_request: DocsSearchRequest,
+        docs_search_request: Annotated[DocsSearchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -205,7 +211,7 @@ class QuickstartApi:
 
         One-call provisioning of a complete documentation search pipeline. Creates a namespace, bucket, web crawl collection, retriever with semantic + code search, publishes it, and generates a scoped API key. Returns everything needed to embed the search widget.
 
-        :param docs_search_request: (required)
+        :param docs_search_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type docs_search_request: DocsSearchRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -243,8 +249,10 @@ class QuickstartApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -75,10 +75,15 @@ def test_orphan_call_survives_with_a_synthesized_error_result() -> None:
     assert synthesized.tool_use_id == "toolu_w49"
     assert synthesized.is_error is True
     assert synthesized.metadata.get("reason") == "orphan_tool_use"
-    # The sentence must NAME the tool and say plainly that nothing happened.
+    # The sentence must NAME the tool, never claim the action did nothing (a
+    # server-run tool may have written before a restart cut it off — 577db529…,
+    # 2026-10-24), and tell the model to check before it retries.
     text = str(synthesized.content)
     assert "apply_surface_write" in text
-    assert "Nothing was written" in text
+    assert "Nothing was written" not in text
+    assert "nothing was changed" not in text.lower()
+    assert "NOT known whether the action ran" in text
+    assert "check whether its effect is already there" in text
 
 
 def test_the_synthesized_result_is_adjacent_to_its_call() -> None:

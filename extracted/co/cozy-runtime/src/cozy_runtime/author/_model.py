@@ -20,12 +20,16 @@ import functools
 import inspect
 import json
 import logging
+import sys
 import threading
+import time
 import weakref
 from collections import deque
 from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, ExitStack, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from fnmatch import fnmatchcase
+from types import MappingProxyType
 from typing import (
     Any,
     Concatenate,
@@ -160,6 +164,36 @@ def attention_bits(owner: str, value: object) -> int | dict[str, int]:
     )
 
 
+def coverage_patterns(owner: str, keyword: str, value: object) -> tuple[str, ...]:
+    """`unloaded=` / `derived=`: component-qualified key patterns (`fnmatch`) a load does not
+    warn about: stored tensors the model deliberately leaves unloaded (a text encoder's LM
+    head), persistent buffers it deliberately derives instead of reading from the checkpoint."""
+    if isinstance(value, (tuple, list)) and value and all(type(p) is str and p for p in value):
+        return tuple(value)
+    raise ConformanceError(
+        f"class {owner}({keyword}={value!r}): a tuple of component-qualified key patterns "
+        '(`"text_encoder.lm_head.weight"`, `"model.mtp.*"`)',
+        code=f"{keyword}_value",
+    )
+
+
+def uncovered(
+    cls: type, ignored: Sequence[str], unstored: Sequence[str]
+) -> tuple[list[str], list[str]]:
+    """What a load of `cls` warns about: the stored tensors it did not load and the persistent
+    buffers no checkpoint supplied (`component/key`), less what the class declares."""
+
+    def declared(names: Sequence[str], patterns: Sequence[str]) -> list[str]:
+        return [
+            n for n in names if not any(fnmatchcase(n.replace("/", ".", 1), p) for p in patterns)
+        ]
+
+    return (
+        declared(ignored, getattr(cls, "__unloaded__", ())),
+        declared(unstored, getattr(cls, "__derived__", ())),
+    )
+
+
 #: Keyword names an author-facing model method may not declare. Every one of them names a
 #: residency, placement or conversion decision the runtime owns (§1.1/§7).
 EXCLUDED_KEYWORDS: Mapping[str, str] = {
@@ -260,34 +294,55 @@ class Residency(Protocol):
 
     Declared here because the contract has one home; implemented nowhere in this package,
     because it needs a device and this package is torch-free by construction. cozy-runtime
-    supplies the body on varena's memory (`internal/weights.py`).
+    supplies the body on varena's memory (`internal/weights.py`'s `Placement`).
     """
-
-    def pin(self, component: str, owner: str, shed: Callable[[], int]) -> object | None:
-        """Every weight of `component` bound at its home address for `owner` (a CUDA graph
-        reads them there) until memory asks for room, when `shed` drops what read them; they
-        stay bound while the returned token lives. None when part of it streams."""
-        ...
-
-    def cache(self, owner: str, shed: Callable[[int], int]) -> Any:
-        """Device bytes `owner` keeps for speed (KV slots), counted and shed on ask: `resize`,
-        `close` and `nbytes`; None off a GPU."""
-        ...
-
-    def unpin(self, component: str, owner: str, token: object) -> None:
-        """Remove the owner's matching pin; weights stay bound while any token reference lives."""
-        ...
-
-    def hold(self, components: Collection[str]) -> Callable[[], None]:
-        """The named components with no blocks bound until the returned call (a scope's use)."""
-        ...
 
     def note(self, key: str, value: str) -> None:
         """A fact about how this attempt executed, reported with its memory facts."""
         ...
 
-    def plan(self, request_id: str, steps: Sequence[str | Collection[str]]) -> None:
-        """The attempt's declared steps by component name (`Context.plan`)."""
+    def retain(self, component: str, paths: tuple[str, ...]) -> Any:
+        """Retain a region's virtual addresses; prepare() leases backing only during use."""
+        ...
+
+    def graph_accounted(self) -> bool:
+        """Whether per-process driver/context bytes can be included in graph admission."""
+        ...
+
+    def graph_domain(self, component: str) -> Any:
+        """Shared capture stream and library workspace, serialized across component graphs."""
+        ...
+
+    def region(self, owner: str, kind: str, sets: Any) -> Any:
+        """A long-lived intermediate's region (KV, latents, derived weights) serving `sets`."""
+        ...
+
+    def graph_pool(self, component: str) -> Any:
+        """`component`'s graph region of the device's one capture pool."""
+        ...
+
+    def graph_segments(self, component: str) -> tuple[str, ...]:
+        """Declared model-block paths that bound graph regions independently of residency."""
+        ...
+
+    def graph_pass(self, component: str, entry: str) -> Any:
+        """Open the ordinary model pass before capture; nested regions share it."""
+        ...
+
+    def graph_idle(self) -> Any:
+        """An idle capture's memory request: free bytes only, never an eviction."""
+        ...
+
+    def graph_held(self, component: str) -> Any:
+        """The stream `component`'s blocks were held bound on for its plan step, or None."""
+        ...
+
+    def using(self, method: str, components: tuple[str, ...]) -> AbstractContextManager[None]:
+        """A local scope of `components` (`method`'s call): their memory passes and holds."""
+        ...
+
+    def graph_resident(self, binding: Any) -> bool:
+        """Every page a retained region covers is on the device now."""
         ...
 
     #: How many attempts (requests) it has opened.
@@ -416,6 +471,30 @@ class _Scopes:
 
 
 SCOPES = _Scopes()
+
+
+def graph_keys(**components: tuple[str, ...]) -> Callable[[type[ModelT]], type[ModelT]]:
+    """Declare, per component, the attributes of its root module whose values steer its forward
+    (`unet=("hidiffusion_active",)`; a dotted path reaches a submodule's): Runtime keys the
+    component's CUDA graphs by their values at each call. An attribute that changes between
+    calls and is not declared is reported (`task conform` fails on it)."""
+    for name, paths in components.items():
+        if not isinstance(paths, tuple) or not all(
+            isinstance(p, str) and all(part.isidentifier() for part in p.split(".")) for p in paths
+        ):
+            raise ConformanceError(
+                f"@graph_keys({name}=...): a tuple of attribute paths (`a` or `a.b`)",
+                code="graph_keys",
+                fields=[name],
+            )
+
+    def decorate(cls: type[ModelT]) -> type[ModelT]:
+        if not (inspect.isclass(cls) and issubclass(cls, Model)):
+            raise ConformanceError("@graph_keys decorates a Model class", code="graph_keys")
+        cls.__graph_keys__ = dict(components)
+        return cls
+
+    return decorate
 
 
 def uncaptured(*names: str) -> Callable[[type[ModelT]], type[ModelT]]:
@@ -693,6 +772,8 @@ class Model[PipelineT]:
     """`@placeable(...)`: components the runtime may host on another GPU of the group."""
     __uncaptured__: tuple[str, ...] = ()
     """`@uncaptured(...)`: components whose calls are never recorded as CUDA graphs."""
+    __graph_keys__: Mapping[str, tuple[str, ...]] = MappingProxyType({})
+    """`@graph_keys(...)`: per component, the root attributes that key its CUDA graphs."""
 
     __encoded_leaves__: str = "refuse"
     """The class's `encoded_leaves=` declaration, defaulted to the conservative answer.
@@ -708,6 +789,10 @@ class Model[PipelineT]:
     """`phase=`: "decode" for an LM's token loop, else "compute" (`PHASES`)."""
     __attention_bits__: int | dict[str, int] = 16
     """`attention_bits=`: the attention precision its sites tolerate (`attention_bits`)."""
+    __unloaded__: tuple[str, ...] = ()
+    """`unloaded=`: stored tensors a load leaves unloaded on purpose (`coverage_patterns`)."""
+    __derived__: tuple[str, ...] = ()
+    """`derived=`: persistent buffers a load keeps constructed on purpose (`coverage_patterns`)."""
 
     __adapter_compatibility__: tuple[AdapterCompatibility, ...] = ()
     """Closed generic adapter declarations; empty means overlays are refused."""
@@ -761,11 +846,16 @@ class Model[PipelineT]:
                 setattr(cls, attribute, value)
         if "attention_bits" in keywords:
             cls.__attention_bits__ = attention_bits(cls.__name__, keywords.pop("attention_bits"))
+        for keyword in ("unloaded", "derived"):
+            if keyword in keywords:
+                value = coverage_patterns(cls.__name__, keyword, keywords.pop(keyword))
+                setattr(cls, f"__{keyword}__", value)
         if keywords:
             names = ", ".join(f"{key}=…" for key in keywords)
             raise ConformanceError(
                 f"class {cls.__name__}({names}): a Model class carries encoded_leaves, "
-                "min_bits, phase and attention_bits — fusion=, stamps, task=, objective= and "
+                "min_bits, phase, attention_bits, unloaded and derived — fusion=, stamps, task=, "
+                "objective= and "
                 "structure= are deleted (model-code-fit D1); a semantic twin is a component "
                 "name or a config fact",
                 code="class_keyword",
@@ -971,15 +1061,15 @@ def _declared_state(cls: type) -> tuple[str, ...]:
 @final
 class _ComponentScope:
     """A method's declared components, nested or on any of the call's threads (cr-202), each
-    marking its own context (`Model._cozy_active`). Varena sees each forward itself; a declared
-    component with no blocks is also held bound for the scope (`Residency.hold`), since another
-    component's forward may read it by its tensors. Calls still take scopes one at a time
-    (`SCOPES`): the sites they read change between turns (cr-202 U4 lifts it).
+    marking its own context (`Model._cozy_active`). Varena sees each forward itself, and the
+    scope's components are held bound for its plan step (`Residency.using`, which covers a
+    component with no blocks that another's forward reads, cr-207). Calls still take scopes one
+    at a time (`SCOPES`): the sites they read change between turns (cr-202 U4 lifts it).
 
     A REMOTE scope, whose every declared component the runtime keeps on another GPU of the
     group (`Placement.remote`), uses nothing on this device."""
 
-    __slots__ = ("_call", "_components", "_local", "_method", "_model", "_release", "_remote")
+    __slots__ = ("_call", "_components", "_local", "_method", "_model", "_remote", "_using")
 
     def __init__(self, model: Model[Any], method: str, components: tuple[str, ...]) -> None:
         self._model = model
@@ -988,7 +1078,7 @@ class _ComponentScope:
         self._remote: contextvars.Token[Any] | None = None
         self._local: contextvars.Token[Any] | None = None
         self._call: Context | None = None
-        self._release: Callable[[], None] | None = None
+        self._using: AbstractContextManager[None] | None = None
 
     def __enter__(self) -> None:
         model = self._model
@@ -1017,9 +1107,6 @@ class _ComponentScope:
             if model._cozy_harness is not None:
                 model._cozy_harness.calls.append(ScopeCall(self._method, self._components))
             return
-        residency = model._cozy_residency
-        if residency is not None:
-            self._release = residency.hold(self._components)
         self._call = CURRENT.get()
         if self._call is not None:
             SCOPES.enter(self._call)
@@ -1033,6 +1120,11 @@ class _ComponentScope:
         self._local = _LOCAL_SCOPES.set(
             (*_LOCAL_SCOPES.get(), (model, self._method, self._components))
         )
+        if model._cozy_residency is not None:
+            self._using = model._cozy_residency.using(self._method, self._components)
+            self._using.__enter__()
+            for cache in model._cozy_caches:
+                cache.enter()
         if model._cozy_harness is not None:
             model._cozy_harness.calls.append(ScopeCall(self._method, self._components))
 
@@ -1045,14 +1137,16 @@ class _ComponentScope:
             if placement is not None:
                 placement.leave(self._components)
             return
+        if self._using is not None:
+            using, self._using = self._using, None
+            for cache in model._cozy_caches:
+                cache.leave()
+            using.__exit__(*sys.exc_info())  # a raise in the scope ends its passes as failed
         if self._local is not None:
             _LOCAL_SCOPES.reset(self._local)
             self._local = None
         if self._call is not None:
             SCOPES.leave()
-        if self._release is not None:
-            self._release()
-            self._release = None
 
 
 # --------------------------------------------------------------------------- identity
@@ -1226,8 +1320,10 @@ class ModelRegistry:
         mode: Mode,
         adapters: Sequence[AdapterRef] = (),
     ) -> Generation:
+        started = time.perf_counter()
         model = cls()
         loader = self._loader(model, artifact, mode)
+        made = time.perf_counter()
         object.__setattr__(model, "_cozy_loading", True)
         try:
             with ExitStack() as stack:
@@ -1239,8 +1335,11 @@ class ModelRegistry:
                 # substrate this is exactly the old behaviour: an ordinary construction.
                 if self._substrate is not None:
                     stack.enter_context(self._substrate())
+                began = time.perf_counter()
                 with loading(loader):
                     model.load(loader)
+                loaded = time.perf_counter()
+            exited = time.perf_counter()
             records = loader.records()
             if not records:
                 raise ConformanceError(
@@ -1249,6 +1348,18 @@ class ModelRegistry:
                     code="no_construction",
                 )
             record = records[0] if len(records) == 1 else _merge(records)
+            # The package's whole load() beside its constructions' legs: what its own code spent
+            # after them (tokenizers, schedulers, its assets).
+            legs = {
+                "model": made - started,  # the package's model and its loader
+                "substrate_enter": began - made,
+                "package_load": loaded - began,
+                "substrate_exit": exited - loaded,
+            }
+            record = replace(
+                record,
+                stage_ms=(*record.stage_ms, *((k, round(v * 1000, 1)) for k, v in legs.items())),
+            )
             if record.skipped and not record.components:
                 raise ModelFitRefused(
                     {
@@ -1259,6 +1370,7 @@ class ModelRegistry:
                     }
                 )
             _prove_components(cls, record)
+            _coverage(cls, record)
             constructed = loader.constructed()
             if adapters and artifact._prepare is None:
                 model.prepare_adapters(tuple(adapters))
@@ -1290,6 +1402,10 @@ class ModelRegistry:
             object.__setattr__(model, "_cozy_record", record)
             object.__setattr__(model, "_cozy_identity", identity)
             object.__setattr__(model, "_cozy_ready", True)
+            # The whole construction; beside construct_and_register it leaves only the registry.
+            done = round((time.perf_counter() - started) * 1000, 1)
+            record = replace(record, stage_ms=(*record.stage_ms, ("construct", done)))
+            object.__setattr__(model, "_cozy_record", record)
         except Exception:
             # Transactional: a failure rolls fills, caches and registrations back together
             # and no generation is ever observable half-built (§1.1).
@@ -1308,6 +1424,28 @@ class ModelRegistry:
 _EMPTY_ARTIFACT = Artifact(snapshot="unload://drain", tensor_schema={}, config=Config({}))
 
 
+def _coverage(cls: type, record: ConstructionRecord) -> None:
+    """A load whose construction and checkpoint disagree says so once, in the next attempt's
+    warnings, naming the tensors, and serves: stored tensors no destination reads were not
+    loaded, and persistent buffers the checkpoint does not store keep their constructed values.
+    What the class declares (`unloaded=`, `derived=`) is not warned about."""
+    ignored, unstored = uncovered(cls, record.ignored_extras, record.unstored)
+    for message, kind, names in (
+        ("checkpoint tensors were not loaded: the model builds no destination for them",
+         "tensors", ignored),
+        ("persistent buffers are not in the checkpoint: they keep their constructed values",
+         "buffers", unstored),
+    ):  # fmt: skip
+        if names:
+            more = f", and {len(names) - 8} more" if len(names) > 8 else ""
+            row: WarningRow = (
+                message,
+                {"model": cls.__name__, "count": len(names), kind: ", ".join(names[:8]) + more},
+            )
+            if row not in WARNINGS:
+                WARNINGS.append(row)
+
+
 def _merge(records: Sequence[ConstructionRecord]) -> ConstructionRecord:
     """Several `construct` calls in one `load()` are one construction contract."""
     return ConstructionRecord(
@@ -1318,6 +1456,7 @@ def _merge(records: Sequence[ConstructionRecord]) -> ConstructionRecord:
         filled_bytes=sum(r.filled_bytes for r in records),
         ignored_extras=tuple(e for r in records for e in r.ignored_extras),
         ignored_warnings=tuple(w for r in records for w in r.ignored_warnings),
+        unstored=tuple(u for r in records for u in r.unstored),
         skipped=tuple(c for r in records for c in r.skipped),
         fit=next((r.fit for r in records if r.fit is not None), None),
     )

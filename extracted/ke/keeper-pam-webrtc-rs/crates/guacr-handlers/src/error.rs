@@ -2,7 +2,6 @@ use bytes::Bytes;
 use guacr_protocol::{
     format_error, STATUS_CLIENT_BAD_REQUEST, STATUS_CLIENT_FORBIDDEN, STATUS_CLIENT_UNAUTHORIZED,
 };
-use log::{error, warn};
 use thiserror::Error;
 use tokio::sync::mpsc;
 
@@ -70,18 +69,16 @@ pub type Result<T> = std::result::Result<T, HandlerError>;
 /// * `to_client` - Channel to send error instruction
 /// * `message` - Error message for user (shown in client UI)
 /// * `status_code` - Guacamole protocol status code (use STATUS_* constants)
-/// * `log_message` - Optional detailed message for server logs (defaults to message)
 ///
 /// # Example
 /// ```ignore
 /// use guacr_handlers::{send_error_and_abort, STATUS_UPSTREAM_ERROR};
 ///
-/// if let Err(e) = database.connect().await {
+/// if database.connect().await.is_err() {
 ///     return Err(send_error_and_abort(
 ///         &to_client,
 ///         "Database connection failed",
 ///         STATUS_UPSTREAM_ERROR,
-///         Some(&format!("MySQL error: {}", e))
 ///     ).await);
 /// }
 /// ```
@@ -89,18 +86,13 @@ pub async fn send_error_and_abort(
     to_client: &mpsc::Sender<Bytes>,
     message: &str,
     status_code: u32,
-    log_message: Option<&str>,
 ) -> HandlerError {
-    // Log to server (detailed message if provided)
-    let log_msg = log_message.unwrap_or(message);
-
-    // Use appropriate log level based on status code
     match status_code {
         STATUS_CLIENT_BAD_REQUEST | STATUS_CLIENT_UNAUTHORIZED | STATUS_CLIENT_FORBIDDEN => {
-            warn!("Client error ({}): {}", status_code, log_msg);
+            tracing::warn!(target: "guacr_handlers::error", operation = "lifecycle", outcome = "failed", error_code = status_code, "Client operation rejected");
         }
         _ => {
-            error!("Handler error ({}): {}", status_code, log_msg);
+            tracing::error!(target: "guacr_handlers::error", operation = "lifecycle", outcome = "failed", error_code = status_code, "Handler operation failed");
         }
     }
 

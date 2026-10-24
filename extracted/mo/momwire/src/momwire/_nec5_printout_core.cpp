@@ -14,6 +14,7 @@
 #include "_somm_grid_core.h"
 #include "_mw_times.h"
 #include "_somm_below_fill_core.h"
+#include "_near_buried_core.h"
 #include "_accel_somm_proj_inline.h"
 
 // MSVC builds every TU /fp:fast (setup.py); this one replays numpy's and
@@ -42,6 +43,9 @@
 #include <set>
 #include <stdexcept>
 #include <utility>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace mw {
 namespace nec5 {
@@ -809,16 +813,18 @@ struct NetSolve {
     std::vector<cd> v_applied, i_port, i_source;
 };
 
-// `_reduced_state(cards, n, voltages, driven, y_eff, wavelength)`.
-NetSolve reduced_state(const Prepared &p, int64_t n, const std::vector<cd> &voltages,
-                       const std::vector<int64_t> &held, const Op &yeff_op,
+// `_reduced_state(cards, n, voltages, driven, y_eff, wavelength)`:
+// `flat_network(..., held=held)` and `reduced_ports(..., driven)` (the seam
+// holds exactly the ports it reads back; the NEC-4.2 slot may not).
+NetSolve reduced_state(const std::vector<SeamCard> &cards, int64_t n, const std::vector<cd> &voltages,
+                       const std::vector<int64_t> &held, const std::vector<int64_t> &driven, const Op &yeff_op,
                        const std::function<cd(int64_t, int64_t)> &y_eff_at, double wavelength,
                        const NumpyLinalg &np) {
     if (np.zgesvx == nullptr) throw Decline{"no zgesvx for the network solve"};
     // `flat_network`: every port that is not an endpoint (or is held, or
     // carries a voltage) is a Driven source at its voltage
     std::set<int64_t> endpoints;
-    for (const SeamCard &c : p.cards) {
+    for (const SeamCard &c : cards) {
         endpoints.insert(c.site_a);
         endpoints.insert(c.site_b);
     }
@@ -839,7 +845,7 @@ NetSolve reduced_state(const Prepared &p, int64_t n, const std::vector<cd> &volt
     auto G = [&](int64_t i, int64_t j) -> cd & { return g[static_cast<std::size_t>(i * n + j)]; };
     std::vector<G2> elements;
     std::vector<std::tuple<int64_t, int64_t, cd>> couplings;
-    for (const SeamCard &c : p.cards) {
+    for (const SeamCard &c : cards) {
         const int64_t a = c.site_a, b = c.site_b;
         if (c.kind == SeamCard::nt) {
             if (a == b) throw Decline{"an NT card with both ends on one site"};
@@ -941,8 +947,11 @@ NetSolve reduced_state(const Prepared &p, int64_t n, const std::vector<cd> &volt
         out.v_applied[static_cast<std::size_t>(src_port[k])] = src_volts[k];
     out.i_port = mv(np, yeff_op, out.v_applied);
     out.i_source = out.i_port;
-    for (int64_t port : held)
-        out.i_source[static_cast<std::size_t>(port)] = x[static_cast<std::size_t>(n + termination_of.at(port))];
+    for (int64_t port : driven) {
+        const auto t = termination_of.find(port);
+        if (t == termination_of.end()) throw Decline{"a driven network port with no source branch (the reference raises)"};
+        out.i_source[static_cast<std::size_t>(port)] = x[static_cast<std::size_t>(n + t->second)];
+    }
     return out;
 }
 
@@ -1027,7 +1036,7 @@ PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const
                 for (int64_t column = 0; column < nd; column++) {
                     std::vector<cd> probe(static_cast<std::size_t>(n), cd(0.0, 0.0));
                     probe[static_cast<std::size_t>(driven[column])] = cd(1.0, 0.0);
-                    const NetSolve r = reduced_state(p, n, probe, driven, yeff_op, y_eff_at,
+                    const NetSolve r = reduced_state(p.cards, n, probe, driven, driven, yeff_op, y_eff_at,
                                                      p.wavelength, np);
                     for (int64_t i = 0; i < nd; i++)
                         m.at(i, column) = r.i_source[static_cast<std::size_t>(driven[i])];
@@ -1057,7 +1066,7 @@ PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const
             st.i_port = mv(np, yeff_op, st.v_applied);
             st.i_source = st.i_port;
         } else {
-            const NetSolve r = reduced_state(p, n, volts, driven, yeff_op, y_eff_at, p.wavelength, np);
+            const NetSolve r = reduced_state(p.cards, n, volts, driven, driven, yeff_op, y_eff_at, p.wavelength, np);
             st.v_applied = r.v_applied;
             st.i_port = r.i_port;
             st.i_source = r.i_source;
@@ -1110,7 +1119,7 @@ PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const
         const std::function<cd(int64_t, int64_t)> y_eff_at = [&](int64_t i, int64_t j) {
             return any_series ? xt.at(j, i) : y.at(i, j);
         };
-        const NetSolve r = reduced_state(p, n, probe, {driven}, yeff_op, y_eff_at, p.wavelength, np);
+        const NetSolve r = reduced_state(p.cards, n, probe, {driven}, {driven}, yeff_op, y_eff_at, p.wavelength, np);
         v_applied = r.v_applied;
         i_port = r.i_port;
         i_source = r.i_source;
@@ -1948,16 +1957,15 @@ std::vector<cd> near_remainder(const std::vector<double> &points, const Elements
 // composing ground (`compose`: GN 0 / GN 2's eps~ from the solver's ground,
 // GD's from its medium -- one expression, at the solver's own omega):
 // `field + (C2 * image + remainder)`, C2's product numpy's fused one.
-NearBlockC near_block(const Request &rq, const PrintoutEngine &engine,
-                      const std::vector<WireWalk> &walk, const CurrentSampler &sampler,
-                      const Prepared &p, bool pec, bool compose) {
-    const std::vector<double> points = near_points(rq);
-    const double k = 2.0 * 3.141592653589793 / p.wavelength;
-    double radius = p.mesh.pieces.empty() ? 0.0 : p.mesh.pieces[0].radius;
-    for (const SeamPiece &piece : p.mesh.pieces)
-        if (piece.radius < radius) radius = piece.radius;  // Python's `min`
-    if (p.mesh.pieces.empty()) throw Decline{"a near field with no wire"};
-    const Elements el = element_currents_sub(walk, sampler, 8);
+// The block over given elements (`near_field_at` + `near_field_block`):
+// `compose` reads the medium (eps_r, sigma) at `omega` with `eps0`.
+// `near_field_at` over the elements alone (no buried composition): free
+// space, GN 1's image, or `field + (C2 * image + remainder)`.
+std::vector<cd> near_field_values(bool magnetic, const std::vector<double> &points, const Elements &el, double k,
+                                  double radius, bool pec, bool compose, double omega, double eps0, double eps_r,
+                                  double sigma) {
+    Request rq;
+    rq.magnetic = magnetic;
     std::vector<cd> field = element_fields(points, el, k, radius, rq.magnetic);
     if (pec || compose) {
         Elements img = el;
@@ -1969,10 +1977,9 @@ NearBlockC near_block(const Request &rq, const PrintoutEngine &engine,
         for (std::size_t n = 0; n < el.delta.size(); n++) img.delta[n] = cd(-el.delta[n].real(), -el.delta[n].imag());
         std::vector<cd> image = element_fields(points, img, k, radius, rq.magnetic);
         if (compose) {
-            // `solver.omega` = 2 * np.pi * (c / wavelength); `eps_tilde((eps_r,
-            // sigma), omega, eps0)`; C2 = (eps_t - 1.0) / (eps_t + 1.0).
-            const double omega = engine.solver_omega(p);
-            const cd eps_t(p.medium_eps_r, (-p.medium_sigma) / (omega * engine.eps0()));
+            // `eps_tilde((eps_r, sigma), omega, eps0)`; C2 = (eps_t - 1.0) /
+            // (eps_t + 1.0).
+            const cd eps_t(eps_r, (-sigma) / (omega * eps0));
             const cd c2 = somm_core::py_quot(cd(eps_t.real() - 1.0, eps_t.imag() - 0.0),
                                              cd(eps_t.real() + 1.0, eps_t.imag() + 0.0));
             const std::vector<cd> rem = near_remainder(points, el, eps_t, k, omega, rq.magnetic);
@@ -1986,6 +1993,72 @@ NearBlockC near_block(const Request &rq, const PrintoutEngine &engine,
             for (std::size_t q = 0; q < field.size(); q++) field[q] = c_add(field[q], image[q]);
         }
     }
+    return field;
+}
+
+// The buried readout's thread budget: the process's OpenMP team (its values
+// do not depend on it).
+int mw_threads_for_near() {
+#ifdef _OPENMP
+    return omp_get_max_threads();
+#else
+    return 1;
+#endif
+}
+
+// `_near_readout._near_field_buried` (momwire#1653): over the composing
+// ground with an element or a point below the plane, the above/above share of
+// the above-ground elements first, then `near_buried::parts` -- the code the
+// Python route calls (`near_buried_parts`).
+std::vector<cd> near_field_buried(bool magnetic, const std::vector<double> &points, const Elements &el,
+                                  const std::vector<int64_t> &counts, int subdiv, double k, double radius,
+                                  double omega, double eps0, double eps_r, double sigma) {
+    const cd eps_t(eps_r, (-sigma) / (omega * eps0));
+    near_buried::Elements ne;
+    ne.mid = el.mid.data();
+    ne.moment = el.moment.data();
+    ne.n_el = el.mid.size() / 3;
+    ne.nodes = el.nodes.data();
+    ne.delta = el.delta.data();
+    ne.n_nodes = el.nodes.size() / 3;
+    ne.counts = counts.data();
+    ne.n_wires = counts.size();
+    ne.subdiv = subdiv;
+    near_buried::Sources above, below;
+    near_buried::split(ne, 0.0, above, below);
+    const std::size_t n = points.size() / 3;
+    std::vector<cd> fresh(3 * n);
+    near_buried::parts(points.data(), n, ne, eps_t, 0.0, k, omega, 4e-7 * 3.141592653589793, radius, magnetic,
+                       mw_threads_for_near(), fresh.data());
+    std::vector<double> pa;
+    std::vector<std::size_t> ia;
+    for (std::size_t q = 0; q < n; q++)
+        if (points[3 * q + 2] >= 0.0) {
+            pa.insert(pa.end(), &points[3 * q], &points[3 * q] + 3);
+            ia.push_back(q);
+        }
+    std::vector<cd> out(3 * n, cd(0.0, 0.0));
+    if (!ia.empty() && above.n_el() != 0) {
+        Elements ea;
+        ea.mid = above.mid;
+        ea.moment = above.moment;
+        ea.nodes = above.nodes;
+        ea.delta = above.delta;
+        const std::vector<cd> aa =
+            near_field_values(magnetic, pa, ea, k, radius, false, true, omega, eps0, eps_r, sigma);
+        for (std::size_t r = 0; r < ia.size(); r++)
+            for (int c = 0; c < 3; c++) out[3 * ia[r] + c] = aa[3 * r + c];
+    }
+    for (std::size_t q = 0; q < n; q++)
+        for (int c = 0; c < 3; c++) {
+            const std::size_t i = 3 * q + static_cast<std::size_t>(c);
+            out[i] = points[3 * q + 2] >= 0.0 ? c_add(out[i], fresh[i]) : fresh[i];
+        }
+    return out;
+}
+
+// `near_field_block`: the rows, each cell floored before it is read.
+NearBlockC near_rows(const Request &rq, const std::vector<double> &points, const std::vector<cd> &field) {
     NearBlockC block;
     block.magnetic = rq.magnetic;
     for (std::size_t q = 0; q < points.size() / 3; q++) {
@@ -2000,6 +2073,47 @@ NearBlockC near_block(const Request &rq, const PrintoutEngine &engine,
         block.rows.push_back(row);
     }
     return block;
+}
+
+NearBlockC near_block_of(const Request &rq, const std::vector<double> &points, const Elements &el, double k,
+                         double radius, bool pec, bool compose, double omega, double eps0, double eps_r,
+                         double sigma) {
+    return near_rows(rq, points,
+                     near_field_values(rq.magnetic, points, el, k, radius, pec, compose, omega, eps0, eps_r, sigma));
+}
+
+NearBlockC near_block(const Request &rq, const PrintoutEngine &engine,
+                      const std::vector<WireWalk> &walk, const CurrentSampler &sampler,
+                      const Prepared &p, bool pec, bool compose) {
+    const std::vector<double> points = near_points(rq);
+    const double k = 2.0 * 3.141592653589793 / p.wavelength;
+    double radius = p.mesh.pieces.empty() ? 0.0 : p.mesh.pieces[0].radius;
+    for (const SeamPiece &piece : p.mesh.pieces)
+        if (piece.radius < radius) radius = piece.radius;  // Python's `min`
+    if (p.mesh.pieces.empty()) throw Decline{"a near field with no wire"};
+    const Elements el = element_currents_sub(walk, sampler, 8);
+    // `solver.omega` = 2 * np.pi * (c / wavelength)
+    const double omega = compose ? engine.solver_omega(p) : 0.0;
+    const double eps0 = compose ? engine.eps0() : 0.0;
+    if (compose) {
+        // `_near_readout._crosses`: an element or a point below the plane
+        bool crosses = false;
+        for (std::size_t e = 0; e < el.mid.size() / 3 && !crosses; e++) crosses = el.mid[3 * e + 2] < 0.0;
+        for (std::size_t q = 0; q < points.size() / 3 && !crosses; q++) crosses = points[3 * q + 2] < 0.0;
+        if (crosses) {
+            // `element_counts(solver)` at subdiv 8: each wire's segments x 8
+            std::vector<int64_t> counts;
+            for (const WireWalk &w : walk) {
+                int64_t m = 0;
+                for (int64_t n_e : w.npe) m += n_e;
+                counts.push_back(m * 8);
+            }
+            return near_rows(rq, points,
+                             near_field_buried(rq.magnetic, points, el, counts, 8, k, radius, omega, eps0,
+                                               p.medium_eps_r, p.medium_sigma));
+        }
+    }
+    return near_block_of(rq, points, el, k, radius, pec, compose, omega, eps0, p.medium_eps_r, p.medium_sigma);
 }
 
 RunDataC finish(const Deck &deck, const Prepared &p, const Solved &s, const NumpyLinalg &np,
@@ -3431,6 +3545,91 @@ void linspace3(const double *a, const double *b, int64_t num, std::vector<double
 void np_matmul(const NumpyLinalg &np, const Op &a, const Op &b, cd *out, int64_t os_m,
                int64_t os_p) {
     nec5::np_matmul(np, a, b, out, os_m, os_p);
+}
+PatternBlock far_pattern(const Request &rq, const std::vector<double> &mid,
+                         const std::vector<cd> &moment, int ground, double eps_r, double sigma,
+                         double frequency_mhz, double wavelength, double p_in, double p_radiated) {
+    const FarGround fg = ground == 1 ? FarGround::pec : ground == 2 ? FarGround::refl : FarGround::free;
+    const PatternBlockC c = nec5::pattern_block(rq, mid, moment, fg, eps_r, sigma,
+                                                frequency_mhz, wavelength, p_in, false,
+                                                cd(0.0, 0.0), p_radiated);
+    PatternBlock out;
+    for (const PatternRowC &r : c.rows) {
+        PatternRow row;
+        row.theta = r.theta;
+        row.phi = r.phi;
+        row.vert = r.vert;
+        row.hor = r.hor;
+        row.total = r.total;
+        row.axial = r.axial;
+        row.tilt = r.tilt;
+        row.sense = r.sense;
+        row.et_mag = r.et_mag;
+        row.et_deg = r.et_deg;
+        row.ep_mag = r.ep_mag;
+        row.ep_deg = r.ep_deg;
+        out.rows.push_back(row);
+    }
+    out.has_average = c.has_average;
+    out.average_power_gain = c.average_power_gain;
+    out.solid_angle_pi = c.solid_angle_pi;
+    out.power_radiated_4pi = c.power_radiated_4pi;
+    out.directive = c.directive;
+    return out;
+}
+NetState composed(const std::vector<SeamCard> &cards, const CMat &y, const std::vector<cd> &z_load,
+                  const std::vector<cd> &voltages, const std::vector<int64_t> &held,
+                  const std::vector<int64_t> &driven, double wavelength, const NumpyLinalg &np) {
+    const int64_t n = y.rows;
+    bool any = false;  // `np.any(z_load)`
+    for (const cd &z : z_load) any = any || py_ctruth(z) || std::isnan(z.real()) || std::isnan(z.imag());
+    // `y_eff = solve((eye + z_load[:, None] * y).T, y.T).T`: the transposed
+    // view of the C-ordered solution, read through its strides
+    CMat xt;
+    Op yeff_op = y.op();
+    if (any) {
+        CMat lt(n, n), yt(n, n);
+        for (int64_t i = 0; i < n; i++)
+            for (int64_t j = 0; j < n; j++) {
+                const cd prod = nec5::np_cmul(z_load[static_cast<std::size_t>(i)], y.at(i, j));
+                lt.at(j, i) = cd((i == j ? 1.0 : 0.0) + prod.real(), 0.0 + prod.imag());
+                yt.at(i, j) = y.at(j, i);
+            }
+        xt = nec5::np_solve_matrix(np, lt, yt);
+        yeff_op = Op{xt.v.data(), n, n, 1, n};
+    }
+    const std::function<cd(int64_t, int64_t)> y_eff_at = [&](int64_t i, int64_t j) {
+        return any ? xt.at(j, i) : y.at(i, j);
+    };
+    const NetSolve r = nec5::reduced_state(cards, n, voltages, held, driven, yeff_op, y_eff_at, wavelength, np);
+    NetState out;
+    out.v_applied = r.v_applied;
+    out.i_port = r.i_port;
+    out.i_source = r.i_source;
+    return out;
+}
+std::vector<double> near_grid(const Request &rq) { return nec5::near_points(rq); }
+ElementCurrents element_currents_sub(const std::vector<WireWalk> &walk, const CurrentSampler &sampler,
+                                     int64_t subdiv) {
+    return nec5::element_currents_sub(walk, sampler, subdiv);
+}
+NearBlock near_field(const Request &rq, const std::vector<double> &points, const ElementCurrents &el,
+                     double k, double radius, int ground, double eps_r, double sigma, double omega,
+                     double eps0) {
+    const NearBlockC c =
+        nec5::near_block_of(rq, points, el, k, radius, ground == 1, ground == 2, omega, eps0, eps_r, sigma);
+    NearBlock out;
+    out.magnetic = c.magnetic;
+    for (const NearRowC &r : c.rows) {
+        NearRow row;
+        for (int i = 0; i < 3; i++) {
+            row.point[i] = r.point[i];
+            row.mag[i] = r.mag[i];
+            row.deg[i] = r.deg[i];
+        }
+        out.rows.push_back(row);
+    }
+    return out;
 }
 }  // namespace replay
 

@@ -35,11 +35,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
+from git import Repo
+from git.exc import GitCommandError
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
-from plato.git_ops.repo import rev_parse
+from plato.git_ops.repo import rev_parse, trust_git_directory
 from plato.transports.git import GitPushConflict, GitTransport
 from plato.utils.subprocess import run_ssh
 from plato.workflows.stagger import DEFAULT_PREFIX_STAGGER_S, PrefixStagger, StaggerRole
@@ -206,6 +208,13 @@ class AgentBackend(Protocol):
         """
         ...
 
+    async def merged_commit_on_main(self, sha: str) -> bool:
+        """True when main holds the journaled merge ``sha``; False makes the runtime rerun the call.
+
+        A backend without git returns True.
+        """
+        ...
+
 
 def _publish_ref_name(call_id: str) -> str:
     return f"refs/plato/wf/{call_id}"
@@ -286,6 +295,31 @@ def _ref_exists(bare_repo_path: str, ref: str) -> bool:
         rev_parse(bare_repo_path, ref)
     except Exception:
         return False
+    return True
+
+
+def _commit_on_main(bare_repo_path: str, sha: str) -> bool:
+    """False only when the commit is absent or not an ancestor of main.
+
+    Every other git/OS error raises: a False there would rerun every merged call on resume.
+    """
+    trust_git_directory(bare_repo_path)
+    repo = Repo(bare_repo_path)
+    try:
+        # Exit status 1: the object is not in the repo. git uses 128 for a
+        # path that is not a repository.
+        repo.git.cat_file("-e", sha)
+    except GitCommandError as exc:
+        if exc.status == 1:
+            return False
+        raise
+    try:
+        # Exit status 1: a valid commit that is not an ancestor of main.
+        repo.git.merge_base("--is-ancestor", sha, "main")
+    except GitCommandError as exc:
+        if exc.status == 1:
+            return False
+        raise
     return True
 
 
@@ -557,11 +591,27 @@ class WorldAgentBackend:
             if setup_state.get("stagger_held_s"):
                 timeout_detail += f" (prompt-cache stagger held the launch {setup_state['stagger_held_s']:.0f}s)"
             logger.warning("Workflow call %s: %s", request.call_id, timeout_detail)
+            if runner.merged:
+                # The timeout hit after the merge landed; reporting no reply would make the kit redo work main has.
+                ok, value, _validation_error = read_and_validate_result(self._results_dir, request.scoped_id, schema)
+                if ok:
+                    return AgentCallOutcome(
+                        status="ok",
+                        result_text=value if schema is None else None,
+                        result_json=value if schema is not None else None,
+                        merged=True,
+                        merged_sha=runner.merged_commit,
+                        attempts=max(1, attempt_counter["count"]),
+                        agent_task_span_id=runner.last_execution_span_id or None,
+                        error=f"{timeout_detail}, after the merge to main landed",
+                    )
             return AgentCallOutcome(
                 status="timeout",
                 attempts=max(1, attempt_counter["count"]),
                 agent_task_span_id=runner.last_execution_span_id or None,
                 salvage_ref=runner.salvage_ref,
+                merged=runner.merged,
+                merged_sha=runner.merged_commit,
                 error=timeout_detail,
             )
         except GitPushConflict as exc:
@@ -571,6 +621,8 @@ class WorldAgentBackend:
                 attempts=max(1, attempt_counter["count"]),
                 agent_task_span_id=runner.last_execution_span_id or None,
                 salvage_ref=runner.salvage_ref,
+                merged=runner.merged,
+                merged_sha=runner.merged_commit,
                 error=f"GitPushConflict: {exc} (conflict_ref={exc.conflict_ref})",
             )
         except Exception as exc:
@@ -580,6 +632,8 @@ class WorldAgentBackend:
                 attempts=max(1, attempt_counter["count"]),
                 agent_task_span_id=runner.last_execution_span_id or None,
                 salvage_ref=runner.salvage_ref,
+                merged=runner.merged,
+                merged_sha=runner.merged_commit,
                 error=f"{type(exc).__name__}: {exc}",
             )
 
@@ -709,6 +763,15 @@ class WorldAgentBackend:
                 )
             code_mount = self._code_workspace.mount()
         return [code_mount, results_mount, *extra]
+
+    async def merged_commit_on_main(self, sha: str) -> bool:
+        """See AgentBackend.merged_commit_on_main."""
+        if self._code_workspace is None:
+            return True
+        transport = self._code_workspace.transport
+        if not isinstance(transport, GitTransport):
+            return True
+        return await asyncio.to_thread(_commit_on_main, transport.bare_repo_path, sha)
 
     async def _verify_published_ref(self, code_mount: AgentWorkspaceMount, call_id: str) -> str | None:
         """Return the call's publish ref iff it actually exists in the local bare.

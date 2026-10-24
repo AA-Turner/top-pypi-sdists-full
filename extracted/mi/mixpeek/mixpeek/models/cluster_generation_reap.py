@@ -18,7 +18,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -28,7 +29,11 @@ class ClusterGenerationReap(BaseModel):
     What the run did with the PREVIOUS generation of one output collection.  A cluster run rewrites its generation (centroid and member documents) and then deletes the prior generation's points it did not rewrite. That delete is fail-closed: it runs only after the store has durably confirmed the new generation, and only when the prior generation could be read. The decision used to live in the Ray driver's log alone, which the job's own teardown removes minutes after it finishes, so a run that kept its old generation (a collection showing two sets of centroids) could not be explained afterwards. This is the durable record.
     """ # noqa: E501
     output_collection_id: StrictStr = Field(description="The output collection this record is about.")
-    decision: StrictStr = Field(description="deleted: the stale prior points were removed. nothing_stale: the new generation rewrote every prior point. skipped_unconfirmed: the store had not durably confirmed the new generation inside the wait, so the prior generation was kept (the next confirmed run reaps it). skipped_unreadable: the prior generation could not be read, so nothing was deleted.")
+    decision: StrictStr = Field(description="deleted: the stale prior points were removed. nothing_stale: the new generation rewrote every prior point. skipped_unconfirmed: the store had not durably confirmed the new generation inside the wait, so the prior generation was kept and recorded for a later sweep. deleted_late: that sweep removed them once the store confirmed the write. superseded: a newer run of the cluster completed first, so this record deleted nothing. skipped_unreadable: the prior generation could not be read, so nothing was deleted.")
+    pending: Optional[StrictBool] = Field(default=False, description="True while a skipped reap waits for the store to confirm this run's write.")
+    partition_key: Optional[StrictStr] = Field(default=None, description="The run partition the generation belongs to.")
+    superseded_by: Optional[StrictStr] = Field(default=None, description="The newer run that superseded a pending reap.")
+    finished_at: Optional[datetime] = Field(default=None, description="When a pending reap was finished or superseded.")
     prior: Optional[StrictInt] = Field(default=None, description="Points of this cluster run's partition found before the write; null when unreadable.")
     written: StrictInt = Field(description="Points this run wrote.")
     stale: StrictInt = Field(description="Prior points the write did not rewrite (candidates).")
@@ -36,13 +41,13 @@ class ClusterGenerationReap(BaseModel):
     wal_seq: Optional[StrictInt] = Field(default=0, description="The write's highest store sequence, 0 when the store returned none.")
     confirmed_seq: Optional[StrictInt] = Field(default=None, description="The store's durable frontier when the run last read it; null when it could not answer.")
     confirmed_unavailable_reason: Optional[StrictStr] = Field(default=None, description="Why the durable frontier could not be read, when it could not. Null on every run that read it. Present because `skipped_unconfirmed` with a null `confirmed_seq` says WHAT happened and not why, and the cause is logged by the cluster driver, whose logs the job's own teardown deletes minutes after it finishes. That is the gap this record exists to close.")
-    __properties: ClassVar[List[str]] = ["output_collection_id", "decision", "prior", "written", "stale", "reaped", "wal_seq", "confirmed_seq", "confirmed_unavailable_reason"]
+    __properties: ClassVar[List[str]] = ["output_collection_id", "decision", "pending", "partition_key", "superseded_by", "finished_at", "prior", "written", "stale", "reaped", "wal_seq", "confirmed_seq", "confirmed_unavailable_reason"]
 
     @field_validator('decision')
     def decision_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['deleted', 'nothing_stale', 'skipped_unconfirmed', 'skipped_unreadable']):
-            raise ValueError("must be one of enum values ('deleted', 'nothing_stale', 'skipped_unconfirmed', 'skipped_unreadable')")
+        if value not in set(['deleted', 'nothing_stale', 'skipped_unconfirmed', 'skipped_unreadable', 'deleted_late', 'superseded']):
+            raise ValueError("must be one of enum values ('deleted', 'nothing_stale', 'skipped_unconfirmed', 'skipped_unreadable', 'deleted_late', 'superseded')")
         return value
 
     model_config = ConfigDict(
@@ -98,6 +103,10 @@ class ClusterGenerationReap(BaseModel):
         _obj = cls.model_validate({
             "output_collection_id": obj.get("output_collection_id"),
             "decision": obj.get("decision"),
+            "pending": obj.get("pending") if obj.get("pending") is not None else False,
+            "partition_key": obj.get("partition_key"),
+            "superseded_by": obj.get("superseded_by"),
+            "finished_at": obj.get("finished_at"),
             "prior": obj.get("prior"),
             "written": obj.get("written"),
             "stale": obj.get("stale"),

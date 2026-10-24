@@ -26,7 +26,6 @@ report. `desktop_ok` / `mobile_ok` remain on the wire as aliases of the one
 Consumers:
 - the scraper crawl pipeline (`seo_audit.audit_html` → `web.snapshot.seo_metrics`)
 - the `seo` agent tool (matrx-ai `tools/implementations/seo.py`)
-- aidream registered functions (`seo/utils/registered_functions.py`)
 """
 
 from datetime import UTC, datetime

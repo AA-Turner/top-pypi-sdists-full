@@ -1,11 +1,12 @@
 """Internal Sandbox API client."""
 
+import base64
 import json
 import os
 import platform
 import sys
-from collections.abc import AsyncIterator, Mapping, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import timedelta
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
@@ -42,6 +43,12 @@ from vercel.sandbox._internal.errors import (
     SandboxApiError,
     SandboxResponseError,
     SandboxStreamError,
+)
+from vercel.sandbox._internal.log_stream import (
+    _is_transient_error,
+    _ndjson_lines,
+    _OutputOffsets,
+    _TruncatedStreamError,
 )
 from vercel.sandbox._internal.models import (
     _OMITTED,
@@ -351,6 +358,7 @@ class _RunCommandRequest(_ApiRequestModel):
     wait: bool | None = None
     logs: bool | None = None
     timeout: timedelta | None = None
+    attach_stdin: bool | None = Field(default=None, serialization_alias="attachStdin")
 
     @field_serializer("timeout")
     def _serialize_timeout(self, value: timedelta | None) -> int | None:
@@ -573,6 +581,16 @@ class _SnapshotPayload(_ApiModel):
 
 class _DrivePayload(_ApiModel):
     id: str
+    parent_drive_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("parent_drive_id", "parentDriveId"),
+        serialization_alias="parentDriveId",
+    )
+    root_drive_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("root_drive_id", "rootDriveId"),
+        serialization_alias="rootDriveId",
+    )
     name: str
     project_id: str = Field(
         validation_alias=AliasChoices("project_id", "projectId"),
@@ -625,6 +643,15 @@ class _CommandResponse(_ApiModel):
                 data=self.model_dump(by_alias=True),
             )
         return _command_state(self.command)
+
+
+class _CommandStdinResponse(_CommandResponse):
+    bytes_written: int | None = Field(
+        default=None,
+        ge=0,
+        validation_alias=AliasChoices("bytes_written", "bytesWritten"),
+        serialization_alias="bytesWritten",
+    )
 
 
 class _CommandsResponse(_ApiModel):
@@ -915,6 +942,8 @@ def _snapshot_state(payload: _SnapshotPayload) -> SnapshotState:
 
 def _drive_state(payload: _DrivePayload) -> DriveState:
     return DriveState(
+        parent_drive_id=payload.parent_drive_id,
+        root_drive_id=payload.root_drive_id,
         id=payload.id,
         name=payload.name,
         project_id=payload.project_id,
@@ -941,10 +970,15 @@ def _validate_response(model: type[ResponseModelT], data: JSONObject) -> Respons
         ) from exc
 
 
-def _parse_run_process_record(line: str) -> JSONObject:
+def _parse_run_process_record(line: str, *, terminated: bool = True) -> JSONObject:
     try:
         record = json.loads(line)
     except json.JSONDecodeError as exc:
+        if not terminated:
+            raise _TruncatedStreamError(
+                "Sandbox process response ended in the middle of a record",
+                data=line,
+            ) from exc
         raise SandboxResponseError(
             "Sandbox process response included malformed NDJSON",
             data=line,
@@ -955,6 +989,38 @@ def _parse_run_process_record(line: str) -> JSONObject:
             data=record,
         )
     return cast(JSONObject, record)
+
+
+class _RunProcessInterrupted(Exception):
+    """A run response broke after the process started but before it finished.
+
+    The process keeps running in the sandbox, so callers must follow it with
+    the logs and wait endpoints rather than run the command again.
+    """
+
+    def __init__(self, process: ProcessState, delivered: _OutputOffsets) -> None:
+        super().__init__("Sandbox process response was interrupted")
+        self.process = process
+        self.delivered = delivered
+
+
+def _completed_process_state(
+    initial: ProcessState,
+    final: ProcessState,
+    output_router: ProcessOutputRouter,
+) -> CompletedProcessState:
+    if initial.id != final.id or initial.session_id != final.session_id:
+        raise SandboxResponseError(
+            "Sandbox process response returned a different final process identity",
+            data={"initial": initial, "final": final},
+        )
+    if final.returncode is None:
+        raise SandboxResponseError(
+            "Sandbox process response final metadata is missing a return code",
+            data=final,
+        )
+    stdout, stderr = output_router.captured()
+    return CompletedProcessState(process=final, stdout=stdout, stderr=stderr)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1582,6 +1648,17 @@ class SandboxApiClient:
         )
         return _validate_response(_CreateSnapshotResponse, data).to_snapshot_and_session()
 
+    async def fork_drive(self, *, name: str, fork_name: str) -> DriveState:
+        credentials = await self._credentials_factory()
+        data = await self._request_json(
+            "POST",
+            format_url_path("v2/sandboxes/drives/{name}/fork", name=name),
+            credentials=credentials,
+            params={"projectId": credentials.project_id},
+            body={"name": fork_name},
+        )
+        return _validate_response(_DriveResponse, data).to_drive()
+
     async def get_drive(self, *, name_or_id: str) -> DriveState:
         credentials = await self._credentials_factory()
         data = await self._request_json(
@@ -1724,6 +1801,7 @@ class SandboxApiClient:
         env: Mapping[str, str] | None = None,
         sudo: bool = False,
         kill_after: timedelta | None = None,
+        attach_stdin: bool = False,
     ) -> ProcessState:
         credentials = await self._credentials_factory()
         request = _RunCommandRequest(
@@ -1733,6 +1811,7 @@ class SandboxApiClient:
             env=dict(env) if env is not None else None,
             sudo=sudo,
             timeout=kill_after,
+            attach_stdin=attach_stdin or None,
         )
         data = await self._request_json(
             "POST",
@@ -1753,7 +1832,16 @@ class SandboxApiClient:
         sudo: bool = False,
         kill_after: timedelta | None = None,
         output_router: ProcessOutputRouter,
+        on_started: Callable[[ProcessState], Awaitable[None]] | None = None,
+        on_start: Callable[[ProcessState], None] | None = None,
     ) -> CompletedProcessState:
+        """Run a process and stream its output until it exits.
+
+        Passing ``on_started`` starts the process with stdin attached and
+        calls it with the initial process metadata, before any output is
+        routed, so it can write the process's input. ``on_start`` is the
+        caller's callback, called first with the same metadata.
+        """
         credentials = await self._credentials_factory()
         request = _RunCommandRequest(
             command=command,
@@ -1764,6 +1852,7 @@ class SandboxApiClient:
             wait=True,
             logs=True,
             timeout=kill_after,
+            attach_stdin=True if on_started is not None else None,
         )
         response = await self._request_stream(
             "POST",
@@ -1777,62 +1866,86 @@ class SandboxApiClient:
 
         initial: ProcessState | None = None
         final: ProcessState | None = None
+        delivered = _OutputOffsets()
+        on_start_failed = False
         try:
-            async for line in response.aiter_lines():
-                if not line:
-                    continue
-                record = _parse_run_process_record(line)
-                if "command" in record:
-                    process = _validate_response(_CommandResponse, record).to_command()
-                    if initial is None:
-                        initial = process
-                    elif final is None:
-                        final = process
-                    else:
-                        raise SandboxResponseError(
-                            "Sandbox process response included extra process metadata",
-                            data=record,
-                        )
-                    continue
+            try:
+                async for line, terminated in _ndjson_lines(response):
+                    if not line.strip():
+                        continue
+                    record = _parse_run_process_record(line, terminated=terminated)
+                    if "command" in record:
+                        process = _validate_response(_CommandResponse, record).to_command()
+                        if initial is None:
+                            initial = process
+                            if on_start is not None:
+                                try:
+                                    on_start(process)
+                                except Exception:
+                                    on_start_failed = True
+                                    # Write the input anyway, so the process
+                                    # is not left waiting on an open stdin.
+                                    # As in the TypeScript SDK, a failed write
+                                    # only kills the process; the caller sees
+                                    # the callback's exception, untouched.
+                                    if on_started is not None:
+                                        with suppress(Exception):
+                                            await on_started(process)
+                                    raise
+                            if on_started is not None:
+                                await on_started(process)
+                        elif final is None:
+                            final = process
+                        else:
+                            raise SandboxResponseError(
+                                "Sandbox process response included extra process metadata",
+                                data=record,
+                            )
+                        continue
 
-                stream = record.get("stream")
-                data = record.get("data")
-                if (stream == "stdout" or stream == "stderr") and isinstance(data, str):
-                    if initial is None or final is not None:
-                        raise SandboxResponseError(
-                            "Sandbox process response included output outside process metadata",
-                            data=record,
-                        )
-                    output_router.route(ProcessLog(stream=ProcessLogStream(stream), data=data))
-                    continue
-                if stream == "error" and isinstance(data, dict):
-                    code = data.get("code")
-                    message = data.get("message")
-                    if isinstance(code, str) and isinstance(message, str):
-                        raise SandboxStreamError(message, code=code)
-                raise SandboxResponseError(
-                    "Sandbox process response included an unexpected NDJSON record",
-                    data=record,
-                )
-        finally:
-            await response.aclose()
+                    stream = record.get("stream")
+                    data = record.get("data")
+                    if (stream == "stdout" or stream == "stderr") and isinstance(data, str):
+                        if initial is None or final is not None:
+                            raise SandboxResponseError(
+                                "Sandbox process response included output outside process metadata",
+                                data=record,
+                            )
+                        event = ProcessLog(stream=ProcessLogStream(stream), data=data)
+                        output_router.route(event)
+                        delivered.advance(event.stream, len(data))
+                        continue
+                    if stream == "error" and isinstance(data, dict):
+                        code = data.get("code")
+                        message = data.get("message")
+                        if isinstance(code, str) and isinstance(message, str):
+                            raise SandboxStreamError(message, code=code)
+                    raise SandboxResponseError(
+                        "Sandbox process response included an unexpected NDJSON record",
+                        data=record,
+                    )
+            finally:
+                await response.aclose()
+            if initial is not None and final is None:
+                raise _TruncatedStreamError("Sandbox process response is missing final metadata")
+        except Exception as error:
+            # Once the process has started, a broken connection must not rerun
+            # it; the caller resumes following it from the delivered output.
+            # An on_start failure is the caller's own error, not a broken
+            # connection, so it propagates as raised.
+            if (
+                on_start_failed
+                or initial is None
+                or final is not None
+                or not _is_transient_error(error)
+            ):
+                raise
+            raise _RunProcessInterrupted(initial, delivered) from error
 
         if initial is None:
             raise SandboxResponseError("Sandbox process response is missing initial metadata")
-        if final is None:
-            raise SandboxResponseError("Sandbox process response is missing final metadata")
-        if initial.id != final.id or initial.session_id != final.session_id:
-            raise SandboxResponseError(
-                "Sandbox process response returned a different final process identity",
-                data={"initial": initial, "final": final},
-            )
-        if final.returncode is None:
-            raise SandboxResponseError(
-                "Sandbox process response final metadata is missing a return code",
-                data=final,
-            )
-        stdout, stderr = output_router.captured()
-        return CompletedProcessState(process=final, stdout=stdout, stderr=stderr)
+        assert final is not None
+        return _completed_process_state(initial, final, output_router)
 
     async def get_command(
         self,
@@ -1941,6 +2054,40 @@ class SandboxApiClient:
             read_response=ReadResponsePolicy.NON_SUCCESS_ONLY,
         ) as request:
             yield _WriteFilesUpload(request)
+
+    async def write_command_stdin(
+        self,
+        *,
+        session_id: str,
+        command_id: str,
+        data: bytes = b"",
+        offset: int | None = None,
+        close: bool = False,
+    ) -> int | None:
+        """Send one stdin request and return the service's ``bytesWritten``.
+
+        An empty request writes nothing and reports the bytes written so far.
+        Returns ``None`` if the response omits ``bytesWritten``.
+        """
+        credentials = await self._credentials_factory()
+        body: JSONObject = {}
+        if data:
+            body["data"] = base64.b64encode(data).decode("ascii")
+        if offset is not None:
+            body["offset"] = offset
+        if close:
+            body["close"] = True
+        response = await self._request_json(
+            "POST",
+            format_url_path(
+                "v2/sandboxes/sessions/{session_id}/cmd/{command_id}/stdin",
+                session_id=session_id,
+                command_id=command_id,
+            ),
+            credentials=credentials,
+            body=body,
+        )
+        return _validate_response(_CommandStdinResponse, response).bytes_written
 
     async def kill_command(
         self,

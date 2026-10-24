@@ -233,10 +233,19 @@ def test_only_the_commands_and_the_delegate_terminals_are_writable(
     # process alone writes the append terminals. Literal names, no prefix or
     # wildcard grant. The memory lifecycle proof (OMN-21045) adds write on the
     # expire-memory command only. The pr-polish proof (OMN-21034) adds write on the
-    # start command only: the lab runtime writes the two result topics.
+    # start command only: the lab runtime writes the two result topics. The morning
+    # ground-state run (OMN-20673) adds write on its start command, its two terminals (as
+    # for the delegate terminals) and the delegation request.
     # The DoD closeout proof (OMN-21048) adds write on the decide command only.
+    # The laptop lane mirror (OMN-19983) adds write on the delegation topic set it
+    # republishes onto the lab lane, which reads none of them.
+    # The Claude Code hook edge (OMN-17427) adds write on the 29 `onex.evt.omniclaude.*`
+    # hook topics the operator's hook principal holds, and on no command topic.
     writable = [g for g in declaration.grants if "write" in g.operations]
-    assert {g.name for g in writable} == {
+    hook_edge = {g.name for g in writable if g.name.startswith("onex.evt.omniclaude.")}
+    assert len(hook_edge) == 29
+    assert "onex.evt.omniclaude.hook-event.v1" in hook_edge
+    assert {g.name for g in writable} - hook_edge == {
         "onex.cmd.omnimarket.delegate-skill.v1",
         "onex.evt.omnimarket.delegate-skill-completed.v1",
         "onex.evt.omnimarket.delegate-skill-failed.v1",
@@ -245,7 +254,14 @@ def test_only_the_commands_and_the_delegate_terminals_are_writable(
         "onex.cmd.omnimarket.github-repo-gateway-read-requested.v1",
         "onex.cmd.omnimemory.expire-memory.v1",
         "onex.cmd.omnimarket.pr-polish-start.v1",
+        "onex.cmd.omnimarket.morning-ground-state-start.v1",
+        "onex.evt.omnimarket.morning-ground-state-completed.v1",
+        "onex.evt.omnimarket.morning-ground-state-failed.v1",
+        "onex.cmd.omnibase-infra.delegation-request.v1",
         "onex.cmd.omnimarket.dod-closeout-sweep-decide-requested.v1",
+        "onex.evt.omnibase-infra.delegation-completed.v1",
+        "onex.evt.omnibase-infra.delegation-failed.v1",
+        "onex.evt.omniintelligence.llm-call-completed.v1",
     }
     assert all(g.resource == "topic" and g.pattern == "literal" for g in writable)
 
@@ -1334,6 +1350,97 @@ def test_check_validates_the_overlay_and_refuses_a_bad_one(
     assert lpi.main(["check", "--grants", str(GRANTS), "--overlay", str(bad)]) == 2
 
 
+def _issued(ledger_path: Path, row: dict[str, str], *, lane: str = "dev") -> None:
+    lpi.Ledger(ledger_path).append(
+        {
+            "at": "2026-10-01T08:47:12+00:00",
+            "login": row["login"],
+            "device": row["device"],
+            "principal": row["principal"],
+            "lane": lane,
+            "action": "created",
+            "grants_sha256": "0" * 64,
+        }
+    )
+
+
+def _check_coverage(overlay_path: Path, ledger_path: Path) -> int:
+    return lpi.main(
+        [
+            "check",
+            "--grants",
+            str(GRANTS),
+            "--overlay",
+            str(overlay_path),
+            "--ledger",
+            str(ledger_path),
+        ]
+    )
+
+
+def test_check_with_a_ledger_passes_when_the_overlay_declares_every_issued_machine(
+    overlay_path: Path, ledger_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _issued(ledger_path, OVERLAY_ROW)
+    lpi.Ledger(ledger_path).append(
+        {
+            "principal": OVERLAY_ROW["principal"],
+            "lane": "dev",
+            "action": "grants-applied",
+        }
+    )
+    assert _check_coverage(overlay_path, ledger_path) == 0
+    out = capsys.readouterr().out
+    assert "issued=1 undeclared=0" in out
+
+
+def test_check_with_a_ledger_names_each_issued_machine_the_overlay_does_not_declare(
+    overlay_path: Path, ledger_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Serving under this overlay would refuse to rotate a machine it already issued."""
+    lane_login = {
+        "principal": "dev-dev-person-lab-host",
+        "login": LOGIN,
+        "device": "lab-host",
+    }
+    _issued(ledger_path, OVERLAY_ROW)
+    _issued(ledger_path, lane_login)
+    _issued(ledger_path, lane_login)
+    assert _check_coverage(overlay_path, ledger_path) == 1
+    captured = capsys.readouterr()
+    assert "issued=2 undeclared=1" in captured.out
+    assert captured.err.splitlines() == [
+        "UNDECLARED dev-dev-person-lab-host: issued by this issuer, absent from the "
+        "developer.principal overlay; serve --overlay would refuse to rotate it"
+    ]
+    assert LOGIN not in captured.out + captured.err
+
+
+def test_check_with_a_ledger_holds_the_login_to_the_overlay_row(
+    overlay_path: Path, ledger_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _issued(ledger_path, {**OVERLAY_ROW, "login": "someone@omninode.ai"})
+    assert _check_coverage(overlay_path, ledger_path) == 1
+    assert f"UNDECLARED {OVERLAY_ROW['principal']}" in capsys.readouterr().err
+
+
+def test_check_with_a_ledger_ignores_another_lane_and_an_absent_ledger(
+    overlay_path: Path, ledger_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _check_coverage(overlay_path, ledger_path) == 0
+    assert "issued=0 undeclared=0" in capsys.readouterr().out
+    _issued(ledger_path, {**SECOND_ROW, "principal": "dev-other"}, lane="prod")
+    assert _check_coverage(overlay_path, ledger_path) == 0
+
+
+def test_check_refuses_a_ledger_without_an_overlay(
+    ledger_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = lpi.main(["check", "--grants", str(GRANTS), "--ledger", str(ledger_path)])
+    assert code == 2
+    assert "--ledger needs --overlay" in capsys.readouterr().err
+
+
 def test_apply_grants_with_an_overlay_grants_exactly_the_derived_rows_to_its_principals(
     apply_broker: FakeBroker,
     declaration: lpi.Declaration,
@@ -1495,3 +1602,107 @@ def test_the_lab_overlay_shape_validates(
     path = _overlay_file(tmp_path, _overlay_doc(OVERLAY_ROW))
     overlay = lpi.load_overlay(path, declaration)
     assert overlay.principals == {"dev-jake-logyyks-macbook-pro"}
+
+
+# --- The documented client request (OMN-17427) ------------------------------
+
+
+def _client_section() -> str:
+    doc = lpi.__doc__ or ""
+    start = doc.index("THE CLIENT REQUEST")
+    end = doc.index("HOW A PRINCIPAL IS HELD TO THE FILE")
+    return doc[start:end]
+
+
+def _documented_json(first_key: str) -> str:
+    """The JSON block in the client section whose first key is ``first_key``."""
+    section = _client_section()
+    start = section.index("{" + json.dumps(first_key) + ":")
+    return section[start : section.index("}", start) + 1]
+
+
+def test_the_client_section_names_the_route_and_its_content_type() -> None:
+    section = _client_section()
+    assert "POST /v1/principals" in section
+    assert "Content-Type: application/json" in section
+    assert lpi.LOGIN_HEADER in section
+
+
+@UNIX_ONLY
+def test_the_documented_request_is_issued_with_exactly_the_documented_fields(
+    server: str, declaration: lpi.Declaration
+) -> None:
+    request = json.loads(
+        _documented_json("lane").replace("<a device name for this machine>", "nuc")
+    )
+    assert set(request) == {"lane", "device"}
+    documented = json.loads(_documented_json("principal"))
+    with _proxy(server, LOGIN) as url:
+        status, body, cache = _proxy_post(url, request, None)
+    assert status == HTTPStatus.CREATED
+    assert set(body) == set(documented)
+    assert body["principal"] == lpi.principal_name(declaration, LOGIN, "nuc")
+    for field in ("lane", "mechanism", "security_protocol", "action"):
+        assert body[field] == documented[field], field
+    assert cache == "no-store"
+    with _proxy(server, LOGIN) as url:
+        status, again, _ = _proxy_post(url, request, None)
+    assert status == HTTPStatus.CREATED
+    assert again["action"] == "rotated"
+
+
+@pytest.mark.parametrize("command", ["apply-grants", "audit-grants"])
+def test_no_selected_principals_is_a_refusal(
+    command: str,
+    apply_broker: FakeBroker,
+    ledger_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert not ledger_path.exists()
+    assert (
+        lpi.main([command, "--grants", str(GRANTS), "--ledger", str(ledger_path)]) == 2
+    )
+    assert "no developer principals selected" in capsys.readouterr().err
+    assert not ledger_path.exists()
+    assert apply_broker.acl_argvs == [] and apply_broker.set_calls == []
+
+
+def test_a_listing_row_with_an_error_is_refused() -> None:
+    listing = (
+        ACL_HEADER + "\n"
+        "User:dev-a-mac  *  TOPIC  some-topic  LITERAL  READ  ALLOW  AUTHORIZATION_FAILED\n"
+    )
+    with pytest.raises(lpi.IssuerError, match=r"ACL row.*error"):
+        lpi.parse_acl_listing(listing, "dev-a-mac")
+
+
+def test_audit_refuses_a_listing_row_with_an_error(
+    apply_broker: FakeBroker,
+    monkeypatch: pytest.MonkeyPatch,
+    ledger_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    principal = "dev-a-mac"
+    rows = _derived_listing(principal)
+    rows[0] += "  AUTHORIZATION_FAILED"
+    broker = ListingBroker({principal: _listing(rows)})
+    monkeypatch.setattr(lpi, "Broker", lambda config: broker)
+    assert (
+        lpi.main(
+            [
+                "audit-grants",
+                "--grants",
+                str(GRANTS),
+                "--ledger",
+                str(ledger_path),
+                "--principal",
+                principal,
+            ]
+        )
+        == 2
+    )
+    captured = capsys.readouterr()
+    assert "ACL row carries an error" in captured.err
+    assert "missing=0 extra=0" not in captured.out
+    assert not ledger_path.exists()
+    assert broker.acl_argvs == [] and broker.set_calls == []

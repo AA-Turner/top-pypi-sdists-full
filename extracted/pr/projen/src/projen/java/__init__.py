@@ -1921,6 +1921,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALWAYS")
+    @builtins.classmethod
     def ALWAYS(cls) -> builtins.str:
         '''
         :stability: experimental
@@ -1929,6 +1930,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DAILY")
+    @builtins.classmethod
     def DAILY(cls) -> builtins.str:
         '''
         :stability: experimental
@@ -1937,6 +1939,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEVER")
+    @builtins.classmethod
     def NEVER(cls) -> builtins.str:
         '''
         :stability: experimental

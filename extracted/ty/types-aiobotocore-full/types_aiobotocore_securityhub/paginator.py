@@ -24,12 +24,15 @@ Usage::
         GetFindingsV2Paginator,
         GetInsightsPaginator,
         GetRecommendedPolicyV2Paginator,
+        GetRemediationsV2Paginator,
         GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
         ListAggregatorsV2Paginator,
         ListConfigurationPoliciesPaginator,
         ListConfigurationPolicyAssociationsPaginator,
         ListEnabledProductsForImportPaginator,
+        ListExportJobsV2Paginator,
+        ListExposuresByRemediationV2Paginator,
         ListFindingAggregatorsPaginator,
         ListFreeTrialStatusesV2Paginator,
         ListInvitationsPaginator,
@@ -55,12 +58,15 @@ Usage::
         get_findings_v2_paginator: GetFindingsV2Paginator = client.get_paginator("get_findings_v2")
         get_insights_paginator: GetInsightsPaginator = client.get_paginator("get_insights")
         get_recommended_policy_v2_paginator: GetRecommendedPolicyV2Paginator = client.get_paginator("get_recommended_policy_v2")
+        get_remediations_v2_paginator: GetRemediationsV2Paginator = client.get_paginator("get_remediations_v2")
         get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
         get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
         list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
         list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
         list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
         list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginator = client.get_paginator("list_enabled_products_for_import")
+        list_export_jobs_v2_paginator: ListExportJobsV2Paginator = client.get_paginator("list_export_jobs_v2")
+        list_exposures_by_remediation_v2_paginator: ListExposuresByRemediationV2Paginator = client.get_paginator("list_exposures_by_remediation_v2")
         list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator("list_finding_aggregators")
         list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator("list_free_trial_statuses_v2")
         list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
@@ -103,6 +109,8 @@ from .type_defs import (
     GetInsightsResponseTypeDef,
     GetRecommendedPolicyV2RequestPaginateTypeDef,
     GetRecommendedPolicyV2ResponseTypeDef,
+    GetRemediationsV2RequestPaginateTypeDef,
+    GetRemediationsV2ResponseTypeDef,
     GetResourcesTrendsV2RequestPaginateTypeDef,
     GetResourcesTrendsV2ResponseTypeDef,
     GetResourcesV2RequestPaginateTypeDef,
@@ -115,6 +123,10 @@ from .type_defs import (
     ListConfigurationPolicyAssociationsResponseTypeDef,
     ListEnabledProductsForImportRequestPaginateTypeDef,
     ListEnabledProductsForImportResponseTypeDef,
+    ListExportJobsV2RequestPaginateTypeDef,
+    ListExportJobsV2ResponseTypeDef,
+    ListExposuresByRemediationV2RequestPaginateTypeDef,
+    ListExposuresByRemediationV2ResponseTypeDef,
     ListFindingAggregatorsRequestPaginateTypeDef,
     ListFindingAggregatorsResponseTypeDef,
     ListFreeTrialStatusesV2RequestPaginateTypeDef,
@@ -150,12 +162,15 @@ __all__ = (
     "GetFindingsV2Paginator",
     "GetInsightsPaginator",
     "GetRecommendedPolicyV2Paginator",
+    "GetRemediationsV2Paginator",
     "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
     "ListAggregatorsV2Paginator",
     "ListConfigurationPoliciesPaginator",
     "ListConfigurationPolicyAssociationsPaginator",
     "ListEnabledProductsForImportPaginator",
+    "ListExportJobsV2Paginator",
+    "ListExposuresByRemediationV2Paginator",
     "ListFindingAggregatorsPaginator",
     "ListFreeTrialStatusesV2Paginator",
     "ListInvitationsPaginator",
@@ -419,6 +434,27 @@ class GetRecommendedPolicyV2Paginator(_GetRecommendedPolicyV2PaginatorBase):
 
 
 if TYPE_CHECKING:
+    _GetRemediationsV2PaginatorBase = AioPaginator[GetRemediationsV2ResponseTypeDef]
+else:
+    _GetRemediationsV2PaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class GetRemediationsV2Paginator(_GetRemediationsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetRemediationsV2.html#SecurityHub.Paginator.GetRemediationsV2)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#getremediationsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetRemediationsV2RequestPaginateTypeDef]
+    ) -> AioPageIterator[GetRemediationsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetRemediationsV2.html#SecurityHub.Paginator.GetRemediationsV2.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#getremediationsv2paginator)
+        """
+
+
+if TYPE_CHECKING:
     _GetResourcesTrendsV2PaginatorBase = AioPaginator[GetResourcesTrendsV2ResponseTypeDef]
 else:
     _GetResourcesTrendsV2PaginatorBase = AioPaginator  # type: ignore[assignment]
@@ -547,6 +583,50 @@ class ListEnabledProductsForImportPaginator(_ListEnabledProductsForImportPaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListEnabledProductsForImport.html#SecurityHub.Paginator.ListEnabledProductsForImport.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listenabledproductsforimportpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListExportJobsV2PaginatorBase = AioPaginator[ListExportJobsV2ResponseTypeDef]
+else:
+    _ListExportJobsV2PaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListExportJobsV2Paginator(_ListExportJobsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListExportJobsV2.html#SecurityHub.Paginator.ListExportJobsV2)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listexportjobsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExportJobsV2RequestPaginateTypeDef]
+    ) -> AioPageIterator[ListExportJobsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListExportJobsV2.html#SecurityHub.Paginator.ListExportJobsV2.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listexportjobsv2paginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListExposuresByRemediationV2PaginatorBase = AioPaginator[
+        ListExposuresByRemediationV2ResponseTypeDef
+    ]
+else:
+    _ListExposuresByRemediationV2PaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListExposuresByRemediationV2Paginator(_ListExposuresByRemediationV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListExposuresByRemediationV2.html#SecurityHub.Paginator.ListExposuresByRemediationV2)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listexposuresbyremediationv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExposuresByRemediationV2RequestPaginateTypeDef]
+    ) -> AioPageIterator[ListExposuresByRemediationV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListExposuresByRemediationV2.html#SecurityHub.Paginator.ListExposuresByRemediationV2.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listexposuresbyremediationv2paginator)
         """
 
 

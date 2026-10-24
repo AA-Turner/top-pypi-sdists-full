@@ -11,6 +11,7 @@ import triton.language as tl
 
 from fla.ops.generalized_delta_rule.iplr.wy_fast import prepare_wy_repr_fwd
 from fla.ops.utils import prepare_chunk_indices, prepare_chunk_offsets
+from fla.ops.utils.op import unflatten_program_id
 from fla.utils import (
     autocast_custom_bwd,
     autocast_custom_fwd,
@@ -60,13 +61,13 @@ def chunk_generalized_iplr_delta_rule_fwd_kernel_h(
     STORE_FINAL_STATE: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_k, i_v, i_nh = tl.program_id(0), tl.program_id(1), tl.program_id(2)
+    i_k, i_v, i_nh = unflatten_program_id(tl.cdiv(K, BK), tl.cdiv(V, BV))
     i_n, i_h = i_nh // H, i_nh % H
     if IS_VARLEN:
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
         NT = tl.cdiv(T, BT)
-        boh = tl.load(chunk_offsets + i_n).to(tl.int32)
+        boh = tl.load(chunk_offsets + i_n).to(tl.int64)
     else:
         bos, eos = i_n * T, i_n * T + T
         NT = tl.cdiv(T, BT)
@@ -85,9 +86,9 @@ def chunk_generalized_iplr_delta_rule_fwd_kernel_h(
         p_h = h + ((boh + i_t) * H + i_h) * K*V + o_k[:, None] * V + o_v[None, :]
         tl.store(p_h, b_h.to(p_h.dtype.element_ty), mask=m_h)
         b_hc = tl.zeros([BK, BV], dtype=tl.float32)
-        # since we need to make all DK in the SRAM. we face serve SRAM memory burden. By subchunking we allievate such burden
+        # since all DK values must fit in SRAM, subchunking alleviates the SRAM memory burden.
         for i_c in range(tl.cdiv(min(BT, T - i_t * BT), BC)):
-            o_c = i_t * BT + i_c * BC + tl.arange(0, BC)
+            o_c = i_t.to(tl.int64) * BT + i_c * BC + tl.arange(0, BC)
             m_c = o_c < T
             m_kc = (o_k[:, None] < K) & m_c[None, :]
             m_dc = m_c[:, None] & (o_k[None, :] < K)
@@ -104,8 +105,8 @@ def chunk_generalized_iplr_delta_rule_fwd_kernel_h(
             b_d = tl.load(p_d, mask=m_dc, other=0.0)
             b_b = tl.load(p_b, mask=m_kc, other=0.0)
             b_v2 = tl.dot(b_d, b_h.to(b_d.dtype)) + tl.load(p_u, mask=m_vc, other=0.0)
-            b_hc += tl.dot(b_k, b_v)
-            b_hc += tl.dot(b_b, b_v2.to(b_k.dtype))
+            b_hc = tl.dot(b_k, b_v, b_hc)
+            b_hc = tl.dot(b_b, b_v2.to(b_k.dtype), b_hc)
             tl.store(p_v_new, b_v2.to(p_v_new.dtype.element_ty), mask=m_vc)
         b_h += b_hc
 
@@ -148,13 +149,14 @@ def chunk_generalized_iplr_delta_rule_fwd_kernel_o(
     BV: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_v, i_t, i_bh = tl.program_id(0), tl.program_id(1).to(tl.int64), tl.program_id(2)
+    i_v, i_t = unflatten_program_id(tl.cdiv(V, BV))
+    i_bh = tl.program_id(1).to(tl.int64)
     i_b, i_h = i_bh // H, i_bh % H
 
     if IS_VARLEN:
         i_tg = i_t
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
         NT = tl.cdiv(T, BT)
     else:
@@ -197,11 +199,11 @@ def chunk_generalized_iplr_delta_rule_fwd_kernel_o(
         # [BK, BV]
         b_h = tl.load(p_h, mask=m_h, other=0.0)
         # [BT, BK] @ [BK, BV] -> [BT, BV]
-        b_o += tl.dot(b_q, b_h)
+        b_o = tl.dot(b_q, b_h, b_o)
         # [BT, BK] @ [BK, BT] -> [BT, BT]
-        b_Aqk += tl.dot(b_q, b_k)
+        b_Aqk = tl.dot(b_q, b_k, b_Aqk)
         # [BT, BK] @ [BK, BT] -> [BT, BT]
-        b_Aqb += tl.dot(b_q, b_b)
+        b_Aqb = tl.dot(b_q, b_b, b_Aqb)
 
     o_i = tl.arange(0, BT)
     m_A = o_i[:, None] >= o_i[None, :]
@@ -241,11 +243,7 @@ def chunk_generalized_iplr_delta_rule_fwd_o(
 
     o = torch.empty_like(v)
 
-    def grid(meta): return (
-        triton.cdiv(V, meta['BV']),
-        NT,
-        B * H,
-    )
+    def grid(meta): return (triton.cdiv(V, meta['BV']) * NT, B * H)
     chunk_generalized_iplr_delta_rule_fwd_kernel_o[grid](
         q=q,
         k=k,
@@ -313,7 +311,7 @@ def chunk_generalized_iplr_delta_rule_fwd_h(
     final_state = k.new_empty(N, H, K, V, dtype=torch.float32) if output_final_state else None
 
     v_new = torch.empty_like(u)
-    grid = (NK, NV, N * H)
+    grid = (NK * NV * N * H,)
 
     chunk_generalized_iplr_delta_rule_fwd_kernel_h[grid](
         k=k,

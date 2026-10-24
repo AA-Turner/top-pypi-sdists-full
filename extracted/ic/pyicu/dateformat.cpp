@@ -37,6 +37,7 @@
 
 DECLARE_CONSTANTS_TYPE(UDateTimePatternConflict)
 DECLARE_CONSTANTS_TYPE(UDateTimePatternField)
+DECLARE_CONSTANTS_TYPE(UDateFormatField)
 
 #if U_ICU_VERSION_HEX >= 0x04040000
 DECLARE_CONSTANTS_TYPE(UDateTimePatternMatchOptions)
@@ -68,6 +69,10 @@ DECLARE_CONSTANTS_TYPE(URelativeDateTimeUnit)
 
 #if U_ICU_VERSION_HEX >= VERSION_HEX(64, 0, 0)
 DECLARE_CONSTANTS_TYPE(URelativeDateTimeFormatterField)
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(67, 0, 0)
+DECLARE_CONSTANTS_TYPE(UDateFormatHourCycle)
 #endif
 
 /* DateFormatSymbols */
@@ -292,6 +297,10 @@ static PyObject *t_datetimepatterngenerator_getDateTimeFormat(
     t_datetimepatterngenerator *self, PyObject *args);
 static PyObject *t_datetimepatterngenerator_setDateTimeFormat(
     t_datetimepatterngenerator *self, PyObject *arg);
+#if U_ICU_VERSION_HEX >= VERSION_HEX(67, 0, 0)
+static PyObject *t_datetimepatterngenerator_getDefaultHourCycle(
+    t_datetimepatterngenerator *self);
+#endif
 
 static PyMethodDef t_datetimepatterngenerator_methods[] = {
     DECLARE_METHOD(t_datetimepatterngenerator, createEmptyInstance,
@@ -321,6 +330,9 @@ static PyMethodDef t_datetimepatterngenerator_methods[] = {
 #endif
     DECLARE_METHOD(t_datetimepatterngenerator, getDateTimeFormat, METH_VARARGS),
     DECLARE_METHOD(t_datetimepatterngenerator, setDateTimeFormat, METH_O),
+#if U_ICU_VERSION_HEX >= VERSION_HEX(67, 0, 0)
+    DECLARE_METHOD(t_datetimepatterngenerator, getDefaultHourCycle, METH_NOARGS),
+#endif
     { NULL, NULL, 0, NULL }
 };
 
@@ -1738,6 +1750,16 @@ static PyObject *t_datetimepatterngenerator_getDecimal(
     return PyUnicode_FromUnicodeString(&result);
 }
 
+#if U_ICU_VERSION_HEX >= VERSION_HEX(67, 0, 0)
+static PyObject *t_datetimepatterngenerator_getDefaultHourCycle(
+    t_datetimepatterngenerator *self)
+{
+    STATUS_RESULT_CALL(
+        UDateFormatHourCycle cycle = self->object->getDefaultHourCycle(status),
+        return PyInt_FromLong(cycle))
+}
+#endif
+
 static PyObject *t_datetimepatterngenerator_getDateTimeFormat(
     t_datetimepatterngenerator *self, PyObject *args)
 {
@@ -2512,6 +2534,7 @@ void _init_dateformat(PyObject *m)
 
     INSTALL_CONSTANTS_TYPE(UDateTimePatternConflict, m);
     INSTALL_CONSTANTS_TYPE(UDateTimePatternField, m);
+    INSTALL_CONSTANTS_TYPE(UDateFormatField, m);
 #if U_ICU_VERSION_HEX >= 0x04040000
     INSTALL_CONSTANTS_TYPE(UDateTimePatternMatchOptions, m);
 #endif
@@ -2542,6 +2565,10 @@ void _init_dateformat(PyObject *m)
 
 #if U_ICU_VERSION_HEX >= VERSION_HEX(64, 0, 0)
     INSTALL_CONSTANTS_TYPE(URelativeDateTimeFormatterField, m);
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(67, 0, 0)
+    INSTALL_CONSTANTS_TYPE(UDateFormatHourCycle, m);
 #endif
 
     REGISTER_TYPE(DateFormatSymbols, m);
@@ -2585,6 +2612,8 @@ void _init_dateformat(PyObject *m)
     INSTALL_STATIC_INT(DateFormat, NONE);
     INSTALL_STATIC_INT(DateFormat, DATE_TIME);
 
+    // All below DateFormat fields are deprecated and replaced by
+    // UDateFormatField enum
     INSTALL_STATIC_INT(DateFormat, kEraField);
     INSTALL_STATIC_INT(DateFormat, kYearField);
     INSTALL_STATIC_INT(DateFormat, kMonthField);
@@ -2626,6 +2655,49 @@ void _init_dateformat(PyObject *m)
     INSTALL_STATIC_INT(DateFormat, HOUR1_FIELD);
     INSTALL_STATIC_INT(DateFormat, HOUR0_FIELD);
     INSTALL_STATIC_INT(DateFormat, TIMEZONE_FIELD);
+
+    INSTALL_ENUM(UDateFormatField, "ERA", UDAT_ERA_FIELD);
+    INSTALL_ENUM(UDateFormatField, "YEAR", UDAT_YEAR_FIELD);
+    INSTALL_ENUM(UDateFormatField, "MONTH", UDAT_MONTH_FIELD);
+    INSTALL_ENUM(UDateFormatField, "DATE", UDAT_DATE_FIELD);
+    INSTALL_ENUM(UDateFormatField, "HOUR_OF_DAY1", UDAT_HOUR_OF_DAY1_FIELD);
+    INSTALL_ENUM(UDateFormatField, "HOUR_OF_DAY0", UDAT_HOUR_OF_DAY0_FIELD);
+    INSTALL_ENUM(UDateFormatField, "MINUTE", UDAT_MINUTE_FIELD);
+    INSTALL_ENUM(UDateFormatField, "SECOND", UDAT_SECOND_FIELD);
+    INSTALL_ENUM(UDateFormatField, "FRACTIONAL_SECOND", UDAT_FRACTIONAL_SECOND_FIELD);
+    INSTALL_ENUM(UDateFormatField, "DAY_OF_WEEK", UDAT_DAY_OF_WEEK_FIELD);
+    INSTALL_ENUM(UDateFormatField, "DAY_OF_YEAR", UDAT_DAY_OF_YEAR_FIELD);
+    INSTALL_ENUM(UDateFormatField, "DAY_OF_WEEK_IN_MONTH", UDAT_DAY_OF_WEEK_IN_MONTH_FIELD);
+    INSTALL_ENUM(UDateFormatField, "WEEK_OF_YEAR", UDAT_WEEK_OF_YEAR_FIELD);
+    INSTALL_ENUM(UDateFormatField, "WEEK_OF_MONTH", UDAT_WEEK_OF_MONTH_FIELD);
+    INSTALL_ENUM(UDateFormatField, "AM_PM", UDAT_AM_PM_FIELD);
+    INSTALL_ENUM(UDateFormatField, "HOUR1", UDAT_HOUR1_FIELD);
+    INSTALL_ENUM(UDateFormatField, "HOUR0", UDAT_HOUR0_FIELD);
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE", UDAT_TIMEZONE_FIELD);
+    INSTALL_ENUM(UDateFormatField, "YEAR_WOY", UDAT_YEAR_WOY_FIELD);
+    INSTALL_ENUM(UDateFormatField, "DOW_LOCAL", UDAT_DOW_LOCAL_FIELD);
+    INSTALL_ENUM(UDateFormatField, "EXTENDED_YEAR", UDAT_EXTENDED_YEAR_FIELD);
+    INSTALL_ENUM(UDateFormatField, "JULIAN_DAY", UDAT_JULIAN_DAY_FIELD);
+    INSTALL_ENUM(UDateFormatField, "MILLISECONDS_IN_DAY", UDAT_MILLISECONDS_IN_DAY_FIELD);
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE_RFC", UDAT_TIMEZONE_RFC_FIELD);
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE_GENERIC", UDAT_TIMEZONE_GENERIC_FIELD);
+    INSTALL_ENUM(UDateFormatField, "STANDALONE_DAY", UDAT_STANDALONE_DAY_FIELD);
+    INSTALL_ENUM(UDateFormatField, "STANDALONE_MONTH", UDAT_STANDALONE_MONTH_FIELD);
+    INSTALL_ENUM(UDateFormatField, "QUARTER", UDAT_QUARTER_FIELD);
+    INSTALL_ENUM(UDateFormatField, "STANDALONE_QUARTER", UDAT_STANDALONE_QUARTER_FIELD);
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE_SPECIAL", UDAT_TIMEZONE_SPECIAL_FIELD);
+#if U_ICU_VERSION_HEX >= VERSION_HEX(49, 0, 0)
+    INSTALL_ENUM(UDateFormatField, "YEAR_NAME", UDAT_YEAR_NAME_FIELD);
+#endif  // ICU >= 49
+#if U_ICU_VERSION_HEX >= VERSION_HEX(51, 0, 0)
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE_LOCALIZED_GMT_OFFSET", UDAT_TIMEZONE_LOCALIZED_GMT_OFFSET_FIELD);
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE_ISO", UDAT_TIMEZONE_ISO_FIELD);
+    INSTALL_ENUM(UDateFormatField, "TIMEZONE_ISO_LOCAL", UDAT_TIMEZONE_ISO_LOCAL_FIELD);
+#endif  // ICU >= 51
+#if U_ICU_VERSION_HEX >= VERSION_HEX(57, 0, 0)
+    INSTALL_ENUM(UDateFormatField, "AM_PM_MIDNIGHT_NOON", UDAT_AM_PM_MIDNIGHT_NOON_FIELD);
+    INSTALL_ENUM(UDateFormatField, "FLEXIBLE_DAY_PERIOD", UDAT_FLEXIBLE_DAY_PERIOD_FIELD);
+#endif  // ICU >= 57
 
     INSTALL_ENUM(UDateTimePatternConflict, "NO_CONFLICT", UDATPG_NO_CONFLICT);
     INSTALL_ENUM(UDateTimePatternConflict, "BASE_CONFLICT", UDATPG_BASE_CONFLICT);
@@ -2770,5 +2842,12 @@ void _init_dateformat(PyObject *m)
 #if U_ICU_VERSION_HEX >= VERSION_HEX(64, 0, 0)
     INSTALL_ENUM(URelativeDateTimeFormatterField, "LITERAL_FIELD", UDAT_REL_LITERAL_FIELD);
     INSTALL_ENUM(URelativeDateTimeFormatterField, "NUMERIC_FIELD", UDAT_REL_NUMERIC_FIELD);
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(67, 0, 0)
+    INSTALL_ENUM(UDateFormatHourCycle, "HOUR_CYCLE_11", UDAT_HOUR_CYCLE_11);
+    INSTALL_ENUM(UDateFormatHourCycle, "HOUR_CYCLE_12", UDAT_HOUR_CYCLE_12);
+    INSTALL_ENUM(UDateFormatHourCycle, "HOUR_CYCLE_23", UDAT_HOUR_CYCLE_23);
+    INSTALL_ENUM(UDateFormatHourCycle, "HOUR_CYCLE_24", UDAT_HOUR_CYCLE_24);
 #endif
 }

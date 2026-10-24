@@ -70,6 +70,14 @@ from .literals import (
     ExpressGatewayServiceScalingMetricType,
     ExpressGatewayServiceStatusCodeType,
     FirelensConfigurationTypeType,
+    GatewayAlbDesyncMitigationModeType,
+    GatewayAlbProtocolType,
+    GatewayClusterAssociationStatusType,
+    GatewayConnectorHealthCheckProtocolType,
+    GatewayElbIpAddressTypeType,
+    GatewayElbSchemeType,
+    GatewayRouteStatusType,
+    GatewayStatusType,
     HealthStatusType,
     InstanceGenerationType,
     InstanceHealthCheckStateType,
@@ -90,6 +98,7 @@ from .literals import (
     PlacementConstraintTypeType,
     PlacementStrategyTypeType,
     PlatformDeviceTypeType,
+    PropagateGatewayTagsType,
     PropagateMITagsType,
     PropagateTagsType,
     ResourceManagementTypeType,
@@ -97,6 +106,7 @@ from .literals import (
     SchedulingStrategyType,
     ScopeType,
     ServiceConnectAccessLoggingFormatType,
+    ServiceConnectContainerLogLevelType,
     ServiceConnectIncludeQueryParametersType,
     ServiceDeploymentLifecycleStageType,
     ServiceDeploymentRollbackMonitorsStatusType,
@@ -127,6 +137,8 @@ __all__ = (
     "AcceleratorCountRequestTypeDef",
     "AcceleratorTotalMemoryMiBRequestTypeDef",
     "AdvancedConfigurationTypeDef",
+    "AssociateGatewayWithClusterRequestTypeDef",
+    "AssociateGatewayWithClusterResponseTypeDef",
     "AttachmentStateChangeTypeDef",
     "AttachmentTypeDef",
     "AttributeTypeDef",
@@ -169,6 +181,8 @@ __all__ = (
     "CreateDaemonResponseTypeDef",
     "CreateExpressGatewayServiceRequestTypeDef",
     "CreateExpressGatewayServiceResponseTypeDef",
+    "CreateGatewayRequestTypeDef",
+    "CreateGatewayResponseTypeDef",
     "CreateManagedInstancesProviderConfigurationTypeDef",
     "CreateServiceRequestTypeDef",
     "CreateServiceResponseTypeDef",
@@ -216,6 +230,8 @@ __all__ = (
     "DeleteDaemonTaskDefinitionResponseTypeDef",
     "DeleteExpressGatewayServiceRequestTypeDef",
     "DeleteExpressGatewayServiceResponseTypeDef",
+    "DeleteGatewayRequestTypeDef",
+    "DeleteGatewayResponseTypeDef",
     "DeleteServiceRequestTypeDef",
     "DeleteServiceResponseTypeDef",
     "DeleteTaskDefinitionsRequestTypeDef",
@@ -261,6 +277,14 @@ __all__ = (
     "DescribeDaemonTaskDefinitionResponseTypeDef",
     "DescribeExpressGatewayServiceRequestTypeDef",
     "DescribeExpressGatewayServiceResponseTypeDef",
+    "DescribeGatewayAlbConfigurationTypeDef",
+    "DescribeGatewayConfigurationTypeDef",
+    "DescribeGatewayRequestTypeDef",
+    "DescribeGatewayResourcesRequestTypeDef",
+    "DescribeGatewayResourcesResponseTypeDef",
+    "DescribeGatewayResponseTypeDef",
+    "DescribeGatewayRouteRequestTypeDef",
+    "DescribeGatewayRouteResponseTypeDef",
     "DescribeServiceDeploymentsRequestTypeDef",
     "DescribeServiceDeploymentsResponseTypeDef",
     "DescribeServiceRevisionsRequestTypeDef",
@@ -280,6 +304,8 @@ __all__ = (
     "DeviceOutputTypeDef",
     "DeviceTypeDef",
     "DeviceUnionTypeDef",
+    "DisassociateGatewayFromClusterRequestTypeDef",
+    "DisassociateGatewayFromClusterResponseTypeDef",
     "DiscoverPollEndpointRequestTypeDef",
     "DiscoverPollEndpointResponseTypeDef",
     "DockerVolumeConfigurationOutputTypeDef",
@@ -292,6 +318,7 @@ __all__ = (
     "ECSManagedResourcesTypeDef",
     "EFSAuthorizationConfigTypeDef",
     "EFSVolumeConfigurationTypeDef",
+    "ElbGatewayResourcesTypeDef",
     "EnvironmentFileTypeDef",
     "EphemeralStorageTypeDef",
     "ExecuteCommandConfigurationTypeDef",
@@ -315,12 +342,49 @@ __all__ = (
     "FirelensConfigurationOutputTypeDef",
     "FirelensConfigurationTypeDef",
     "FirelensConfigurationUnionTypeDef",
+    "GatewayAlbTestTrafficRulesOutputTypeDef",
+    "GatewayAlbTestTrafficRulesTypeDef",
+    "GatewayAlbTestTrafficRulesUnionTypeDef",
+    "GatewayClusterAssociationSummaryTypeDef",
+    "GatewayConfigurationTypeDef",
+    "GatewayConnectionAlbResourcesTypeDef",
+    "GatewayConnectionResourcesTypeDef",
+    "GatewayConnectionTypeDef",
+    "GatewayConnectorFiltersOutputTypeDef",
+    "GatewayConnectorFiltersTypeDef",
+    "GatewayConnectorFiltersUnionTypeDef",
+    "GatewayConnectorHealthCheckMatcherTypeDef",
+    "GatewayConnectorHealthCheckTypeDef",
+    "GatewayConnectorOutputTypeDef",
+    "GatewayConnectorTypeDef",
+    "GatewayConnectorUnionTypeDef",
+    "GatewayElbAccessLogConfigurationTypeDef",
+    "GatewayElbAccessLogDestinationTypeDef",
+    "GatewayElbAccessLogS3DestinationTypeDef",
+    "GatewayElbNetworkConfigurationOutputTypeDef",
+    "GatewayElbNetworkConfigurationTypeDef",
+    "GatewayElbNetworkConfigurationUnionTypeDef",
+    "GatewayInfrastructureResourcesTypeDef",
+    "GatewayOperationErrorTypeDef",
+    "GatewayResourceFailureTypeDef",
+    "GatewayResourcesTypeDef",
+    "GatewayRouteAlbResourcesTypeDef",
+    "GatewayRouteLoadBalancerSecurityGroupTypeDef",
+    "GatewayRouteResourcesTypeDef",
+    "GatewayRouteSummaryTypeDef",
+    "GatewayRouteTypeDef",
+    "GatewaySummaryTypeDef",
+    "GatewayTestTrafficHeaderOutputTypeDef",
+    "GatewayTestTrafficHeaderTypeDef",
+    "GatewayTestTrafficHeaderUnionTypeDef",
+    "GatewayTypeDef",
     "GetTaskProtectionRequestTypeDef",
     "GetTaskProtectionResponseTypeDef",
     "HealthCheckOutputTypeDef",
     "HealthCheckTypeDef",
     "HealthCheckUnionTypeDef",
     "HostEntryTypeDef",
+    "HostSharedAlbConfigurationTypeDef",
     "HostVolumePropertiesTypeDef",
     "InferenceAcceleratorOverrideTypeDef",
     "InferenceAcceleratorTypeDef",
@@ -360,6 +424,15 @@ __all__ = (
     "ListDaemonTaskDefinitionsResponseTypeDef",
     "ListDaemonsRequestTypeDef",
     "ListDaemonsResponseTypeDef",
+    "ListGatewayClusterAssociationsRequestPaginateTypeDef",
+    "ListGatewayClusterAssociationsRequestTypeDef",
+    "ListGatewayClusterAssociationsResponseTypeDef",
+    "ListGatewayRoutesRequestPaginateTypeDef",
+    "ListGatewayRoutesRequestTypeDef",
+    "ListGatewayRoutesResponseTypeDef",
+    "ListGatewaysRequestPaginateTypeDef",
+    "ListGatewaysRequestTypeDef",
+    "ListGatewaysResponseTypeDef",
     "ListServiceDeploymentsRequestTypeDef",
     "ListServiceDeploymentsResponseTypeDef",
     "ListServicesByNamespaceRequestPaginateTypeDef",
@@ -463,6 +536,7 @@ __all__ = (
     "ServiceConnectConfigurationOutputTypeDef",
     "ServiceConnectConfigurationTypeDef",
     "ServiceConnectConfigurationUnionTypeDef",
+    "ServiceConnectContainerConfigurationTypeDef",
     "ServiceConnectServiceOutputTypeDef",
     "ServiceConnectServiceResourceTypeDef",
     "ServiceConnectServiceTypeDef",
@@ -541,6 +615,11 @@ __all__ = (
     "UpdateDaemonResponseTypeDef",
     "UpdateExpressGatewayServiceRequestTypeDef",
     "UpdateExpressGatewayServiceResponseTypeDef",
+    "UpdateGatewayAlbConfigurationTypeDef",
+    "UpdateGatewayConfigurationTypeDef",
+    "UpdateGatewayNetworkConfigurationTypeDef",
+    "UpdateGatewayRequestTypeDef",
+    "UpdateGatewayResponseTypeDef",
     "UpdateManagedInstancesProviderConfigurationTypeDef",
     "UpdateServicePrimaryTaskSetRequestTypeDef",
     "UpdateServicePrimaryTaskSetResponseTypeDef",
@@ -583,6 +662,19 @@ class AdvancedConfigurationTypeDef(TypedDict):
     productionListenerRule: NotRequired[str]
     testListenerRule: NotRequired[str]
     roleArn: NotRequired[str]
+
+
+class AssociateGatewayWithClusterRequestTypeDef(TypedDict):
+    gateway: str
+    cluster: str
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 
 class AttachmentStateChangeTypeDef(TypedDict):
@@ -832,14 +924,6 @@ class ContinueServiceDeploymentRequestTypeDef(TypedDict):
     action: NotRequired[DeploymentLifecycleHookActionType]
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 class ExpressGatewayScalingTargetTypeDef(TypedDict):
     minTaskCount: NotRequired[int]
     maxTaskCount: NotRequired[int]
@@ -1022,6 +1106,10 @@ class DeleteExpressGatewayServiceRequestTypeDef(TypedDict):
     serviceArn: str
 
 
+class DeleteGatewayRequestTypeDef(TypedDict):
+    gateway: str
+
+
 class DeleteServiceRequestTypeDef(TypedDict):
     service: str
     cluster: NotRequired[str]
@@ -1155,6 +1243,26 @@ class DescribeExpressGatewayServiceRequestTypeDef(TypedDict):
     include: NotRequired[Sequence[Literal["TAGS"]]]
 
 
+class GatewayElbNetworkConfigurationOutputTypeDef(TypedDict):
+    inboundSecurityGroup: NotRequired[str]
+    subnets: NotRequired[list[str]]
+    ipAddressType: NotRequired[GatewayElbIpAddressTypeType]
+
+
+class DescribeGatewayRequestTypeDef(TypedDict):
+    gateway: str
+
+
+class DescribeGatewayResourcesRequestTypeDef(TypedDict):
+    gateway: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class DescribeGatewayRouteRequestTypeDef(TypedDict):
+    gatewayRouteArn: str
+
+
 class DescribeServiceDeploymentsRequestTypeDef(TypedDict):
     serviceDeploymentArns: Sequence[str]
 
@@ -1191,6 +1299,11 @@ class DeviceTypeDef(TypedDict):
     hostPath: str
     containerPath: NotRequired[str]
     permissions: NotRequired[Sequence[DeviceCgroupPermissionType]]
+
+
+class DisassociateGatewayFromClusterRequestTypeDef(TypedDict):
+    gateway: str
+    cluster: str
 
 
 class DiscoverPollEndpointRequestTypeDef(TypedDict):
@@ -1244,6 +1357,13 @@ class ManagedSecurityGroupTypeDef(TypedDict):
 class EFSAuthorizationConfigTypeDef(TypedDict):
     accessPointId: NotRequired[str]
     iam: NotRequired[EFSAuthorizationConfigIAMType]
+
+
+class ElbGatewayResourcesTypeDef(TypedDict):
+    loadBalancerArn: NotRequired[str]
+    listenerArn: NotRequired[str]
+    securityGroup: NotRequired[str]
+    gatewayRouteArns: NotRequired[list[str]]
 
 
 class EphemeralStorageTypeDef(TypedDict):
@@ -1308,6 +1428,84 @@ FirelensConfigurationTypeDef = TypedDict(
         "options": NotRequired[Mapping[str, str]],
     },
 )
+
+
+class GatewayTestTrafficHeaderOutputTypeDef(TypedDict):
+    name: str
+    values: list[str]
+
+
+class GatewayClusterAssociationSummaryTypeDef(TypedDict):
+    gatewayArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    status: NotRequired[GatewayClusterAssociationStatusType]
+
+
+class GatewayConnectionAlbResourcesTypeDef(TypedDict):
+    acmCertificateArn: NotRequired[str]
+    loadBalancerArn: NotRequired[str]
+    loadBalancerSecurityGroupArns: NotRequired[list[str]]
+    listenerArn: NotRequired[str]
+    listenerRuleArn: NotRequired[str]
+    testListenerRuleArn: NotRequired[str]
+    targetGroupArn: NotRequired[str]
+    alternateTargetGroupArn: NotRequired[str]
+
+
+class GatewayConnectorFiltersOutputTypeDef(TypedDict):
+    accessTypes: NotRequired[list[AccessTypeType]]
+
+
+class GatewayConnectorFiltersTypeDef(TypedDict):
+    accessTypes: NotRequired[Sequence[AccessTypeType]]
+
+
+class GatewayConnectorHealthCheckMatcherTypeDef(TypedDict):
+    httpCode: NotRequired[str]
+    grpcCode: NotRequired[str]
+
+
+class GatewayElbAccessLogS3DestinationTypeDef(TypedDict):
+    bucket: str
+    prefix: NotRequired[str]
+
+
+class GatewayElbNetworkConfigurationTypeDef(TypedDict):
+    inboundSecurityGroup: NotRequired[str]
+    subnets: NotRequired[Sequence[str]]
+    ipAddressType: NotRequired[GatewayElbIpAddressTypeType]
+
+
+class GatewayOperationErrorTypeDef(TypedDict):
+    operation: NotRequired[str]
+    code: NotRequired[str]
+    message: NotRequired[str]
+
+
+class GatewayRouteLoadBalancerSecurityGroupTypeDef(TypedDict):
+    arn: NotRequired[str]
+    ruleArns: NotRequired[list[str]]
+
+
+class GatewayRouteSummaryTypeDef(TypedDict):
+    gatewayRouteArn: NotRequired[str]
+    gatewayArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    serviceArn: NotRequired[str]
+    serviceContainerPortName: NotRequired[str]
+    status: NotRequired[GatewayRouteStatusType]
+
+
+class GatewaySummaryTypeDef(TypedDict):
+    gatewayArn: NotRequired[str]
+    name: NotRequired[str]
+    status: NotRequired[GatewayStatusType]
+    createdAt: NotRequired[datetime]
+
+
+class GatewayTestTrafficHeaderTypeDef(TypedDict):
+    name: str
+    values: Sequence[str]
 
 
 class GetTaskProtectionRequestTypeDef(TypedDict):
@@ -1455,6 +1653,31 @@ class ListDaemonTaskDefinitionsRequestTypeDef(TypedDict):
 class ListDaemonsRequestTypeDef(TypedDict):
     clusterArn: NotRequired[str]
     capacityProviderArns: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListGatewayClusterAssociationsRequestTypeDef(TypedDict):
+    gateway: NotRequired[str]
+    cluster: NotRequired[str]
+    status: NotRequired[Sequence[GatewayClusterAssociationStatusType]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListGatewayRoutesRequestTypeDef(TypedDict):
+    gateway: NotRequired[str]
+    cluster: NotRequired[str]
+    service: NotRequired[str]
+    serviceContainerPortName: NotRequired[str]
+    status: NotRequired[Sequence[GatewayRouteStatusType]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListGatewaysRequestTypeDef(TypedDict):
+    names: NotRequired[Sequence[str]]
+    status: NotRequired[Sequence[GatewayStatusType]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -1684,6 +1907,10 @@ ServiceConnectAccessLogConfigurationTypeDef = TypedDict(
 )
 
 
+class ServiceConnectContainerConfigurationTypeDef(TypedDict):
+    logLevel: NotRequired[ServiceConnectContainerLogLevelType]
+
+
 class TimeoutConfigurationTypeDef(TypedDict):
     idleTimeoutSeconds: NotRequired[int]
     perRequestTimeoutSeconds: NotRequired[int]
@@ -1777,6 +2004,10 @@ class UpdateContainerInstancesStateRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
 
 
+class UpdateGatewayNetworkConfigurationTypeDef(TypedDict):
+    inboundSecurityGroup: NotRequired[str]
+
+
 class UpdateServicePrimaryTaskSetRequestTypeDef(TypedDict):
     cluster: str
     service: str
@@ -1802,6 +2033,151 @@ class LoadBalancerTypeDef(TypedDict):
     containerName: NotRequired[str]
     containerPort: NotRequired[int]
     advancedConfiguration: NotRequired[AdvancedConfigurationTypeDef]
+
+
+class AssociateGatewayWithClusterResponseTypeDef(TypedDict):
+    gatewayArn: str
+    clusterArn: str
+    status: GatewayClusterAssociationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ContinueServiceDeploymentResponseTypeDef(TypedDict):
+    serviceDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateDaemonResponseTypeDef(TypedDict):
+    daemonArn: str
+    status: DaemonStatusType
+    createdAt: datetime
+    deploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateGatewayResponseTypeDef(TypedDict):
+    gatewayArn: str
+    name: str
+    status: GatewayStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteDaemonResponseTypeDef(TypedDict):
+    daemonArn: str
+    status: DaemonStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    deploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteDaemonTaskDefinitionResponseTypeDef(TypedDict):
+    daemonTaskDefinitionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteGatewayResponseTypeDef(TypedDict):
+    gatewayArn: str
+    name: str
+    status: GatewayStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DisassociateGatewayFromClusterResponseTypeDef(TypedDict):
+    gatewayArn: str
+    clusterArn: str
+    status: GatewayClusterAssociationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DiscoverPollEndpointResponseTypeDef(TypedDict):
+    endpoint: str
+    telemetryEndpoint: str
+    serviceConnectEndpoint: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListClustersResponseTypeDef(TypedDict):
+    clusterArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListContainerInstancesResponseTypeDef(TypedDict):
+    containerInstanceArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListServicesByNamespaceResponseTypeDef(TypedDict):
+    serviceArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListServicesResponseTypeDef(TypedDict):
+    serviceArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListTaskDefinitionFamiliesResponseTypeDef(TypedDict):
+    families: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListTaskDefinitionsResponseTypeDef(TypedDict):
+    taskDefinitionArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListTasksResponseTypeDef(TypedDict):
+    taskArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class RegisterDaemonTaskDefinitionResponseTypeDef(TypedDict):
+    daemonTaskDefinitionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopServiceDeploymentResponseTypeDef(TypedDict):
+    serviceDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SubmitAttachmentStateChangesResponseTypeDef(TypedDict):
+    acknowledgment: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SubmitContainerStateChangeResponseTypeDef(TypedDict):
+    acknowledgment: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SubmitTaskStateChangeResponseTypeDef(TypedDict):
+    acknowledgment: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateDaemonResponseTypeDef(TypedDict):
+    daemonArn: str
+    status: DaemonStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    deploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateGatewayResponseTypeDef(TypedDict):
+    gatewayArn: str
+    name: str
+    status: GatewayStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SubmitAttachmentStateChangesRequestTypeDef(TypedDict):
@@ -1841,9 +2217,25 @@ class DeleteAttributesRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
 
 
+class DeleteAttributesResponseTypeDef(TypedDict):
+    attributes: list[AttributeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAttributesResponseTypeDef(TypedDict):
+    attributes: list[AttributeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class PutAttributesRequestTypeDef(TypedDict):
     attributes: Sequence[AttributeTypeDef]
     cluster: NotRequired[str]
+
+
+class PutAttributesResponseTypeDef(TypedDict):
+    attributes: list[AttributeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AutoScalingGroupProviderTypeDef(TypedDict):
@@ -1883,6 +2275,11 @@ class EBSTagSpecificationTypeDef(TypedDict):
     resourceType: Literal["volume"]
     tags: NotRequired[Sequence[TagTypeDef]]
     propagateTags: NotRequired[PropagateTagsType]
+
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1979,137 +2376,6 @@ class ContainerTypeDef(TypedDict):
     memoryReservation: NotRequired[str]
     gpuIds: NotRequired[list[str]]
     neuronDeviceIds: NotRequired[list[str]]
-
-
-class ContinueServiceDeploymentResponseTypeDef(TypedDict):
-    serviceDeploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateDaemonResponseTypeDef(TypedDict):
-    daemonArn: str
-    status: DaemonStatusType
-    createdAt: datetime
-    deploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteAttributesResponseTypeDef(TypedDict):
-    attributes: list[AttributeTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteDaemonResponseTypeDef(TypedDict):
-    daemonArn: str
-    status: DaemonStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    deploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteDaemonTaskDefinitionResponseTypeDef(TypedDict):
-    daemonTaskDefinitionArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DiscoverPollEndpointResponseTypeDef(TypedDict):
-    endpoint: str
-    telemetryEndpoint: str
-    serviceConnectEndpoint: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListAttributesResponseTypeDef(TypedDict):
-    attributes: list[AttributeTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListClustersResponseTypeDef(TypedDict):
-    clusterArns: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListContainerInstancesResponseTypeDef(TypedDict):
-    containerInstanceArns: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListServicesByNamespaceResponseTypeDef(TypedDict):
-    serviceArns: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListServicesResponseTypeDef(TypedDict):
-    serviceArns: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListTaskDefinitionFamiliesResponseTypeDef(TypedDict):
-    families: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListTaskDefinitionsResponseTypeDef(TypedDict):
-    taskDefinitionArns: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListTasksResponseTypeDef(TypedDict):
-    taskArns: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class PutAttributesResponseTypeDef(TypedDict):
-    attributes: list[AttributeTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class RegisterDaemonTaskDefinitionResponseTypeDef(TypedDict):
-    daemonTaskDefinitionArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class StopServiceDeploymentResponseTypeDef(TypedDict):
-    serviceDeploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class SubmitAttachmentStateChangesResponseTypeDef(TypedDict):
-    acknowledgment: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class SubmitContainerStateChangeResponseTypeDef(TypedDict):
-    acknowledgment: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class SubmitTaskStateChangeResponseTypeDef(TypedDict):
-    acknowledgment: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateDaemonResponseTypeDef(TypedDict):
-    daemonArn: str
-    status: DaemonStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    deploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateTaskSetRequestTypeDef(TypedDict):
@@ -2317,6 +2583,10 @@ class EFSVolumeConfigurationTypeDef(TypedDict):
     authorizationConfig: NotRequired[EFSAuthorizationConfigTypeDef]
 
 
+class GatewayInfrastructureResourcesTypeDef(TypedDict):
+    hostSharedAlb: NotRequired[list[ElbGatewayResourcesTypeDef]]
+
+
 class ExecuteCommandConfigurationTypeDef(TypedDict):
     kmsKeyId: NotRequired[str]
     logging: NotRequired[ExecuteCommandLoggingType]
@@ -2367,6 +2637,77 @@ class FSxWindowsFileServerVolumeConfigurationTypeDef(TypedDict):
 
 FirelensConfigurationUnionTypeDef = Union[
     FirelensConfigurationTypeDef, FirelensConfigurationOutputTypeDef
+]
+
+
+class GatewayAlbTestTrafficRulesOutputTypeDef(TypedDict):
+    header: NotRequired[GatewayTestTrafficHeaderOutputTypeDef]
+
+
+class ListGatewayClusterAssociationsResponseTypeDef(TypedDict):
+    gatewayClusterAssociations: list[GatewayClusterAssociationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GatewayConnectionResourcesTypeDef(TypedDict):
+    hostSharedAlb: NotRequired[list[GatewayConnectionAlbResourcesTypeDef]]
+
+
+GatewayConnectorFiltersUnionTypeDef = Union[
+    GatewayConnectorFiltersTypeDef, GatewayConnectorFiltersOutputTypeDef
+]
+
+
+class GatewayConnectorHealthCheckTypeDef(TypedDict):
+    healthCheckProtocol: NotRequired[GatewayConnectorHealthCheckProtocolType]
+    healthCheckPort: NotRequired[int]
+    healthCheckPath: NotRequired[str]
+    healthCheckTimeoutSeconds: NotRequired[int]
+    healthCheckIntervalSeconds: NotRequired[int]
+    healthyThresholdCount: NotRequired[int]
+    unhealthyThresholdCount: NotRequired[int]
+    matcher: NotRequired[GatewayConnectorHealthCheckMatcherTypeDef]
+
+
+class GatewayElbAccessLogDestinationTypeDef(TypedDict):
+    s3: NotRequired[GatewayElbAccessLogS3DestinationTypeDef]
+
+
+GatewayElbNetworkConfigurationUnionTypeDef = Union[
+    GatewayElbNetworkConfigurationTypeDef, GatewayElbNetworkConfigurationOutputTypeDef
+]
+
+
+class GatewayResourceFailureTypeDef(TypedDict):
+    arn: NotRequired[str]
+    errors: NotRequired[list[GatewayOperationErrorTypeDef]]
+
+
+class GatewayRouteAlbResourcesTypeDef(TypedDict):
+    acmCertificateArn: NotRequired[str]
+    loadBalancerArn: NotRequired[str]
+    listenerArn: NotRequired[str]
+    listenerRuleArn: NotRequired[str]
+    testListenerRuleArns: NotRequired[list[str]]
+    loadBalancerSecurityGroups: NotRequired[list[GatewayRouteLoadBalancerSecurityGroupTypeDef]]
+    serviceSecurityGroupArn: NotRequired[str]
+
+
+class ListGatewayRoutesResponseTypeDef(TypedDict):
+    gatewayRoutes: list[GatewayRouteSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListGatewaysResponseTypeDef(TypedDict):
+    gateways: list[GatewaySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+GatewayTestTrafficHeaderUnionTypeDef = Union[
+    GatewayTestTrafficHeaderTypeDef, GatewayTestTrafficHeaderOutputTypeDef
 ]
 
 
@@ -2471,6 +2812,28 @@ ListContainerInstancesRequestPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+
+class ListGatewayClusterAssociationsRequestPaginateTypeDef(TypedDict):
+    gateway: NotRequired[str]
+    cluster: NotRequired[str]
+    status: NotRequired[Sequence[GatewayClusterAssociationStatusType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListGatewayRoutesRequestPaginateTypeDef(TypedDict):
+    gateway: NotRequired[str]
+    cluster: NotRequired[str]
+    service: NotRequired[str]
+    serviceContainerPortName: NotRequired[str]
+    status: NotRequired[Sequence[GatewayRouteStatusType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListGatewaysRequestPaginateTypeDef(TypedDict):
+    names: NotRequired[Sequence[str]]
+    status: NotRequired[Sequence[GatewayStatusType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListServicesByNamespaceRequestPaginateTypeDef(TypedDict):
@@ -2849,6 +3212,11 @@ class DeploymentConfigurationTypeDef(TypedDict):
     earlySuccessCriteria: NotRequired[DeploymentEarlySuccessCriteriaTypeDef]
 
 
+class GatewayResourcesTypeDef(TypedDict):
+    gatewayArn: NotRequired[str]
+    resources: NotRequired[GatewayInfrastructureResourcesTypeDef]
+
+
 class ClusterConfigurationTypeDef(TypedDict):
     executeCommandConfiguration: NotRequired[ExecuteCommandConfigurationTypeDef]
     managedStorageConfiguration: NotRequired[ManagedStorageConfigurationTypeDef]
@@ -2899,6 +3267,40 @@ class VolumeTypeDef(TypedDict):
     configuredAtLaunch: NotRequired[bool]
 
 
+class GatewayConnectionTypeDef(TypedDict):
+    gatewayArn: NotRequired[str]
+    gatewayRouteArn: NotRequired[str]
+    portName: NotRequired[str]
+    serviceUrl: NotRequired[str]
+    accessType: NotRequired[AccessTypeType]
+    status: NotRequired[GatewayRouteStatusType]
+    resources: NotRequired[GatewayConnectionResourcesTypeDef]
+
+
+class GatewayConnectorOutputTypeDef(TypedDict):
+    portName: str
+    healthCheck: NotRequired[GatewayConnectorHealthCheckTypeDef]
+    filters: NotRequired[GatewayConnectorFiltersOutputTypeDef]
+
+
+class GatewayConnectorTypeDef(TypedDict):
+    portName: str
+    healthCheck: NotRequired[GatewayConnectorHealthCheckTypeDef]
+    filters: NotRequired[GatewayConnectorFiltersUnionTypeDef]
+
+
+class GatewayElbAccessLogConfigurationTypeDef(TypedDict):
+    destination: NotRequired[GatewayElbAccessLogDestinationTypeDef]
+
+
+class GatewayRouteResourcesTypeDef(TypedDict):
+    hostSharedAlb: NotRequired[list[GatewayRouteAlbResourcesTypeDef]]
+
+
+class GatewayAlbTestTrafficRulesTypeDef(TypedDict):
+    header: NotRequired[GatewayTestTrafficHeaderUnionTypeDef]
+
+
 class InstanceLaunchTemplateOutputTypeDef(TypedDict):
     ec2InstanceProfileArn: str
     networkConfiguration: ManagedInstancesNetworkConfigurationOutputTypeDef
@@ -2915,16 +3317,6 @@ class InstanceLaunchTemplateOutputTypeDef(TypedDict):
 InstanceRequirementsRequestUnionTypeDef = Union[
     InstanceRequirementsRequestTypeDef, InstanceRequirementsRequestOutputTypeDef
 ]
-
-
-class ECSManagedResourcesTypeDef(TypedDict):
-    ingressPaths: NotRequired[list[ManagedIngressPathTypeDef]]
-    autoScaling: NotRequired[ManagedAutoScalingTypeDef]
-    metricAlarms: NotRequired[list[ManagedMetricAlarmTypeDef]]
-    serviceSecurityGroups: NotRequired[list[ManagedSecurityGroupTypeDef]]
-    logGroups: NotRequired[list[ManagedLogGroupTypeDef]]
-
-
 MonitoringConfigurationUnionTypeDef = Union[
     MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
 ]
@@ -3189,6 +3581,12 @@ DeploymentConfigurationUnionTypeDef = Union[
 ]
 
 
+class DescribeGatewayResourcesResponseTypeDef(TypedDict):
+    gatewayResources: GatewayResourcesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ClusterTypeDef(TypedDict):
     clusterArn: NotRequired[str]
     clusterName: NotRequired[str]
@@ -3309,6 +3707,45 @@ class TaskDefinitionTypeDef(TypedDict):
 
 
 VolumeUnionTypeDef = Union[VolumeTypeDef, VolumeOutputTypeDef]
+
+
+class ECSManagedResourcesTypeDef(TypedDict):
+    ingressPaths: NotRequired[list[ManagedIngressPathTypeDef]]
+    autoScaling: NotRequired[ManagedAutoScalingTypeDef]
+    metricAlarms: NotRequired[list[ManagedMetricAlarmTypeDef]]
+    serviceSecurityGroups: NotRequired[list[ManagedSecurityGroupTypeDef]]
+    logGroups: NotRequired[list[ManagedLogGroupTypeDef]]
+    gatewayConnections: NotRequired[list[GatewayConnectionTypeDef]]
+
+
+GatewayConnectorUnionTypeDef = Union[GatewayConnectorTypeDef, GatewayConnectorOutputTypeDef]
+
+
+class DescribeGatewayAlbConfigurationTypeDef(TypedDict):
+    networkConfiguration: NotRequired[GatewayElbNetworkConfigurationOutputTypeDef]
+    scheme: NotRequired[GatewayElbSchemeType]
+    accessLogs: NotRequired[GatewayElbAccessLogConfigurationTypeDef]
+    webACLArn: NotRequired[str]
+    port: NotRequired[int]
+    protocol: NotRequired[GatewayAlbProtocolType]
+    maxAlbCount: NotRequired[int]
+    currentAlbCount: NotRequired[int]
+    httpDesync: NotRequired[GatewayAlbDesyncMitigationModeType]
+    testTrafficRules: NotRequired[GatewayAlbTestTrafficRulesOutputTypeDef]
+
+
+class GatewayRouteTypeDef(TypedDict):
+    gatewayRouteArn: NotRequired[str]
+    serviceArn: NotRequired[str]
+    serviceContainerPortName: NotRequired[str]
+    status: NotRequired[GatewayRouteStatusType]
+    serviceUrl: NotRequired[str]
+    resources: NotRequired[GatewayRouteResourcesTypeDef]
+
+
+GatewayAlbTestTrafficRulesUnionTypeDef = Union[
+    GatewayAlbTestTrafficRulesTypeDef, GatewayAlbTestTrafficRulesOutputTypeDef
+]
 
 
 class ManagedInstancesProviderTypeDef(TypedDict):
@@ -3469,6 +3906,36 @@ class RegisterTaskDefinitionResponseTypeDef(TypedDict):
     taskDefinition: TaskDefinitionTypeDef
     tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeGatewayConfigurationTypeDef(TypedDict):
+    hostSharedAlb: NotRequired[DescribeGatewayAlbConfigurationTypeDef]
+
+
+class DescribeGatewayRouteResponseTypeDef(TypedDict):
+    gatewayRoute: GatewayRouteTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class HostSharedAlbConfigurationTypeDef(TypedDict):
+    networkConfiguration: NotRequired[GatewayElbNetworkConfigurationUnionTypeDef]
+    scheme: NotRequired[GatewayElbSchemeType]
+    webACLArn: NotRequired[str]
+    accessLogs: NotRequired[GatewayElbAccessLogConfigurationTypeDef]
+    port: NotRequired[int]
+    protocol: NotRequired[GatewayAlbProtocolType]
+    maxAlbCount: NotRequired[int]
+    httpDesync: NotRequired[GatewayAlbDesyncMitigationModeType]
+    testTrafficRules: NotRequired[GatewayAlbTestTrafficRulesUnionTypeDef]
+
+
+class UpdateGatewayAlbConfigurationTypeDef(TypedDict):
+    networkConfiguration: NotRequired[UpdateGatewayNetworkConfigurationTypeDef]
+    maxAlbCount: NotRequired[int]
+    webACLArn: NotRequired[str]
+    accessLogs: NotRequired[GatewayElbAccessLogConfigurationTypeDef]
+    httpDesync: NotRequired[GatewayAlbDesyncMitigationModeType]
+    testTrafficRules: NotRequired[GatewayAlbTestTrafficRulesUnionTypeDef]
 
 
 CapacityProviderTypeDef = TypedDict(
@@ -3637,6 +4104,30 @@ class StartTaskRequestTypeDef(TypedDict):
     volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
 
 
+class GatewayTypeDef(TypedDict):
+    gatewayArn: NotRequired[str]
+    name: NotRequired[str]
+    status: NotRequired[GatewayStatusType]
+    statusReason: NotRequired[str]
+    failures: NotRequired[list[GatewayResourceFailureTypeDef]]
+    infrastructureRoleArn: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+    configuration: NotRequired[DescribeGatewayConfigurationTypeDef]
+    accessType: NotRequired[AccessTypeType]
+    propagateTags: NotRequired[PropagateGatewayTagsType]
+    tags: NotRequired[list[TagTypeDef]]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
+class GatewayConfigurationTypeDef(TypedDict):
+    hostSharedAlb: NotRequired[HostSharedAlbConfigurationTypeDef]
+
+
+class UpdateGatewayConfigurationTypeDef(TypedDict):
+    hostSharedAlb: NotRequired[UpdateGatewayAlbConfigurationTypeDef]
+
+
 class CreateCapacityProviderResponseTypeDef(TypedDict):
     capacityProvider: CapacityProviderTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3680,6 +4171,7 @@ class ServiceConnectConfigurationOutputTypeDef(TypedDict):
     services: NotRequired[list[ServiceConnectServiceOutputTypeDef]]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
     accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
+    containerConfigurations: NotRequired[list[ServiceConnectContainerConfigurationTypeDef]]
 
 
 class ServiceConnectConfigurationTypeDef(TypedDict):
@@ -3688,6 +4180,7 @@ class ServiceConnectConfigurationTypeDef(TypedDict):
     services: NotRequired[Sequence[ServiceConnectServiceTypeDef]]
     logConfiguration: NotRequired[LogConfigurationTypeDef]
     accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
+    containerConfigurations: NotRequired[Sequence[ServiceConnectContainerConfigurationTypeDef]]
 
 
 DaemonContainerDefinitionUnionTypeDef = Union[
@@ -3699,6 +4192,29 @@ ContainerDefinitionUnionTypeDef = Union[
 ServiceVolumeConfigurationUnionTypeDef = Union[
     ServiceVolumeConfigurationTypeDef, ServiceVolumeConfigurationOutputTypeDef
 ]
+
+
+class DescribeGatewayResponseTypeDef(TypedDict):
+    gateway: GatewayTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateGatewayRequestTypeDef(TypedDict):
+    name: str
+    infrastructureRoleArn: str
+    configuration: GatewayConfigurationTypeDef
+    clientToken: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    propagateTags: NotRequired[PropagateGatewayTagsType]
+
+
+class UpdateGatewayRequestTypeDef(TypedDict):
+    gateway: str
+    infrastructureRoleArn: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+    configuration: NotRequired[UpdateGatewayConfigurationTypeDef]
+    propagateTags: NotRequired[PropagateGatewayTagsType]
 
 
 class CreateCapacityProviderRequestTypeDef(TypedDict):
@@ -3759,6 +4275,7 @@ class ServiceRevisionTypeDef(TypedDict):
     resolvedConfiguration: NotRequired[ResolvedConfigurationTypeDef]
     ecsManagedResources: NotRequired[ECSManagedResourcesTypeDef]
     overrides: NotRequired[ServiceRevisionOverridesTypeDef]
+    gatewayConnectors: NotRequired[list[GatewayConnectorOutputTypeDef]]
     monitoring: NotRequired[MonitoringConfigurationOutputTypeDef]
 
 
@@ -3872,6 +4389,7 @@ class CreateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+    gatewayConnectors: NotRequired[Sequence[GatewayConnectorUnionTypeDef]]
     monitoring: NotRequired[MonitoringConfigurationUnionTypeDef]
 
 
@@ -3898,6 +4416,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+    gatewayConnectors: NotRequired[Sequence[GatewayConnectorUnionTypeDef]]
     monitoring: NotRequired[MonitoringConfigurationUnionTypeDef]
 
 

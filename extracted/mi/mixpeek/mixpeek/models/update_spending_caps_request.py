@@ -33,6 +33,7 @@ class UpdateSpendingCapsRequest(BaseModel):
     spending_alerts_enabled: Optional[StrictBool] = Field(default=None, description="Whether to send spending alerts when thresholds are crossed.")
     hard_spending_cap: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Hard spending limit in USD cents. When reached, API access is blocked. Set to null to remove hard cap.")
     hard_cap_enabled: Optional[StrictBool] = Field(default=None, description="Whether to enforce the hard spending cap.")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["monthly_spending_budget", "spending_alert_thresholds", "spending_alerts_enabled", "hard_spending_cap", "hard_cap_enabled"]
 
     model_config = ConfigDict(
@@ -65,8 +66,10 @@ class UpdateSpendingCapsRequest(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -74,6 +77,11 @@ class UpdateSpendingCapsRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -92,6 +100,11 @@ class UpdateSpendingCapsRequest(BaseModel):
             "hard_spending_cap": obj.get("hard_spending_cap"),
             "hard_cap_enabled": obj.get("hard_cap_enabled")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

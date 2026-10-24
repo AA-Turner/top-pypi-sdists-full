@@ -115,6 +115,8 @@ class DataFetchJob(MatrxEntity):
     saved_at = DateTimeField()
     stage_log = JSONBField(null=False, default=[])
     duration_ms = IntegerField()
+    row_key_field = TextField()
+    member_result = JSONBField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'data_fetch_job_row': {'from_model': 'DataFetchJobRow', 'from_field': 'job_id', 'referenced_field': 'id', 'related_name': 'data_fetch_job_row', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "data_fetch_job"

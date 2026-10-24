@@ -1,183 +1,235 @@
-// Convert a ratatui buffer to ANSI escape sequences for xterm.js rendering.
-//
-// Used by all ratatui-based protocol handlers (database, TN3270, TN5250) to
-// produce terminal-data instructions instead of JPEG pixel output.
+// Convert ratatui buffers to ANSI escape sequences for xterm.js rendering.
+// Full redraws remain available to all ratatui-based protocol handlers.
+
+use std::io::Write;
 
 use ratatui::{
-    buffer::Buffer,
+    backend::{Backend, TestBackend},
+    buffer::{Buffer, Cell, CellWidth},
     style::{Color, Modifier},
 };
 
-/// Convert a ratatui `Buffer` to ANSI escape sequences.
-///
-/// Produces a byte sequence that xterm.js (or any VT100 terminal) can render
-/// directly. Emits SGR color/style codes only when they change between cells,
-/// keeping output compact. Rows are separated by `\r\n`.
-///
-/// Starts with `\x1b[H` (cursor home) so subsequent renders repaint in place
-/// without a full clear. xterm.js handles the display state.
+/// Serialize a complete ratatui screen, including its foreground/background and modifiers.
+/// Wide grapheme continuation cells are not printed, and rows are separated by CRLF.
+/// Cursor addressing cancels pending right-margin wrapping without scrolling the screen.
 pub fn buffer_to_ansi(buffer: &Buffer) -> Vec<u8> {
-    let area = buffer.area();
-    let mut out = Vec::with_capacity((area.width as usize * area.height as usize) * 10);
+    let mut output = Vec::with_capacity(buffer.content.len().saturating_mul(4));
+    write_full_screen(buffer, &mut output);
+    output
+}
 
-    out.extend_from_slice(b"\x1b[H");
+/// Stateful cell-buffer serializer for database terminal-data output.
+///
+/// The first screen and any geometry change are full redraws. Later screens use ratatui's
+/// buffer diff iterator, keeping both the previous cell allocation and output storage.
+/// The returned bytes are valid until the next render; unchanged screens return an empty slice.
+#[derive(Default)]
+pub struct AnsiRenderer {
+    previous: Option<Buffer>,
+    output: Vec<u8>,
+    backend_updates: Vec<(u16, u16)>,
+}
 
-    let mut prev_fg = Color::Reset;
-    let mut prev_bg = Color::Reset;
-    let mut prev_modifier = Modifier::empty();
-
-    for y in 0..area.height {
-        for x in 0..area.width {
-            let default_cell = ratatui::buffer::Cell::default();
-            let cell = buffer.cell((x, y)).unwrap_or(&default_cell);
-
-            if cell.fg != prev_fg || cell.bg != prev_bg || cell.modifier != prev_modifier {
-                out.extend_from_slice(b"\x1b[0m");
-                let fg = color_to_ansi(cell.fg, true);
-                if !fg.is_empty() {
-                    out.extend_from_slice(fg.as_bytes());
-                }
-                let bg = color_to_ansi(cell.bg, false);
-                if !bg.is_empty() {
-                    out.extend_from_slice(bg.as_bytes());
-                }
-                if cell.modifier.contains(Modifier::BOLD) {
-                    out.extend_from_slice(b"\x1b[1m");
-                }
-                if cell.modifier.contains(Modifier::UNDERLINED) {
-                    out.extend_from_slice(b"\x1b[4m");
-                }
-                if cell.modifier.contains(Modifier::DIM) {
-                    out.extend_from_slice(b"\x1b[2m");
-                }
-                if cell.modifier.contains(Modifier::REVERSED) {
-                    out.extend_from_slice(b"\x1b[7m");
-                }
-                if cell.modifier.contains(Modifier::SLOW_BLINK) {
-                    out.extend_from_slice(b"\x1b[5m");
-                }
-                prev_fg = cell.fg;
-                prev_bg = cell.bg;
-                prev_modifier = cell.modifier;
+impl AnsiRenderer {
+    pub fn render(&mut self, buffer: &Buffer) -> &[u8] {
+        self.output.clear();
+        match &self.previous {
+            Some(previous) if previous.area == buffer.area => {
+                write_diff(previous, buffer, &mut self.output);
             }
-
-            out.extend_from_slice(cell.symbol().as_bytes());
+            _ => write_full_screen(buffer, &mut self.output),
         }
-        if y < area.height - 1 {
-            out.extend_from_slice(b"\r\n");
+        if self.output.is_empty() {
+            return &self.output;
         }
+        // Database widgets draw an inline cursor, not the emulator's hardware cursor.
+        self.output.extend_from_slice(b"\x1b[?25l");
+        // Commit only after serialization; clone_from reuses the existing cell allocation.
+        if let Some(previous) = &mut self.previous {
+            previous.area = buffer.area;
+            previous.content.clone_from(&buffer.content);
+        } else {
+            self.previous = Some(buffer.clone());
+        }
+        &self.output
     }
-    out.extend_from_slice(b"\x1b[0m"); // reset styles
-    out.extend_from_slice(b"\x1b[J"); // erase from cursor to end-of-screen (removes stale rows after resize)
-    out
+
+    /// Keep the layout backend's cells authoritative for mouse selection and JPEG rendering.
+    /// TestBackend applies only diff entries: it does not clear older cells hidden by a new
+    /// wide glyph. Repair those cells from the completed frame without cloning a second buffer.
+    pub fn synchronize_backend(&mut self, backend: &mut TestBackend) {
+        let Some(previous) = &self.previous else {
+            return;
+        };
+        self.backend_updates.clear();
+        let actual = backend.buffer();
+        for (index, (actual, expected)) in actual.content.iter().zip(&previous.content).enumerate()
+        {
+            if actual != expected {
+                self.backend_updates.push(previous.pos_of(index));
+            }
+        }
+        let updates = self
+            .backend_updates
+            .iter()
+            .map(|&(x, y)| (x, y, &previous[(x, y)]));
+        // TestBackend::draw is infallible and copies only these mismatched cells.
+        backend.draw(updates).unwrap();
+    }
 }
 
-fn color_to_ansi(color: Color, fg: bool) -> String {
-    let (basic, truecolor) = if fg { (30u8, 38u8) } else { (40u8, 48u8) };
-    match color {
-        Color::Reset => String::new(),
-        Color::Black => format!("\x1b[{}m", basic),
-        Color::Red => format!("\x1b[{}m", basic + 1),
-        Color::Green => format!("\x1b[{}m", basic + 2),
-        Color::Yellow => format!("\x1b[{}m", basic + 3),
-        Color::Blue => format!("\x1b[{}m", basic + 4),
-        Color::Magenta => format!("\x1b[{}m", basic + 5),
-        Color::Cyan => format!("\x1b[{}m", basic + 6),
-        Color::White => format!("\x1b[{}m", basic + 7),
-        Color::Gray => format!("\x1b[{}m", basic + 7),
-        Color::DarkGray => format!("\x1b[{}m", basic + 60),
-        Color::LightRed => format!("\x1b[{}m", basic + 61),
-        Color::LightGreen => format!("\x1b[{}m", basic + 62),
-        Color::LightYellow => format!("\x1b[{}m", basic + 63),
-        Color::LightBlue => format!("\x1b[{}m", basic + 64),
-        Color::LightMagenta => format!("\x1b[{}m", basic + 65),
-        Color::LightCyan => format!("\x1b[{}m", basic + 66),
-        Color::Rgb(r, g, b) => format!("\x1b[{};2;{};{};{}m", truecolor, r, g, b),
-        Color::Indexed(n) => format!("\x1b[{};5;{}m", truecolor, n),
+fn write_full_screen(buffer: &Buffer, output: &mut Vec<u8>) {
+    // Clear with default attributes before painting so resize removes stale rows/columns.
+    output.extend_from_slice(b"\x1b[H\x1b[0m\x1b[2J");
+    let mut style = AnsiStyle::default();
+    let area = buffer.area;
+    for row in 0..area.height {
+        let mut col = 0;
+        while col < area.width {
+            let cell = &buffer[(area.x + col, area.y + row)];
+            style.write_cell(cell, area.width - col, output);
+            col += cell.cell_width().max(1).min(area.width - col);
+        }
+        if row + 1 < area.height {
+            output.extend_from_slice(b"\r\n");
+        }
+    }
+    // Do not erase at the right margin: ED would erase the bottom-right cell just painted.
+    output.extend_from_slice(b"\x1b[0m\x1b[H");
+}
+
+fn write_diff(previous: &Buffer, buffer: &Buffer, output: &mut Vec<u8>) {
+    let area = buffer.area;
+    let mut style = AnsiStyle::default();
+    let mut cursor = None;
+    for (x, y, cell) in previous.diff_iter(buffer) {
+        // Some diff iterator paths yield emoji continuation cells. Printing them would
+        // overwrite the glyph's trailing half. Repairs below also cover later diff entries.
+        if cursor.is_some_and(|(next_x, next_y)| y == next_y && x < next_x) {
+            continue;
+        }
+        if output.is_empty() {
+            output.extend_from_slice(b"\x1b[0m");
+        }
+        if cursor != Some((x, y)) {
+            write_cursor(x - area.x, y - area.y, output);
+        }
+        let width = cell.cell_width().max(1).min(area.right() - x);
+        style.write_cell(cell, area.right() - x, output);
+        let mut end = x + width;
+        cursor = Some((end, y));
+
+        // A wide glyph can cover the *lead* of an older wide glyph. Buffer::diff handles
+        // a narrow replacement at the same lead, but not a shifted overlap whose old
+        // trailing cell is equal in both buffers. Repaint those exposed cells explicitly.
+        let mut repair_end = end;
+        for old_x in x..end {
+            let old_width = previous[(old_x, y)].cell_width().max(1);
+            repair_end = repair_end.max(old_x.saturating_add(old_width).min(area.right()));
+        }
+        while end < repair_end {
+            let repair = &buffer[(end, y)];
+            let repair_width = repair.cell_width().max(1).min(area.right() - end);
+            for old_x in end..end + repair_width {
+                let old_width = previous[(old_x, y)].cell_width().max(1);
+                repair_end = repair_end.max(old_x.saturating_add(old_width).min(area.right()));
+            }
+            style.write_cell(repair, area.right() - end, output);
+            end += repair_width;
+            cursor = Some((end, y));
+        }
+    }
+    if !output.is_empty() {
+        output.extend_from_slice(b"\x1b[0m\x1b[H");
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ratatui::{backend::TestBackend, Terminal};
+fn write_cursor(col: u16, row: u16, output: &mut Vec<u8>) {
+    // Vec<u8>'s Write implementation is infallible.
+    write!(
+        output,
+        "\x1b[{};{}H",
+        u32::from(row) + 1,
+        u32::from(col) + 1
+    )
+    .unwrap();
+}
 
-    #[test]
-    fn test_starts_with_cursor_home() {
-        let backend = TestBackend::new(5, 2);
-        let mut term = Terminal::new(backend).unwrap();
-        term.draw(|_| {}).unwrap();
-        let ansi = buffer_to_ansi(term.backend().buffer());
-        assert!(ansi.starts_with(b"\x1b[H"));
-    }
+#[derive(Default)]
+struct AnsiStyle {
+    foreground: Color,
+    background: Color,
+    modifiers: Modifier,
+}
 
-    #[test]
-    fn test_ends_with_erase() {
-        // buffer_to_ansi ends with \x1b[0m (style reset) followed by \x1b[J
-        // (erase from cursor to end of screen, clears stale rows after resize).
-        let backend = TestBackend::new(5, 2);
-        let mut term = Terminal::new(backend).unwrap();
-        term.draw(|_| {}).unwrap();
-        let ansi = buffer_to_ansi(term.backend().buffer());
-        assert!(
-            ansi.ends_with(b"\x1b[J"),
-            "should end with erase-to-end sequence"
-        );
-        assert!(
-            ansi.windows(4).any(|w| w == b"\x1b[0m"),
-            "should contain style reset"
-        );
+impl AnsiStyle {
+    fn write_cell(&mut self, cell: &Cell, remaining: u16, output: &mut Vec<u8>) {
+        if cell.fg != self.foreground
+            || cell.bg != self.background
+            || cell.modifier != self.modifiers
+        {
+            output.extend_from_slice(b"\x1b[0m");
+            write_color(cell.fg, true, output);
+            write_color(cell.bg, false, output);
+            for (modifier, sgr) in [
+                (Modifier::BOLD, b"\x1b[1m".as_slice()),
+                (Modifier::DIM, b"\x1b[2m".as_slice()),
+                (Modifier::ITALIC, b"\x1b[3m".as_slice()),
+                (Modifier::UNDERLINED, b"\x1b[4m".as_slice()),
+                (Modifier::SLOW_BLINK, b"\x1b[5m".as_slice()),
+                (Modifier::RAPID_BLINK, b"\x1b[6m".as_slice()),
+                (Modifier::REVERSED, b"\x1b[7m".as_slice()),
+                (Modifier::HIDDEN, b"\x1b[8m".as_slice()),
+                (Modifier::CROSSED_OUT, b"\x1b[9m".as_slice()),
+            ] {
+                if cell.modifier.contains(modifier) {
+                    output.extend_from_slice(sgr);
+                }
+            }
+            self.foreground = cell.fg;
+            self.background = cell.bg;
+            self.modifiers = cell.modifier;
+        }
+        if cell.cell_width() > remaining {
+            // A clipped wide grapheme must never wrap into the next row.
+            output.extend_from_slice(b" ");
+        } else {
+            output.extend_from_slice(cell.symbol().as_bytes());
+        }
     }
+}
 
-    #[test]
-    fn test_row_separator_count() {
-        let backend = TestBackend::new(5, 3);
-        let mut term = Terminal::new(backend).unwrap();
-        term.draw(|_| {}).unwrap();
-        let ansi = buffer_to_ansi(term.backend().buffer());
-        let separators = ansi.windows(2).filter(|w| *w == b"\r\n").count();
-        // 3 rows → 2 separators
-        assert_eq!(separators, 2);
-    }
-
-    #[test]
-    fn test_color_reset_is_empty() {
-        assert_eq!(color_to_ansi(Color::Reset, true), "");
-        assert_eq!(color_to_ansi(Color::Reset, false), "");
-    }
-
-    #[test]
-    fn test_basic_colors_fg() {
-        assert_eq!(color_to_ansi(Color::Red, true), "\x1b[31m");
-        assert_eq!(color_to_ansi(Color::Green, true), "\x1b[32m");
-    }
-
-    #[test]
-    fn test_rgb_color() {
-        assert_eq!(
-            color_to_ansi(Color::Rgb(255, 128, 0), true),
-            "\x1b[38;2;255;128;0m"
-        );
-        assert_eq!(
-            color_to_ansi(Color::Rgb(255, 128, 0), false),
-            "\x1b[48;2;255;128;0m"
-        );
-    }
-
-    #[test]
-    fn test_reversed_modifier_emitted() {
-        use ratatui::{layout::Rect, style::Style, widgets::Paragraph};
-        let backend = TestBackend::new(3, 1);
-        let mut term = Terminal::new(backend).unwrap();
-        term.draw(|f| {
-            let p = Paragraph::new("X").style(Style::default().add_modifier(Modifier::REVERSED));
-            f.render_widget(p, Rect::new(0, 0, 3, 1));
-        })
-        .unwrap();
-        let ansi = buffer_to_ansi(term.backend().buffer());
-        assert!(
-            ansi.windows(4).any(|w| w == b"\x1b[7m"),
-            "REVERSED modifier should emit \\x1b[7m"
-        );
-    }
+fn write_color(color: Color, foreground: bool, output: &mut Vec<u8>) {
+    let (basic, extended) = if foreground {
+        (30u8, 38u8)
+    } else {
+        (40u8, 48u8)
+    };
+    let code = match color {
+        Color::Reset => return,
+        Color::Black => basic,
+        Color::Red => basic + 1,
+        Color::Green => basic + 2,
+        Color::Yellow => basic + 3,
+        Color::Blue => basic + 4,
+        Color::Magenta => basic + 5,
+        Color::Cyan => basic + 6,
+        Color::White | Color::Gray => basic + 7,
+        Color::DarkGray => basic + 60,
+        Color::LightRed => basic + 61,
+        Color::LightGreen => basic + 62,
+        Color::LightYellow => basic + 63,
+        Color::LightBlue => basic + 64,
+        Color::LightMagenta => basic + 65,
+        Color::LightCyan => basic + 66,
+        Color::Rgb(r, g, b) => {
+            write!(output, "\x1b[{extended};2;{r};{g};{b}m").unwrap();
+            return;
+        }
+        Color::Indexed(n) => {
+            write!(output, "\x1b[{extended};5;{n}m").unwrap();
+            return;
+        }
+    };
+    write!(output, "\x1b[{code}m").unwrap();
 }

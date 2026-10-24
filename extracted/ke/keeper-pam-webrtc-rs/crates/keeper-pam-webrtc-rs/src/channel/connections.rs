@@ -1078,11 +1078,11 @@ pub async fn setup_outbound_task(
                                                                 } else {
                                                                     "Guacd error".to_string()
                                                                 };
-                                                            error!("Guacd sent error opcode - closing connection (channel_id: {}, conversation_id: {}, conn_no: {}, opcode: {}, args: {:?})", channel_id_for_task, conversation_id_for_task, conn_no, instr.opcode, instr.args);
+                                                            error!("Guacd sent error opcode - closing connection (channel_id: {}, conversation_id: {}, conn_no: {}, status_code: {:?})", channel_id_for_task, conversation_id_for_task, conn_no, instr.args.get(1).and_then(|code| code.parse::<u32>().ok()));
                                                             Some(error_msg)
                                                         } else {
                                                             // Unknown close opcode
-                                                            warn!("Guacd sent close instruction - closing connection (channel_id: {}, conversation_id: {}, conn_no: {}, opcode: {}, args: {:?})", channel_id_for_task, conversation_id_for_task, conn_no, instr.opcode, instr.args);
+                                                            warn!("Guacd sent close instruction - closing connection (channel_id: {}, conversation_id: {}, conn_no: {})", channel_id_for_task, conversation_id_for_task, conn_no);
                                                             Some(format!(
                                                                 "Guacd close: {}",
                                                                 instr.opcode

@@ -22,6 +22,8 @@ from urllib.parse import urlparse, parse_qsl, quote, unquote, urlencode
 
 _log = logging.getLogger("testmu_selenium")
 
+from testmu_selenium._helpers._api_log import log_api_call, log_not_sent  # noqa: E402
+
 
 _BINARY_CONTENT_TYPES = {
     "application/octet-stream",
@@ -123,6 +125,13 @@ def _reencode_urlencoded_body(body: str) -> str:
     not die in the encoder.
     """
     try:
+        # the generated test passes the body through json.dumps(); unwrap it once, as the Appium binding does
+        unwrapped = json.loads(body)
+        if isinstance(unwrapped, str):
+            body = unwrapped
+    except (json.JSONDecodeError, TypeError):
+        pass
+    try:
         out_pairs = []
         for pair in body.split("&"):
             if not pair:
@@ -137,7 +146,17 @@ def _reencode_urlencoded_body(body: str) -> str:
     except Exception:  # noqa: BLE001 — never fail a request in the encoder
         return body
 
-def execute_api(
+def execute_api(method, url, headers=None, body=None, params=None, authorization=None,
+                timeout=30000, verify=False, settings=None):
+    """Run the request; a failure before anything was logged for it still leaves an API line."""
+    try:
+        return _execute_api(method, url, headers, body, params, authorization, timeout, verify, settings)
+    except Exception as e:
+        log_not_sent(method, url, e)
+        raise
+
+
+def _execute_api(
     method,
     url,
     headers=None,
@@ -180,7 +199,11 @@ def execute_api(
     """
     import httpx as _httpx
 
-    _log.info("    [execute_api] %s %s", method, url[:80])
+    _log.info("    [execute_api] %s %s", method, url)
+
+    # The request as authored, so the API log can name its values and mask secrets
+    authored = {"url": url, "headers": headers, "body": body, "params": params, "authorization": authorization}
+    auth_keys = set()
 
     # -- Resolve variable templates ------------------------------------------
     url = _resolve_templates(url)
@@ -243,7 +266,10 @@ def execute_api(
     # -- Validate URL --------------------------------------------------------
     parsed = urlparse(url)
     if not all([parsed.scheme, parsed.netloc]):
-        raise RuntimeError(f"Invalid URL: {url!r}")
+        error = RuntimeError(f"Invalid URL: {url!r}")
+        log_api_call(method.upper(), url, authored=authored, sent_headers=_headers, body=body,
+                     auth_keys=auth_keys, elapsed_ms=0, error=error)
+        raise error
     if url.startswith("wss://") or url.startswith("ws://"):
         raise RuntimeError("Websockets not supported")
     for hval in (_headers or {}).values():
@@ -337,12 +363,14 @@ def execute_api(
         auth_data = _auth.get("data", {})
         if auth_type == "bearer" and auth_data.get("token"):
             _headers["Authorization"] = f"Bearer {auth_data['token']}"
+            auth_keys.add("authorization")
         elif auth_type == "basic" and auth_data.get("username"):
             import base64 as _b64
             cred = _b64.b64encode(
                 f"{auth_data['username']}:{auth_data.get('password', '')}".encode()
             ).decode()
             _headers["Authorization"] = f"Basic {cred}"
+            auth_keys.add("authorization")
         elif auth_type == "aws-signature":
             try:
                 from botocore.awsrequest import AWSRequest
@@ -378,6 +406,7 @@ def execute_api(
                 else:
                     SigV4Auth(credentials, service_name, region).add_auth(aws_req)
                     _headers.update(dict(aws_req.headers))
+                    auth_keys.update(str(k).lower() for k in aws_req.headers)
             except Exception as e:
                 # A failed signature must fail the step loudly — swallowing it
                 # sends the request unsigned, which surfaces as an AWS 403
@@ -423,6 +452,15 @@ def execute_api(
             data_kwarg = _body
 
     start = time.time()
+
+    def _log_call(response=None, error=None):
+        log_api_call(_method, url, authored=authored, sent_headers=_headers,
+                     body=data_kwarg if files_kwarg is None else files_kwarg, auth_keys=auth_keys,
+                     elapsed_ms=(time.time() - start) * 1000, error=error,
+                     status=response.status_code if response is not None else None,
+                     reason=getattr(response, "reason_phrase", "") if response is not None else "",
+                     size=len(getattr(response, "content", b"") or b"") if response is not None else 0,
+                     params=_params, response=response)
 
     try:
         if _method == "GET":
@@ -476,10 +514,12 @@ def execute_api(
     # assertion to judge — V2 fails the step with a message that names the
     # cause. Order matters: these must precede the generic handler below.
     except _httpx.ProxyError as e:
+        _log_call(error=e)
         raise _httpx.ProxyError(
             f"API request failed — proxy could not reach the server: {e}"
         ) from e
     except _httpx.ConnectError as e:
+        _log_call(error=e)
         raise _httpx.ConnectError(
             f"API request failed — could not connect to the server: {e}"
         ) from e
@@ -489,10 +529,11 @@ def execute_api(
         # test continues and the author's own status assertion can handle it,
         # instead of hard-failing the test. Input-validation errors (invalid URL,
         # unsupported method) are raised as RuntimeError above and still propagate.
+        _log_call(error=e)
         return {"status": 400, "message": "API request failed " + str(e)}
 
     elapsed_ms = (time.time() - start) * 1000
-    _log.info("    [execute_api] status=%d time=%.0fms", response.status_code, elapsed_ms)
+    _log_call(response=response)
 
     # -- Build response dict -------------------------------------------------
     resp = {

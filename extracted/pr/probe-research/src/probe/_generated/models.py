@@ -190,6 +190,17 @@ class AnchoredMultipartCreate(BaseModel):
     size_bytes: int = Field(..., gt=0, le=5497558138880, title='Size Bytes')
 
 
+class AnswerStyle(StrEnum):
+    simple = 'simple'
+    verbose = 'verbose'
+
+
+class AppliedOp(BaseModel):
+    id: UUID = Field(..., title='Id')
+    op: str = Field(..., title='Op')
+    undoable: bool = Field(..., title='Undoable')
+
+
 class SizeBytes(RootModel[int]):
     root: int = Field(..., ge=0, le=9223372036854776000, title='Size Bytes')
 
@@ -405,13 +416,23 @@ class BodyConsentOauthConsentPost(BaseModel):
     ticket: str = Field(..., title='Ticket')
 
 
+class BodyRevokeOauthRevokePost(BaseModel):
+    client_id: str | None = Field(None, title='Client Id')
+    token: str | None = Field(None, title='Token')
+    token_type_hint: str | None = Field(None, title='Token Type Hint')
+
+
 class BodyTokenOauthTokenPost(BaseModel):
+    assertion: str | None = Field(None, title='Assertion')
+    claim_token: str | None = Field(None, title='Claim Token')
     client_id: str | None = Field(None, title='Client Id')
     code: str | None = Field(None, title='Code')
     code_verifier: str | None = Field(None, title='Code Verifier')
     grant_type: str = Field(..., title='Grant Type')
     redirect_uri: str | None = Field(None, title='Redirect Uri')
     refresh_token: str | None = Field(None, title='Refresh Token')
+    resource: str | None = Field(None, title='Resource')
+    scope: str | None = Field(None, title='Scope')
 
 
 class CursorParameter(StrEnum):
@@ -456,6 +477,12 @@ class BrowseCursors(BaseModel):
     projects: str | None = Field(None, title='Projects')
     runs: str | None = Field(None, title='Runs')
     subprojects: str | None = Field(None, title='Subprojects')
+
+
+class Cadence(StrEnum):
+    weekdays = 'weekdays'
+    mwf = 'mwf'
+    weekly = 'weekly'
 
 
 class CanvasEndType(StrEnum):
@@ -718,6 +745,21 @@ class ChatUsageOut(BaseModel):
     prompt_tokens: int = Field(..., title='Prompt Tokens')
     prompt_tokens_details: ChatPromptTokensDetailsOut | None = None
     total_tokens: int = Field(..., title='Total Tokens')
+
+
+class UserCode(RootModel[str]):
+    root: str = Field(..., max_length=16, title='User Code')
+
+
+class ClaimDecision(StrEnum):
+    approve = 'approve'
+    deny = 'deny'
+
+
+class ClaimViewIn(BaseModel):
+    claim_attempt_token: str = Field(
+        ..., max_length=200, min_length=1, title='Claim Attempt Token'
+    )
 
 
 class ClassifyIn(BaseModel):
@@ -1111,6 +1153,12 @@ class CompanionUsage(BaseModel):
     output_tokens: int = Field(..., title='Output Tokens')
 
 
+class CompleteDesktopOnboardingRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+
+
 class Completeness(BaseModel):
     not_reconfirmed_citers: int | None = Field(0, title='Not Reconfirmed Citers')
     primaries_pending: int | None = Field(0, title='Primaries Pending')
@@ -1186,6 +1234,11 @@ class Positions(RootModel[tuple[float, float]]):
     root: tuple[float, float] = Field(..., max_length=2, min_length=2)
 
 
+class Contributor(BaseModel):
+    name: str | None = Field(None, title='Name')
+    user_id: UUID = Field(..., title='User Id')
+
+
 class CoordinateOut(BaseModel):
     """
     One catalog row of the run's coordinate space (0060): a non-empty coordinate
@@ -1200,55 +1253,6 @@ class CoordinateOut(BaseModel):
     has_metrics: bool = Field(..., title='Has Metrics')
     has_spans: bool = Field(..., title='Has Spans')
     last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
-
-
-class CrashAlertMode(StrEnum):
-    """
-    `tenant_settings.crash_alert_mode` -- mirrors its CHECK.
-    """
-
-    any = 'any'
-    long_runs = 'long_runs'
-
-
-class CrashAlertSource(StrEnum):
-    """
-    Whether the mode in force is the team's own choice or the fleet default.
-    """
-
-    team = 'team'
-    default = 'default'
-
-
-class CrashAlertsOut(BaseModel):
-    """
-    GET|PUT /auth/teams/crash-alerts: which crashed runs email their owner.
-
-    `source` is `default` while the team has not chosen: `mode` and
-    `min_run_seconds` then describe the fleet floor it is getting, which is not
-    a choice anyone made (app/notifications/alert_mode.py).
-    """
-
-    min_run_seconds: float = Field(..., title='Min Run Seconds')
-    mode: CrashAlertMode
-    source: CrashAlertSource
-
-
-class MinRunSeconds(RootModel[float]):
-    root: float = Field(..., ge=60.0, le=604800.0, title='Min Run Seconds')
-
-
-class CrashAlertsUpdate(BaseModel):
-    """
-    PUT /auth/teams/crash-alerts. Omit `min_run_seconds` to keep the stored
-    threshold (three hours unless the team set another).
-    """
-
-    model_config = ConfigDict(
-        extra='forbid',
-    )
-    min_run_seconds: MinRunSeconds | None = Field(None, title='Min Run Seconds')
-    mode: CrashAlertMode
 
 
 class CreatorKind(StrEnum):
@@ -1328,6 +1332,44 @@ class DeleteAccountRequest(BaseModel):
 
 class CodeRef(RootModel[str]):
     root: str = Field(..., max_length=512, title='Code Ref')
+
+
+class DesktopGroup(BaseModel):
+    id: UUID = Field(..., title='Id')
+    member_count: int = Field(..., ge=0, title='Member Count')
+    name: str = Field(..., title='Name')
+
+
+class Role3(StrEnum):
+    owner = 'owner'
+    admin = 'admin'
+    member = 'member'
+
+
+class DesktopMember(BaseModel):
+    email: str = Field(..., title='Email')
+    name: str | None = Field(..., title='Name')
+    picture: str | None = Field(..., title='Picture')
+    role: Role3 = Field(..., title='Role')
+    user_id: UUID = Field(..., title='User Id')
+
+
+class DesktopOnboardingScope(BaseModel):
+    customerId: str = Field(..., title='Customerid')
+    userId: UUID = Field(..., title='Userid')
+
+
+class DesktopTeam(BaseModel):
+    customer_id: str = Field(..., title='Customer Id')
+    display_name: str | None = Field(..., title='Display Name')
+    role: Role3 = Field(..., title='Role')
+
+
+class DesktopUser(BaseModel):
+    email: str = Field(..., title='Email')
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(..., title='Name')
+    picture: str | None = Field(..., title='Picture')
 
 
 class Decision(StrEnum):
@@ -1419,6 +1461,43 @@ class DeviceTokenExchange(BaseModel):
 class DirectionOutput(StrEnum):
     reference = 'reference'
     citer = 'citer'
+
+
+class DirectionOut(BaseModel):
+    contributors: list[Contributor] = Field(..., title='Contributors')
+    evidence_count: int = Field(..., title='Evidence Count')
+    horizon: str = Field(..., title='Horizon')
+    id: UUID = Field(..., title='Id')
+    last_activity_at: AwareDatetime | None = Field(..., title='Last Activity At')
+    milestone_count: int = Field(..., title='Milestone Count')
+    name: str = Field(..., title='Name')
+    name_source: str = Field(..., title='Name Source')
+    parent_id: UUID | None = Field(..., title='Parent Id')
+    parent_source: str = Field(..., title='Parent Source')
+    statement: str = Field(..., title='Statement')
+    statement_source: str = Field(..., title='Statement Source')
+    status: str = Field(..., title='Status')
+    status_source: str = Field(..., title='Status Source')
+
+
+class Name1(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Name')
+
+
+class Statement(RootModel[str]):
+    root: str = Field(..., max_length=4000, title='Statement')
+
+
+class Status2(StrEnum):
+    retired = 'retired'
+    confirmed = 'confirmed'
+
+
+class DirectionPatch(BaseModel):
+    name: Name1 | None = Field(None, title='Name')
+    parent_id: UUID | None = Field(None, title='Parent Id')
+    statement: Statement | None = Field(None, title='Statement')
+    status: Status2 | None = Field(None, title='Status')
 
 
 class DisconnectReason(StrEnum):
@@ -1531,7 +1610,7 @@ class ExecutionRecordOut(BaseModel):
     settings: dict[str, Any] | None = Field(None, title='Settings')
 
 
-class Name1(RootModel[str]):
+class Name2(RootModel[str]):
     root: str = Field(
         ...,
         description='Display name. Omit it to let the title lane name the fork.',
@@ -1555,7 +1634,7 @@ class ExperimentForkCreate(BaseModel):
         None,
         description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
     )
-    name: Name1 | None = Field(
+    name: Name2 | None = Field(
         None,
         description='Display name. Omit it to let the title lane name the fork.',
         title='Name',
@@ -1758,6 +1837,15 @@ class ExportPoint(BaseModel):
 class FeedbackAccepted(BaseModel):
     duplicate: bool = Field(..., title='Duplicate')
     id: UUID = Field(..., title='Id')
+
+
+class FeedbackKind(StrEnum):
+    looks_right = 'looks_right'
+    separate = 'separate'
+    done = 'done'
+    wrong_name = 'wrong_name'
+    wrong_parent = 'wrong_parent'
+    not_accurate = 'not_accurate'
 
 
 class FieldSource(StrEnum):
@@ -2266,6 +2354,12 @@ class InstallationCaptureOut(BaseModel):
     state: str | None = Field('authorized', title='State')
 
 
+class Role5(StrEnum):
+    api = 'api'
+    mcp = 'mcp'
+    companion = 'companion'
+
+
 class InstallationNameIn(BaseModel):
     """
     The machine's own name for itself, as the client observes it.
@@ -2334,7 +2428,7 @@ class IntentOut(BaseModel):
     step_id: int = Field(..., title='Step Id')
 
 
-class Role4(StrEnum):
+class Role6(StrEnum):
     admin = 'admin'
     member = 'member'
 
@@ -2343,7 +2437,7 @@ class InviteCreate(BaseModel):
     email: str = Field(
         ..., max_length=254, pattern='^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$', title='Email'
     )
-    role: Role4 | None = Field('member', title='Role')
+    role: Role6 | None = Field('member', title='Role')
 
 
 class InviteOut(BaseModel):
@@ -2351,7 +2445,7 @@ class InviteOut(BaseModel):
     customer_id: str = Field(..., title='Customer Id')
     email: str = Field(..., title='Email')
     id: UUID = Field(..., title='Id')
-    role: Role4 = Field(..., title='Role')
+    role: Role6 = Field(..., title='Role')
 
 
 class JobState(StrEnum):
@@ -2560,6 +2654,11 @@ class MatchSource(StrEnum):
     structured = 'structured'
 
 
+class MergedInto(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+
+
 class Origin(StrEnum):
     logged = 'logged'
     derived = 'derived'
@@ -2759,12 +2858,24 @@ class MetricViewOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Name2(RootModel[str]):
+class Name3(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
 class MaxPoints(RootModel[int]):
     root: int = Field(2000, ge=2, le=100000, title='Max Points')
+
+
+class MilestoneOut(BaseModel):
+    dispute_op_id: UUID | None = Field(None, title='Dispute Op Id')
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    occurred_at: AwareDatetime = Field(..., title='Occurred At')
+    outcome: str | None = Field(..., title='Outcome')
+    significance: str = Field(..., title='Significance')
+    source: str = Field(..., title='Source')
+    state: str = Field(..., title='State')
+    statement: str = Field(..., title='Statement')
 
 
 class MirrorBlock(BaseModel):
@@ -2784,7 +2895,7 @@ class MirrorBlock(BaseModel):
     state: str = Field(..., title='State')
 
 
-class Name3(RootModel[str]):
+class Name4(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -2848,6 +2959,11 @@ class NamedFunction(BaseModel):
 class NamedToolChoice(BaseModel):
     function: NamedFunction
     type: Literal['function'] = Field(..., title='Type')
+
+
+class NextStep(StrEnum):
+    edit_name = 'edit_name'
+    edit_parent = 'edit_parent'
 
 
 class NextToOut(BaseModel):
@@ -2983,6 +3099,7 @@ class OnboardingStep(StrEnum):
     sources = 'sources'
     wandb = 'wandb'
     install = 'install'
+    tutorial = 'tutorial'
     complete = 'complete'
 
 
@@ -2999,6 +3116,18 @@ class OpenAIErrorOut(BaseModel):
     """
 
     error: OpenAIErrorBody
+
+
+class OperationOut(BaseModel):
+    actor: str = Field(..., title='Actor')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    milestone_id: UUID | None = Field(..., title='Milestone Id')
+    op: str = Field(..., title='Op')
+    payload: dict[str, Any] = Field(..., title='Payload')
+    surface: str = Field(..., title='Surface')
+    undoable: bool = Field(..., title='Undoable')
+    writer_source: str = Field(..., title='Writer Source')
 
 
 class OperationScope(BaseModel):
@@ -3550,7 +3679,7 @@ class PendingInviteOut(BaseModel):
     customer_id: str = Field(..., title='Customer Id')
     display_name: str = Field(..., title='Display Name')
     id: UUID = Field(..., title='Id')
-    role: Role4 = Field(..., title='Role')
+    role: Role6 = Field(..., title='Role')
 
 
 class PinnedExperiment(BaseModel):
@@ -3628,11 +3757,11 @@ class Document(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Document')
 
 
-class Name5(RootModel[str]):
+class Name6(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
-class Name6(RootModel[str]):
+class Name7(RootModel[str]):
     root: str = Field(
         ...,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
@@ -3654,7 +3783,7 @@ class ProjectExperimentCreate(BaseModel):
         None,
         description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
     )
-    name: Name6 | None = Field(
+    name: Name7 | None = Field(
         None,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
         title='Name',
@@ -3910,7 +4039,7 @@ class ExpectedDocument(RootModel[str]):
     )
 
 
-class Name7(RootModel[str]):
+class Name8(RootModel[str]):
     root: str = Field(
         ...,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
@@ -3975,7 +4104,7 @@ class ProjectExperimentPatch(BaseModel):
         description='Replace the notes WITHOUT a precondition: the one way to say "I know the notes moved and I mean to overwrite them" (an operator\'s escape hatch, and the way forward when no read version is at hand). Only with `notes`, and never with `base_version`.',
         title='Force',
     )
-    name: Name7 | None = Field(
+    name: Name8 | None = Field(
         None,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
         title='Name',
@@ -4087,7 +4216,7 @@ class ExpectedDocument1(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Expected Document')
 
 
-class Name8(RootModel[str]):
+class Name9(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -4122,7 +4251,7 @@ class ProjectPatch(BaseModel):
     force: bool | None = Field(False, title='Force')
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name8 | None = Field(None, title='Name')
+    name: Name9 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
@@ -4969,7 +5098,7 @@ class LivenessProtocol(RootModel[LivenessProtocolEnum | None]):
     root: LivenessProtocolEnum | None = Field(None, title='Liveness Protocol')
 
 
-class Name9(RootModel[str]):
+class Name10(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -5032,7 +5161,7 @@ class RunGroupPatch(BaseModel):
 
     base_version: int | None = Field(None, deprecated=True, title='Base Version')
     force: bool | None = Field(False, deprecated=True, title='Force')
-    name: Name9 | None = Field(None, title='Name')
+    name: Name10 | None = Field(None, title='Name')
     notes: str | None = Field(None, deprecated=True, title='Notes')
     notes_append: str | None = Field(None, deprecated=True, title='Notes Append')
     notes_edit: dict[str, Any] | None = Field(None, deprecated=True, title='Notes Edit')
@@ -5301,7 +5430,7 @@ class SandboxDiffCounts(BaseModel):
     unchanged: int = Field(..., title='Unchanged')
 
 
-class Status2(StrEnum):
+class Status3(StrEnum):
     added = 'added'
     modified = 'modified'
     deleted = 'deleted'
@@ -6395,11 +6524,11 @@ class SyncSummary(BaseModel):
     stale: bool | None = Field(False, title='Stale')
 
 
-class Name12(RootModel[str]):
+class Name13(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
-class Role7(StrEnum):
+class Role9(StrEnum):
     system = 'system'
     developer = 'developer'
 
@@ -6419,7 +6548,7 @@ class TeamFeaturesOut(BaseModel):
     features: list[str] = Field(..., title='Features')
 
 
-class Role8(StrEnum):
+class Role10(StrEnum):
     owner = 'owner'
     admin = 'admin'
     member = 'member'
@@ -6434,11 +6563,11 @@ class TeamMemberOut(BaseModel):
     email: str = Field(..., title='Email')
     name: str | None = Field(None, title='Name')
     picture: str | None = Field(None, title='Picture')
-    role: Role8 = Field(..., title='Role')
+    role: Role10 = Field(..., title='Role')
     user_id: UUID = Field(..., title='User Id')
 
 
-class Role9(StrEnum):
+class Role11(StrEnum):
     admin = 'admin'
     member = 'member'
 
@@ -6451,7 +6580,7 @@ class TeamMemberRoleUpdate(BaseModel):
     can never accidentally replace the team's owner.
     """
 
-    role: Role9 = Field(..., title='Role')
+    role: Role11 = Field(..., title='Role')
 
 
 class TeamNoteBriefOut(BaseModel):
@@ -6590,7 +6719,7 @@ class TeamNoteVersionsOut(BaseModel):
     versions: list[TeamNoteVersionOut] = Field(..., title='Versions')
 
 
-class Role10(StrEnum):
+class Role12(StrEnum):
     owner = 'owner'
     admin = 'admin'
     member = 'member'
@@ -6599,7 +6728,7 @@ class Role10(StrEnum):
 class TeamOut(BaseModel):
     customer_id: str = Field(..., title='Customer Id')
     display_name: str | None = Field(None, title='Display Name')
-    role: Role10 = Field(..., title='Role')
+    role: Role12 = Field(..., title='Role')
 
 
 class TextPart(BaseModel):
@@ -6753,7 +6882,7 @@ class Description4(RootModel[str]):
     root: str = Field(..., max_length=2000, title='Description')
 
 
-class Name13(RootModel[str]):
+class Name14(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -6778,7 +6907,7 @@ class TrialPatch(BaseModel):
     """
 
     description: Description4 | None = Field(None, title='Description')
-    name: Name13 | None = Field(None, title='Name')
+    name: Name14 | None = Field(None, title='Name')
 
 
 class Fn5(StrEnum):
@@ -6937,13 +7066,13 @@ class UseTargetOut(BaseModel):
     type: str = Field(..., title='Type')
 
 
-class Name14(RootModel[str]):
+class Name15(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
 class UserMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name14 | None = Field(None, title='Name')
+    name: Name15 | None = Field(None, title='Name')
     role: Literal['user'] = Field(..., title='Role')
 
 
@@ -6956,6 +7085,10 @@ class UserPreferencesUpdate(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    assistant_answer_style: AnswerStyle | None = None
+    crash_email: bool | None = Field(None, title='Crash Email')
+    digest_cadence: Cadence | None = None
+    digest_email: bool | None = Field(None, title='Digest Email')
     workspace_canvas: bool | None = Field(None, title='Workspace Canvas')
 
 
@@ -7070,7 +7203,7 @@ class VisualsState(StrEnum):
     recipe = 'recipe'
 
 
-class Name15(RootModel[str]):
+class Name16(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -7354,6 +7487,12 @@ class WriteMode(StrEnum):
 
     open = 'open'
     restricted = 'restricted'
+
+
+class WriteOut(BaseModel):
+    applied: list[AppliedOp] | None = Field(None, title='Applied')
+    next: NextStep | None = None
+    version: int | None = Field(None, title='Version')
 
 
 class DrainingForSeconds(RootModel[float]):
@@ -7834,6 +7973,15 @@ class CitationLinkOut(BaseModel):
     year: int | None = Field(None, title='Year')
 
 
+class ClaimCompleteIn(BaseModel):
+    claim_attempt_token: str = Field(
+        ..., max_length=200, min_length=1, title='Claim Attempt Token'
+    )
+    consent: str = Field(..., max_length=200, min_length=1, title='Consent')
+    decision: ClaimDecision
+    user_code: UserCode | None = Field(None, title='User Code')
+
+
 class ClientStatusOut(BaseModel):
     """
     Server-side update-banner decision for the authenticated user.
@@ -7951,6 +8099,11 @@ class CompanionCompleteOut(BaseModel):
     usage: CompanionUsage
 
 
+class CompleteDesktopOnboardingResponse(BaseModel):
+    complete: Literal[True] = Field(True, title='Complete')
+    scope: DesktopOnboardingScope
+
+
 class ContainerLayoutOut(BaseModel):
     clusters: list[ClusterOut] = Field(..., title='Clusters')
     frame: Frame
@@ -7999,6 +8152,19 @@ class DerivedProvenance(BaseModel):
     inputs: Inputs | None = Field(None, title='Inputs')
     note: Note | None = Field(None, title='Note')
     producer: str = Field(..., max_length=128, min_length=1, title='Producer')
+
+
+class DesktopProfile(BaseModel):
+    groups: list[DesktopGroup] = Field(..., max_length=100, title='Groups')
+    groups_total: int = Field(..., ge=0, title='Groups Total')
+    groups_truncated: bool = Field(..., title='Groups Truncated')
+    members: list[DesktopMember] = Field(..., max_length=200, title='Members')
+    members_total: int = Field(..., ge=0, title='Members Total')
+    members_truncated: bool = Field(..., title='Members Truncated')
+    onboarding_step: OnboardingStep
+    schema_version: Literal[1] = Field(1, title='Schema Version')
+    team: DesktopTeam
+    user: DesktopUser
 
 
 class DeviceAuthorizationOut(BaseModel):
@@ -8086,6 +8252,49 @@ class DeviceTokenCreated(BaseModel):
     token: str | None = Field(None, title='Token')
     token_prefix: str | None = Field(None, title='Token Prefix')
     token_type: Literal['Bearer'] = Field('Bearer', title='Token Type')
+
+
+class DirectionCard(BaseModel):
+    contributors: list[Contributor] = Field(..., title='Contributors')
+    evidence_count: int = Field(..., title='Evidence Count')
+    history: list[OperationOut] = Field(..., title='History')
+    horizon: str = Field(..., title='Horizon')
+    id: UUID = Field(..., title='Id')
+    last_activity_at: AwareDatetime | None = Field(..., title='Last Activity At')
+    merged_into: MergedInto | None
+    milestone_count: int = Field(..., title='Milestone Count')
+    milestones: list[MilestoneOut] = Field(..., title='Milestones')
+    name: str = Field(..., title='Name')
+    name_source: str = Field(..., title='Name Source')
+    parent_id: UUID | None = Field(..., title='Parent Id')
+    parent_source: str = Field(..., title='Parent Source')
+    statement: str = Field(..., title='Statement')
+    statement_source: str = Field(..., title='Statement Source')
+    status: str = Field(..., title='Status')
+    status_source: str = Field(..., title='Status Source')
+
+
+class DirectionNode(BaseModel):
+    contributors: list[Contributor] = Field(..., title='Contributors')
+    evidence_count: int = Field(..., title='Evidence Count')
+    horizon: str = Field(..., title='Horizon')
+    id: UUID = Field(..., title='Id')
+    last_activity_at: AwareDatetime | None = Field(..., title='Last Activity At')
+    milestone_count: int = Field(..., title='Milestone Count')
+    name: str = Field(..., title='Name')
+    name_source: str = Field(..., title='Name Source')
+    parent_id: UUID | None = Field(..., title='Parent Id')
+    parent_source: str = Field(..., title='Parent Source')
+    statement: str = Field(..., title='Statement')
+    statement_source: str = Field(..., title='Statement Source')
+    status: str = Field(..., title='Status')
+    status_source: str = Field(..., title='Status Source')
+    workstreams: list[DirectionOut] | None = Field(None, title='Workstreams')
+
+
+class DirectionTree(BaseModel):
+    directions: list[DirectionNode] = Field(..., title='Directions')
+    unfiled: list[DirectionOut] = Field(..., title='Unfiled')
 
 
 class DownloadBatchResponse(BaseModel):
@@ -8464,6 +8673,13 @@ class ExperimentTrashedOut(BaseModel):
     type: Literal['experiment'] = Field(..., title='Type')
 
 
+class FeedbackIn(BaseModel):
+    edition_id: UUID | None = Field(None, title='Edition Id')
+    kind: FeedbackKind
+    milestone_id: UUID | None = Field(None, title='Milestone Id')
+    other_ids: list[UUID] | None = Field(None, title='Other Ids')
+
+
 class GitHubCommitOut(BaseModel):
     access: CodeAccess
     commit: CommitCard
@@ -8643,10 +8859,20 @@ class InstallationCredentialOut(BaseModel):
     expires_at: AwareDatetime | None = Field(None, title='Expires At')
     id: UUID = Field(..., title='Id')
     last_used_at: AwareDatetime | None = Field(None, title='Last Used At')
-    role: Role2 = Field(..., title='Role')
+    role: Role5 = Field(..., title='Role')
     scopes: list[str] | None = Field(None, title='Scopes')
     shared_with: list[SharedDeviceOut] | None = Field(None, title='Shared With')
     token_prefix: str = Field(..., title='Token Prefix')
+
+
+class InstallationOnboardingOut(BaseModel):
+    """
+    Account-scoped progress, alongside the install page's existing poll.
+    """
+
+    customer_id: str = Field(..., title='Customer Id')
+    step: OnboardingStep
+    user_id: UUID = Field(..., title='User Id')
 
 
 class JobOut(BaseModel):
@@ -8731,7 +8957,7 @@ class MetricViewData(BaseModel):
 
 class MirrorConnectIn(BaseModel):
     credentials: dict[str, str] = Field(..., title='Credentials')
-    name: Name3 | None = Field(None, title='Name')
+    name: Name4 | None = Field(None, title='Name')
     scope: list[ScopeEntry] | None = Field(None, max_length=1000, title='Scope')
     source: MirrorSource
     sync_enabled: bool | None = Field(False, title='Sync Enabled')
@@ -8772,7 +8998,7 @@ class Scope1(RootModel[list[ScopeEntry]]):
 
 class MirrorPatchIn(BaseModel):
     expected_revision: ExpectedRevision | None = Field(None, title='Expected Revision')
-    name: Name3 | None = Field(None, title='Name')
+    name: Name4 | None = Field(None, title='Name')
     scope: Scope1 | None = Field(None, title='Scope')
     sync_enabled: bool | None = Field(None, title='Sync Enabled')
 
@@ -8941,7 +9167,7 @@ class ProjectCreate(BaseModel):
     document: Document | None = Field(None, title='Document')
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name5 | None = Field(None, title='Name')
+    name: Name6 | None = Field(None, title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
     slug: str = Field(..., title='Slug')
     summary_markdown: str | None = Field(None, title='Summary Markdown')
@@ -9620,7 +9846,7 @@ class RunPatch(BaseModel):
     metric_expectations: dict[str, MetricExpectation | None] | None = Field(
         None, title='Metric Expectations'
     )
-    name: Name9 | None = Field(None, title='Name')
+    name: Name10 | None = Field(None, title='Name')
     notes: Notes2 | None = Field(None, title='Notes')
     notes_append: NotesAppend1 | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
@@ -9714,7 +9940,7 @@ class SandboxDiffEntry(BaseModel):
     has_begin_content: bool | None = Field(False, title='Has Begin Content')
     has_content: bool | None = Field(False, title='Has Content')
     path: str = Field(..., title='Path')
-    status: Status2 = Field(..., title='Status')
+    status: Status3 = Field(..., title='Status')
     symlink_target: str | None = Field(None, title='Symlink Target')
     type: str = Field(..., title='Type')
 
@@ -9856,7 +10082,7 @@ class SyncOut(BaseModel):
 
 class SystemMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name12 | None = Field(None, title='Name')
+    name: Name13 | None = Field(None, title='Name')
     role: Literal['developer', 'system'] = Field(..., title='Role')
 
 
@@ -9875,7 +10101,7 @@ class WandbAccountConnect(BaseModel):
         extra='forbid',
     )
     credentials: WandbAccountCredentials
-    name: Name15 | None = Field(None, title='Name')
+    name: Name16 | None = Field(None, title='Name')
 
 
 class WandbBatchOut(BaseModel):
@@ -10212,6 +10438,7 @@ class ClientInstallationOut(BaseModel):
 
 class ClientInstallationsOut(BaseModel):
     installations: list[ClientInstallationOut] = Field(..., title='Installations')
+    onboarding: InstallationOnboardingOut | None = None
     standalone_captures: list[InstallationCaptureOut] = Field(
         ..., title='Standalone Captures'
     )
@@ -10550,7 +10777,7 @@ class RunCreate(BaseModel):
     liveness_mode: str | None = Field(None, title='Liveness Mode')
     liveness_protocol: LivenessProtocol | None = Field(None, title='Liveness Protocol')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name9 | None = Field(None, title='Name')
+    name: Name10 | None = Field(None, title='Name')
     notes: Notes2 | None = Field(None, title='Notes')
     offline: bool | None = Field(False, title='Offline')
     parent_provenance: ParentProvenance | None = None
@@ -10659,7 +10886,7 @@ class WorkspaceCreate(BaseModel):
     requires an explicit opt-in and the necessary write access.
     """
 
-    name: Name15 | None = Field(None, title='Name')
+    name: Name16 | None = Field(None, title='Name')
     slug: str = Field(..., max_length=120, min_length=1, title='Slug')
     writers: WorkspaceWriters | None = None
 
@@ -10940,7 +11167,7 @@ class MetricViewCreate(BaseModel):
 
 class MetricViewPatch(BaseModel):
     expected_updated_at: AwareDatetime | None = Field(None, title='Expected Updated At')
-    name: Name2 | None = Field(None, title='Name')
+    name: Name3 | None = Field(None, title='Name')
     spec: MetricViewSpec | None = None
 
 

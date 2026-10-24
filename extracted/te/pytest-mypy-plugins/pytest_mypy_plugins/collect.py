@@ -146,6 +146,7 @@ class YamlTestFile(pytest.File):
                     expected_output.extend(output_lines)
 
                 starting_lineno = raw_test["__line__"]
+                marks = raw_test.get("marks", [])
                 extra_environment_variables = parse_environment_variables(raw_test.get("env", []))
                 disable_cache = raw_test.get("disable_cache", False)
                 expected_output.extend(
@@ -166,6 +167,7 @@ class YamlTestFile(pytest.File):
                         parsed_test_data=raw_test,
                         mypy_config=additional_mypy_config,
                         expect_fail=expect_fail,
+                        marks=marks,
                     )
 
     def _eval_skip(self, skip_if: str) -> bool:
@@ -174,7 +176,7 @@ class YamlTestFile(pytest.File):
 
 def pytest_collect_file(file_path: pathlib.Path, parent: Node) -> Optional[YamlTestFile]:
     if file_path.suffix in {".yaml", ".yml"} and file_path.name.startswith(("test-", "test_")):
-        return YamlTestFile.from_parent(parent, path=file_path, fspath=None)
+        return YamlTestFile.from_parent(parent, path=file_path)
     return None
 
 

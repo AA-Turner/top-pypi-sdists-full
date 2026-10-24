@@ -48,7 +48,7 @@ class RetrieverInteractionsApi:
     @validate_call
     def create_interaction_retrievers(
         self,
-        search_interaction: SearchInteraction,
+        search_interaction: Annotated[SearchInteraction, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -64,9 +64,9 @@ class RetrieverInteractionsApi:
     ) -> InteractionResponse:
         """Create Interaction
 
-        Record a search interaction (view, click, feedback, etc.).  Automatically computes and injects ``metadata.reward_value`` based on the interaction types and the retriever's reward_map configuration. This pre-computed value is used by the learned-fusion bandit aggregation query so it doesn't need to join against the retriever config at read time.  **Deduplication (Phase 4e):** If ``(execution_id, feature_id, interaction_type)`` has already been recorded within the last 5 minutes the duplicate is silently dropped.  **Session cache (Phase 1b):** When ``session_id`` is present the interaction is also written to the Redis session cache so the Thompson Sampling bandit can incorporate it in real time (before ClickHouse write-then-read latency settles).
+        Record a search interaction (view, click, feedback, etc.).  Automatically computes and injects ``metadata.reward_value`` based on the interaction types and the retriever's reward_map configuration. This pre-computed value is used by the learned-fusion bandit aggregation query so it doesn't need to join against the retriever config at read time.  **Deduplication (Phase 4e):** If ``(execution_id, feature_id, interaction_type)`` has already been recorded within the last 5 minutes the duplicate is silently dropped.  **Session cache (Phase 1b):** When ``session_id`` is present the interaction is also written to the Redis session cache so the Thompson Sampling bandit can incorporate it in real time, before the stored aggregate refreshes.
 
-        :param search_interaction: (required)
+        :param search_interaction: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type search_interaction: SearchInteraction
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -104,8 +104,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -121,7 +123,7 @@ class RetrieverInteractionsApi:
     @validate_call
     def create_interaction_retrievers_with_http_info(
         self,
-        search_interaction: SearchInteraction,
+        search_interaction: Annotated[SearchInteraction, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,9 +139,9 @@ class RetrieverInteractionsApi:
     ) -> ApiResponse[InteractionResponse]:
         """Create Interaction
 
-        Record a search interaction (view, click, feedback, etc.).  Automatically computes and injects ``metadata.reward_value`` based on the interaction types and the retriever's reward_map configuration. This pre-computed value is used by the learned-fusion bandit aggregation query so it doesn't need to join against the retriever config at read time.  **Deduplication (Phase 4e):** If ``(execution_id, feature_id, interaction_type)`` has already been recorded within the last 5 minutes the duplicate is silently dropped.  **Session cache (Phase 1b):** When ``session_id`` is present the interaction is also written to the Redis session cache so the Thompson Sampling bandit can incorporate it in real time (before ClickHouse write-then-read latency settles).
+        Record a search interaction (view, click, feedback, etc.).  Automatically computes and injects ``metadata.reward_value`` based on the interaction types and the retriever's reward_map configuration. This pre-computed value is used by the learned-fusion bandit aggregation query so it doesn't need to join against the retriever config at read time.  **Deduplication (Phase 4e):** If ``(execution_id, feature_id, interaction_type)`` has already been recorded within the last 5 minutes the duplicate is silently dropped.  **Session cache (Phase 1b):** When ``session_id`` is present the interaction is also written to the Redis session cache so the Thompson Sampling bandit can incorporate it in real time, before the stored aggregate refreshes.
 
-        :param search_interaction: (required)
+        :param search_interaction: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type search_interaction: SearchInteraction
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -177,8 +179,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -194,7 +198,7 @@ class RetrieverInteractionsApi:
     @validate_call
     def create_interaction_retrievers_without_preload_content(
         self,
-        search_interaction: SearchInteraction,
+        search_interaction: Annotated[SearchInteraction, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -210,9 +214,9 @@ class RetrieverInteractionsApi:
     ) -> RESTResponseType:
         """Create Interaction
 
-        Record a search interaction (view, click, feedback, etc.).  Automatically computes and injects ``metadata.reward_value`` based on the interaction types and the retriever's reward_map configuration. This pre-computed value is used by the learned-fusion bandit aggregation query so it doesn't need to join against the retriever config at read time.  **Deduplication (Phase 4e):** If ``(execution_id, feature_id, interaction_type)`` has already been recorded within the last 5 minutes the duplicate is silently dropped.  **Session cache (Phase 1b):** When ``session_id`` is present the interaction is also written to the Redis session cache so the Thompson Sampling bandit can incorporate it in real time (before ClickHouse write-then-read latency settles).
+        Record a search interaction (view, click, feedback, etc.).  Automatically computes and injects ``metadata.reward_value`` based on the interaction types and the retriever's reward_map configuration. This pre-computed value is used by the learned-fusion bandit aggregation query so it doesn't need to join against the retriever config at read time.  **Deduplication (Phase 4e):** If ``(execution_id, feature_id, interaction_type)`` has already been recorded within the last 5 minutes the duplicate is silently dropped.  **Session cache (Phase 1b):** When ``session_id`` is present the interaction is also written to the Redis session cache so the Thompson Sampling bandit can incorporate it in real time, before the stored aggregate refreshes.
 
-        :param search_interaction: (required)
+        :param search_interaction: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type search_interaction: SearchInteraction
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -250,8 +254,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -341,7 +347,7 @@ class RetrieverInteractionsApi:
     @validate_call
     def create_interactions_bulk_retrievers_batch(
         self,
-        bulk_interactions_request: BulkInteractionsRequest,
+        bulk_interactions_request: Annotated[BulkInteractionsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -359,7 +365,7 @@ class RetrieverInteractionsApi:
 
         Record up to 1000 interactions in one call — for backfilling history.  Each interaction is enriched (reward_value, feature_uri/context promotion) exactly like the single-create path, then written. Reward config is resolved ONCE per distinct retriever (not per interaction). Dedup and the real-time session cache are skipped — bulk writes are for historical backfill, not live in-session adaptation. Set each interaction's ``occurred_at`` to its true timestamp so temporal decay weights it by real age.
 
-        :param bulk_interactions_request: (required)
+        :param bulk_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_interactions_request: BulkInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -397,8 +403,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -414,7 +422,7 @@ class RetrieverInteractionsApi:
     @validate_call
     def create_interactions_bulk_retrievers_batch_with_http_info(
         self,
-        bulk_interactions_request: BulkInteractionsRequest,
+        bulk_interactions_request: Annotated[BulkInteractionsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -432,7 +440,7 @@ class RetrieverInteractionsApi:
 
         Record up to 1000 interactions in one call — for backfilling history.  Each interaction is enriched (reward_value, feature_uri/context promotion) exactly like the single-create path, then written. Reward config is resolved ONCE per distinct retriever (not per interaction). Dedup and the real-time session cache are skipped — bulk writes are for historical backfill, not live in-session adaptation. Set each interaction's ``occurred_at`` to its true timestamp so temporal decay weights it by real age.
 
-        :param bulk_interactions_request: (required)
+        :param bulk_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_interactions_request: BulkInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -470,8 +478,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -487,7 +497,7 @@ class RetrieverInteractionsApi:
     @validate_call
     def create_interactions_bulk_retrievers_batch_without_preload_content(
         self,
-        bulk_interactions_request: BulkInteractionsRequest,
+        bulk_interactions_request: Annotated[BulkInteractionsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -505,7 +515,7 @@ class RetrieverInteractionsApi:
 
         Record up to 1000 interactions in one call — for backfilling history.  Each interaction is enriched (reward_value, feature_uri/context promotion) exactly like the single-create path, then written. Reward config is resolved ONCE per distinct retriever (not per interaction). Dedup and the real-time session cache are skipped — bulk writes are for historical backfill, not live in-session adaptation. Set each interaction's ``occurred_at`` to its true timestamp so temporal decay weights it by real age.
 
-        :param bulk_interactions_request: (required)
+        :param bulk_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_interactions_request: BulkInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -543,8 +553,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -690,8 +702,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -763,8 +777,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -836,8 +852,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -970,8 +988,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1043,8 +1063,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1116,8 +1138,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1202,7 +1226,7 @@ class RetrieverInteractionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_interactions_request: Optional[ListInteractionsRequest] = None,
+        list_interactions_request: Annotated[Optional[ListInteractionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1236,7 +1260,7 @@ class RetrieverInteractionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_interactions_request:
+        :param list_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_interactions_request: ListInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1282,8 +1306,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1307,7 +1333,7 @@ class RetrieverInteractionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_interactions_request: Optional[ListInteractionsRequest] = None,
+        list_interactions_request: Annotated[Optional[ListInteractionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1341,7 +1367,7 @@ class RetrieverInteractionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_interactions_request:
+        :param list_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_interactions_request: ListInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1387,8 +1413,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1412,7 +1440,7 @@ class RetrieverInteractionsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_interactions_request: Optional[ListInteractionsRequest] = None,
+        list_interactions_request: Annotated[Optional[ListInteractionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1446,7 +1474,7 @@ class RetrieverInteractionsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_interactions_request:
+        :param list_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_interactions_request: ListInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1492,8 +1520,10 @@ class RetrieverInteractionsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

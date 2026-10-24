@@ -1,4 +1,4 @@
-import { init, parse, unparse } from "@discord/markdown-wasm/sync";
+import { Syntax, init, parse, unparse } from "@discord/markdown-wasm/sync";
 import { beforeAll, expect, test } from "vitest";
 
 // Node initialises itself on first use; the browser cannot.
@@ -18,8 +18,8 @@ test("simple parse", () => {
 	]);
 });
 
-test("parse with allowed_rules", () => {
-	expect(parse("_foo_ **bar**", ["italic"])).toEqual([
+test("parse with flags", () => {
+	expect(parse("_foo_ **bar**", Syntax.ITALIC)).toEqual([
 		{
 			type: "paragraph",
 			value: [
@@ -91,4 +91,18 @@ test("unparse round trips", () => {
 
 test("unparse rejects a malformed ast", () => {
 	expect(() => unparse([{ type: "nonsense" }])).toThrow();
+});
+
+test("flags remove syntax with a mask", () => {
+	expect(parse("@everyone", Syntax.ALL & ~Syntax.MENTIONS)).toEqual([
+		{ type: "paragraph", value: [{ type: "text", value: "@everyone" }] },
+	]);
+});
+
+test("every bit set allows everything", () => {
+	expect(parse("**foo**", ~0)).toEqual(parse("**foo**"));
+});
+
+test("no bit set allows everything", () => {
+	expect(parse("**foo**", 0)).toEqual(parse("**foo**"));
 });

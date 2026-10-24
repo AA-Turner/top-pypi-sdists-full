@@ -1,0 +1,1 @@
+export default `:host .xterm{border:1px solid var(--mui-palette-divider);border-radius:var(--mui-shape-borderRadius);overflow:hidden;}`

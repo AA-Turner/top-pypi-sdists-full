@@ -5,8 +5,9 @@ SUTs:
   readiness reads. A store that failed to load (at boot OR on a later refresh)
   must never report healthy: every fetch would silently run on default policy.
 - `server.app._readiness_snapshot` — OWNS turning an unhealthy store into 503.
-- `domain_config_schema.sql` — its `scraper.*` compatibility views must project
-  exactly the columns the generated models read (census, derived from the models).
+- `domain_config_schema.sql` — its legacy `scraper.*` compatibility views retain
+  `is_public` and project every column the generated models read. Current live
+  storage uses physical `scraper.*` tables without that legacy column.
 The Postgres loader (`_load_all_domains`) is the doubled dependency.
 """
 
@@ -134,18 +135,20 @@ def _scraper_view_columns(sql: str) -> dict[str, set[str]]:
     }
 
 
-def test_package_migration_views_project_exactly_the_model_columns() -> None:
+def test_package_migration_views_project_the_model_and_retained_legacy_columns() -> None:
     """Census: every column of every policy model, derived from the generated
-    model — a column added to (or dropped from) either side breaks it."""
+    model, plus the installer's retained legacy public flag. CREATE OR REPLACE
+    VIEW cannot drop an existing view column without dropping its dependents;
+    retaining that legacy projection must not add it to live-table models."""
     sql = (Path(__file__).parents[1] / "domain_config_schema.sql").read_text()
     views = _scraper_view_columns(sql)
 
     for model in (ScrapeDomain, ScrapePathPattern):
         table = model._table_name
         assert table in views, f"domain_config_schema.sql no longer defines view scraper.{table}"
-        model_columns = set(model._fields)
-        missing = sorted(model_columns - views[table])
-        extra = sorted(views[table] - model_columns)
+        expected_columns = set(model._fields) | {"is_public"}
+        missing = sorted(expected_columns - views[table])
+        extra = sorted(views[table] - expected_columns)
         assert not missing and not extra, (
             f"scraper.{table} view drifted from {model.__name__}: missing={missing} extra={extra}"
         )

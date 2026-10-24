@@ -82,6 +82,8 @@ __all__ = (
     "AccessScopeOutputTypeDef",
     "AccessScopeTypeDef",
     "AccessScopeUnionTypeDef",
+    "AckConfigRequestTypeDef",
+    "AckConfigResponseTypeDef",
     "ActivateCertificateAuthorityRequestTypeDef",
     "ActivateCertificateAuthorityResponseTypeDef",
     "ActiveCertificateAuthorityTypeDef",
@@ -385,6 +387,7 @@ __all__ = (
     "UpdateAccessConfigRequestTypeDef",
     "UpdateAccessEntryRequestTypeDef",
     "UpdateAccessEntryResponseTypeDef",
+    "UpdateAckConfigTypeDef",
     "UpdateAddonRequestTypeDef",
     "UpdateAddonResponseTypeDef",
     "UpdateArgoCdConfigTypeDef",
@@ -455,6 +458,14 @@ AccessScopeTypeDef = TypedDict(
         "namespaces": NotRequired[Sequence[str]],
     },
 )
+
+class AckConfigRequestTypeDef(TypedDict):
+    enableCrossNamespace: NotRequired[bool]
+    disabledServices: NotRequired[Sequence[str]]
+
+class AckConfigResponseTypeDef(TypedDict):
+    enableCrossNamespace: NotRequired[bool]
+    disabledServices: NotRequired[list[str]]
 
 class ActivateCertificateAuthorityRequestTypeDef(TypedDict):
     clusterName: str
@@ -1156,6 +1167,10 @@ class UpdateAccessEntryRequestTypeDef(TypedDict):
     kubernetesGroups: NotRequired[Sequence[str]]
     clientRequestToken: NotRequired[str]
     username: NotRequired[str]
+
+class UpdateAckConfigTypeDef(TypedDict):
+    enableCrossNamespace: NotRequired[bool]
+    disabledServices: NotRequired[Sequence[str]]
 
 UpdateEksAnywhereSubscriptionRequestTypeDef = TypedDict(
     "UpdateEksAnywhereSubscriptionRequestTypeDef",
@@ -2013,6 +2028,7 @@ class DescribeAddonVersionsResponseTypeDef(TypedDict):
 
 class CapabilityConfigurationResponseTypeDef(TypedDict):
     argoCd: NotRequired[ArgoCdConfigResponseTypeDef]
+    ack: NotRequired[AckConfigResponseTypeDef]
 
 class ArgoCdConfigRequestTypeDef(TypedDict):
     awsIdc: ArgoCdAwsIdcConfigRequestTypeDef
@@ -2146,6 +2162,7 @@ CapabilityTypeDef = TypedDict(
 
 class CapabilityConfigurationRequestTypeDef(TypedDict):
     argoCd: NotRequired[ArgoCdConfigRequestTypeDef]
+    ack: NotRequired[AckConfigRequestTypeDef]
 
 class UpdateArgoCdConfigTypeDef(TypedDict):
     rbacRoleMappings: NotRequired[UpdateRoleMappingsTypeDef]
@@ -2226,6 +2243,7 @@ CreateCapabilityRequestTypeDef = TypedDict(
 
 class UpdateCapabilityConfigurationTypeDef(TypedDict):
     argoCd: NotRequired[UpdateArgoCdConfigTypeDef]
+    ack: NotRequired[UpdateAckConfigTypeDef]
 
 class KubeSchedulerVersionConfigTypeDef(TypedDict):
     nodeResourcesFit: NotRequired[NodeResourcesFitVersionConfigTypeDef]

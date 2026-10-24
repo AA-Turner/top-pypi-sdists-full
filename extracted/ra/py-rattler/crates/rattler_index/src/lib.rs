@@ -39,8 +39,8 @@ use rattler_conda_types::{
     ParseMatchSpecOptions, PatchInstructions, RepoData, Shard, ShardedRepodata, ShardedSubdirInfo,
     Subdir, UrlOrPath, V3Extensions, V3Packages, Version, WhlPackageRecord,
     package::{
-        CondaArchiveType, DistArchiveIdentifier, DistArchiveType, IndexJson, PackageFile,
-        RunExportsJson, ValidatedMatchSpecs, WheelArchiveType,
+        BuildString, CondaArchiveType, DistArchiveIdentifier, DistArchiveType, IndexJson,
+        PackageFile, RunExportsJson, ValidatedMatchSpecs, WheelArchiveType,
     },
     virtual_package_detector::DetectorRegistrationMetadata,
 };
@@ -1279,11 +1279,6 @@ fn render_record_matchspecs_for_revision(
     matchspecs: Option<ValidatedMatchSpecs>,
     revision: RepodataRevision,
 ) -> Result<(), RepodataError> {
-    if revision.uses_legacy_package_layout() && !record.flags.is_empty() {
-        return Err(RepodataError::Other(anyhow::anyhow!(
-            "legacy repodata cannot represent package flags"
-        )));
-    }
     for flag in &record.flags {
         flag.validate().map_err(anyhow::Error::from)?;
     }
@@ -1391,7 +1386,7 @@ fn validate_patch_instructions(instructions: &PatchInstructions) -> Result<(), R
         let mut record = PackageRecord::new(
             PackageName::new_unchecked("patch"),
             Version::major(0),
-            String::new(),
+            BuildString::new_unchecked("0"),
         );
         record.apply_patch(patch);
         render_record_matchspecs_for_revision(&mut record, None, revision)
@@ -2319,7 +2314,7 @@ mod tests {
         let package_record = PackageRecord::new(
             PackageName::new_unchecked("demo"),
             Version::from_str("1.0").unwrap(),
-            "py_0".to_string(),
+            "py_0".parse::<BuildString>().unwrap(),
         );
         let wheel_url = UrlOrPath::Path("demo-1.0-py_0.whl".to_string());
 
@@ -2539,7 +2534,7 @@ mod tests {
             PackageRecord::new(
                 PackageName::new_unchecked("v3-demo"),
                 Version::from_str("1.0").unwrap(),
-                "0".to_string(),
+                "0".parse::<BuildString>().unwrap(),
             ),
         );
         let patch = serde_json::from_value::<PatchInstructions>(serde_json::json!({
@@ -2628,7 +2623,7 @@ mod tests {
             record: PackageRecord::new(
                 PackageName::new_unchecked("demo"),
                 Version::from_str("1.0").unwrap(),
-                "0".to_string(),
+                "0".parse::<BuildString>().unwrap(),
             ),
             repodata_revision: RepodataRevision::from(4),
             matchspecs: None,
@@ -2654,7 +2649,7 @@ mod tests {
             record: PackageRecord::new(
                 PackageName::new_unchecked("demo"),
                 Version::from_str("1.0").unwrap(),
-                "0".to_string(),
+                "0".parse::<BuildString>().unwrap(),
             ),
             repodata_revision: RepodataRevision::V3,
             matchspecs: None,
@@ -2687,7 +2682,7 @@ mod tests {
         let mut record = PackageRecord::new(
             PackageName::new_unchecked("demo"),
             Version::from_str("1.0").unwrap(),
-            "0".to_string(),
+            "0".parse::<BuildString>().unwrap(),
         );
         record.depends = vec!["python[extras=[\"test\"]]".to_string()];
         repodata.packages.insert(
@@ -2741,7 +2736,7 @@ mod tests {
         let mut record = PackageRecord::new(
             PackageName::new_unchecked("demo"),
             Version::from_str("1.0").unwrap(),
-            "0".to_string(),
+            "0".parse::<BuildString>().unwrap(),
         );
         let patch = serde_json::from_value(serde_json::json!({
             "depends": ["python >=3.10"],
@@ -2776,7 +2771,7 @@ mod tests {
         let mut record = PackageRecord::new(
             PackageName::new_unchecked("demo"),
             Version::from_str("1.0").unwrap(),
-            "0".to_string(),
+            "0".parse::<BuildString>().unwrap(),
         );
         record.depends = vec!["python >=3.10".to_string()];
         record.constrains = vec!["python >=3.10".to_string()];
@@ -2807,13 +2802,47 @@ mod tests {
     }
 
     #[test]
+    fn legacy_records_with_flags_are_indexed_into_legacy_maps() {
+        let filename = DistArchiveIdentifier::try_from_filename("demo-1.0-0.conda").unwrap();
+        let mut record = PackageRecord::new(
+            PackageName::new_unchecked("demo"),
+            Version::from_str("1.0").unwrap(),
+            "0".parse::<BuildString>().unwrap(),
+        );
+        record.flags = vec![Flag::new_unchecked("cuda")];
+
+        let mut conda_packages = IndexMap::default();
+        let mut v3 = V3Packages::default();
+        insert_package_record_by_revision(
+            &mut IndexMap::default(),
+            &mut conda_packages,
+            &mut v3,
+            filename.clone(),
+            IndexedPackageRecord {
+                record,
+                repodata_revision: RepodataRevision::Legacy,
+                matchspecs: None,
+                wheel_url: None,
+            },
+            RepodataRevision::Legacy,
+        )
+        .unwrap();
+
+        assert!(v3.is_empty());
+        assert_eq!(
+            conda_packages[&filename].flags,
+            [Flag::new_unchecked("cuda")]
+        );
+    }
+
+    #[test]
     fn indexer_only_produces_legacy_and_v3_package_layouts() {
         let filename = DistArchiveIdentifier::try_from_filename("demo-1.0-0.tar.bz2").unwrap();
         let indexed_record = |revision| IndexedPackageRecord {
             record: PackageRecord::new(
                 PackageName::new_unchecked("demo"),
                 Version::from_str("1.0").unwrap(),
-                "0".to_string(),
+                "0".parse::<BuildString>().unwrap(),
             ),
             repodata_revision: revision,
             matchspecs: None,

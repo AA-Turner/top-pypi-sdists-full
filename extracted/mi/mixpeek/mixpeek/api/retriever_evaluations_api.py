@@ -53,7 +53,7 @@ class RetrieverEvaluationsApi:
     @validate_call
     def create_dataset_retrievers_evaluations(
         self,
-        create_dataset_request: CreateDatasetRequest,
+        create_dataset_request: Annotated[CreateDatasetRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -71,7 +71,7 @@ class RetrieverEvaluationsApi:
 
         Create a ground truth dataset for evaluating retrievers. Include queries with their relevant documents and optional graded relevance scores.
 
-        :param create_dataset_request: (required)
+        :param create_dataset_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_dataset_request: CreateDatasetRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -104,13 +104,15 @@ class RetrieverEvaluationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "EvaluationDataset",
+            '200': "EvaluationDataset",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -126,7 +128,7 @@ class RetrieverEvaluationsApi:
     @validate_call
     def create_dataset_retrievers_evaluations_with_http_info(
         self,
-        create_dataset_request: CreateDatasetRequest,
+        create_dataset_request: Annotated[CreateDatasetRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -144,7 +146,7 @@ class RetrieverEvaluationsApi:
 
         Create a ground truth dataset for evaluating retrievers. Include queries with their relevant documents and optional graded relevance scores.
 
-        :param create_dataset_request: (required)
+        :param create_dataset_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_dataset_request: CreateDatasetRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -177,13 +179,15 @@ class RetrieverEvaluationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "EvaluationDataset",
+            '200': "EvaluationDataset",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -199,7 +203,7 @@ class RetrieverEvaluationsApi:
     @validate_call
     def create_dataset_retrievers_evaluations_without_preload_content(
         self,
-        create_dataset_request: CreateDatasetRequest,
+        create_dataset_request: Annotated[CreateDatasetRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -217,7 +221,7 @@ class RetrieverEvaluationsApi:
 
         Create a ground truth dataset for evaluating retrievers. Include queries with their relevant documents and optional graded relevance scores.
 
-        :param create_dataset_request: (required)
+        :param create_dataset_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_dataset_request: CreateDatasetRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -250,13 +254,15 @@ class RetrieverEvaluationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "EvaluationDataset",
+            '200': "EvaluationDataset",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -398,8 +404,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -467,8 +475,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -536,8 +546,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -611,7 +623,7 @@ class RetrieverEvaluationsApi:
     def generate_dataset_from_interactions_retrievers_id_evaluations(
         self,
         retriever_id: StrictStr,
-        generate_from_interactions_request: Optional[GenerateFromInteractionsRequest] = None,
+        generate_from_interactions_request: Annotated[Optional[GenerateFromInteractionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -631,7 +643,7 @@ class RetrieverEvaluationsApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param generate_from_interactions_request:
+        :param generate_from_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type generate_from_interactions_request: GenerateFromInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -665,13 +677,15 @@ class RetrieverEvaluationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "EvaluationDataset",
+            '200': "EvaluationDataset",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -688,7 +702,7 @@ class RetrieverEvaluationsApi:
     def generate_dataset_from_interactions_retrievers_id_evaluations_with_http_info(
         self,
         retriever_id: StrictStr,
-        generate_from_interactions_request: Optional[GenerateFromInteractionsRequest] = None,
+        generate_from_interactions_request: Annotated[Optional[GenerateFromInteractionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -708,7 +722,7 @@ class RetrieverEvaluationsApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param generate_from_interactions_request:
+        :param generate_from_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type generate_from_interactions_request: GenerateFromInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -742,13 +756,15 @@ class RetrieverEvaluationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "EvaluationDataset",
+            '200': "EvaluationDataset",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -765,7 +781,7 @@ class RetrieverEvaluationsApi:
     def generate_dataset_from_interactions_retrievers_id_evaluations_without_preload_content(
         self,
         retriever_id: StrictStr,
-        generate_from_interactions_request: Optional[GenerateFromInteractionsRequest] = None,
+        generate_from_interactions_request: Annotated[Optional[GenerateFromInteractionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -785,7 +801,7 @@ class RetrieverEvaluationsApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param generate_from_interactions_request:
+        :param generate_from_interactions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type generate_from_interactions_request: GenerateFromInteractionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -819,13 +835,15 @@ class RetrieverEvaluationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "EvaluationDataset",
+            '200': "EvaluationDataset",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -974,8 +992,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1047,8 +1067,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1120,8 +1142,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1258,8 +1282,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1335,8 +1361,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1412,8 +1440,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1553,8 +1583,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1630,8 +1662,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1707,8 +1741,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1864,8 +1900,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1953,8 +1991,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2042,8 +2082,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2140,7 +2182,7 @@ class RetrieverEvaluationsApi:
     @validate_call
     def score_predictions_evaluations(
         self,
-        score_predictions_request: ScorePredictionsRequest,
+        score_predictions_request: Annotated[ScorePredictionsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2158,7 +2200,7 @@ class RetrieverEvaluationsApi:
 
         Compute quality metrics (Precision@K, Recall@K, F1@K, F2@K) for precomputed predictions vs ground truth, with NO retriever, namespace, or persistence. Each item's `predicted` and `ground_truth` are treated as SETS. Send a single pair (`predicted` + `ground_truth`) or an `items` batch. Returns per-item scores and the macro-average across items. Auth only (no X-Namespace). This is the stateless counterpart to the retriever-scoped evaluation runs — use it to dogfood F1/F2 on extraction/generation benchmarks.
 
-        :param score_predictions_request: (required)
+        :param score_predictions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type score_predictions_request: ScorePredictionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2196,8 +2238,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2213,7 +2257,7 @@ class RetrieverEvaluationsApi:
     @validate_call
     def score_predictions_evaluations_with_http_info(
         self,
-        score_predictions_request: ScorePredictionsRequest,
+        score_predictions_request: Annotated[ScorePredictionsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2231,7 +2275,7 @@ class RetrieverEvaluationsApi:
 
         Compute quality metrics (Precision@K, Recall@K, F1@K, F2@K) for precomputed predictions vs ground truth, with NO retriever, namespace, or persistence. Each item's `predicted` and `ground_truth` are treated as SETS. Send a single pair (`predicted` + `ground_truth`) or an `items` batch. Returns per-item scores and the macro-average across items. Auth only (no X-Namespace). This is the stateless counterpart to the retriever-scoped evaluation runs — use it to dogfood F1/F2 on extraction/generation benchmarks.
 
-        :param score_predictions_request: (required)
+        :param score_predictions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type score_predictions_request: ScorePredictionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2269,8 +2313,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2286,7 +2332,7 @@ class RetrieverEvaluationsApi:
     @validate_call
     def score_predictions_evaluations_without_preload_content(
         self,
-        score_predictions_request: ScorePredictionsRequest,
+        score_predictions_request: Annotated[ScorePredictionsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2304,7 +2350,7 @@ class RetrieverEvaluationsApi:
 
         Compute quality metrics (Precision@K, Recall@K, F1@K, F2@K) for precomputed predictions vs ground truth, with NO retriever, namespace, or persistence. Each item's `predicted` and `ground_truth` are treated as SETS. Send a single pair (`predicted` + `ground_truth`) or an `items` batch. Returns per-item scores and the macro-average across items. Auth only (no X-Namespace). This is the stateless counterpart to the retriever-scoped evaluation runs — use it to dogfood F1/F2 on extraction/generation benchmarks.
 
-        :param score_predictions_request: (required)
+        :param score_predictions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type score_predictions_request: ScorePredictionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2342,8 +2388,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2433,7 +2481,7 @@ class RetrieverEvaluationsApi:
     def start_evaluation_retrievers(
         self,
         retriever_id: StrictStr,
-        start_evaluation_request: StartEvaluationRequest,
+        start_evaluation_request: Annotated[StartEvaluationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2453,7 +2501,7 @@ class RetrieverEvaluationsApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param start_evaluation_request: (required)
+        :param start_evaluation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type start_evaluation_request: StartEvaluationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2492,8 +2540,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2510,7 +2560,7 @@ class RetrieverEvaluationsApi:
     def start_evaluation_retrievers_with_http_info(
         self,
         retriever_id: StrictStr,
-        start_evaluation_request: StartEvaluationRequest,
+        start_evaluation_request: Annotated[StartEvaluationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2530,7 +2580,7 @@ class RetrieverEvaluationsApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param start_evaluation_request: (required)
+        :param start_evaluation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type start_evaluation_request: StartEvaluationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2569,8 +2619,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2587,7 +2639,7 @@ class RetrieverEvaluationsApi:
     def start_evaluation_retrievers_without_preload_content(
         self,
         retriever_id: StrictStr,
-        start_evaluation_request: StartEvaluationRequest,
+        start_evaluation_request: Annotated[StartEvaluationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2607,7 +2659,7 @@ class RetrieverEvaluationsApi:
 
         :param retriever_id: (required)
         :type retriever_id: str
-        :param start_evaluation_request: (required)
+        :param start_evaluation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type start_evaluation_request: StartEvaluationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2646,8 +2698,10 @@ class RetrieverEvaluationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

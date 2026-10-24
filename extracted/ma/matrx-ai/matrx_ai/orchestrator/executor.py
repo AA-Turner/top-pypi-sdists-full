@@ -12,7 +12,12 @@ import rich
 from matrx_connect.chat_timing import chat_timing_mark
 from matrx_connect.context.app_context import clear_app_context, set_app_context
 from matrx_connect.context.error_buffer import buffer_error_events
-from matrx_connect.context.events import InfoPayload, ProviderRetryPayload, WarningPayload
+from matrx_connect.context.events import (
+    InfoPayload,
+    ProviderRetryPayload,
+    StructuredOutputPayload,
+    WarningPayload,
+)
 from matrx_connect.request_controls import RequestControlRegistry
 from matrx_connect.reservations import get_tracker
 from matrx_utils import detached_task, vcprint
@@ -492,6 +497,22 @@ def _request_metadata(
 _HELD_RUN_NOTED: ContextVar[bool] = ContextVar("held_run_noted", default=False)
 
 
+def _held_call_own_turn(ctx: Any) -> dict[str, Any]:
+    """The request identity of a held code call (the ``package_code_call`` door): its OWN turn.
+
+    Defect 97: the call ran under the caller's ``request_id``, so a fanned-out batch wrote N
+    conversations' snapshots and cx_request rows under ONE ``chat.user_request`` and the run record minted
+    a zero-token row beside it - the row the door and mandate key are stamped on - that no snapshot
+    linked to. Same rule as ``AppContext.fork_for_child_agent``: a fresh id, the caller's id as
+    ``parent_request_id``, the tree's root kept (cost cap, admission and stop key on it).
+    """
+    return {
+        "request_id": str(uuid4()),
+        "parent_request_id": getattr(ctx, "request_id", None) or None,
+        "root_request_id": getattr(ctx, "tree_request_id", None) or None,
+    }
+
+
 async def execute_ai_request(
     config: UnifiedConfig,
     max_iterations: int = 100,
@@ -540,14 +561,26 @@ async def execute_ai_request(
         persist_completed_request) sees one consistent, valid identity.
 
     Sub-agent tracking:
-        There is exactly ONE cx_user_request per user action. Sub-agents
-        inherit the parent's request_id via fork_for_child_agent(), so their
-        cx_request rows link to the same cx_user_request. Cost aggregation
-        is automatic — persist_completed_request() sums all cx_request rows
-        sharing a user_request_id. Sub-agents have parent_conversation_id
+        Every run owns its OWN turn (cx_user_request), exactly like a normal
+        chat: fork_for_child_agent() mints the child's request_id, keeps the
+        caller's as parent_request_id and freezes the tree root as
+        root_request_id (the user_request columns). Each cx_request row adds
+        to the turn it names (the _propagate_totals trigger), so a child's
+        spend sits on its own turn and the whole action is the sum over the
+        tree. The cost cap, usage / run-approval admission and stop key on
+        the root (ctx.tree_request_id). Sub-agents have parent_conversation_id
         set by fork_for_child_agent() for hierarchical queries.
     """
     ctx = get_app_context()
+
+    # A code-level ``store=False`` is a MACHINE asking to leave no record — refused
+    # except for the conversation labeler (owner ruling 2026-10-23; unsaved_runs.py).
+    # A person's own unsaved choice arrives on the context, never as this argument;
+    # the held-call re-entry below forwards that context's choice, so it is exempt.
+    if store is False and not _HELD_RUN_NOTED.get():
+        from matrx_ai.orchestrator.unsaved_runs import refuse_machine_unsaved_run
+
+        refuse_machine_unsaved_run(door="execute_ai_request", mandate_key=mandate_key, metadata=metadata)
 
     # WORKFLOW PARITY (2026-09-26): a call HELD by a workflow
     # (``hold_code_call`` resolved to a workflow Holder) never reaches a
@@ -594,6 +627,8 @@ async def execute_ai_request(
             # and the request it really ran as never carried the run's columns (live 2026-10-22).
             own_conversation_id = conversation_id
             held_store = store
+            if conversation_id != ctx.conversation_id:
+                token = set_app_context(ctx.with_overrides(**_held_call_own_turn(ctx)))
         else:
             held_store = store
             if held_store is None:
@@ -622,6 +657,7 @@ async def execute_ai_request(
                     parent_conversation_id=surrounding,
                     conversation_type=held_type,
                     store=held_store,
+                    **_held_call_own_turn(ctx),
                 )
             )
         noted = _HELD_RUN_NOTED.set(True)
@@ -663,6 +699,16 @@ async def execute_ai_request(
     bypass = note_mandate_carrier(config, metadata, mandate_key=mandate_key)
 
     request_id = ctx.request_id if ctx.request_id else str(uuid4())
+
+    # A child agent run owns its own turn but spends, is admitted and is stopped as
+    # part of its TREE: link its own id to the root before anything spends or polls
+    # (a run rebuilt from its row in another process carries ``root_request_id``).
+    from matrx_connect.request_controls import register_request_tree
+
+    from matrx_ai.orchestrator.cost_budget import join_tree
+
+    join_tree(ctx)
+    register_request_tree(ctx)
 
     # ── Resolve the conversation + persistence intent ONCE, here, for EVERY
     # caller — internal or API. Explicit args win, then the context, then the
@@ -2044,9 +2090,9 @@ async def handle_tool_calls(
             "[AI REQUESTS HANDLE TOOL CALLS] Client-delegated tools",
             color="cyan",
         )
-    # Tree-wide dollar budget: dollars left for this user request's whole tree
-    # (parent + every sub-agent share request_id). None when disabled/unknown,
-    # which the guardrail reads as "no budget", never as "exhausted".
+    # Tree-wide dollar budget: dollars left for this request's whole tree (its
+    # root — every child owns its own turn, linked to the root). None when
+    # disabled/unknown, which the guardrail reads as "no budget", never as "exhausted".
     from matrx_ai.orchestrator.cost_budget import remaining_budget
 
     cost_budget_remaining = remaining_budget(request.request_id)
@@ -2396,6 +2442,9 @@ async def _change_claim_gate(
         AuthoringPolicy.from_host(payload),
         current_request.tool_call_history,
         assistant_text,
+        # A run resumed by a client-run tool is a new request with an empty ledger:
+        # the turn's earlier writes are read back from its messages.
+        messages=getattr(getattr(current_request, "config", None), "messages", None),
     )
     action = decide_change_claim_action(
         report,
@@ -3213,9 +3262,9 @@ async def _finalize_and_persist(
     _rollup_ctx = _try_ctx_for_rollup()
     from matrx_ai.orchestrator.cost_budget import owns_tree, release_tree_budget
 
-    # Owner-only (``owns_tree``): a sub-agent AND a workflow step — which runs on the
-    # root's request id with no parent id — must NOT release the shared accumulator
-    # while the tree may still be spending against it (review 6 N6-4).
+    # Every run releases its OWN request (a child drops only its link; the root's
+    # total lives until its last linked child finishes) — except a workflow step,
+    # which runs on the workflow run's own id (``owns_tree``, review 6 N6-4).
     _is_request_owner = owns_tree(_rollup_ctx)
     if _is_request_owner and req_id and _is_valid_uuid_str(req_id):
         # The whole tree is durable — drop its tree-wide dollar
@@ -3767,7 +3816,25 @@ def _apply_ledger_truth_to_turn_text(current_request: Any, final_response: Any =
 _NO_ANSWER_YET_STATUSES = frozenset({"suspended_awaiting_client", "suspended_awaiting_human_browser"})
 
 
-async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
+async def emit_finalized_structured_output(
+    payload: StructuredOutputPayload, emitter: Any,
+) -> Any:
+    """Transport an already-finalized host artifact through the single emission seam.
+
+    The artifact's durable source owns its ledger truth. No ambient parent
+    contract or ledger is consulted, and delivery errors propagate to the host.
+    """
+    return await _emit_structured_output_if_schema(
+        completed=None, finalized_artifact=payload, emitter=emitter,
+    )
+
+
+async def _emit_structured_output_if_schema(
+    completed: CompletedRequest | None = None,
+    *,
+    finalized_artifact: StructuredOutputPayload | None = None,
+    emitter: Any = None,
+) -> Any:
     """Parse the final assistant text against config.response_format and emit.
 
     Fires when ``response_format`` is the OpenAI ``json_schema`` envelope
@@ -3780,100 +3847,117 @@ async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
     prose, so nothing is emitted and nothing is dispatched. On the bound path a
     failed parse is still reported, exactly as before.
 
+    A host may instead transport a ``finalized_artifact`` with its explicit
+    schema, kind and emitter. It is an already-derived workflow deliverable or
+    a presentation of a completed child answer, NOT a new model turn. Its
+    durable source owns ledger truth; never resolve the ambient parent's
+    contract or re-grade the child's report against the parent's ledger.
+    Callers persist the same artifact before their terminal completion frame.
+
     Returns the parsed structured-output object on success (so the caller can
     feed it to the output-apply dispatcher without re-parsing), else ``None``.
     """
     try:
-        # A TURN PARKED ON A PERSON (or a client) HAS NO ANSWER YET. Its last assistant
-        # message is the tool call it parked on, and `get_last_output()` serialises that
-        # call as JSON — which then parsed as the run's declared output: the Applet
-        # builder's `ask_person` arrived as `{"__kind": "applet_build_result", "type":
-        # "tool_call", …}` and the page said "The builder answered without an app" over a
-        # question it never showed (live, 2026-10-09). The answer is the resumed turn's.
-        if (getattr(completed, "metadata", None) or {}).get("status") in _NO_ANSWER_YET_STATUSES:
-            return None
-        resolved = _resolve_structured_contract(completed.request.config)
-        if resolved is None:
-            return None
-        envelope, schema, standing = resolved
+        if finalized_artifact is not None:
+            if completed is not None or emitter is None:
+                raise ValueError("artifact transport requires an explicit emitter and no model turn")
+            payload = finalized_artifact
+        else:
+            if completed is None:
+                raise ValueError("model finalization requires a completed request")
+            # A TURN PARKED ON A PERSON (or a client) HAS NO ANSWER YET. Its last assistant
+            # message is the tool call it parked on, and `get_last_output()` serialises that
+            # call as JSON — which then parsed as the run's declared output: the Applet
+            # builder's `ask_person` arrived as `{"__kind": "applet_build_result", "type":
+            # "tool_call", …}` and the page said "The builder answered without an app" over a
+            # question it never showed (live, 2026-10-09). The answer is the resumed turn's.
+            if (getattr(completed, "metadata", None) or {}).get("status") in _NO_ANSWER_YET_STATUSES:
+                return None
+            resolved = _resolve_structured_contract(completed.request.config)
+            if resolved is None:
+                return None
+            envelope, schema, standing = resolved
 
-        from matrx_connect import try_get_app_context
-        from matrx_connect.context.events import StructuredOutputPayload
+            from matrx_connect import try_get_app_context
 
-        from matrx_ai.agents.output import parse_agent_output
+            from matrx_ai.agents.output import parse_agent_output
 
-        ctx = try_get_app_context()
-        emitter = getattr(ctx, "emitter", None) if ctx else None
-        # THE ``finalizing`` MOMENT (SPEC §5.1) — the tokens have stopped and
-        # the answer is being parsed and validated against its schema. On a big
-        # structured answer this is seconds of dead air right where the user is
-        # most likely to think the run hung, so it is announced before the
-        # parse, independent of whether this emitter can carry the rich
-        # structured-output payload below.
-        from matrx_ai.orchestrator.step_phase import emit_step_phase
+            ctx = try_get_app_context()
+            emitter = emitter if emitter is not None else (getattr(ctx, "emitter", None) if ctx else None)
+            # THE ``finalizing`` MOMENT (SPEC §5.1) — the tokens have stopped and
+            # the answer is being parsed and validated against its schema. On a big
+            # structured answer this is seconds of dead air right where the user is
+            # most likely to think the run hung, so it is announced before the
+            # parse, independent of whether this emitter can carry the rich
+            # structured-output payload below.
+            from matrx_ai.orchestrator.step_phase import emit_step_phase
 
-        await emit_step_phase("finalizing", emitter)
-        if emitter is None or not hasattr(emitter, "send_structured_output"):
-            return None
+            await emit_step_phase("finalizing", emitter)
+            if emitter is None or not hasattr(emitter, "send_structured_output"):
+                return None
 
-        final_text = completed.request.config.get_last_output() or ""
-        extraction = parse_agent_output(final_text, envelope)
+            final_text = completed.request.config.get_last_output() or ""
+            extraction = parse_agent_output(final_text, envelope)
 
-        # LEDGER TRUTH OVERRIDE — the model does not get to grade its own tool
-        # history. When the agent's own schema declares tools_worked /
-        # tools_failed / commands_run, those three fields are REPLACED here with
-        # what this run's tool-call ledger says actually happened, before the
-        # parsed output reaches the caller (the structured_output event below
-        # and the output-apply dispatcher downstream). Generic: any agent whose
-        # schema declares those names inherits it. See
-        # matrx_ai/tools/turn_ledger.py for the why (a Sandbox Specialist run
-        # reported tools_failed: [] after four errored calls, 2026-09-14).
-        if extraction.success:
-            apply_ledger_truth(extraction.data, schema)
+            # LEDGER TRUTH OVERRIDE — the model does not get to grade its own tool
+            # history. When the agent's own schema declares tools_worked /
+            # tools_failed / commands_run, those three fields are REPLACED here with
+            # what this run's tool-call ledger says actually happened, before the
+            # parsed output reaches the caller (the structured_output event below
+            # and the output-apply dispatcher downstream). Generic: any agent whose
+            # schema declares those names inherits it. See
+            # matrx_ai/tools/turn_ledger.py for the why (a Sandbox Specialist run
+            # reported tools_failed: [] after four errored calls, 2026-09-14).
+            if extraction.success:
+                apply_ledger_truth(extraction.data, schema)
 
-        if standing and not extraction.success:
-            # The turn SPOKE. An acting run is allowed to answer a question, and a
-            # "schema mismatch" event here would paint a failure over a perfectly
-            # good prose answer (and, through the dispatcher, an Approve button for
-            # nothing). Nothing emitted, nothing dispatched — the prose stands.
-            return None
-        if standing:
-            vcprint(
-                "[Orchestrator] standing contract: this turn's text parsed as the run's "
-                "declared structured output — emitting it and handing it to the output-apply "
-                "dispatcher even though the wire format had relaxed to text (DD-135).",
-                color="cyan",
+            if standing and not extraction.success:
+                # The turn SPOKE. An acting run is allowed to answer a question, and a
+                # "schema mismatch" event here would paint a failure over a perfectly
+                # good prose answer (and, through the dispatcher, an Approve button for
+                # nothing). Nothing emitted, nothing dispatched — the prose stands.
+                return None
+            if standing:
+                vcprint(
+                    "[Orchestrator] standing contract: this turn's text parsed as the run's "
+                    "declared structured output — emitting it and handing it to the output-apply "
+                    "dispatcher even though the wire format had relaxed to text (DD-135).",
+                    color="cyan",
+                )
+            contract_meta = (
+                (ctx.metadata or {}).get("structured_output_content_ir", {})
+                if isinstance(getattr(ctx, "metadata", None), dict)
+                else {}
             )
-        contract_meta = (
-            (ctx.metadata or {}).get("structured_output_content_ir", {})
-            if isinstance(getattr(ctx, "metadata", None), dict)
-            else {}
-        )
-        contract_kind = contract_meta.get("kind") if isinstance(contract_meta, dict) else None
-        kind_errors = (
-            ([] if extraction.success else [extraction.reason or "schema mismatch"])
-            if contract_kind
-            else []
-        )
-        payload = StructuredOutputPayload(
-            schema_name=envelope.get("name") if isinstance(envelope.get("name"), str) else None,
-            json_schema=schema,
-            data=extraction.data if extraction.success else None,
-            success=extraction.success,
-            reason=extraction.reason,
-            match_count=len(extraction.all_matches),
-            agent_name=getattr(ctx, "agent_id", None),
-            operation_id=getattr(ctx, "operation_id", None) or None,
-            kind=contract_kind,
-            kind_version=(
-                contract_meta.get("version") if isinstance(contract_meta, dict) else None
-            ),
-            kind_checked=contract_kind is not None,
-            kind_errors=kind_errors,
-        )
+            contract_kind = contract_meta.get("kind") if isinstance(contract_meta, dict) else None
+            kind_errors = (
+                ([] if extraction.success else [extraction.reason or "schema mismatch"])
+                if contract_kind
+                else []
+            )
+            payload = StructuredOutputPayload(
+                schema_name=envelope.get("name") if isinstance(envelope.get("name"), str) else None,
+                json_schema=schema,
+                data=extraction.data if extraction.success else None,
+                success=extraction.success,
+                reason=extraction.reason,
+                match_count=len(extraction.all_matches),
+                agent_name=getattr(ctx, "agent_id", None),
+                operation_id=getattr(ctx, "operation_id", None) or None,
+                kind=contract_kind,
+                kind_version=(
+                    contract_meta.get("version") if isinstance(contract_meta, dict) else None
+                ),
+                kind_checked=contract_kind is not None,
+                kind_errors=kind_errors,
+            )
         await emitter.send_structured_output(payload)
-        return extraction.data if extraction.success else None
+        return payload.data if payload.success else None
     except Exception as exc:
+        if finalized_artifact is not None:
+            # Host callers previously awaited their emitter directly. Do not
+            # turn failed artifact delivery into a successful mandate record.
+            raise
         vcprint(
             f"[Orchestrator] structured_output emission failed: {exc}",
             color="yellow",
@@ -5185,13 +5269,13 @@ async def _execute_until_complete_inner(
     # The conversation gate deliberately refuses to create an invalid parent,
     # so continuing into a paid provider call would guarantee that the later
     # chat.request INSERT is stranded in system_write_failure. Refuse at the
-    # execution boundary instead. Ephemeral test/tool runs remain available by
-    # declaring store=False explicitly.
+    # execution boundary instead. A machine run mints a UUID request id; only a
+    # person's own unsaved chat (or the conversation labeler) runs store=False.
     persistence_request_id = current_request.request_id or exec_ctx.request_id
     if exec_ctx.store and persistence_request_id and not _is_valid_uuid_str(persistence_request_id):
         raise ValueError(
             "Stored AI executions require a UUID request_id; "
-            "use store=False for synthetic or ephemeral execution contexts"
+            "mint a UUID request_id for every machine run (store=False is only a person's own choice)"
         )
 
     if debug:
@@ -5237,8 +5321,8 @@ async def _execute_until_complete_inner(
         # solely by request_id with NO conversation. One request_id may span
         # many conversations (batch) and each conversation's cx_request rows
         # carry their own conversation_id — that IS the request↔conversation
-        # bridge. Sub-agents inherit the parent's request_id by design; this
-        # is now a plain no-op (the row already exists), not a special case.
+        # bridge. A child agent run owns its own turn (run_agent ensures it
+        # before any tool runs), so this is normally a no-op.
         await ensure_user_request_exists(
             request_id=_request_id,
             user_id=exec_ctx.user_id,
@@ -6072,8 +6156,8 @@ async def _execute_until_complete_inner(
                         marks_withheld=getattr(current_request.config, "prompt_cache_marks", None) == "none",
                     )
 
-                # Fold this call's cost into the tree-wide dollar budget. Parent
-                # turns and every sub-agent share the same request_id, so one
+                # Fold this call's cost into the tree-wide dollar budget. Every
+                # child's own request is linked to its tree root, so one
                 # accumulator sums the whole tree; the next turn's tool calls
                 # read remaining_budget() and the guardrail blocks new spawns
                 # LOUDLY once the tree is out of budget.
@@ -7361,6 +7445,20 @@ async def _execute_until_complete_inner(
             state.required_member_forced_pending = False
             state.required_member_saved_tools = None
 
+        # RESET TOOL CHOICE (the forced-tool loop). A forced tool_choice — an
+        # agent's saved `required`, or the value just restored above — has done
+        # its job once the model has called a tool this request. Left in place,
+        # every later turn is forced to call a tool again, so the run can never
+        # end with text and re-pays its tool (a paid image generation) every
+        # round until the iteration ceiling. Revert to `auto` for the rest of
+        # this request (OpenAI Agents SDK `reset_tool_choice`). Runs after the
+        # required-member restore so that one-shot intervention is untouched.
+        if (
+            current_request.config.tool_choice == "required"
+            and _response_has_tool_calls(response)
+        ):
+            current_request.config.tool_choice = "auto"
+
         # The ceiling's wrap-up turn offered NO tools, yet the model answered with
         # tool calls (a provider that ignores an empty tool list, or a mock).
         # Dispatch reads response.tool_calls, never config.tools, so without this
@@ -7625,6 +7723,20 @@ async def _execute_until_complete_inner(
                     debug=debug,
                     state=state,
                 )
+
+            # ── THE VISUAL-MAP REPAIR LOOP (legible-diagrams L4) ──────────
+            # A final answer (no tool calls) carrying a ``visual_map`` is
+            # validated by the diagram engine, repaired (bound agent, else this
+            # model in a muted child call), delivered and STAMPED by the server,
+            # and the stamped value replaces the draft in the turn text HERE,
+            # before the barrier below makes that text durable: the barrier is
+            # the turn's only write of it (closing fix D1, 2026-10-23 — the gate
+            # used to run after it, so the stored turn kept the model's draft).
+            # No visual_map → nothing runs. Never raises.
+            if tool_results is None and not pending_call_ids:
+                from matrx_ai.orchestrator.visual_map_repair import visual_map_gate
+
+                await visual_map_gate(current_request, response, exec_ctx)
 
             # ── PER-TURN COMMIT BARRIER ───────────────────────────────────
             # This turn's data (assistant message + any tool results) is now
@@ -8002,16 +8114,6 @@ async def _execute_until_complete_inner(
                         "[AI REQUESTS EXECUTE UNTIL COMPLETE] Response just before finalize and persist",
                         color="yellow",
                     )
-
-                # ── THE VISUAL-MAP REPAIR LOOP (legible-diagrams L4) ──────
-                # A final answer carrying a ``visual_map`` is validated by the
-                # diagram engine, repaired (bound agent, else this model in a
-                # muted child call), delivered and STAMPED by the server, and the
-                # stamped value replaces the draft in the durable text BEFORE
-                # _finalize_and_persist. No visual_map → nothing runs. Never raises.
-                from matrx_ai.orchestrator.visual_map_repair import visual_map_gate
-
-                await visual_map_gate(current_request, response, exec_ctx)
 
                 # Final UI clear — guarantees the frontend leaves any
                 # "Planning next steps…" / in-progress indicator before we

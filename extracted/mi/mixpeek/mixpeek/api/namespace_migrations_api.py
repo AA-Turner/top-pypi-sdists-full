@@ -17,8 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictStr
+from pydantic import Field, StrictStr
 from typing import Optional
+from typing_extensions import Annotated
 from mixpeek.models.cancel_migration_request import CancelMigrationRequest
 from mixpeek.models.cancel_migration_response import CancelMigrationResponse
 from mixpeek.models.create_migration_request import CreateMigrationRequest
@@ -53,7 +54,7 @@ class NamespaceMigrationsApi:
     def cancel_migration_namespaces(
         self,
         migration_id: StrictStr,
-        cancel_migration_request: Optional[CancelMigrationRequest] = None,
+        cancel_migration_request: Annotated[Optional[CancelMigrationRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -73,7 +74,7 @@ class NamespaceMigrationsApi:
 
         :param migration_id: (required)
         :type migration_id: str
-        :param cancel_migration_request:
+        :param cancel_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type cancel_migration_request: CancelMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -112,8 +113,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -130,7 +133,7 @@ class NamespaceMigrationsApi:
     def cancel_migration_namespaces_with_http_info(
         self,
         migration_id: StrictStr,
-        cancel_migration_request: Optional[CancelMigrationRequest] = None,
+        cancel_migration_request: Annotated[Optional[CancelMigrationRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -150,7 +153,7 @@ class NamespaceMigrationsApi:
 
         :param migration_id: (required)
         :type migration_id: str
-        :param cancel_migration_request:
+        :param cancel_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type cancel_migration_request: CancelMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -189,8 +192,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -207,7 +212,7 @@ class NamespaceMigrationsApi:
     def cancel_migration_namespaces_without_preload_content(
         self,
         migration_id: StrictStr,
-        cancel_migration_request: Optional[CancelMigrationRequest] = None,
+        cancel_migration_request: Annotated[Optional[CancelMigrationRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -227,7 +232,7 @@ class NamespaceMigrationsApi:
 
         :param migration_id: (required)
         :type migration_id: str
-        :param cancel_migration_request:
+        :param cancel_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type cancel_migration_request: CancelMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -266,8 +271,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -359,7 +366,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def create_migration_namespaces(
         self,
-        create_migration_request: CreateMigrationRequest,
+        create_migration_request: Annotated[CreateMigrationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -377,7 +384,7 @@ class NamespaceMigrationsApi:
 
         Create a new namespace migration.  This endpoint creates a migration and optionally validates it. Use start_immediately=True to begin execution immediately.  Args:     request: FastAPI request     create_request: Migration configuration  Returns:     CreateMigrationResponse with migration ID and status
 
-        :param create_migration_request: (required)
+        :param create_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_migration_request: CreateMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -410,13 +417,15 @@ class NamespaceMigrationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateMigrationResponse",
+            '200': "CreateMigrationResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -432,7 +441,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def create_migration_namespaces_with_http_info(
         self,
-        create_migration_request: CreateMigrationRequest,
+        create_migration_request: Annotated[CreateMigrationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -450,7 +459,7 @@ class NamespaceMigrationsApi:
 
         Create a new namespace migration.  This endpoint creates a migration and optionally validates it. Use start_immediately=True to begin execution immediately.  Args:     request: FastAPI request     create_request: Migration configuration  Returns:     CreateMigrationResponse with migration ID and status
 
-        :param create_migration_request: (required)
+        :param create_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_migration_request: CreateMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -483,13 +492,15 @@ class NamespaceMigrationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateMigrationResponse",
+            '200': "CreateMigrationResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -505,7 +516,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def create_migration_namespaces_without_preload_content(
         self,
-        create_migration_request: CreateMigrationRequest,
+        create_migration_request: Annotated[CreateMigrationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -523,7 +534,7 @@ class NamespaceMigrationsApi:
 
         Create a new namespace migration.  This endpoint creates a migration and optionally validates it. Use start_immediately=True to begin execution immediately.  Args:     request: FastAPI request     create_request: Migration configuration  Returns:     CreateMigrationResponse with migration ID and status
 
-        :param create_migration_request: (required)
+        :param create_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_migration_request: CreateMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -556,13 +567,15 @@ class NamespaceMigrationsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateMigrationResponse",
+            '200': "CreateMigrationResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -707,8 +720,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -780,8 +795,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -853,8 +870,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -986,8 +1005,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1059,8 +1080,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1132,8 +1155,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1209,7 +1234,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def list_migrations_namespaces(
         self,
-        list_migrations_request: ListMigrationsRequest,
+        list_migrations_request: Annotated[ListMigrationsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1227,7 +1252,7 @@ class NamespaceMigrationsApi:
 
         List migrations with optional filters.  Args:     request: FastAPI request     list_request: Filter and pagination parameters  Returns:     ListMigrationsResponse with migrations list
 
-        :param list_migrations_request: (required)
+        :param list_migrations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type list_migrations_request: ListMigrationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1265,8 +1290,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1282,7 +1309,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def list_migrations_namespaces_with_http_info(
         self,
-        list_migrations_request: ListMigrationsRequest,
+        list_migrations_request: Annotated[ListMigrationsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1300,7 +1327,7 @@ class NamespaceMigrationsApi:
 
         List migrations with optional filters.  Args:     request: FastAPI request     list_request: Filter and pagination parameters  Returns:     ListMigrationsResponse with migrations list
 
-        :param list_migrations_request: (required)
+        :param list_migrations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type list_migrations_request: ListMigrationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1338,8 +1365,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1355,7 +1384,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def list_migrations_namespaces_without_preload_content(
         self,
-        list_migrations_request: ListMigrationsRequest,
+        list_migrations_request: Annotated[ListMigrationsRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1373,7 +1402,7 @@ class NamespaceMigrationsApi:
 
         List migrations with optional filters.  Args:     request: FastAPI request     list_request: Filter and pagination parameters  Returns:     ListMigrationsResponse with migrations list
 
-        :param list_migrations_request: (required)
+        :param list_migrations_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type list_migrations_request: ListMigrationsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1411,8 +1440,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1502,7 +1533,7 @@ class NamespaceMigrationsApi:
     def start_migration_namespaces(
         self,
         migration_id: StrictStr,
-        start_migration_request: Optional[StartMigrationRequest] = None,
+        start_migration_request: Annotated[Optional[StartMigrationRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1522,7 +1553,7 @@ class NamespaceMigrationsApi:
 
         :param migration_id: (required)
         :type migration_id: str
-        :param start_migration_request:
+        :param start_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type start_migration_request: StartMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1561,8 +1592,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1579,7 +1612,7 @@ class NamespaceMigrationsApi:
     def start_migration_namespaces_with_http_info(
         self,
         migration_id: StrictStr,
-        start_migration_request: Optional[StartMigrationRequest] = None,
+        start_migration_request: Annotated[Optional[StartMigrationRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1599,7 +1632,7 @@ class NamespaceMigrationsApi:
 
         :param migration_id: (required)
         :type migration_id: str
-        :param start_migration_request:
+        :param start_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type start_migration_request: StartMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1638,8 +1671,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1656,7 +1691,7 @@ class NamespaceMigrationsApi:
     def start_migration_namespaces_without_preload_content(
         self,
         migration_id: StrictStr,
-        start_migration_request: Optional[StartMigrationRequest] = None,
+        start_migration_request: Annotated[Optional[StartMigrationRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1676,7 +1711,7 @@ class NamespaceMigrationsApi:
 
         :param migration_id: (required)
         :type migration_id: str
-        :param start_migration_request:
+        :param start_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type start_migration_request: StartMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1715,8 +1750,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1808,7 +1845,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def validate_migration_namespaces(
         self,
-        validate_migration_request: ValidateMigrationRequest,
+        validate_migration_request: Annotated[ValidateMigrationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1826,7 +1863,7 @@ class NamespaceMigrationsApi:
 
         Validate a migration configuration without creating it.  Use this endpoint to check if a migration configuration is valid before actually creating and running it.  Args:     request: FastAPI request     validate_request: Configuration to validate  Returns:     ValidateMigrationResponse with validation results
 
-        :param validate_migration_request: (required)
+        :param validate_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type validate_migration_request: ValidateMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1864,8 +1901,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1881,7 +1920,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def validate_migration_namespaces_with_http_info(
         self,
-        validate_migration_request: ValidateMigrationRequest,
+        validate_migration_request: Annotated[ValidateMigrationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1899,7 +1938,7 @@ class NamespaceMigrationsApi:
 
         Validate a migration configuration without creating it.  Use this endpoint to check if a migration configuration is valid before actually creating and running it.  Args:     request: FastAPI request     validate_request: Configuration to validate  Returns:     ValidateMigrationResponse with validation results
 
-        :param validate_migration_request: (required)
+        :param validate_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type validate_migration_request: ValidateMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1937,8 +1976,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1954,7 +1995,7 @@ class NamespaceMigrationsApi:
     @validate_call
     def validate_migration_namespaces_without_preload_content(
         self,
-        validate_migration_request: ValidateMigrationRequest,
+        validate_migration_request: Annotated[ValidateMigrationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1972,7 +2013,7 @@ class NamespaceMigrationsApi:
 
         Validate a migration configuration without creating it.  Use this endpoint to check if a migration configuration is valid before actually creating and running it.  Args:     request: FastAPI request     validate_request: Configuration to validate  Returns:     ValidateMigrationResponse with validation results
 
-        :param validate_migration_request: (required)
+        :param validate_migration_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type validate_migration_request: ValidateMigrationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2010,8 +2051,10 @@ class NamespaceMigrationsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

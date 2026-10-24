@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 2.0.8
+Version: 2.0.11
 Summary: Python bindings for the Files.com API
 License-Expression: MIT
 Project-URL: Documentation, https://developers.files.com/python/

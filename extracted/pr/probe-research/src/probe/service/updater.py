@@ -17,9 +17,12 @@
                                 point (its `.handover` marker, then SIGTERM:
                                 the worker finishes the model round it is in
                                 and exits; its queue stays in its store), and
-                                the update goes on once they are gone; the tap's
-                                supervisor starts them again, on the new code,
-                                once the barrier is down. With the CLI current
+                                the update goes on once they are gone; their
+                                supervisor (this service's own for a session
+                                recorded here, `workers.py`, which starts none
+                                while starts are held; else the tap's) starts
+                                them again, on the new code, once the barrier
+                                is down. With the CLI current
                                 the child updates the plugins only and the
                                 workers run on. A worker whose `tap watch` is
                                 gone is finishing an ended session's queue:
@@ -45,8 +48,33 @@
                                 Locks are looked for in the default state
                                 folder and in every live session's own, which
                                 its registration names (D13).
-             2 app              the desktop app's own updater (`appupdate.py`),
-                                at most once per CHECK_EVERY_S
+                                The child runs UPDATE_TIMEOUT_S (30 min) at
+                                most: past it, it is stopped (SIGTERM to its
+                                group, then SIGKILL) and the step failed. One a
+                                service before this one left running past it
+                                -- the barrier names it -- is stopped the same
+                                way before the quiet check (`overrun_update`).
+             2 app              the desktop app's update check, at most once per
+                                CHECK_EVERY_S, handed to the OPEN app: an app
+                                subscribed to `app.check` is sent one and the
+                                step is `delegated` (one app connection, the
+                                newest, gets it and owns it: closed before a
+                                report, the check is failed); its own signed updater
+                                checks (installing on quit, or offering its
+                                "Restart to update" banner) and reports
+                                `update.app_result`, recorded as this step
+                                (`ready`: downloaded, installs at quit; no
+                                second check while it waits, and the next
+                                launch's version settles it if the app never
+                                said).
+                                No report within APP_RESULT_TIMEOUT_S reads
+                                as failed (due again). A closed app is
+                                `skipped: app_closed` with `last_app_check`
+                                left alone, so its next launch is due: the
+                                service never launches the app. At its launch
+                                the app asks itself (`update.check_now`
+                                trigger `app` with `app`): the answer's
+                                `app: {due, reason}` hands it the check then.
              3 self             the CLI version a fresh process imports; a new
                                 one means this service is old code: it finishes
                                 the cycle, says `service.stopping{update}` and
@@ -75,14 +103,20 @@ import signal
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from . import appupdate, barrier, children, loginenv, paths
 from .protocol import (
+    APP_RESULT_TIMEOUT_S,
+    AppCheckReason,
+    AppReportIgnored,
+    AppResult,
+    AppStepOutcome,
     BusyHolder,
     CheckOutcome,
     DeferReason,
+    Method,
     StepState,
     CHECK_TRIGGERS,
     REPORT_FOR_CHECK,
@@ -137,9 +171,34 @@ SKIP_CLI_ENV = "PROBE_UPDATE_SKIP_CLI"
 #: service did not wait for runs and workers, because nothing they run from is
 #: replaced (D6, D33).
 SIDE_BY_SIDE_ENV = "PROBE_UPDATE_SIDE_BY_SIDE"
+#: The update child's wall time, at most. Past it the child is stopped (SIGTERM
+#: to its process group, SIGKILL after UPDATE_STOP_GRACE_S) and the step is
+#: failed, so the next cycle can run: a child that never returned used to keep
+#: the cycle in progress for good, every `update.check_now` answering
+#: `running`, and the next service deferring on its `wizard.lock` (never
+#: overridden) for good. What a normal update takes: 11-28 s for each of the 19
+#: cycles in one devbox's service.log (2026-10-22/23); 24 s from start to report
+#: for the last update of a machine that then ran none for 29 h. The longest
+#: step the child bounds itself is the CLI env's install, 300 s
+#: (`probe.cli.updater._UPGRADE_TIMEOUT_S`, `bootstrap._INSTALL_TIMEOUT_S`), and
+#: this code already reads an update older than 15 min as a crashed one (the
+#: barrier's MAX_AGE_S; the hold of R3 is 10 min). Twice that, six times the
+#: longest step and sixty times the slowest update seen: a child still running
+#: then is stuck outside its own bounds, not slow.
+UPDATE_TIMEOUT_S = 30 * 60
+#: SIGTERM to SIGKILL. The child's SIGTERM handler (`probe.core.events`) ends
+#: the run through its `finally` blocks: its locks let go, its records and its
+#: update report written (the send is bounded at 3 s,
+#: `probe.cli.update_report.SEND_TIMEOUT_S`), the command it was running killed.
+UPDATE_STOP_GRACE_S = 30.0
 #: Test-only overrides of the two (API v1, "Lifecycle"). Nothing in production sets them.
 WORKER_STOP_ENV = "PROBE_SERVICE_WORKER_STOP_S"
 DEFER_LIMIT_ENV = "PROBE_SERVICE_DEFER_LIMIT_S"
+#: And of APP_RESULT_TIMEOUT_S (a delegated app check that never reports).
+APP_RESULT_TIMEOUT_ENV = "PROBE_SERVICE_APP_RESULT_TIMEOUT_S"
+#: And of UPDATE_TIMEOUT_S and UPDATE_STOP_GRACE_S.
+UPDATE_TIMEOUT_ENV = "PROBE_SERVICE_UPDATE_TIMEOUT_S"
+UPDATE_STOP_GRACE_ENV = "PROBE_SERVICE_UPDATE_STOP_GRACE_S"
 UPDATE_LOG_NAME = "update.log"
 #: `probe.cli.update_report.TRIGGER_ENV`: what asked, for the server's report.
 TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
@@ -149,7 +208,10 @@ WIZARD_LOCK_NAME = "wizard.lock"
 WIZARD_BUSY_EXIT = 75
 
 #: The deferrals DEFER_LIMIT_S ends. A setup (`wizard.lock`) is never overridden:
-#: the update child takes that lock itself and would only find it held.
+#: the update child takes that lock itself and would only find it held. (An
+#: update child a service before this one started, still running past
+#: UPDATE_TIMEOUT_S, is stopped first: `overrun_update`. That is the one holder
+#: of the lock ever ended, and only once it is proven to be that child.)
 LIMITED = frozenset({DeferReason.DAEMON_RECORDING, DeferReason.RUN_IN_FLIGHT, DeferReason.ACTION_RUNNING})
 
 #: Deferrals as `autoupdate` skip reasons (what `probe doctor` and the server read).
@@ -176,8 +238,6 @@ def _flock_held(path: Path) -> bool:
 
     A shared, non-blocking probe released at once (as `wizard_lock.running`):
     it conflicts only with a holder's exclusive lock, and creates nothing."""
-    import fcntl
-
     try:
         handle = open(path, "rb")  # noqa: SIM115 -- closed below
     except FileNotFoundError:
@@ -185,14 +245,9 @@ def _flock_held(path: Path) -> bool:
     except OSError:
         return True
     try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
-    except BlockingIOError:
-        return True
-    except OSError:
-        return True
-    else:
-        with contextlib.suppress(OSError):
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        if not paths.try_lock(handle.fileno(), shared=True):
+            return True
+        paths.unlock(handle.fileno())
         return False
     finally:
         handle.close()
@@ -298,8 +353,9 @@ def set_hosted(live: Callable[[str], bool] | None) -> None:
 
 def _session_ended(pid: int | None, sid: str | None = None) -> bool:
     """Is this worker finishing the queue of a session that ended? Its
-    supervisor (`tap watch`, or the service's recorder for the session) stops
-    it with SIGTERM when the session ends, so a worker whose parent is no
+    supervisor (`tap watch`, or this service for a session it records:
+    `workers.py`, or the tap's own on the recorder's thread) stops it with
+    SIGTERM when the session ends, so a worker whose parent is no
     longer a `tap ... watch` -- or, under this service, whose session is no
     longer recorded here -- is draining. Unknown (the parent cannot be read)
     counts as live, as before this check."""
@@ -477,7 +533,8 @@ def _switched() -> bool:
 def hand_over_workers(dirs: list[Path]) -> int:
     """After a side-by-side switch, ask every live session's running worker to
     hand over at its next safe point; its supervisor starts it again through
-    `probe`, which is the new version now. A worker finishing an ended
+    `probe` (the tap's) or runtime.json's interpreter (the service's), which
+    is the new version now. A worker finishing an ended
     session's queue finishes it on its own version. Returns how many were
     asked. Never raises."""
     asked = 0
@@ -534,8 +591,9 @@ def preload() -> None:
     to replace (plan R2). The service exits after a cycle that changed its
     version, so nothing loads from the new files into the old process."""
     import calendar  # noqa: F401
-    import fcntl  # noqa: F401
     import plistlib  # noqa: F401
+    if os.name != "nt":
+        import fcntl  # noqa: F401
     import subprocess  # noqa: F401
 
     from . import guard, loginenv  # noqa: F401  -- the switch's guard; the update child's environment
@@ -568,6 +626,136 @@ def record_skip(reason: str, trigger: str) -> None:
         pass
 
 
+# -- an update child past UPDATE_TIMEOUT_S -----------------------------------------
+
+
+def span(seconds: float) -> str:
+    """`30 min`, `90 s`: a time limit as a person reads it."""
+    return f"{seconds / 60:.0f} min" if seconds >= 120 else f"{seconds:g} s"
+
+
+#: `record_stopped`, off the loop, waited for this long at most.
+RECORD_WAIT_S = 10.0
+
+
+def record_stopped(detail: str, *, version: str, since: float) -> bool:
+    """A stopped update child, in the record `probe doctor` prints
+    (`last_attempt`): failed, `detail` its reason. What the child recorded
+    itself since `since` (its start) is kept, failed with this detail: the
+    agents it finished, or its own account of the stop. Read and written under
+    one hold of the record's lock, never waited for (`amend_attempt`): a child
+    that would not stop may hold it. Whether it was written. Blocking (file
+    I/O): off the loop. Never raises."""
+    try:
+        from probe._shared import autoupdate
+
+        now = int(time.time())
+
+        def failed(prior):
+            if prior is not None and prior.at >= int(since):
+                return replace(prior, at=now, ok=False, detail=detail)
+            return autoupdate.Attempt(at=now, ok=False, detail=detail, from_version=version)
+
+        return autoupdate.amend_attempt(failed, wait=False)
+    except Exception:  # noqa: BLE001 -- a diagnostic
+        return False
+
+
+async def record_stopped_off_loop(detail: str, *, version: str, since: float) -> None:
+    """`record_stopped` in a thread, waited for RECORD_WAIT_S at most."""
+    try:
+        written = await asyncio.wait_for(
+            asyncio.to_thread(record_stopped, detail, version=version, since=since), RECORD_WAIT_S
+        )
+    except asyncio.TimeoutError:
+        written = False
+    if not written:
+        log("could not write the stopped update into autoupdate.json (its lock is held)")
+
+
+@dataclass(frozen=True)
+class Overrun:
+    """An update child a service before this one started, still running past
+    the limit: the process (pid, kernel start time) the barrier names."""
+
+    pid: int
+    start: str
+    #: When it started (the barrier's `created_at`, written as it started).
+    since: float
+
+
+def _is_update_child(pid: int) -> bool:
+    """Is `pid`'s command line `<python> -I -m probe.core.run update`?"""
+    words = _args(pid)
+    if not words:
+        return False
+    words = [w for w in words if w]
+    return any(
+        words[i] == "-m" and words[i + 1 : i + 3] == [children.CORE_MODULE, "update"] and i + 3 == len(words)
+        for i in range(len(words) - 2)
+    )
+
+
+def overrun_update(limit_s: float, now: float | None = None) -> Overrun | None:
+    """The update child a service before this one started and left running
+    (`Updater._apply`: the barrier names the child once it runs, and stays up
+    while it does), when it is still running `limit_s` after its start. Only
+    that child, proven three ways: the barrier names it, (pid, kernel start
+    time) is still that exact process (a reused pid has another start time:
+    `procid.alive`), and its command line is `probe.core.run update`. A person's
+    `probe wizard`, the app's Update action (an action, which raises no barrier)
+    or anything else holding `wizard.lock` is never named here. Unknown (the
+    start time cannot be read) is no. Blocking (`ps` off Linux): off the loop."""
+    data = barrier.read()
+    if data is None:
+        return None
+    try:
+        pid = int(data.get("pid", 0))
+        start = str(data.get("start_time") or "")
+        since = float(data.get("created_at"))
+    except (TypeError, ValueError):
+        return None
+    now = time.time() if now is None else now
+    if pid <= 1 or pid == os.getpid() or not start or not now - since >= limit_s:
+        return None  # not past the limit (a clock set back reads as not past)
+    from . import procid
+
+    if procid.alive(pid, start) is not True or not _is_update_child(pid):
+        return None
+    return Overrun(pid, start, since)
+
+
+#: How `stop_process` (and the stop of this service's own child) ended.
+Stopped = children.Stopped
+
+
+async def stop_process(pid: int, start: str, grace: float) -> str:
+    """Stop the process (pid, start) as `children.run_events` stops its own
+    child at the limit (`children.stop`): SIGTERM, then SIGKILL past `grace`,
+    to the process group it leads (an update child of this version: what is
+    left of the group once it is gone too, while the group is provably still
+    its own) or else to it alone (one an older service started in that
+    service's group, which other processes share). The process is signalled
+    only while (pid, start) is still that process, read off the loop each
+    time. How it ended (`Stopped`). Never raises; cancelled, it sends nothing
+    more."""
+    from . import procid
+
+    async def leader() -> bool:
+        return await asyncio.to_thread(procid.alive, pid, start) is True
+
+    group = None
+    if os.name != "nt":
+        with contextlib.suppress(OSError):
+            if await leader() and os.getpgid(pid) == pid:
+                group = pid
+
+    def send(sig: int) -> None:
+        os.kill(pid, sig)  # it alone: a group it leads is signalled by `children.stop`
+
+    return await children.stop(leader=leader, send=send, group=group, grace=grace)
+
+
 # -- the updater ---------------------------------------------------------------
 
 
@@ -584,9 +772,24 @@ class Updater:
         daemon_session: Callable[[], bool] = lambda: False,
         state_dirs: Callable[[], set] = set,
         run_held: Callable[[], bool] = lambda: False,
+        app_connected: Callable[[], int] = lambda: 0,
+        app_listeners: Callable[[], int] = lambda: 0,
+        app_target: Callable[[], int | None] = lambda: None,
+        send_app_check: Callable[[int, dict], bool] = lambda serial, payload: False,
+        app_alive: Callable[[int], bool] = lambda serial: False,
     ) -> None:
         self.version = version
         self.emit = emit
+        #: How many desktop app connections are open (`service.hello` client
+        #: `app`), and how many of them take `app.check` (a newer build).
+        self.app_connected = app_connected
+        self.app_listeners = app_listeners
+        #: The one app connection a hand-off goes to (the newest that takes
+        #: `app.check`), by its serial, and the send to it alone.
+        self.app_target = app_target
+        self.send_app_check = send_app_check
+        #: Is that app connection still open?
+        self.app_alive = app_alive
         #: Called when what holds the service changes (a cycle starts or ends).
         self.changed = changed
         self.stop = stop
@@ -608,7 +811,11 @@ class Updater:
         self.guard_pending: str | None = None
         self.worker_stop_s = _env_seconds(WORKER_STOP_ENV, WORKER_STOP_S)
         self.defer_limit_s = _env_seconds(DEFER_LIMIT_ENV, DEFER_LIMIT_S)
+        self.app_result_timeout_s = _env_seconds(APP_RESULT_TIMEOUT_ENV, APP_RESULT_TIMEOUT_S)
+        self.update_timeout_s = _env_seconds(UPDATE_TIMEOUT_ENV, UPDATE_TIMEOUT_S)
+        self.update_stop_grace_s = _env_seconds(UPDATE_STOP_GRACE_ENV, UPDATE_STOP_GRACE_S)
         self.state = self._load()
+        self._migrate_app_check()
         self.cycle_id: str | None = None
         self.step: str | None = None
         self.task: asyncio.Task | None = None
@@ -625,6 +832,8 @@ class Updater:
         self._timer: asyncio.TimerHandle | None = None
         self._retry: asyncio.TimerHandle | None = None
         self._hold_end: asyncio.TimerHandle | None = None
+        #: Fires when a delegated app check has had APP_RESULT_TIMEOUT_S.
+        self._app_timer: asyncio.TimerHandle | None = None
         self._side_tasks: set = set()
 
     # -- state -----------------------------------------------------------------
@@ -645,6 +854,39 @@ class Updater:
         if not isinstance(data, dict) or data.get("v") != STATE_VERSION:
             data = {"v": STATE_VERSION}
         return data
+
+    def _migrate_app_check(self) -> None:
+        """A `last_app_check` the service before this one recorded (no `app`
+        record beside it) counts only when that check found the app current
+        or updated it: it was also written for an app it never checked
+        (quarantined, not installed, not capable, a failed launch, no result
+        in time), and read as a recent check those would hold the app's next
+        launch check off for 6 h. The outcome is the last cycle's `app` step;
+        anything else (or unknown) drops it, so the next launch is due."""
+        if "app" in self.state or self._number("last_app_check") is None:
+            return
+        last = self.state.get("last_result")
+        steps = last.get("steps") if isinstance(last, dict) else None
+        step = steps.get(UpdateStep.APP) if isinstance(steps, dict) else None
+        outcome = step.get("outcome") if isinstance(step, dict) else None
+        if outcome not in (AppResult.UPDATED, AppResult.CURRENT):
+            self.state.pop("last_app_check", None)
+            return
+        at = self._number("last_app_check")
+        self.state["app"] = {
+            "state": StepState.DONE,
+            "delegated_at": None,
+            "cycle_id": None,
+            "trigger": None,
+            "via": "background_update",  # the older service's hidden launch
+            "version": step.get("version_before"),
+            "at": at,
+            "reported_at": at,
+            "result": outcome,
+            "version_before": step.get("version_before"),
+            "version_after": step.get("version_after"),
+            "error": None,
+        }
 
     def _save(self) -> None:
         target = paths.update_state_path()
@@ -767,17 +1009,311 @@ class Updater:
             "deferred": self.state.get("last_deferred") if self.pending else None,
             "deferred_since": self._deferred_since() if self.pending else None,
             "guard": _guard_record(),
+            "app": self.app_public(),
         }
+
+    # -- the desktop app's check (the service decides, the app's updater acts) --
+
+    def _app_record(self, now: float | None = None) -> dict | None:
+        """The last app check handed to the app (or reported by it), as it
+        reads now: a delegation with no report past the timeout is failed."""
+        record = self.state.get("app")
+        if not isinstance(record, dict):
+            return None
+        out = dict(record)
+        if out.get("state") == StepState.DELEGATED:
+            at = out.get("delegated_at")
+            now = time.time() if now is None else now
+            if not isinstance(at, (int, float)) or not 0 <= now - at < self.app_result_timeout_s:
+                out.update(self._timed_out(at))
+        return out
+
+    def _timed_out(self, delegated_at: object) -> dict:
+        at = delegated_at if isinstance(delegated_at, (int, float)) else time.time()
+        return {
+            "state": StepState.FAILED,
+            "result": AppResult.FAILED,
+            "error": f"no result from the app within {int(self.app_result_timeout_s)} s",
+            "timed_out": True,
+            "at": at + self.app_result_timeout_s,
+        }
+
+    def app_decision(self, *, force: bool = False, now: float | None = None) -> dict:
+        """`{due, reason}` (AppCheckReason): should the app check for its
+        update now? Due when none was handed over within CHECK_EVERY_S, the
+        last one failed (or never reported), or the app forces it."""
+        now = time.time() if now is None else now
+        record = self._app_record(now)
+        if record is not None and record.get("state") in (StepState.DELEGATED, StepState.READY):
+            # One check at a time, forced or not: this one has not reported
+            # yet, or its downloaded update waits for the app to quit.
+            return {"due": False, "reason": AppCheckReason.IN_PROGRESS}
+        if force:
+            return {"due": True, "reason": AppCheckReason.FORCED}
+        if not auto_update_enabled():
+            return {"due": False, "reason": AppCheckReason.AUTO_UPDATE_OFF}
+        last = self._number("last_app_check")
+        if last is None:
+            return {"due": True, "reason": AppCheckReason.NEVER_CHECKED}
+        if record is not None and record.get("state") == StepState.FAILED:
+            return {"due": True, "reason": AppCheckReason.LAST_FAILED}
+        if not 0 <= now - last < CHECK_EVERY_S:
+            return {"due": True, "reason": AppCheckReason.INTERVAL_PASSED}
+        return {"due": False, "reason": AppCheckReason.CHECKED_RECENTLY}
+
+    def app_public(self) -> dict:
+        """`update.status`'s `app`: the decision as it stands, when a check was
+        last handed over, how many open apps take `app.check`, and the last
+        check's record (`last`: a delegation, or the app's report)."""
+        now = time.time()
+        return {
+            **self.app_decision(now=now),
+            "last_check": self._number("last_app_check"),
+            "listening": self.app_listeners(),
+            "last": self._app_record(now),
+        }
+
+    def _delegate(
+        self, *, cycle_id: str | None, trigger: str, via: str, version: str | None = None, owner: int | None = None
+    ) -> dict:
+        """Hand the app its check: recorded (`last_app_check` too) before the
+        app is told, so a check is never handed over unrecorded. `owner`: the
+        app connection `app.check` goes to (None: the app's launch check,
+        asked on a connection of its own; only the timeout bounds it)."""
+        now = time.time()
+        record = {
+            "state": StepState.DELEGATED,
+            "delegated_at": now,
+            "cycle_id": cycle_id,
+            "trigger": trigger,
+            "via": via,
+            "version": version,
+            "owner": owner,
+            #: Connections are numbered per service process: the owner is this one's.
+            "owner_pid": os.getpid() if owner is not None else None,
+        }
+        self.state["app"] = record
+        self.state["last_app_check"] = now
+        self._save()
+        self._arm_app_timeout(now)
+        log(f"app check handed to the app ({via}, cycle {cycle_id})")
+        return record
+
+    def _arm_app_timeout(self, delegated_at: float) -> None:
+        if self._loop is None:
+            return
+        if self._app_timer is not None:
+            self._app_timer.cancel()
+        delay = max(0.0, delegated_at + self.app_result_timeout_s - time.time())
+        self._app_timer = self._loop.call_later(delay, self._app_timed_out, delegated_at)
+
+    def app_gone(self, serial: int) -> None:
+        """An app connection closed: the check it owned and never reported is
+        failed (due again at the next ask; a late report still counts)."""
+        record = self.state.get("app")
+        if not isinstance(record, dict) or record.get("state") != StepState.DELEGATED:
+            return  # a `ready` check stays ready: the app quit to install it
+        if record.get("owner") is None or record.get("owner") != serial or record.get("owner_pid") != os.getpid():
+            return
+        log("the app connection that had the update check closed before it reported")
+        self._settle_app({**record, **self._owner_gone()})
+
+    def _owner_left_with_the_old_service(self) -> None:
+        """At start: a check sent to a connection of the service before this
+        one, still unreported, lost that connection with it."""
+        record = self.state.get("app")
+        if (
+            isinstance(record, dict)
+            and record.get("state") == StepState.DELEGATED
+            and record.get("owner") is not None
+            and record.get("owner_pid") != os.getpid()
+        ):
+            self._settle_app({**record, **self._owner_gone()})
+
+    def _owner_alive(self, record: dict) -> bool:
+        owner = record.get("owner")
+        return owner is not None and record.get("owner_pid") == os.getpid() and self.app_alive(owner)
+
+    def _settle_ready_at_launch(self, version: str | None) -> None:
+        """The app's launch check, with a downloaded update waiting (`ready`)
+        and the app that downloaded it gone (it quit to install it): running
+        the downloaded version, it was updated; anything else, the install did
+        not happen, and the check is failed (due again). While that app is
+        still open, nothing changes: it installs when it quits."""
+        record = self.state.get("app")
+        if not isinstance(record, dict) or record.get("state") != StepState.READY or self._owner_alive(record):
+            return
+        now = time.time()
+        ready = record.get("version_after")
+        settled = {**record, "at": now, "reported_at": now, "settled_at_launch": True}
+        if version is not None and version == ready:
+            settled.update(state=StepState.DONE, result=AppResult.UPDATED, version_after=version, error=None)
+            log(f"the app runs the downloaded {version}: updated")
+        else:
+            settled.update(
+                state=StepState.FAILED,
+                result=AppResult.FAILED,
+                error=f"the app started at {version}, not the downloaded {ready}",
+            )
+            log(f"the app started at {version}, not the downloaded {ready}: due again")
+        self._settle_app(settled)
+
+    @staticmethod
+    def _owner_gone() -> dict:
+        return {
+            "state": StepState.FAILED,
+            "result": AppResult.FAILED,
+            "error": "the app connection it was sent to closed before it reported",
+            "owner_gone": True,
+            "at": time.time(),
+        }
+
+    def _app_timed_out(self, delegated_at: float) -> None:
+        """No report for this delegation: recorded as failed (due again)."""
+        self._app_timer = None
+        record = self.state.get("app")
+        if not isinstance(record, dict) or record.get("state") != StepState.DELEGATED:
+            return
+        if record.get("delegated_at") != delegated_at:
+            return
+        record = {**record, **self._timed_out(delegated_at)}
+        log(f"the app did not report its update check within {int(self.app_result_timeout_s)} s")
+        self._settle_app(record)
+
+    @staticmethod
+    def _app_step(record: dict, outcome: str = AppStepOutcome.ALREADY_DELEGATED) -> dict:
+        """A cycle's `app` step from the record: `{state, outcome, ...}`."""
+        state = record.get("state")
+        out: dict = {"state": state, "delegated_at": record.get("delegated_at")}
+        if state == StepState.DELEGATED:
+            out["outcome"] = outcome
+            return out
+        out["outcome"] = record.get("result")
+        for key in ("version_before", "version_after", "error", "timed_out", "owner_gone"):
+            if record.get(key) is not None:
+                out[key] = record[key]
+        return out
+
+    def _settle_app(self, record: dict) -> None:
+        """The app check's result (reported, or timed out): into the state
+        file, the last cycle's `app` step when that was this delegation, and
+        an `update.step` like every other step's. The check is over: its
+        timeout no longer runs."""
+        if self._app_timer is not None:
+            self._app_timer.cancel()
+            self._app_timer = None
+        self.state["app"] = record
+        last = self.state.get("last_result")
+        steps = last.get("steps") if isinstance(last, dict) else None
+        app = steps.get(UpdateStep.APP) if isinstance(steps, dict) else None
+        delegated_at = record.get("delegated_at")
+        if isinstance(app, dict) and delegated_at is not None and app.get("delegated_at") == delegated_at:
+            steps[UpdateStep.APP] = self._app_step(record)
+            last["ok"] = "error" not in steps and all(
+                isinstance(s, dict) and s.get("state") != StepState.FAILED for s in steps.values()
+            )
+        self._save()
+        step = self._app_step(record)
+        self._step(record.get("cycle_id"), UpdateStep.APP, step.pop("state"), **step)
+
+    def app_result(self, report: dict) -> dict:
+        """`update.app_result` (`protocol.need_app_result`): what the app's
+        own updater did, for the check its `cycle_id` names (none: the check
+        in the app's hands now, as an older build reports). It answers that
+        check while it has no report of its own: in the app's hands, timed
+        out, or lost with its connection (a late report still counts). A
+        `cycle_id` of an earlier check, or a second report of one, changes
+        nothing (`recorded: false`, AppReportIgnored). `ready` (downloaded,
+        installs at quit) stops the check's timeout and keeps it open for one
+        final `updated` or `failed`. A report with no check at all (none was
+        ever handed over here) is recorded as one made now."""
+        now = time.time()
+        record = self.state.get("app")
+        record = record if isinstance(record, dict) else None
+        cycle_id = report.get("cycle_id")
+        ignored = None
+        if record is not None and cycle_id is not None and cycle_id != record.get("cycle_id"):
+            ignored = AppReportIgnored.STALE
+        elif record is not None and record.get("reported_at") is not None:
+            ignored = AppReportIgnored.DUPLICATE
+        elif (
+            record is not None
+            and record.get("state") == StepState.READY
+            and report["result"] not in (AppResult.UPDATED, AppResult.FAILED)
+        ):
+            ignored = AppReportIgnored.DUPLICATE  # after `ready`: one final updated or failed
+        if ignored is not None:
+            log(f"the app reported {report['result']}, not recorded ({ignored})")
+            return {"recorded": False, "reason": ignored, "app": self.app_public()}
+        if record is not None and (record.get("delegated_at") is not None or record.get("state") == StepState.READY):
+            record = {k: v for k, v in record.items() if k not in ("timed_out", "owner_gone")}
+        else:
+            record = {
+                "delegated_at": None,
+                "cycle_id": cycle_id,
+                "trigger": None,
+                "via": None,
+                "version": report.get("version_before"),
+                "owner": None,
+            }
+            self.state["last_app_check"] = now
+        result = report["result"]
+        versions = {
+            key: report[key] if report.get(key) is not None else record.get(key)
+            for key in ("version_before", "version_after")
+        }
+        if result == AppResult.READY:
+            # Downloaded and verified: no timeout now, and the check stays open
+            # for one final report (no `reported_at` yet).
+            record.update(state=StepState.READY, at=now, ready_at=now, result=result, error=None, **versions)
+        else:
+            failed = result == AppResult.FAILED
+            record.update(
+                state=StepState.FAILED if failed else StepState.DONE,
+                at=now,
+                reported_at=now,
+                result=result,
+                error=report.get("error"),
+                **versions,
+            )
+        log(f"the app reported its update check: {result}")
+        self._settle_app(record)
+        return {"recorded": True, "app": self.app_public()}
+
+    def _launch_check(self, app: dict, answer: dict) -> dict:
+        """`update.check_now`'s `app` answer (the app's launch check):
+        `{due, reason, cycle_id}`. Due: the check is the app's now, recorded
+        as handed over (with the cycle this ask started or joined)."""
+        self._settle_ready_at_launch(app.get("version"))
+        decision = self.app_decision(force=bool(app.get("force")))
+        cycle_id = answer.get("cycle_id") if answer.get("outcome") in (CheckOutcome.STARTED, CheckOutcome.RUNNING) else None
+        if not decision["due"]:
+            return {**decision, "cycle_id": None}
+        self._delegate(cycle_id=cycle_id, trigger=CheckTrigger.APP, via=Method.UPDATE_CHECK_NOW, version=app.get("version"))
+        return {**decision, "cycle_id": cycle_id}
 
     # -- scheduling --------------------------------------------------------------
 
     def attach(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
+        record = self.state.get("app")
+        if isinstance(record, dict) and record.get("state") == StepState.DELEGATED:
+            at = record.get("delegated_at")
+            if record.get("owner") is not None:
+                # Sent to a connection of the service before this one: gone with it.
+                loop.call_soon(self._owner_left_with_the_old_service)
+            elif isinstance(at, (int, float)):
+                # The app's launch check, from before this service started: its timeout still runs.
+                self._arm_app_timeout(at)
+            else:
+                self._app_timer = loop.call_soon(self._app_timed_out, at)
 
     def after_discovery(self) -> None:
         """The service's discovery window is over: start a cycle when one is
         due (or was asked for meanwhile), and arm the schedule."""
         requested, self.requested = self.requested, None
+        if os.name == "nt":
+            return  # the CLI updates itself on Windows (`check_now`)
         if requested is not None:
             self.check_now(requested)
         elif auto_update_enabled() and (self.due() or self.pending is not None):
@@ -785,7 +1321,7 @@ class Updater:
         self._arm()
 
     def _arm(self) -> None:
-        if self._loop is None:
+        if self._loop is None or os.name == "nt":
             return
         if self._timer is not None:
             self._timer.cancel()
@@ -802,8 +1338,21 @@ class Updater:
             self.start(self.pending or CheckTrigger.SCHEDULE)
         self._arm()
 
-    def check_now(self, trigger: str) -> dict:
-        """`update.check_now`: `{outcome, ...}` (CheckOutcome)."""
+    def check_now(self, trigger: str, app: dict | None = None) -> dict:
+        """`update.check_now`: `{outcome, ...}` (CheckOutcome), and, when the
+        desktop app asked with `app` (`protocol.need_app_check`), `app: {due,
+        reason, cycle_id}` for its own update check. An ask without `app` (an
+        older app, the CLI, a hook) gets no `app` and hands nothing over."""
+        answer = self._check_cycle(trigger)
+        if app is not None:
+            answer["app"] = self._launch_check(app, answer)
+        return answer
+
+    def _check_cycle(self, trigger: str) -> dict:
+        if os.name == "nt":
+            # Windows (R3): a running CLI's files can be neither replaced nor
+            # moved, so the CLI keeps its own updater there (`_service_owns_updates`).
+            return {"outcome": CheckOutcome.DEFERRED, "reason": DeferReason.UNSUPPORTED}
         if self.discovering():
             self.requested = trigger
             return {"outcome": CheckOutcome.SCHEDULED}
@@ -855,7 +1404,7 @@ class Updater:
         return cycle_id
 
     def close(self) -> None:
-        for handle in (self._timer, self._retry, self._hold_end):
+        for handle in (self._timer, self._retry, self._hold_end, self._app_timer):
             if handle is not None:
                 handle.cancel()
         if self.task is not None and not self.task.done():
@@ -885,7 +1434,7 @@ class Updater:
             if core["state"] == StepState.DEFERRED:
                 deferred = str(core["reason"])
                 self.emit(Topic.UPDATE_DEFERRED, {"cycle_id": cycle_id, "reason": deferred, "trigger": trigger})
-            steps[UpdateStep.APP] = await self._app(cycle_id)
+            steps[UpdateStep.APP] = await self._app(cycle_id, trigger)
             if core["state"] in (StepState.DONE, StepState.FAILED):
                 steps[UpdateStep.SELF], restart = await self._self(cycle_id)
                 if restart and (self.beside or await asyncio.to_thread(_switched)):
@@ -901,6 +1450,17 @@ class Updater:
         except Exception as exc:  # noqa: BLE001 -- a bug costs this cycle, never the service
             log(f"cycle {cycle_id} failed: {exc!r}")
             steps["error"] = repr(exc)[:500]
+        app = steps.get(UpdateStep.APP)
+        record = self.state.get("app")
+        if (
+            isinstance(app, dict)
+            and app.get("state") == StepState.DELEGATED
+            and isinstance(record, dict)
+            and record.get("state") != StepState.DELEGATED
+            and record.get("delegated_at") == app.get("delegated_at")
+        ):
+            # The app reported while the cycle's later steps ran: its result is the step.
+            steps[UpdateStep.APP] = self._app_step(record)
         now = time.time()
         ok = deferred is None and all(
             isinstance(s, dict) and s.get("state") != StepState.FAILED for s in steps.values()
@@ -909,6 +1469,9 @@ class Updater:
         if deferred is None:
             self.state["last_check"] = now
             self.state["last_result"] = result
+            # Cycles in a row that ended not ok: the watch's `update_failed` (plan B2).
+            streak = self.state.get("failed_in_a_row")
+            self.state["failed_in_a_row"] = 0 if ok else (streak if isinstance(streak, int) else 0) + 1
             self.state.pop("deferred_since", None)
             self.pending = None
         else:
@@ -994,8 +1557,36 @@ class Updater:
             return None
         return behind(value.get("cli_version"), value.get("cli_latest"))
 
+    async def _stop_previous(self, cycle_id: str) -> dict | None:
+        """Before the quiet check: the update child a service before this one
+        left running, past `update_timeout_s` (`overrun_update`), is stopped
+        as this service stops its own at the limit (its `wizard.lock` would
+        otherwise defer every cycle for good: a setup is never overridden).
+        What was done, for the step's record, or None (no such child)."""
+        found = await asyncio.to_thread(overrun_update, self.update_timeout_s)
+        if found is None:
+            return None
+        past = f"the update a service before this one started ran past {span(self.update_timeout_s)}"
+        log(f"{past} (pid {found.pid}, {(time.time() - found.since) / 60:.0f} min old): stopping it")
+        self._step(cycle_id, UpdateStep.CLI_AND_PLUGINS, StepState.STARTED, stopping_previous=found.pid)
+        how = await stop_process(found.pid, found.start, self.update_stop_grace_s)
+        if how == Stopped.GONE:
+            log(f"the previous update child {found.pid} exited by itself meanwhile")
+            return None
+        detail = f"{past} and would not stop" if how == Stopped.RUNNING else f"{past} and was stopped"
+        log(f"{detail} ({how})")
+        await record_stopped_off_loop(detail, version=self.version, since=found.since)
+        return {"detail": detail, "pid": found.pid, "started_at": found.since, "stopped_by": how}
+
     async def _core(self, cycle_id: str, trigger: str) -> dict:
         """Step 1: the CLI's env and the plugins, on a quiet machine only."""
+        previous = await self._stop_previous(cycle_id)
+        out = await self._core_step(cycle_id, trigger)
+        if previous is not None:
+            out["stopped_previous"] = previous
+        return out
+
+    async def _core_step(self, cycle_id: str, trigger: str) -> dict:
         step = UpdateStep.CLI_AND_PLUGINS
         busy = await self._look_off_loop()
         # `uv tool dir` is a child process: off the loop.
@@ -1131,6 +1722,8 @@ class Updater:
             # hold is admitted in between; from now on `run.hold` refuses one
             # (an in-place update would replace what that run imports from).
             self.applying = not self.beside
+            started_at = time.time()
+            overran: children.Overran | None = None
             try:
                 code = await children.run_events(
                     "update",
@@ -1148,20 +1741,30 @@ class Updater:
                     on_event=on_event,
                     on_start=started,
                     log_path=log_path,
+                    # Past it the child is stopped (its group: SIGTERM, then
+                    # SIGKILL past the grace) and this step fails, so the next
+                    # cycle can run (UPDATE_TIMEOUT_S).
+                    timeout=self.update_timeout_s,
+                    grace=self.update_stop_grace_s,
                 )
+            except children.Overran as exc:
+                overran = exc
             except OSError as exc:
                 self._step(cycle_id, step, StepState.FAILED, detail=f"the update could not start: {exc}")
                 return {"state": StepState.FAILED, "detail": f"the update could not start: {exc}"}
             except asyncio.CancelledError:
                 # The service stops while the update still runs: the barrier stays
                 # (it names the child), and the next service finds the child's
-                # wizard.lock and defers.
+                # wizard.lock and defers -- until the child is past the time
+                # limit, when the next service stops it (`overrun_update`).
                 lower = not child or child[0].poll() is not None
                 raise
         finally:
             self.applying = False
             if lower:
                 barrier.lower(token)
+        if overran is not None:
+            return await self._overran(cycle_id, overran, done, started_at, forced=label if forced else None)
         code = 128 - code if code < 0 else code
         outcome = {"exit_code": code, "ok": done.get("ok"), "complete": done.get("complete")}
         if forced:
@@ -1178,28 +1781,75 @@ class Updater:
         self._step(cycle_id, step, state, exit_code=code, ok=done.get("ok"), complete=done.get("complete"))
         return {"state": state, **outcome}
 
-    async def _app(self, cycle_id: str) -> dict:
-        """Step 2: the desktop app, through its own updater, once per CHECK_EVERY_S."""
+    async def _overran(
+        self, cycle_id: str, overran: children.Overran, done: dict, started_at: float, *, forced: str | None
+    ) -> dict:
+        """The update child ran past `update_timeout_s` and was stopped: the
+        step failed, saying so where people look -- this step (`update.status`,
+        `probe doctor`'s Updates row) and the attempt `probe doctor` prints
+        (`record_stopped`). The child's own report to the server says it was
+        stopped (`probe.cli.update_report.merged_run`)."""
+        limit = span(self.update_timeout_s)
+        code = overran.code
+        how = overran.how
+        detail = f"the update ran past {limit} and " + ("would not stop" if how == Stopped.RUNNING else "was stopped")
+        log(f"{detail} ({how})")
+        await record_stopped_off_loop(detail, version=self.version, since=started_at)
+        outcome: dict = {
+            "detail": detail,
+            "stopped_by": how,
+            "exit_code": None if code is None else 128 - code if code < 0 else code,
+            "ok": done.get("ok"),
+            "complete": done.get("complete"),
+        }
+        if forced:
+            outcome["forced"] = forced
+        self._step(cycle_id, UpdateStep.CLI_AND_PLUGINS, StepState.FAILED, **outcome)
+        return {"state": StepState.FAILED, **outcome}
+
+    async def _app(self, cycle_id: str, trigger: str) -> dict:
+        """Step 2: the desktop app's update check, at most once per
+        CHECK_EVERY_S, handed to the open app (`app.check`). Never launches
+        the app: closed, it is checked at its next launch."""
         step = UpdateStep.APP
-        last = self._number("last_app_check")
-        now = time.time()
-        if last is not None and 0 <= now - last < CHECK_EVERY_S:
-            self._step(cycle_id, step, StepState.SKIPPED, outcome="checked_recently")
-            return {"state": StepState.SKIPPED, "outcome": "checked_recently"}
-        self._step(cycle_id, step, StepState.STARTED)
-        result = await appupdate.update()
-        outcome = result.get("outcome")
-        if outcome not in (appupdate.Outcome.RUNNING,):
-            # A running app is asked again next cycle; anything else waits CHECK_EVERY_S.
-            self.state["last_app_check"] = now
-        if outcome in (appupdate.Outcome.UPDATED, appupdate.Outcome.CURRENT):
-            state = StepState.DONE
-        elif outcome in (appupdate.Outcome.FAILED, appupdate.Outcome.TIMEOUT):
-            state = StepState.FAILED
+        record = self._app_record()
+        if record is not None and record.get("delegated_at") is not None and record.get("cycle_id") == cycle_id:
+            # The app's launch check started this cycle and has its check already.
+            out = self._app_step(record)
         else:
-            state = StepState.SKIPPED
-        self._step(cycle_id, step, state, **result)
-        return {"state": state, **result}
+            decision = self.app_decision()
+            if record is not None and record.get("state") == StepState.READY:
+                # A downloaded update waits for the app to quit: no second check.
+                out = {
+                    "state": StepState.SKIPPED,
+                    "outcome": AppStepOutcome.READY_WAITING,
+                    **({"version_after": record["version_after"]} if record.get("version_after") else {}),
+                }
+            elif decision["reason"] == AppCheckReason.IN_PROGRESS and record is not None:
+                out = self._app_step(record)
+            elif not decision["due"]:
+                out = {"state": StepState.SKIPPED, "outcome": decision["reason"]}
+            elif (target := self.app_target()) is not None:
+                # One app connection gets it (the newest) and owns it.
+                record = self._delegate(cycle_id=cycle_id, trigger=trigger, via=Topic.APP_CHECK, owner=target)
+                if self.send_app_check(target, {"cycle_id": cycle_id}):
+                    out = self._app_step(record, AppStepOutcome.APP_CHECK_SENT)
+                else:
+                    self.app_gone(target)
+                    out = self._app_step(self.state["app"])
+            elif self.app_connected() > 0:
+                # An older app build: it checks for its own update at its launch.
+                out = {"state": StepState.SKIPPED, "outcome": AppStepOutcome.APP_NOT_LISTENING}
+            else:
+                found = await asyncio.to_thread(appupdate.installed)
+                out = {
+                    "state": StepState.SKIPPED,
+                    "outcome": AppStepOutcome.APP_CLOSED if found else AppStepOutcome.NOT_INSTALLED,
+                    **({"version": found["version"]} if found and found.get("version") else {}),
+                }
+        detail = {k: v for k, v in out.items() if k != "state"}
+        self._step(cycle_id, step, out["state"], **detail)
+        return out
 
     def after_update_action(self) -> None:
         """A person's Update (`action.run update`) ran outside a cycle: read

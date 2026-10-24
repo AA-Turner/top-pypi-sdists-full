@@ -9,7 +9,7 @@ Live, by reading (review 6 §2):
 * an assignment item ran on a fresh ``uuid5`` request id, unlinked: a fresh $25 per item;
 * a root released while a detached child still ran: the child then accrued to a fresh 0;
 * 99 of 112 ``metadata.parent_request_id`` links (3 h, live) named an ambient synthetic
-  request no row carries.
+  request no row carries (lineage is a self-FK column now: test_child_run_lineage.py).
 Each test below was run RED on the code before this round.
 """
 
@@ -18,7 +18,6 @@ from __future__ import annotations
 import ast
 import inspect
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -97,63 +96,3 @@ def test_a_lineage_link_names_only_a_request_with_a_record() -> None:
     assert gate.request_has_record(unknown) is False  # an ambient synthetic id: no row
     gate.mark_request_durable(unknown)
     assert gate.request_has_record(unknown) is True
-
-
-@pytest.mark.asyncio
-async def test_an_independent_run_under_a_recordless_request_carries_no_dangling_link(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from matrx_connect.context.app_context import get_app_context, set_app_context
-
-    from matrx_ai.agents.executor import run_agent
-    from matrx_ai.db.conversation_gate import PARENT_REQUEST_ID_KEY, mark_request_durable
-
-    seen: list[dict[str, Any]] = []
-
-    async def _run(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
-        seen.append(dict(get_app_context().metadata))
-        return SimpleNamespace(output="ok", assistant_response=None, config=SimpleNamespace(model="m", metadata={}),
-                               usage=None, usage_history=[], metadata={})
-
-    def agent() -> Any:
-        return SimpleNamespace(name="m", config=SimpleNamespace(model="m", metadata={}), source_id=None,
-                               source_is_version=False, execute=_run, request_metadata={})
-
-    synthetic = "99999999-9999-9999-9999-999999999999"
-    set_app_context(_ctx().with_overrides(request_id=synthetic))
-    await run_agent(agent(), label="m", source_app="t", source_feature="f",  # type: ignore[arg-type]
-                    emit_lifecycle=False, system_run=True, independent_request=True)
-    assert PARENT_REQUEST_ID_KEY not in seen[-1], "a link to a request no row carries dangles"
-    # …and the tree cap still holds for it (R38 is in-memory, independent of rows).
-
-    real = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-    mark_request_durable(real)
-    set_app_context(_ctx().with_overrides(request_id=real))
-    await run_agent(agent(), label="m", source_app="t", source_feature="f",  # type: ignore[arg-type]
-                    emit_lifecycle=False, system_run=True, independent_request=True)
-    assert seen[-1].get(PARENT_REQUEST_ID_KEY) == real
-
-
-@pytest.mark.asyncio
-async def test_a_lineage_link_is_written_in_the_form_rows_carry() -> None:
-    """Live round 8: the spine handed a hex-form id (no dashes); the link never joined."""
-    from matrx_connect.context.app_context import get_app_context, set_app_context
-
-    from matrx_ai.agents.executor import run_agent
-    from matrx_ai.db.conversation_gate import PARENT_REQUEST_ID_KEY, mark_request_durable
-
-    seen: list[dict[str, Any]] = []
-
-    async def _run(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
-        seen.append(dict(get_app_context().metadata))
-        return SimpleNamespace(output="ok", assistant_response=None, config=SimpleNamespace(model="m", metadata={}),
-                               usage=None, usage_history=[], metadata={})
-
-    hexform = "d1de9a701e9c423eb0240807e9043833"
-    mark_request_durable(hexform)
-    set_app_context(_ctx().with_overrides(request_id=hexform))
-    await run_agent(SimpleNamespace(name="m", config=SimpleNamespace(model="m", metadata={}), source_id=None,  # type: ignore[arg-type]
-                                    source_is_version=False, execute=_run, request_metadata={}),
-                    label="m", source_app="t", source_feature="f", emit_lifecycle=False, system_run=True,
-                    independent_request=True)
-    assert seen[-1].get(PARENT_REQUEST_ID_KEY) == "d1de9a70-1e9c-423e-b024-0807e9043833"

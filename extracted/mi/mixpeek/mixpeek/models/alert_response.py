@@ -24,6 +24,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.alert_notification_config import AlertNotificationConfig
 from mixpeek.models.alert_source import AlertSource
+from mixpeek.models.alert_threshold import AlertThreshold
 from mixpeek.models.namespace_selector import NamespaceSelector
 from mixpeek.models.system_condition import SystemCondition
 from mixpeek.models.trigger_on import TriggerOn
@@ -40,7 +41,13 @@ class AlertResponse(BaseModel):
     description: Optional[Annotated[str, Field(strict=True, max_length=1000)]] = Field(default=None, description="Optional description of what this alert monitors")
     source: Optional[AlertSource] = Field(default=None, description="Trigger source: 'retriever' (runs a retriever) or 'system' (built-in metric)")
     retriever_id: Optional[StrictStr] = Field(default=None, description="ID of the retriever to execute (source=retriever only). The retriever defines filters, scoring, limits.")
-    trigger_on: Optional[TriggerOn] = Field(default=None, description="For source=retriever: fire on 'results' (matches found) or 'no_results' (retriever went dark).")
+    trigger_on: Optional[TriggerOn] = Field(default=None, description="For source=retriever: fire on 'results' (matches found, narrowed by min_count and threshold when set) or 'no_results' (retriever went dark).")
+    min_count: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="With trigger_on='results': fire only when the retriever returns at least this many rows.")
+    threshold: Optional[AlertThreshold] = Field(default=None, description="With trigger_on='results': fire only when the first result meets this comparison.")
+    inputs: Optional[Dict[str, Any]] = Field(default=None, description="Retriever inputs this alert runs with. The sweep runs the retriever with exactly these, so a templated window such as {{time_ago(minutes=INPUT.window_minutes)}} keeps its window. At ingest, inputs mapped from the document override keys set here.")
+    cooldown_seconds: Optional[Annotated[int, Field(le=2592000, strict=True, ge=0)]] = Field(default=0, description="After the alert fires, further fires within this many seconds are suppressed, on every path. 0 means no cooldown.")
+    renotify_interval_seconds: Optional[Annotated[int, Field(le=2592000, strict=True, ge=60)]] = Field(default=None, description="While the condition stays true, notify again at this interval. Unset means notify once per rise. Never fires inside cooldown_seconds.")
+    last_fired_at: Optional[datetime] = Field(default=None, description="When the alert last notified. Set by the platform; read-only.")
     system_condition: Optional[SystemCondition] = Field(default=None, description="Built-in data-plane condition to watch (source=system only)")
     namespace_selector: Optional[NamespaceSelector] = Field(default=None, description="Org-level namespace scoping (all vs selected). When omitted, the alert is scoped to its own namespace_id.")
     notification_config: AlertNotificationConfig = Field(description="How and where to send notifications when alert triggers")
@@ -48,7 +55,7 @@ class AlertResponse(BaseModel):
     created_at: Optional[datetime] = Field(default=None, description="Timestamp when the alert was created")
     updated_at: Optional[datetime] = Field(default=None, description="Timestamp when the alert was last updated")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional user-defined metadata for the alert")
-    __properties: ClassVar[List[str]] = ["alert_id", "namespace_id", "name", "description", "source", "retriever_id", "trigger_on", "system_condition", "namespace_selector", "notification_config", "enabled", "created_at", "updated_at", "metadata"]
+    __properties: ClassVar[List[str]] = ["alert_id", "namespace_id", "name", "description", "source", "retriever_id", "trigger_on", "min_count", "threshold", "inputs", "cooldown_seconds", "renotify_interval_seconds", "last_fired_at", "system_condition", "namespace_selector", "notification_config", "enabled", "created_at", "updated_at", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,6 +96,9 @@ class AlertResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of threshold
+        if self.threshold:
+            _dict['threshold'] = self.threshold.to_dict()
         # override the default output from pydantic by calling `to_dict()` of system_condition
         if self.system_condition:
             _dict['system_condition'] = self.system_condition.to_dict()
@@ -117,6 +127,12 @@ class AlertResponse(BaseModel):
             "source": obj.get("source"),
             "retriever_id": obj.get("retriever_id"),
             "trigger_on": obj.get("trigger_on"),
+            "min_count": obj.get("min_count"),
+            "threshold": AlertThreshold.from_dict(obj["threshold"]) if obj.get("threshold") is not None else None,
+            "inputs": obj.get("inputs"),
+            "cooldown_seconds": obj.get("cooldown_seconds") if obj.get("cooldown_seconds") is not None else 0,
+            "renotify_interval_seconds": obj.get("renotify_interval_seconds"),
+            "last_fired_at": obj.get("last_fired_at"),
             "system_condition": SystemCondition.from_dict(obj["system_condition"]) if obj.get("system_condition") is not None else None,
             "namespace_selector": NamespaceSelector.from_dict(obj["namespace_selector"]) if obj.get("namespace_selector") is not None else None,
             "notification_config": AlertNotificationConfig.from_dict(obj["notification_config"]) if obj.get("notification_config") is not None else None,

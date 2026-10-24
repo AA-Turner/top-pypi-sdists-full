@@ -152,7 +152,12 @@ class ServerMandateRunner:
             mandate_key=prepared.mandate_key, door=door, success=True, output=output, parsed=parsed, raw=result
         )
 
-    async def resolve(self, key: str, *, who: _mandates.Principal) -> Any:
+    async def resolve(self, key: str, *, who: _mandates.Principal, holder: _mandates.HolderRef | None = None) -> Any:
+        if holder is not None:
+            # The HTTP resolver answers the ladder; a run-scope pick is the server's to apply (refused, never dropped).
+            raise _mandates.MandateRunnerUnavailable(
+                f"a run-scope Holder for {key!r} is resolved on the server; this client runner cannot apply it"
+            )
         return await _mandates.resolve_mandate_by_key(key, consumer="mandate_runner:resolve")
 
     # ── a typed NamedAgent call → the server's mandate door ──────────────────────────────────

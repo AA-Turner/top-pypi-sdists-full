@@ -470,9 +470,10 @@ def test_named_color_matches_build123d_literal(name):
 
 
 @requires_threejs
-def test_normalize_color_accepts_ocp_quantity_colorrgba():
-    """A raw OCP ``Quantity_ColorRGBA`` is accepted by duck typing (GetRGB)."""
-    q_mod = pytest.importorskip("OCP.Quantity")
+@pytest.mark.parametrize("binding", ["OCP", "nanocct"])
+def test_normalize_color_accepts_ocp_quantity_colorrgba(binding):
+    """A raw OCP or nanocct ``Quantity_ColorRGBA`` is accepted by duck typing (GetRGB)."""
+    q_mod = pytest.importorskip(f"{binding}.Quantity")
     from bd_materials.pbr import _normalize_color
 
     srgb = q_mod.Quantity_TypeOfColor.Quantity_TOC_sRGB

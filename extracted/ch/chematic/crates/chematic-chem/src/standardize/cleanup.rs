@@ -4,10 +4,17 @@ mod acid_base;
 
 use std::collections::HashSet;
 
-use chematic_core::{AtomIdx, BondIdx, BondOrder, Molecule, MoleculeBuilder, implicit_hcount};
+use chematic_core::{
+    AtomIdx, BondIdx, BondOrder, Chirality, Molecule, MoleculeBuilder, STEREO_H_SENTINEL,
+    STEREO_VACANT_SENTINEL, SquarePlanarPermutation, implicit_hcount,
+};
 
 use super::{clone_molecule, is_metal, normalize_groups};
 use crate::hydrogen::remove_hydrogens;
+
+pub(super) fn reionize_with_catalog(mol: &Molecule) -> Molecule {
+    acid_base::reionize_for_cleanup(mol)
+}
 
 /// Apply the supported RDKit `MolStandardize.Cleanup` stages without changing
 /// the broader [`super::standardize`] profile.
@@ -133,20 +140,34 @@ fn disconnect_metals_for_cleanup(mol: &Molecule) -> Molecule {
         } else {
             (bond.atom2.0 as usize, bond.atom1.0 as usize)
         };
-        let ligand_atom = &atoms[ligand];
         let metal_z = atoms[metal].element.atomic_number();
-        let ligand_z = ligand_atom.element.atomic_number();
+        let ligand_z = atoms[ligand].element.atomic_number();
+        let sanitized_aromatic = aromaticity
+            .as_ref()
+            .is_some_and(|model| model.is_atom_aromatic(AtomIdx(ligand as u32)));
         if !default_metal_disconnector_match(metal_z, ligand_z)
-            || (ligand_z == 6
-                && (ligand_atom.aromatic
-                    || aromaticity
-                        .as_ref()
-                        .is_some_and(|model| model.is_atom_aromatic(AtomIdx(ligand as u32)))))
+            || (ligand_z == 6 && sanitized_aromatic)
         {
             continue;
         }
         removed.insert(bond_idx);
         transfer_metal_ligand_charge(mol, &mut atoms, metal, ligand, bond.order);
+        if ligand_z == 6
+            && mol.atom(AtomIdx(ligand as u32)).aromatic
+            && !sanitized_aromatic
+            && atoms[ligand].charge == 0
+            && atoms[ligand].hydrogen_count == Some(0)
+            && mol.degree(AtomIdx(ligand as u32)) == 3
+            && mol.neighbors(AtomIdx(ligand as u32)).all(|(_, adjacent)| {
+                adjacent == bond_idx || mol.bond(adjacent).order == BondOrder::Aromatic
+            })
+        {
+            // Sanitization can kekulize an input aromatic carbon before
+            // disconnection (for example an overvalent sulfur ring). Once
+            // its metal bond is gone, the three-valent carbon takes the
+            // implicit H written by RDKit Cleanup.
+            atoms[ligand].hydrogen_count = None;
+        }
     }
     if removed.is_empty() {
         return clone_molecule(mol);
@@ -294,10 +315,11 @@ fn assign_valence_aware_metal_charge(
             .find(|&value| value >= valence_after)
             .unwrap_or_else(|| i16::from(*valences.last().unwrap()));
         let mut ligand_charge = valence_after.min(allowed) - allowed;
-        let mut lone_electrons = 0;
         if radical_before % 2 == 1 && ligand_charge < 0 {
+            // The electron left on a bracket radical belongs to the ligand.
+            // It cancels a proposed ligand anion; it does not oxidize the
+            // disconnected metal (for example, C[C]([Zn])C -> C[C]C.[Zn]).
             ligand_charge += 1;
-            lone_electrons = 1;
         }
         let total_degree_after = i16::try_from(mol.degree(ligand_idx) - 1).unwrap_or(0) + h;
         if ligand_charge == -1 && valence_after == total_degree_after + 1 {
@@ -309,7 +331,7 @@ fn assign_valence_aware_metal_charge(
         {
             0
         } else {
-            (-ligand_charge + lone_electrons).max(0)
+            (-ligand_charge).max(0)
         };
         atoms[ligand].charge = i8::try_from(ligand_charge).unwrap_or(original.charge);
         if matches!(ligand_atom.element.atomic_number(), 6 | 7)
@@ -328,11 +350,79 @@ fn assign_valence_aware_metal_charge(
     atoms[ligand].charge = atoms[ligand].charge.saturating_sub(order);
 }
 
+/// RDKit retains the tag of a three-coordinate square-planar metal after all
+/// ligands are disconnected, with the vacant slot cycling the permutation.
+fn isolated_square_planar_tag_after_disconnect(
+    mol: &Molecule,
+    atom: &chematic_core::Atom,
+    center: AtomIdx,
+    removed: &HashSet<BondIdx>,
+) -> Option<Chirality> {
+    let Chirality::SquarePlanar(tag) = atom.chirality else {
+        return None;
+    };
+    if !is_metal(atom.element)
+        || mol.degree(center) != 3
+        || atom.hydrogen_count.unwrap_or(0) != 0
+        || !mol
+            .neighbors(center)
+            .all(|(_, bond)| removed.contains(&bond))
+        || !mol.stereo_neighbor_order(center).is_some_and(|order| {
+            order.len() == 4
+                && order
+                    .iter()
+                    .filter(|&&slot| matches!(slot, STEREO_H_SENTINEL | STEREO_VACANT_SENTINEL))
+                    .count()
+                    == 1
+        })
+    {
+        return None;
+    }
+    Some(Chirality::SquarePlanar(match tag {
+        SquarePlanarPermutation::SP1 => SquarePlanarPermutation::SP2,
+        SquarePlanarPermutation::SP2 => SquarePlanarPermutation::SP3,
+        SquarePlanarPermutation::SP3 => SquarePlanarPermutation::SP1,
+    }))
+}
+
 fn rebuild_cleanup_graph(
     mol: &Molecule,
-    atoms: Vec<chematic_core::Atom>,
+    mut atoms: Vec<chematic_core::Atom>,
     removed: &HashSet<BondIdx>,
 ) -> Molecule {
+    let mut isolated_three_ligand_square_planar = Vec::new();
+    for (idx, atom) in atoms.iter_mut().enumerate() {
+        let center = AtomIdx(idx as u32);
+        if let Some(chirality) =
+            isolated_square_planar_tag_after_disconnect(mol, atom, center, removed)
+        {
+            atom.chirality = chirality;
+            isolated_three_ligand_square_planar.push(center);
+        }
+        if atom.hydrogen_count != Some(1)
+            || mol.degree(center) != 4
+            || mol.smiles_ring_closure_count(center) != 1
+        {
+            continue;
+        }
+        let cut_metal_bonds = mol
+            .neighbors(center)
+            .filter(|(neighbor, bond)| {
+                removed.contains(bond) && is_metal(mol.atom(*neighbor).element)
+            })
+            .count();
+        if cut_metal_bonds == 1 {
+            // The SMILES chiral tag keeps its winding when RDKit removes a
+            // metal bond. A ring-closure ligand is ordered after the chain
+            // ligands by RDKit's parser; removing the metal changes that
+            // permutation by one swap. The acyclic case has no such swap.
+            atom.chirality = match atom.chirality {
+                Chirality::Clockwise => Chirality::CounterClockwise,
+                Chirality::CounterClockwise => Chirality::Clockwise,
+                other => other,
+            };
+        }
+    }
     let mut builder = MoleculeBuilder::new();
     for atom in atoms {
         builder.add_atom(atom);
@@ -341,9 +431,18 @@ fn rebuild_cleanup_graph(
         if removed.contains(&bond_idx) {
             continue;
         }
-        if let Ok(new_bond_idx) = builder.add_bond(bond.atom1, bond.atom2, bond.order)
-            && let Some(direction) = mol.bond_direction(bond_idx)
+        let Ok(new_bond_idx) = builder.add_bond(bond.atom1, bond.atom2, bond.order) else {
+            continue;
+        };
+        if let Some((label, occurrence, begins_at_open)) =
+            mol.smiles_ring_closure_metadata(bond_idx)
         {
+            builder.set_smiles_ring_closure(new_bond_idx, label, occurrence);
+            if let Some(begins_at_open) = begins_at_open {
+                builder.set_smiles_ring_closure_begins_at_open(new_bond_idx, begins_at_open);
+            }
+        }
+        if let Some(direction) = mol.bond_direction(bond_idx) {
             builder.set_bond_direction(new_bond_idx, direction);
             if let Some(anchor) = mol.bond_direction_anchor(bond_idx) {
                 builder.set_bond_direction_anchor(new_bond_idx, anchor);
@@ -371,6 +470,9 @@ fn rebuild_cleanup_graph(
             }
         }
     }
+    for center in isolated_three_ligand_square_planar {
+        builder.set_stereo_neighbor_order(center, Vec::new());
+    }
     builder.build()
 }
 
@@ -379,6 +481,73 @@ mod tests {
     use super::cleanup;
     use chematic_core::{Molecule, implicit_hcount};
     use chematic_smiles::parse;
+
+    #[test]
+    fn cleanup_keeps_isolated_three_ligand_square_planar_stereo() {
+        use chematic_smiles::rdkit_cleanup_canonical_smiles;
+
+        for (input, expected) in [
+            ("F[Pt@SP1](Cl)Br", "[Br-].[Cl-].[F-].[Pt@SP2+3]"),
+            ("F[Pt@SP2](Cl)Br", "[Br-].[Cl-].[F-].[Pt@SP3+3]"),
+            ("F[Pt@SP3](Cl)Br", "[Br-].[Cl-].[F-].[Pt@SP1+3]"),
+            ("F[Pd@SP1](Cl)Br", "[Br-].[Cl-].[F-].[Pd@SP2+3]"),
+            ("F[Pt@SP1](Cl)(Br)I", "[Br-].[Cl-].[F-].[I-].[Pt@SP1+4]"),
+        ] {
+            let product = cleanup(&parse(input).unwrap());
+            assert_eq!(
+                rdkit_cleanup_canonical_smiles(&product).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn cleanup_disconnects_platinum_from_kekule_carbon() {
+        for (input, expected) in [
+            (
+                "Cc1c[c]([Pt])c(Oc2ccc(O)cc2CC(=O)O)s(Cl)c1",
+                "CC1=CC=C(Oc2ccc(O)cc2CC(=O)O)S(Cl)=C1.[Pt]",
+            ),
+            ("c1cc([Pt])ccc1", "[Pt][c]1ccccc1"),
+        ] {
+            let before = parse(input).unwrap();
+            let after = cleanup(&before);
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&after).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn disconnecting_radical_carbon_does_not_overcharge_zinc() {
+        for (input, expected) in [
+            ("C[C]([Zn])C", "C[C]C.[Zn]"),
+            (
+                "[Zn]([CH3])([CH2]C)[C]1CCCC1",
+                "[CH2-]C.[CH3-].[C]1CCCC1.[Zn+2]",
+            ),
+            (
+                "COc1cccc2c1C[C]([Zn]([CH3])[CH2]C)CC2.c1ccccc1",
+                "C.CC.COc1cccc2c1[CH-][C]C[CH-]2.[Zn+2].c1ccccc1",
+            ),
+        ] {
+            let before = parse(input).unwrap();
+            let cleaned = cleanup(&before);
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&cleaned).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&cleanup(&cleaned)).as_deref(),
+                Ok(expected),
+                "second Cleanup: {input}"
+            );
+        }
+    }
 
     #[test]
     fn cleanup_removes_formally_double_bonded_hydrogen_like_rdkit() {
@@ -560,6 +729,39 @@ mod tests {
                 chematic_smiles::rdkit_cleanup_canonical_smiles(&after).as_deref(),
                 Ok(expected),
                 "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn disconnecting_metal_preserves_ring_closure_stereo_winding() {
+        // RDKit 2026.09.1 keeps the atom's tetrahedral tag when the metal
+        // bond is cut. Both enantiomers must remain distinct and reparseable.
+        for (input, expected) in [
+            ("F[C@H]1([Zn])CC(C)CCC1", "CC1CCC[C@H](F)C1.[Zn]"),
+            ("F[C@@H]1([Zn])CC(C)CCC1", "CC1CCC[C@@H](F)C1.[Zn]"),
+            (
+                "C1CC2CN3CCc4cc5c(OCO5)cc4[C@@H]3C[C@H]2([Zn])C[C@@H]1O",
+                "O[C@@H]1CCC2CN3CCc4cc5c(cc4[C@@H]3C[C@@H]2C1)OCO5.[Zn]",
+            ),
+            (
+                "C1CC2CN3CCc4cc5c(OCO5)cc4[C@@H]3C[C@@H]2([Zn])C[C@@H]1O",
+                "O[C@@H]1CCC2CN3CCc4cc5c(cc4[C@@H]3C[C@H]2C1)OCO5.[Zn]",
+            ),
+            // The acyclic case already has the right winding.
+            ("F[C@H]([Zn])(Cl)Br", "F[C@H](Cl)Br.[Zn]"),
+        ] {
+            let cleaned = cleanup(&parse(input).unwrap());
+            let actual = chematic_smiles::rdkit_cleanup_canonical_smiles(&cleaned).unwrap();
+            assert_eq!(actual, expected, "{input}");
+            assert!(
+                parse(&actual).is_ok(),
+                "Cleanup output must reparse: {input}"
+            );
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&cleanup(&cleaned)).as_deref(),
+                Ok(expected),
+                "second Cleanup: {input}"
             );
         }
     }

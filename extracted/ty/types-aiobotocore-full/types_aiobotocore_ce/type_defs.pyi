@@ -234,6 +234,9 @@ __all__ = (
     "ModifyRecommendationDetailTypeDef",
     "NetworkResourceUtilizationTypeDef",
     "PaginatorConfigTypeDef",
+    "ProductAttributeValuesOutputTypeDef",
+    "ProductAttributeValuesTypeDef",
+    "ProductAttributeValuesUnionTypeDef",
     "ProvideAnomalyFeedbackRequestTypeDef",
     "ProvideAnomalyFeedbackResponseTypeDef",
     "RDSInstanceDetailsTypeDef",
@@ -516,6 +519,16 @@ class ElastiCacheInstanceDetailsTypeDef(TypedDict):
     ProductDescription: NotRequired[str]
     CurrentGeneration: NotRequired[bool]
     SizeFlexEligible: NotRequired[bool]
+
+class ProductAttributeValuesOutputTypeDef(TypedDict):
+    Key: str
+    Values: NotRequired[list[str]]
+    MatchOptions: NotRequired[list[MatchOptionType]]
+
+class ProductAttributeValuesTypeDef(TypedDict):
+    Key: str
+    Values: NotRequired[Sequence[str]]
+    MatchOptions: NotRequired[Sequence[MatchOptionType]]
 
 class TagValuesTypeDef(TypedDict):
     Key: NotRequired[str]
@@ -916,22 +929,6 @@ class UpdateCostCategoryDefinitionResponseTypeDef(TypedDict):
     EffectiveStart: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ExpressionOutputTypeDef(TypedDict):
-    Or: NotRequired[list[dict[str, Any]]]
-    And: NotRequired[list[dict[str, Any]]]
-    Not: NotRequired[dict[str, Any]]
-    Dimensions: NotRequired[DimensionValuesOutputTypeDef]
-    Tags: NotRequired[TagValuesOutputTypeDef]
-    CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
-
-class ExpressionPaginatorOutputTypeDef(TypedDict):
-    Or: NotRequired[list[dict[str, Any]]]
-    And: NotRequired[list[dict[str, Any]]]
-    Not: NotRequired[dict[str, Any]]
-    Dimensions: NotRequired[DimensionValuesOutputTypeDef]
-    Tags: NotRequired[TagValuesOutputTypeDef]
-    CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
-
 DimensionValuesUnionTypeDef = Union[DimensionValuesTypeDef, DimensionValuesOutputTypeDef]
 
 class GetDimensionValuesResponseTypeDef(TypedDict):
@@ -958,6 +955,28 @@ class EC2ResourceUtilizationTypeDef(TypedDict):
 class ServiceSpecificationTypeDef(TypedDict):
     EC2Specification: NotRequired[EC2SpecificationTypeDef]
 
+class ExpressionOutputTypeDef(TypedDict):
+    Or: NotRequired[list[dict[str, Any]]]
+    And: NotRequired[list[dict[str, Any]]]
+    Not: NotRequired[dict[str, Any]]
+    Dimensions: NotRequired[DimensionValuesOutputTypeDef]
+    Tags: NotRequired[TagValuesOutputTypeDef]
+    CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesOutputTypeDef]
+
+class ExpressionPaginatorOutputTypeDef(TypedDict):
+    Or: NotRequired[list[dict[str, Any]]]
+    And: NotRequired[list[dict[str, Any]]]
+    Not: NotRequired[dict[str, Any]]
+    Dimensions: NotRequired[DimensionValuesOutputTypeDef]
+    Tags: NotRequired[TagValuesOutputTypeDef]
+    CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesOutputTypeDef]
+
+ProductAttributeValuesUnionTypeDef = Union[
+    ProductAttributeValuesTypeDef, ProductAttributeValuesOutputTypeDef
+]
+
 class ExpressionPaginatorTypeDef(TypedDict):
     Or: NotRequired[Sequence[Mapping[str, Any]]]
     And: NotRequired[Sequence[Mapping[str, Any]]]
@@ -965,6 +984,7 @@ class ExpressionPaginatorTypeDef(TypedDict):
     Dimensions: NotRequired[DimensionValuesTypeDef]
     Tags: NotRequired[TagValuesTypeDef]
     CostCategories: NotRequired[CostCategoryValuesTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesTypeDef]
 
 TagValuesUnionTypeDef = Union[TagValuesTypeDef, TagValuesOutputTypeDef]
 
@@ -1199,6 +1219,9 @@ class ReservationCoverageGroupTypeDef(TypedDict):
     Attributes: NotRequired[dict[str, str]]
     Coverage: NotRequired[CoverageTypeDef]
 
+class ResourceUtilizationTypeDef(TypedDict):
+    EC2ResourceUtilization: NotRequired[EC2ResourceUtilizationTypeDef]
+
 class AnomalyMonitorOutputTypeDef(TypedDict):
     MonitorName: str
     MonitorType: MonitorTypeType
@@ -1269,9 +1292,6 @@ class CostComparisonDriverPaginatorTypeDef(TypedDict):
     Metrics: NotRequired[dict[str, ComparisonMetricValueTypeDef]]
     CostDrivers: NotRequired[list[CostDriverTypeDef]]
 
-class ResourceUtilizationTypeDef(TypedDict):
-    EC2ResourceUtilization: NotRequired[EC2ResourceUtilizationTypeDef]
-
 ExpressionPaginatorUnionTypeDef = Union[
     ExpressionPaginatorTypeDef, ExpressionPaginatorOutputTypeDef
 ]
@@ -1283,6 +1303,7 @@ class ExpressionTypeDef(TypedDict):
     Dimensions: NotRequired[DimensionValuesUnionTypeDef]
     Tags: NotRequired[TagValuesUnionTypeDef]
     CostCategories: NotRequired[CostCategoryValuesUnionTypeDef]
+    ProductAttributes: NotRequired[ProductAttributeValuesUnionTypeDef]
 
 class ResultByTimeTypeDef(TypedDict):
     TimePeriod: NotRequired[DateIntervalTypeDef]
@@ -1389,6 +1410,28 @@ class CoverageByTimeTypeDef(TypedDict):
     Groups: NotRequired[list[ReservationCoverageGroupTypeDef]]
     Total: NotRequired[CoverageTypeDef]
 
+class CurrentInstanceTypeDef(TypedDict):
+    ResourceId: NotRequired[str]
+    InstanceName: NotRequired[str]
+    Tags: NotRequired[list[TagValuesOutputTypeDef]]
+    ResourceDetails: NotRequired[ResourceDetailsTypeDef]
+    ResourceUtilization: NotRequired[ResourceUtilizationTypeDef]
+    ReservationCoveredHoursInLookbackPeriod: NotRequired[str]
+    SavingsPlansCoveredHoursInLookbackPeriod: NotRequired[str]
+    OnDemandHoursInLookbackPeriod: NotRequired[str]
+    TotalRunningHoursInLookbackPeriod: NotRequired[str]
+    MonthlyCost: NotRequired[str]
+    CurrencyCode: NotRequired[str]
+
+class TargetInstanceTypeDef(TypedDict):
+    EstimatedMonthlyCost: NotRequired[str]
+    EstimatedMonthlySavings: NotRequired[str]
+    CurrencyCode: NotRequired[str]
+    DefaultTargetInstance: NotRequired[bool]
+    ResourceDetails: NotRequired[ResourceDetailsTypeDef]
+    ExpectedResourceUtilization: NotRequired[ResourceUtilizationTypeDef]
+    PlatformDifferences: NotRequired[list[PlatformDifferenceType]]
+
 class GetAnomalyMonitorsResponseTypeDef(TypedDict):
     AnomalyMonitors: list[AnomalyMonitorOutputTypeDef]
     NextPageToken: str
@@ -1441,28 +1484,6 @@ class GetCostComparisonDriversResponsePaginatorTypeDef(TypedDict):
     CostComparisonDrivers: list[CostComparisonDriverPaginatorTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-class CurrentInstanceTypeDef(TypedDict):
-    ResourceId: NotRequired[str]
-    InstanceName: NotRequired[str]
-    Tags: NotRequired[list[TagValuesOutputTypeDef]]
-    ResourceDetails: NotRequired[ResourceDetailsTypeDef]
-    ResourceUtilization: NotRequired[ResourceUtilizationTypeDef]
-    ReservationCoveredHoursInLookbackPeriod: NotRequired[str]
-    SavingsPlansCoveredHoursInLookbackPeriod: NotRequired[str]
-    OnDemandHoursInLookbackPeriod: NotRequired[str]
-    TotalRunningHoursInLookbackPeriod: NotRequired[str]
-    MonthlyCost: NotRequired[str]
-    CurrencyCode: NotRequired[str]
-
-class TargetInstanceTypeDef(TypedDict):
-    EstimatedMonthlyCost: NotRequired[str]
-    EstimatedMonthlySavings: NotRequired[str]
-    CurrencyCode: NotRequired[str]
-    DefaultTargetInstance: NotRequired[bool]
-    ResourceDetails: NotRequired[ResourceDetailsTypeDef]
-    ExpectedResourceUtilization: NotRequired[ResourceUtilizationTypeDef]
-    PlatformDifferences: NotRequired[list[PlatformDifferenceType]]
 
 class GetCostAndUsageComparisonsRequestPaginateTypeDef(TypedDict):
     BaselineTimePeriod: DateIntervalTypeDef
@@ -1595,12 +1616,12 @@ class GetReservationCoverageResponseTypeDef(TypedDict):
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ModifyRecommendationDetailTypeDef(TypedDict):
+    TargetInstances: NotRequired[list[TargetInstanceTypeDef]]
+
 class DescribeCostCategoryDefinitionResponseTypeDef(TypedDict):
     CostCategory: CostCategoryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ModifyRecommendationDetailTypeDef(TypedDict):
-    TargetInstances: NotRequired[list[TargetInstanceTypeDef]]
 
 AnomalyMonitorUnionTypeDef = Union[AnomalyMonitorTypeDef, AnomalyMonitorOutputTypeDef]
 AnomalySubscriptionUnionTypeDef = Union[
@@ -1676,6 +1697,7 @@ class GetDimensionValuesRequestTypeDef(TypedDict):
     TimePeriod: DateIntervalTypeDef
     Dimension: DimensionType
     SearchString: NotRequired[str]
+    DimensionKey: NotRequired[str]
     Context: NotRequired[ContextType]
     Filter: NotRequired[ExpressionUnionTypeDef]
     SortBy: NotRequired[Sequence[SortDefinitionTypeDef]]

@@ -21,23 +21,25 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.cluster_run_source import ClusterRunSource
 from mixpeek.models.document_ref import DocumentRef
 from typing import Optional, Set
 from typing_extensions import Self
 
 class CreateTaxonomyFromDocumentsRequest(BaseModel):
     """
-    One-gesture promotion: create a flat taxonomy (node collection + vector-search retriever) AND its first node from a document selection.  The node collection mirrors the referenced documents' collection vector index (same vector name / dimensions / feature_uri), so classification is guaranteed dimension-compatible with the data the selection came from.
+    One-gesture promotion: create a flat taxonomy (node collection + vector-search retriever) AND its nodes, from a document selection or from a whole cluster run.  The node collection mirrors the source collection's vector index (same vector name / dimensions / feature_uri), so classification is guaranteed dimension-compatible with the data the nodes came from.  Give exactly one source: ``documents`` with ``node_label`` (one node whose anchor averages the documents), or ``cluster_run`` (one node per cluster in that run, labelled with the cluster's label, its stored centroid as the anchor).
     """ # noqa: E501
-    node_label: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Label for the new node — the value copied onto documents that classify under it (canonical `label` field).")
-    documents: Annotated[List[DocumentRef], Field(min_length=1, max_length=200)] = Field(description="Documents whose stored vectors define the node's anchor (centroid). 1-200 refs; for large selections send a sample — the centroid converges quickly.")
+    node_label: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="Label of the node created from `documents`. Required with `documents`; with `cluster_run` each node takes its cluster's label.")
+    documents: Optional[Annotated[List[DocumentRef], Field(min_length=1, max_length=200)]] = Field(default=None, description="Documents whose stored vectors are averaged into the one node's anchor. Give this or `cluster_run`.")
     node_fields: Optional[Dict[str, Any]] = Field(default=None, description="Optional extra fields stored on the node document (e.g. `description`). Only fields listed in the taxonomy's enrichment_fields are copied during enrichment.")
     vector_name: Optional[StrictStr] = Field(default=None, description="Optional explicit vector (index) name for the anchor. If omitted, it is derived from the taxonomy's node collection vector indexes.")
     provenance: Optional[Dict[str, Any]] = Field(default=None, description="Optional freeform origin context (e.g. cluster_id, run_id, selection type). Stored on the node document under `metadata.promotion` for auditability.")
+    cluster_run: Optional[ClusterRunSource] = Field(default=None, description="Promote a whole cluster run in one call: one node per cluster, labelled with the cluster label, anchored on the cluster's stored centroid vector (no re-embedding). Give this or `documents`.")
     taxonomy_name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Unique name for the new taxonomy.")
     description: Optional[StrictStr] = Field(default=None, description="Optional taxonomy description.")
     enrichment_target_field: Optional[StrictStr] = Field(default=None, description="Field name written onto enriched documents (defaults to '<taxonomy_name>_label').")
-    __properties: ClassVar[List[str]] = ["node_label", "documents", "node_fields", "vector_name", "provenance", "taxonomy_name", "description", "enrichment_target_field"]
+    __properties: ClassVar[List[str]] = ["node_label", "documents", "node_fields", "vector_name", "provenance", "cluster_run", "taxonomy_name", "description", "enrichment_target_field"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +87,9 @@ class CreateTaxonomyFromDocumentsRequest(BaseModel):
                 if _item_documents:
                     _items.append(_item_documents.to_dict())
             _dict['documents'] = _items
+        # override the default output from pydantic by calling `to_dict()` of cluster_run
+        if self.cluster_run:
+            _dict['cluster_run'] = self.cluster_run.to_dict()
         return _dict
 
     @classmethod
@@ -102,6 +107,7 @@ class CreateTaxonomyFromDocumentsRequest(BaseModel):
             "node_fields": obj.get("node_fields"),
             "vector_name": obj.get("vector_name"),
             "provenance": obj.get("provenance"),
+            "cluster_run": ClusterRunSource.from_dict(obj["cluster_run"]) if obj.get("cluster_run") is not None else None,
             "taxonomy_name": obj.get("taxonomy_name"),
             "description": obj.get("description"),
             "enrichment_target_field": obj.get("enrichment_target_field")

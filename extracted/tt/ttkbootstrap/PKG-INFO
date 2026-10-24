@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ttkbootstrap
-Version: 2.2.3
+Version: 2.2.4
 Summary: Modern themes for Tkinter. Sleek, responsive styles inspired by Bootstrap. Includes ready-to-use widgets, 30+ themes, and tools for building beautiful, cross-platform desktop apps with ease.
 Author-email: Israel Dryer <israel.dryer@gmail.com>
 License-Expression: MIT AND (Apache-2.0 OR BSD-2-Clause)
@@ -22,7 +22,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pillow<13,>=10
+Requires-Dist: pillow<14,>=10
 Dynamic: license-file
 
 [![CI](https://github.com/israel-dryer/ttkbootstrap/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/israel-dryer/ttkbootstrap/actions/workflows/ci.yml)

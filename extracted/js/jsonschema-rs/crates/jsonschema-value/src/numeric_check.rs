@@ -52,6 +52,12 @@ pub enum CompiledBound {
         op: BoundOp,
         limit: fraction::BigFraction,
     },
+    /// A limit with more digits than exact arithmetic takes on.
+    #[cfg(feature = "arbitrary-precision")]
+    Decimal {
+        op: BoundOp,
+        limit: numeric::bignum::Decimal,
+    },
 }
 
 // Codegen inlines every multipleOf that fits f64 and only routes arbitrary-precision
@@ -62,6 +68,8 @@ pub enum CompiledMultipleOf {
     BigInt(num_bigint::BigInt),
     #[cfg(feature = "arbitrary-precision")]
     BigFrac(fraction::BigFraction),
+    #[cfg(feature = "arbitrary-precision")]
+    Decimal(numeric::bignum::Decimal),
     Unsupported,
 }
 
@@ -91,10 +99,24 @@ fn infinity_cmp(op: BoundOp, is_negative: bool) -> bool {
 }
 
 #[cfg(feature = "arbitrary-precision")]
+fn holds(op: BoundOp, ordering: std::cmp::Ordering) -> bool {
+    match op {
+        BoundOp::Lt => ordering.is_lt(),
+        BoundOp::Lte => ordering.is_le(),
+        BoundOp::Gt => ordering.is_gt(),
+        BoundOp::Gte => ordering.is_ge(),
+    }
+}
+
+#[cfg(feature = "arbitrary-precision")]
 #[inline]
 fn check_bigint_bound(op: BoundOp, limit: &num_bigint::BigInt, value: &Number) -> bool {
-    use fraction::BigFraction;
-
+    if let Some(instance) = numeric::bignum::past_digit_budget(value.as_str()) {
+        return holds(
+            op,
+            instance.cmp(&numeric::bignum::Decimal::of_integer(limit)),
+        );
+    }
     if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(value) {
         return match op {
             BoundOp::Lt => instance_bigint < *limit,
@@ -132,7 +154,7 @@ fn check_bigint_bound(op: BoundOp, limit: &num_bigint::BigInt, value: &Number) -
     }
 
     if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(value) {
-        let limit_frac = BigFraction::from(limit.clone());
+        let limit_frac = numeric::bignum::whole(limit.clone());
         return match op {
             BoundOp::Lt => instance_bigfrac < limit_frac,
             BoundOp::Lte => instance_bigfrac <= limit_frac,
@@ -147,6 +169,11 @@ fn check_bigint_bound(op: BoundOp, limit: &num_bigint::BigInt, value: &Number) -
 #[cfg(feature = "arbitrary-precision")]
 #[inline]
 fn check_bigfrac_bound(op: BoundOp, limit: &fraction::BigFraction, value: &Number) -> bool {
+    if let Some(instance) = numeric::bignum::past_digit_budget(value.as_str()) {
+        if let Some(limit) = numeric::bignum::Decimal::of_fraction(limit) {
+            return holds(op, instance.cmp(&limit));
+        }
+    }
     if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(value) {
         return match op {
             BoundOp::Lt => instance_bigfrac < *limit,
@@ -177,7 +204,7 @@ fn check_bigfrac_bound(op: BoundOp, limit: &fraction::BigFraction, value: &Numbe
     // An integer past i64 is exact as a BigInt, while `f64` rounds it onto limits a fractional
     // digit separates it from, e.g. `-10000000000000000000000000` against the same with `.1`.
     if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(value) {
-        let instance_frac = fraction::BigFraction::from(instance_bigint);
+        let instance_frac = numeric::bignum::whole(instance_bigint);
         return match op {
             BoundOp::Lt => instance_frac < *limit,
             BoundOp::Lte => instance_frac <= *limit,
@@ -203,6 +230,9 @@ fn check_bigfrac_bound(op: BoundOp, limit: &fraction::BigFraction, value: &Numbe
 pub fn compile_bound(op: BoundOp, limit: &Number) -> CompiledBound {
     #[cfg(feature = "arbitrary-precision")]
     {
+        if let Some(limit) = numeric::bignum::past_digit_budget(limit.as_str()) {
+            return CompiledBound::Decimal { op, limit };
+        }
         if let Some(value) = numeric::bignum::try_parse_bigint(limit) {
             return CompiledBound::BigInt { op, limit: value };
         }
@@ -225,20 +255,14 @@ pub fn compile_bound(op: BoundOp, limit: &Number) -> CompiledBound {
         return CompiledBound::F64 { op, limit: value };
     }
 
-    #[cfg(feature = "arbitrary-precision")]
-    {
-        let limit = if limit.as_str().starts_with('-') {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-        CompiledBound::F64 { op, limit }
-    }
-
-    #[cfg(not(feature = "arbitrary-precision"))]
-    {
-        unreachable!("non-arbitrary-precision serde_json::Number always has an f64 representation");
-    }
+    // Past `f64`; reachable without `arbitrary-precision` once another crate in the build enables
+    // `serde_json/arbitrary_precision`.
+    let limit = if crate::JsonNumber::as_str(limit).starts_with('-') {
+        f64::NEG_INFINITY
+    } else {
+        f64::INFINITY
+    };
+    CompiledBound::F64 { op, limit }
 }
 
 pub fn check_bound(compiled: &CompiledBound, value: &Number) -> bool {
@@ -252,6 +276,11 @@ pub fn check_bound(compiled: &CompiledBound, value: &Number) -> bool {
         CompiledBound::BigInt { op, limit } => check_bigint_bound(*op, limit, value),
         #[cfg(feature = "arbitrary-precision")]
         CompiledBound::BigFrac { op, limit } => check_bigfrac_bound(*op, limit, value),
+        #[cfg(feature = "arbitrary-precision")]
+        CompiledBound::Decimal { op, limit } => holds(
+            *op,
+            numeric::bignum::Decimal::parse(value.as_str()).cmp(limit),
+        ),
     }
 }
 
@@ -259,6 +288,9 @@ pub fn check_bound(compiled: &CompiledBound, value: &Number) -> bool {
 pub fn compile_multiple_of(multiple_of: &Number) -> CompiledMultipleOf {
     #[cfg(feature = "arbitrary-precision")]
     {
+        if let Some(value) = numeric::bignum::past_digit_budget(multiple_of.as_str()) {
+            return CompiledMultipleOf::Decimal(value);
+        }
         if let Some(value) = numeric::bignum::try_parse_bigint(multiple_of) {
             return CompiledMultipleOf::BigInt(value);
         }
@@ -272,6 +304,19 @@ pub fn compile_multiple_of(multiple_of: &Number) -> CompiledMultipleOf {
 
 #[cfg(feature = "arbitrary-precision")]
 pub fn check_multiple_of(compiled: &CompiledMultipleOf, value: &Number) -> bool {
+    use numeric::bignum::Decimal;
+
+    if let Some(instance) = numeric::bignum::past_digit_budget(value.as_str()) {
+        let multiple = match compiled {
+            CompiledMultipleOf::BigInt(multiple) => Some(Decimal::of_integer(multiple)),
+            CompiledMultipleOf::BigFrac(multiple) => Decimal::of_fraction(multiple),
+            CompiledMultipleOf::Decimal(multiple) => Some(multiple.clone()),
+            CompiledMultipleOf::Unsupported => return true,
+        };
+        if let Some(multiple) = multiple {
+            return instance.is_multiple_of(&multiple);
+        }
+    }
     match compiled {
         #[cfg(feature = "arbitrary-precision")]
         CompiledMultipleOf::BigInt(multiple) => {
@@ -302,7 +347,7 @@ pub fn check_multiple_of(compiled: &CompiledMultipleOf, value: &Number) -> bool 
             }
 
             if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(value) {
-                let value_frac = fraction::BigFraction::from(instance_bigint);
+                let value_frac = numeric::bignum::whole(instance_bigint);
                 return numeric::bignum::is_multiple_of_bigfrac(&value_frac, multiple);
             }
 
@@ -318,6 +363,9 @@ pub fn check_multiple_of(compiled: &CompiledMultipleOf, value: &Number) -> bool 
 
             let multiple_f64 = multiple.to_f64().unwrap_or(f64::INFINITY);
             numeric::is_multiple_of_float(value, multiple_f64)
+        }
+        CompiledMultipleOf::Decimal(multiple) => {
+            Decimal::parse(value.as_str()).is_multiple_of(multiple)
         }
         CompiledMultipleOf::Unsupported => true,
     }
@@ -339,6 +387,9 @@ pub enum DivisorKind {
 pub fn divisor_kind(divisor: &Number) -> DivisorKind {
     #[cfg(feature = "arbitrary-precision")]
     {
+        if numeric::bignum::exceeds_digit_budget(divisor.as_str()) {
+            return DivisorKind::Fractional;
+        }
         if numeric::bignum::try_parse_bigint(divisor).is_some() {
             return DivisorKind::Whole;
         }

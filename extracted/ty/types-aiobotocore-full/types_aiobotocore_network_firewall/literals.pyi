@@ -26,8 +26,11 @@ __all__ = (
     "ConfigurationSyncStateType",
     "ContainerAssociationStatusType",
     "ContainerMonitoringTypeType",
+    "DNSExpiryExceptionPolicyType",
     "EnabledAnalysisTypeType",
     "EncryptionTypeType",
+    "FirewallPolicyActiveWaiterName",
+    "FirewallPolicyErrorCodeType",
     "FirewallStatusValueType",
     "FlowOperationStatusType",
     "FlowOperationTypeType",
@@ -65,6 +68,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceStatusType",
     "RevocationCheckActionType",
+    "Route53ResolvedIPValidationActionType",
     "RuleGroupRequestPhaseType",
     "RuleGroupTypeType",
     "RuleOrderType",
@@ -79,14 +83,20 @@ __all__ = (
     "TargetTypeType",
     "TlsInterceptModeType",
     "TransitGatewayAttachmentStatusType",
+    "WaiterName",
 )
 
 AttachmentStatusType = Literal["CREATING", "DELETING", "ERROR", "FAILED", "READY", "SCALING"]
 ConfigurationSyncStateType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
 ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
+DNSExpiryExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
+FirewallPolicyActiveWaiterName = Literal["firewall_policy_active"]
+FirewallPolicyErrorCodeType = Literal[
+    "DNS_FIREWALL_RULE_GROUP_UNAVAILABLE", "ROUTE53_RESOLVED_IP_VALIDATION_MISSING"
+]
 FirewallStatusValueType = Literal["DELETING", "FAILED", "PROVISIONING", "READY"]
 FlowOperationStatusType = Literal["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"]
 FlowOperationTypeType = Literal["FLOW_CAPTURE", "FLOW_FLUSH"]
@@ -129,8 +139,9 @@ ResourceManagedTypeType = Literal[
     "AWS_MANAGED_THREAT_SIGNATURES",
     "PARTNER_MANAGED",
 ]
-ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR"]
+ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR", "UPDATING"]
 RevocationCheckActionType = Literal["DROP", "PASS", "REJECT"]
+Route53ResolvedIPValidationActionType = Literal["ALERT", "DROP", "REJECT"]
 RuleGroupRequestPhaseType = Literal["POST_RES", "PRE_DNS", "PRE_REQ"]
 RuleGroupTypeType = Literal["STATEFUL", "STATEFUL_DOMAIN", "STATELESS"]
 RuleOrderType = Literal["DEFAULT_ACTION_ORDER", "STRICT_ORDER"]
@@ -163,7 +174,7 @@ StreamExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
 SubscriptionStatusType = Literal["NOT_SUBSCRIBED", "SUBSCRIBED"]
 SummaryRuleOptionType = Literal["METADATA", "MSG", "SID"]
 TCPFlagType = Literal["ACK", "CWR", "ECE", "FIN", "PSH", "RST", "SYN", "URG"]
-TargetTypeType = Literal["HTTP_HOST", "TLS_SNI"]
+TargetTypeType = Literal["AWS_ROUTE_53_RESOLVED_DOMAIN", "HTTP_HOST", "TLS_SNI"]
 TlsInterceptModeType = Literal["DISABLED", "ENABLED"]
 TransitGatewayAttachmentStatusType = Literal[
     "CREATING",
@@ -330,13 +341,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -404,6 +414,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -538,6 +549,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -588,7 +600,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -631,6 +642,7 @@ PaginatorName = Literal[
     "list_tls_inspection_configurations",
     "list_vpc_endpoint_associations",
 ]
+WaiterName = Literal["firewall_policy_active"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

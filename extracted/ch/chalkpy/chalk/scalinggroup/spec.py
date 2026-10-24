@@ -17,6 +17,17 @@ class ComputeClass(str, Enum):
     HOST = "HOST"
 
 
+class ExecutionBackend(str, Enum):
+    """Cluster placement for a deployment.
+
+    ``ENVIRONMENT`` uses the environment's cluster. ``SERVERLESS`` selects
+    serverless compute independently of the environment's cluster.
+    """
+
+    ENVIRONMENT = "ENVIRONMENT"
+    SERVERLESS = "SERVERLESS"
+
+
 @dataclass
 class ScalingGroupResourceRequest:
     """Resource requests for a scaling group container.

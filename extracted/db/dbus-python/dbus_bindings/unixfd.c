@@ -172,6 +172,7 @@ UnixFd_dealloc(UnixFdObject *self)
         close(self->fd);
         self->fd = -1;
     }
+    Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
 PyDoc_STRVAR(UnixFd_take__doc__,

@@ -5,32 +5,35 @@ use std::sync::Arc;
 use arrow::record_batch::RecordBatch;
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerInfo};
-use rmcp::{tool, tool_handler, tool_router, ErrorData, ServerHandler, ServiceExt};
-use serde_json::{json, Value};
+use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
+use rmcp::{ErrorData, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
+use serde_json::{Value, json};
 use tokio::sync::{OnceCell, Semaphore};
-use xbbg_async::engine::{Engine, EngineConfig, RequestParams, RetryPolicy, ServerAddr, Transport};
 use xbbg_async::BlpAsyncError;
+use xbbg_async::engine::{Engine, EngineConfig, RequestParams, RetryPolicy, ServerAddr, Transport};
+use xbbg_async::error_presentation::blp_error_display;
 use xbbg_core::errors::ValidationError;
 use xbbg_core::{AuthConfig, BlpError};
-use xbbg_recipes::{recipe_auction_snapshot, recipe_resolve_venues, RecipeError};
+use xbbg_recipes::{
+    RecipeError, recipe_auction_snapshot, recipe_delay_status, recipe_resolve_venues,
+};
 
 mod request_adapter;
 mod serialization;
 mod stdin;
 
 use request_adapter::{
+    AuctionSnapshotArgs, BdhArgs, BdibArgs, BdpArgs, BdsArgs, BfldsArgs, BqlArgs, BsrchArgs,
+    CheckEntitlementsArgs, DelayStatusArgs, RequestArgs, ResolveVenuesArgs,
     auction_snapshot_params, bdh_request_params, bdib_request_params, bdp_request_params,
     bds_request_params, bflds_request_params, bql_request_params, bsrch_request_params,
-    check_entitlements_params, generic_request_params, resolve_venues_params, AuctionSnapshotArgs,
-    BdhArgs, BdibArgs, BdpArgs, BdsArgs, BfldsArgs, BqlArgs, BsrchArgs, CheckEntitlementsArgs,
-    RequestArgs, ResolveVenuesArgs,
+    check_entitlements_params, delay_status_params, generic_request_params, resolve_venues_params,
 };
 
 use serialization::{
-    bounded_error_display, bounded_error_text, bounded_json_text, entitlement_check_to_json,
-    json_serialized_len, record_batch_to_json, should_offload, should_offload_items, ResultLimits,
-    MIN_RESULT_BYTES,
+    MIN_RESULT_BYTES, ResultLimits, bounded_error_display, bounded_error_text, bounded_json_text,
+    entitlement_check_to_json, json_serialized_len, record_batch_to_json, should_offload,
+    should_offload_items,
 };
 
 struct XbbgMcpServer {
@@ -197,7 +200,7 @@ impl XbbgMcpServer {
     }
 
     #[tool(
-        description = "Bloomberg Query Language request (bql).",
+        description = "Bloomberg Query Language request (bql). app_name sets clientContext.appName and overrides XBBG_MCP_BQL_APP_NAME. Without either setting, the current Bloomberg default is unchanged.",
         annotations(
             title = "Bloomberg Query Language",
             read_only_hint = true,
@@ -210,8 +213,8 @@ impl XbbgMcpServer {
         &self,
         Parameters(args): Parameters<BqlArgs>,
     ) -> Result<CallToolResult, ErrorData> {
-        self.execute_request(self.bounded_input(bql_request_params(args))?)
-            .await
+        let params = self.bounded_input(bql_request_params(args))?;
+        self.execute_request(params).await
     }
 
     #[tool(
@@ -276,7 +279,7 @@ impl XbbgMcpServer {
     }
 
     #[tool(
-        description = "Read auction/imbalance values from Bloomberg reference data on the primary venue. Uses the default auction field group unless fields or groups are selected; groups expand first, then explicit fields, with duplicates removed. Returns one row per input with status/error and bounded structured JSON with Arrow schema metadata. Time-of-day fields are terminal-local. Reference data carries no delayed/real-time flag; use subscriptions for that.",
+        description = "Read auction/imbalance values from Bloomberg reference data on the primary venue. Uses the default auction field group unless fields or groups are selected; groups expand first, then explicit fields, with duplicates removed. Returns one row per input with status/error and bounded structured JSON with Arrow schema metadata. Time-of-day fields are terminal-local. Values can be delayed for this session; delay_status reports which tickers are.",
         annotations(
             title = "Bloomberg Auction Snapshot",
             read_only_hint = true,
@@ -336,7 +339,29 @@ impl XbbgMcpServer {
     }
 
     #[tool(
-        description = "Generic Bloomberg request. Supports raw/custom service and operation strings, including RawRequest via request_operation. return_eids supports ReferenceDataRequest (including BDS/bulk), HistoricalDataRequest, IntradayBarRequest, and IntradayTickRequest.",
+        description = "Report per ticker whether this Bloomberg session receives delayed or real-time data. delayed is what this session receives (Bloomberg IS_DELAYED_STREAM), not the exchange's standard delay: delay_minutes is set only when delayed, and exchange_delay is the raw EXCHANGE_DELAY text. Returns one row per unique ticker in input order, including exch_code, real-time feed EIDs (realtime_eid1 to realtime_eid4), delayed_eid, and error, as bounded structured JSON with Arrow schema metadata. check_identity=true also checks the session identity against those feed EIDs on //blp/mktdata and fills realtime_entitled and delayed_entitled; it needs SAPI/B-PIPE authorization or an EMRS-enrolled Desktop API user, otherwise the call fails.",
+        annotations(
+            title = "Bloomberg Delayed-Data Status",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = true
+        )
+    )]
+    async fn delay_status(
+        &self,
+        Parameters(args): Parameters<DelayStatusArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params = self.bounded_input(delay_status_params(args))?;
+        let engine = self.engine().await?;
+        let batch = recipe_delay_status(engine, params.tickers, params.check_identity)
+            .await
+            .map_err(|error| map_recipe_error(error, &self.result_limits))?;
+        self.serialize_batch(batch).await
+    }
+
+    #[tool(
+        description = "Generic Bloomberg request. Supports raw/custom service and operation strings, including RawRequest via request_operation. return_eids supports ReferenceDataRequest (including BDS/bulk), HistoricalDataRequest, IntradayBarRequest, and IntradayTickRequest. on_delayed supports ReferenceDataRequest (not BDS/bulk), HistoricalDataRequest, IntradayBarRequest, and IntradayTickRequest.",
         annotations(
             title = "Bloomberg Raw Request",
             read_only_hint = true,
@@ -360,10 +385,10 @@ fn server_version() -> &'static str {
 
 #[tool_handler]
 impl ServerHandler for XbbgMcpServer {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         // The server only advertises tools for now; request execution stays lazy so stdio startup
         // does not require a live Bloomberg session before the client can initialize.
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(
                 Implementation::new(env!("CARGO_PKG_NAME"), server_version())
                     .with_title("xbbg MCP")
@@ -372,7 +397,7 @@ impl ServerHandler for XbbgMcpServer {
                     ),
             )
             .with_instructions(
-                "Use bdp, bdh, bds, bdib, bql, bsrch, bflds, resolve_venues, auction_snapshot, check_entitlements, or request. resolve_venues routes composite equities to primary exchange listings and preferreds to venue pricing sources, preserving one status/error row per input. auction_snapshot reads Bloomberg reference data on the primary venue; time-of-day fields are terminal-local, and reference data carries no delayed/real-time flag (use subscriptions for that). Results are structured JSON with Arrow schema and metadata, explicit truncation counts, and bounded rows, cells, strings, metadata, and total bytes. This MCP server currently exposes host/port, selected auth env vars, core pool settings, and result limits rather than the full EngineConfig surface. For XBBG_MCP_VALIDATION_MODE/XBBG_VALIDATION_MODE use disabled (default), lenient, or strict; for XBBG_MCP_SDK_LOG_LEVEL/XBBG_SDK_LOG_LEVEL use off (default), fatal, error, warn, info, debug, or trace; for XBBG_MCP_OVERFLOW_POLICY/XBBG_OVERFLOW_POLICY use drop_newest (default) or block.",
+                "Use bdp, bdh, bds, bdib, bql, bsrch, bflds, resolve_venues, auction_snapshot, check_entitlements, delay_status, or request. resolve_venues routes composite equities to primary exchange listings and preferreds to venue pricing sources, preserving one status/error row per input. auction_snapshot reads Bloomberg reference data on the primary venue; time-of-day fields are terminal-local. Bloomberg can serve delayed data without marking the rows: delay_status reports per ticker whether this session receives delayed data (check_identity=true also checks feed-EID entitlements on //blp/mktdata and needs SAPI/B-PIPE authorization or an EMRS-enrolled Desktop API user), and on_delayed on bdp, bdh, bdib, or request either reports xbbg.delayed metadata (warn and ignore behave the same) or fails the call (raise). Results are structured JSON with Arrow schema and metadata, explicit truncation counts, and bounded rows, cells, strings, metadata, and total bytes. This MCP server currently exposes host/port, selected auth env vars, core pool settings, and result limits rather than the full EngineConfig surface. For XBBG_MCP_VALIDATION_MODE/XBBG_VALIDATION_MODE use disabled (default), lenient, or strict; for XBBG_MCP_SDK_LOG_LEVEL/XBBG_SDK_LOG_LEVEL use off (default), fatal, error, warn, info, debug, or trace; for XBBG_MCP_OVERFLOW_POLICY/XBBG_OVERFLOW_POLICY use drop_newest (default) or block.",
             )
     }
 }
@@ -398,6 +423,7 @@ fn load_settings_from_env() -> Result<(EngineConfig, ResultLimits), String> {
     ])?
     .unwrap_or(8194);
     config.transport = Transport::Direct(vec![ServerAddr::new(host, port)]);
+    config.bql_app_name = env_string(&["XBBG_MCP_BQL_APP_NAME"]);
     config.request_pool_size =
         env_usize(&["XBBG_MCP_REQUEST_POOL_SIZE", "XBBG_REQUEST_POOL_SIZE"])?
             .unwrap_or(config.request_pool_size);
@@ -691,9 +717,7 @@ fn map_recipe_error(error: RecipeError, limits: &ResultLimits) -> ErrorData {
 fn map_request_error(error: BlpAsyncError, limits: &ResultLimits) -> ErrorData {
     match error {
         BlpAsyncError::ConfigError { detail } => bounded_invalid_params(&detail, limits),
-        BlpAsyncError::Blp(blp_error) | BlpAsyncError::BlpError(blp_error) => {
-            map_blp_error(blp_error, limits)
-        }
+        BlpAsyncError::Blp(blp_error) => map_blp_error(blp_error, limits),
         other => bounded_internal_error(&other, limits),
     }
 }
@@ -825,7 +849,7 @@ fn map_blp_error(error: BlpError, limits: &ResultLimits) -> ErrorData {
                 })),
             )
         }
-        other => bounded_internal_error(&other, limits),
+        other => bounded_internal_error(&blp_error_display(&other), limits),
     }
 }
 
@@ -945,6 +969,7 @@ mod tests {
                 "bql",
                 "bsrch",
                 "check_entitlements",
+                "delay_status",
                 "request",
                 "resolve_venues"
             ]
@@ -978,6 +1003,24 @@ mod tests {
             );
         }
 
+        for tool_name in ["bdp", "bdh", "bdib", "request"] {
+            let schema = &tool_by_name[tool_name].input_schema;
+            assert!(
+                schema["properties"].get("on_delayed").is_some(),
+                "{tool_name} must advertise on_delayed"
+            );
+            assert_eq!(
+                schema["$defs"]["DelayedDataPolicy"]["enum"],
+                json!(["warn", "raise", "ignore"])
+            );
+        }
+        assert!(
+            tool_by_name["bds"].input_schema["properties"]
+                .get("on_delayed")
+                .is_none(),
+            "bulk data does not support on_delayed"
+        );
+
         let entitlement_schema = tool_by_name
             .get("check_entitlements")
             .expect("check_entitlements tool")
@@ -986,6 +1029,18 @@ mod tests {
             .expect("check_entitlements properties");
         assert!(entitlement_schema.get("eids").is_some());
         assert!(entitlement_schema.get("service").is_some());
+
+        let delay_status = tool_by_name["delay_status"];
+        assert_eq!(
+            delay_status.input_schema.get("required"),
+            Some(&json!(["tickers"]))
+        );
+        let delay_schema = delay_status.input_schema.get("properties").unwrap();
+        assert_eq!(delay_schema["tickers"]["minItems"], 1);
+        assert_eq!(delay_schema["check_identity"]["type"], "boolean");
+        let annotations = delay_status.annotations.as_ref().unwrap();
+        assert_eq!(annotations.read_only_hint, Some(true));
+        assert_eq!(annotations.destructive_hint, Some(false));
 
         for tool_name in ["resolve_venues", "auction_snapshot"] {
             let tool = tool_by_name.get(tool_name).expect("auction tool");
@@ -1076,11 +1131,13 @@ mod tests {
             data["returned_errors"].as_u64().unwrap() + data["omitted_errors"].as_u64().unwrap(),
             100
         );
-        assert!(data["errors"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|entry| { entry.get("path").is_some() && entry.get("message").is_some() }));
+        assert!(
+            data["errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|entry| { entry.get("path").is_some() && entry.get("message").is_some() })
+        );
         let primary = &data["errors"][0];
         assert_eq!(primary["path"], "field.0");
         assert!(primary["message"].as_str().unwrap().ends_with('…'));
@@ -1116,6 +1173,138 @@ mod tests {
 
         assert!(serde_json::to_vec(&error).unwrap().len() <= limits.max_result_bytes);
         assert_eq!(error.data.unwrap()["error_data_omitted"], true);
+    }
+
+    #[test]
+    fn request_failure_context_reaches_mcp_clients() {
+        let denial = "User not authorized to use BQL";
+        let error = map_blp_error(
+            BlpError::RequestFailure {
+                service: "//blp/bqlsvc".into(),
+                operation: Some("sendQuery".into()),
+                cid: None,
+                label: None,
+                request_id: None,
+                source: Some(denial.into()),
+            },
+            &ResultLimits::default(),
+        );
+
+        assert_eq!(error.code, rmcp::model::ErrorCode::INTERNAL_ERROR);
+        assert!(error.message.contains(denial));
+        assert!(error.message.contains("//blp/bqlsvc"));
+        assert!(error.message.contains("sendQuery"));
+    }
+
+    #[test]
+    fn request_failures_without_a_source_retain_request_context() {
+        let error = map_blp_error(
+            BlpError::RequestFailure {
+                service: "//blp/bqlsvc".into(),
+                operation: Some("sendQuery".into()),
+                cid: Some(xbbg_core::errors::CorrelationContext::U64(42)),
+                label: Some("synthetic denial".into()),
+                request_id: Some("synthetic-request".into()),
+                source: None,
+            },
+            &ResultLimits::default(),
+        );
+
+        assert_eq!(error.code, rmcp::model::ErrorCode::INTERNAL_ERROR);
+        for context in [
+            "//blp/bqlsvc",
+            "sendQuery",
+            "42",
+            "synthetic denial",
+            "synthetic-request",
+        ] {
+            assert!(error.message.contains(context));
+        }
+        assert!(error.data.is_none());
+    }
+
+    #[test]
+    fn request_failure_sources_respect_string_and_serialized_budgets() {
+        for fragment in ["\u{1}\"\\\n", "拒否🙂", "synthetic denial "] {
+            for (max_string_chars, max_string_bytes) in [(2_000, 2_000), (128, 256)] {
+                let limits = ResultLimits {
+                    max_result_bytes: MIN_RESULT_BYTES,
+                    max_string_chars,
+                    max_string_bytes,
+                    ..ResultLimits::default()
+                };
+                let source = format!(
+                    "User not authorized to use BQL: {}",
+                    fragment.repeat(10_000)
+                );
+                let error = map_blp_error(
+                    BlpError::RequestFailure {
+                        service: "//blp/bqlsvc".into(),
+                        operation: Some("sendQuery".into()),
+                        cid: None,
+                        label: None,
+                        request_id: None,
+                        source: Some(source.into()),
+                    },
+                    &limits,
+                );
+
+                assert_eq!(error.code, rmcp::model::ErrorCode::INTERNAL_ERROR);
+                assert!(error.message.contains("User not authorized to use BQL"));
+                assert!(error.message.ends_with('…'));
+                assert!(error.message.chars().count() <= limits.max_string_chars);
+                assert!(error.message.len() <= limits.max_string_bytes);
+                assert!(serde_json::to_vec(&error).unwrap().len() <= limits.max_result_bytes);
+                assert_eq!(error.data.unwrap()["message_truncated"], true);
+            }
+        }
+    }
+
+    #[test]
+    fn request_failure_source_formatting_stops_at_the_output_bound() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        #[derive(Debug)]
+        struct StreamingSource(Arc<AtomicUsize>);
+
+        impl std::fmt::Display for StreamingSource {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                for _ in 0..1_000_000 {
+                    self.0.fetch_add(1, Ordering::Relaxed);
+                    formatter.write_str("synthetic denial 🙂\n")?;
+                }
+                Ok(())
+            }
+        }
+
+        impl std::error::Error for StreamingSource {}
+
+        let limits = ResultLimits {
+            max_result_bytes: MIN_RESULT_BYTES,
+            max_string_chars: 128,
+            max_string_bytes: 256,
+            ..ResultLimits::default()
+        };
+        let writes = Arc::new(AtomicUsize::new(0));
+        let error = map_blp_error(
+            BlpError::RequestFailure {
+                service: "//blp/bqlsvc".into(),
+                operation: Some("sendQuery".into()),
+                cid: None,
+                label: None,
+                request_id: None,
+                source: Some(Box::new(StreamingSource(Arc::clone(&writes)))),
+            },
+            &limits,
+        );
+
+        assert!(error.message.contains("synthetic denial"));
+        assert!(error.message.ends_with('…'));
+        assert_eq!(error.data.as_ref().unwrap()["message_truncated"], true);
+        assert!(serde_json::to_vec(&error).unwrap().len() <= limits.max_result_bytes);
+        let writes = writes.load(Ordering::Relaxed);
+        assert!(writes > 0);
+        assert!(writes <= limits.max_string_chars + 1);
     }
 
     #[test]

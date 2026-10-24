@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class BuildConfig(BaseModel):
     """
-    JSX build configuration for an App.  Phase 1: schema only. Phase 3: used by the build pipeline Celery task.
+    JSX build configuration for an App.  Phase 1: schema only. Phase 3: used by the build pipeline task.
     """ # noqa: E501
     entry: Optional[StrictStr] = Field(default='src/layout.jsx', description="Build entry point")
     framework: Optional[StrictStr] = 'react'

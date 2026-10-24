@@ -78,6 +78,7 @@ __all__ = (
     "SoftwareDeploymentStatusType",
     "StackAttributeType",
     "StackErrorCodeType",
+    "StorageConnectorAuthenticationType",
     "StorageConnectorTypeType",
     "StreamViewType",
     "ThemeAttributeType",
@@ -244,6 +245,7 @@ StackAttributeType = Literal[
     "IAM_ROLE_ARN",
     "REDIRECT_URL",
     "STORAGE_CONNECTORS",
+    "STORAGE_CONNECTOR_AUTHENTICATION",
     "STORAGE_CONNECTOR_GOOGLE_DRIVE",
     "STORAGE_CONNECTOR_HOMEFOLDERS",
     "STORAGE_CONNECTOR_ONE_DRIVE",
@@ -252,6 +254,7 @@ StackAttributeType = Literal[
     "USER_SETTINGS",
 ]
 StackErrorCodeType = Literal["INTERNAL_SERVICE_ERROR", "STORAGE_CONNECTOR_ERROR"]
+StorageConnectorAuthenticationType = Literal["FORCE_REAUTHENTICATION", "REUSE_CREDENTIALS"]
 StorageConnectorTypeType = Literal["GOOGLE_DRIVE", "HOMEFOLDERS", "ONE_DRIVE"]
 StreamViewType = Literal["APP", "DESKTOP"]
 ThemeAttributeType = Literal["FOOTER_LINKS"]
@@ -420,13 +423,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -494,6 +496,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -628,6 +631,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -678,7 +682,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

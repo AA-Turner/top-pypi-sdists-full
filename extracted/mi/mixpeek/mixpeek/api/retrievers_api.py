@@ -61,7 +61,7 @@ class RetrieversApi:
     def clone_retriever(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Source retriever ID or name to clone.")],
-        clone_retriever_request: CloneRetrieverRequest,
+        clone_retriever_request: Annotated[CloneRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -81,7 +81,7 @@ class RetrieversApi:
 
         :param retriever_id: Source retriever ID or name to clone. (required)
         :type retriever_id: str
-        :param clone_retriever_request: (required)
+        :param clone_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_retriever_request: CloneRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -115,13 +115,15 @@ class RetrieversApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneRetrieverResponse",
+            '200': "CloneRetrieverResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -138,7 +140,7 @@ class RetrieversApi:
     def clone_retriever_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Source retriever ID or name to clone.")],
-        clone_retriever_request: CloneRetrieverRequest,
+        clone_retriever_request: Annotated[CloneRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -158,7 +160,7 @@ class RetrieversApi:
 
         :param retriever_id: Source retriever ID or name to clone. (required)
         :type retriever_id: str
-        :param clone_retriever_request: (required)
+        :param clone_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_retriever_request: CloneRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -192,13 +194,15 @@ class RetrieversApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneRetrieverResponse",
+            '200': "CloneRetrieverResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -215,7 +219,7 @@ class RetrieversApi:
     def clone_retriever_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Source retriever ID or name to clone.")],
-        clone_retriever_request: CloneRetrieverRequest,
+        clone_retriever_request: Annotated[CloneRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -235,7 +239,7 @@ class RetrieversApi:
 
         :param retriever_id: Source retriever ID or name to clone. (required)
         :type retriever_id: str
-        :param clone_retriever_request: (required)
+        :param clone_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_retriever_request: CloneRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -269,13 +273,15 @@ class RetrieversApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CloneRetrieverResponse",
+            '200': "CloneRetrieverResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -368,7 +374,7 @@ class RetrieversApi:
     @validate_call
     def create_retriever(
         self,
-        create_retriever_request: CreateRetrieverRequest,
+        create_retriever_request: Annotated[CreateRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -386,7 +392,7 @@ class RetrieversApi:
 
         Create a new retriever.  A retriever executes a series of stages to find and process documents from one or more collections.
 
-        :param create_retriever_request: (required)
+        :param create_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_retriever_request: CreateRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -424,8 +430,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -441,7 +449,7 @@ class RetrieversApi:
     @validate_call
     def create_retriever_with_http_info(
         self,
-        create_retriever_request: CreateRetrieverRequest,
+        create_retriever_request: Annotated[CreateRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -459,7 +467,7 @@ class RetrieversApi:
 
         Create a new retriever.  A retriever executes a series of stages to find and process documents from one or more collections.
 
-        :param create_retriever_request: (required)
+        :param create_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_retriever_request: CreateRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -497,8 +505,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -514,7 +524,7 @@ class RetrieversApi:
     @validate_call
     def create_retriever_without_preload_content(
         self,
-        create_retriever_request: CreateRetrieverRequest,
+        create_retriever_request: Annotated[CreateRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -532,7 +542,7 @@ class RetrieversApi:
 
         Create a new retriever.  A retriever executes a series of stages to find and process documents from one or more collections.
 
-        :param create_retriever_request: (required)
+        :param create_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_retriever_request: CreateRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -570,8 +580,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -717,8 +729,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -790,8 +804,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -863,8 +879,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -942,7 +960,7 @@ class RetrieversApi:
     def execute_batch_retrievers(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name.")],
-        execute_batch_request: ExecuteBatchRequest,
+        execute_batch_request: Annotated[ExecuteBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in result documents. Also accepted as a body field — if either source is true, vectors are returned.")] = None,
         _request_timeout: Union[
@@ -960,11 +978,11 @@ class RetrieversApi:
     ) -> object:
         """Batch Execute Retriever
 
-        Execute a retriever against multiple queries in a single request. The retriever is fetched and optimized once, then executed concurrently against each query with bounded parallelism.  **Use case:** IP safety / copyright clearance — scan 20 media files against face, logo, or audio retrievers in one call instead of 60 sequential SSE requests.  **Limits:** 1-50 queries per batch, 1-20 concurrency.  Returns results keyed by query index with per-query documents and errors.
+        Execute a retriever against multiple queries in a single request. The retriever is fetched and optimized once, then executed concurrently against each query with bounded parallelism.  **Use case:** IP safety / copyright clearance — scan 20 media files against face, logo, or audio retrievers in one call instead of 60 sequential SSE requests.  **Limits:** 1-16 queries per batch (a 17th is refused with `limits.max_queries`), 1-20 concurrency.  Returns results keyed by query index with per-query documents and errors.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
-        :param execute_batch_request: (required)
+        :param execute_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type execute_batch_request: ExecuteBatchRequest
         :param return_presigned_urls: Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.
         :type return_presigned_urls: bool
@@ -1009,8 +1027,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1027,7 +1047,7 @@ class RetrieversApi:
     def execute_batch_retrievers_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name.")],
-        execute_batch_request: ExecuteBatchRequest,
+        execute_batch_request: Annotated[ExecuteBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in result documents. Also accepted as a body field — if either source is true, vectors are returned.")] = None,
         _request_timeout: Union[
@@ -1045,11 +1065,11 @@ class RetrieversApi:
     ) -> ApiResponse[object]:
         """Batch Execute Retriever
 
-        Execute a retriever against multiple queries in a single request. The retriever is fetched and optimized once, then executed concurrently against each query with bounded parallelism.  **Use case:** IP safety / copyright clearance — scan 20 media files against face, logo, or audio retrievers in one call instead of 60 sequential SSE requests.  **Limits:** 1-50 queries per batch, 1-20 concurrency.  Returns results keyed by query index with per-query documents and errors.
+        Execute a retriever against multiple queries in a single request. The retriever is fetched and optimized once, then executed concurrently against each query with bounded parallelism.  **Use case:** IP safety / copyright clearance — scan 20 media files against face, logo, or audio retrievers in one call instead of 60 sequential SSE requests.  **Limits:** 1-16 queries per batch (a 17th is refused with `limits.max_queries`), 1-20 concurrency.  Returns results keyed by query index with per-query documents and errors.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
-        :param execute_batch_request: (required)
+        :param execute_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type execute_batch_request: ExecuteBatchRequest
         :param return_presigned_urls: Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.
         :type return_presigned_urls: bool
@@ -1094,8 +1114,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1112,7 +1134,7 @@ class RetrieversApi:
     def execute_batch_retrievers_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name.")],
-        execute_batch_request: ExecuteBatchRequest,
+        execute_batch_request: Annotated[ExecuteBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in result documents. Also accepted as a body field — if either source is true, vectors are returned.")] = None,
         _request_timeout: Union[
@@ -1130,11 +1152,11 @@ class RetrieversApi:
     ) -> RESTResponseType:
         """Batch Execute Retriever
 
-        Execute a retriever against multiple queries in a single request. The retriever is fetched and optimized once, then executed concurrently against each query with bounded parallelism.  **Use case:** IP safety / copyright clearance — scan 20 media files against face, logo, or audio retrievers in one call instead of 60 sequential SSE requests.  **Limits:** 1-50 queries per batch, 1-20 concurrency.  Returns results keyed by query index with per-query documents and errors.
+        Execute a retriever against multiple queries in a single request. The retriever is fetched and optimized once, then executed concurrently against each query with bounded parallelism.  **Use case:** IP safety / copyright clearance — scan 20 media files against face, logo, or audio retrievers in one call instead of 60 sequential SSE requests.  **Limits:** 1-16 queries per batch (a 17th is refused with `limits.max_queries`), 1-20 concurrency.  Returns results keyed by query index with per-query documents and errors.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
-        :param execute_batch_request: (required)
+        :param execute_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type execute_batch_request: ExecuteBatchRequest
         :param return_presigned_urls: Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.
         :type return_presigned_urls: bool
@@ -1179,8 +1201,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1284,7 +1308,7 @@ class RetrieversApi:
     def execute_retriever(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name. Pipeline will be automatically optimized before execution.")],
-        execute_retriever_request: ExecuteRetrieverRequest,
+        execute_retriever_request: Annotated[ExecuteRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in result documents. Also accepted as a body field — if either source is true, vectors are returned.")] = None,
         explain: Annotated[Optional[StrictBool], Field(description="Return the inline `explain_plan` (per-stage timings + optimization summary) in the response. Also accepted as a body field — if either source is true, the plan is included.")] = None,
@@ -1305,11 +1329,11 @@ class RetrieversApi:
     ) -> ExecuteRetrieverResponse:
         """Execute Retriever (Auto-Optimized)
 
-        Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
+        Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - limits: Every cap that clamped the request (setting, value asked for, value used, the cap's maximum, the stage), absent when nothing was capped. A capped run can return fewer documents than asked for. - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
 
         :param retriever_id: Retriever ID or name. Pipeline will be automatically optimized before execution. (required)
         :type retriever_id: str
-        :param execute_retriever_request: (required)
+        :param execute_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type execute_retriever_request: ExecuteRetrieverRequest
         :param return_presigned_urls: Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.
         :type return_presigned_urls: bool
@@ -1363,8 +1387,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1381,7 +1407,7 @@ class RetrieversApi:
     def execute_retriever_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name. Pipeline will be automatically optimized before execution.")],
-        execute_retriever_request: ExecuteRetrieverRequest,
+        execute_retriever_request: Annotated[ExecuteRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in result documents. Also accepted as a body field — if either source is true, vectors are returned.")] = None,
         explain: Annotated[Optional[StrictBool], Field(description="Return the inline `explain_plan` (per-stage timings + optimization summary) in the response. Also accepted as a body field — if either source is true, the plan is included.")] = None,
@@ -1402,11 +1428,11 @@ class RetrieversApi:
     ) -> ApiResponse[ExecuteRetrieverResponse]:
         """Execute Retriever (Auto-Optimized)
 
-        Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
+        Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - limits: Every cap that clamped the request (setting, value asked for, value used, the cap's maximum, the stage), absent when nothing was capped. A capped run can return fewer documents than asked for. - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
 
         :param retriever_id: Retriever ID or name. Pipeline will be automatically optimized before execution. (required)
         :type retriever_id: str
-        :param execute_retriever_request: (required)
+        :param execute_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type execute_retriever_request: ExecuteRetrieverRequest
         :param return_presigned_urls: Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.
         :type return_presigned_urls: bool
@@ -1460,8 +1486,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1478,7 +1506,7 @@ class RetrieversApi:
     def execute_retriever_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name. Pipeline will be automatically optimized before execution.")],
-        execute_retriever_request: ExecuteRetrieverRequest,
+        execute_retriever_request: Annotated[ExecuteRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.")] = None,
         return_vectors: Annotated[Optional[StrictBool], Field(description="Include vector embeddings in result documents. Also accepted as a body field — if either source is true, vectors are returned.")] = None,
         explain: Annotated[Optional[StrictBool], Field(description="Return the inline `explain_plan` (per-stage timings + optimization summary) in the response. Also accepted as a body field — if either source is true, the plan is included.")] = None,
@@ -1499,11 +1527,11 @@ class RetrieversApi:
     ) -> RESTResponseType:
         """Execute Retriever (Auto-Optimized)
 
-        Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
+        Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - limits: Every cap that clamped the request (setting, value asked for, value used, the cap's maximum, the stage), absent when nothing was capped. A capped run can return fewer documents than asked for. - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
 
         :param retriever_id: Retriever ID or name. Pipeline will be automatically optimized before execution. (required)
         :type retriever_id: str
-        :param execute_retriever_request: (required)
+        :param execute_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type execute_retriever_request: ExecuteRetrieverRequest
         :param return_presigned_urls: Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a body field — if either source is true, presigning is enabled.
         :type return_presigned_urls: bool
@@ -1557,8 +1585,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1677,7 +1707,7 @@ class RetrieversApi:
     def explain_retriever_execution_id_execute(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name to explain. The execution plan will show the OPTIMIZED version after automatic transformations.")],
-        explain_retriever_request: ExplainRetrieverRequest,
+        explain_retriever_request: Annotated[ExplainRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1697,7 +1727,7 @@ class RetrieversApi:
 
         :param retriever_id: Retriever ID or name to explain. The execution plan will show the OPTIMIZED version after automatic transformations. (required)
         :type retriever_id: str
-        :param explain_retriever_request: (required)
+        :param explain_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type explain_retriever_request: ExplainRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1736,8 +1766,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1754,7 +1786,7 @@ class RetrieversApi:
     def explain_retriever_execution_id_execute_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name to explain. The execution plan will show the OPTIMIZED version after automatic transformations.")],
-        explain_retriever_request: ExplainRetrieverRequest,
+        explain_retriever_request: Annotated[ExplainRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1774,7 +1806,7 @@ class RetrieversApi:
 
         :param retriever_id: Retriever ID or name to explain. The execution plan will show the OPTIMIZED version after automatic transformations. (required)
         :type retriever_id: str
-        :param explain_retriever_request: (required)
+        :param explain_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type explain_retriever_request: ExplainRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1813,8 +1845,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1831,7 +1865,7 @@ class RetrieversApi:
     def explain_retriever_execution_id_execute_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name to explain. The execution plan will show the OPTIMIZED version after automatic transformations.")],
-        explain_retriever_request: ExplainRetrieverRequest,
+        explain_retriever_request: Annotated[ExplainRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1851,7 +1885,7 @@ class RetrieversApi:
 
         :param retriever_id: Retriever ID or name to explain. The execution plan will show the OPTIMIZED version after automatic transformations. (required)
         :type retriever_id: str
-        :param explain_retriever_request: (required)
+        :param explain_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type explain_retriever_request: ExplainRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1890,8 +1924,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2001,7 +2037,7 @@ class RetrieversApi:
     ) -> Dict[str, object]:
         """Get Execution Query Profile (explain-on-execute read path)
 
-        Return the query profile for a PAST execution, by execution_id — the same plan that `explain=true` returns inline at execute time, read back later. Contains per-stage timings + input/output counts, MVS execution stats, the optimizer summary, and (as it is wired) the shard ExecutionTrace (chosen legs, fusion, push-downs, nprobe, served/shadow planner). Reads the query_profile persisted on the RETRIEVER_EXECUTION analytics event (latest row wins). Returns 404 if the execution has no captured profile. This is the queryable, Studio-friendly counterpart to inline explain.
+        Return the query profile for a PAST execution, by execution_id — the same plan that `explain=true` returns inline at execute time, read back later. Contains per-stage timings + input/output counts, MVS execution stats, the optimizer summary, and (as it is wired) the shard ExecutionTrace (chosen legs, fusion, push-downs, nprobe, served/shadow planner). Reads the query_profile stored on the execution's record in the mxp_retriever_executions collection. Returns 404 if the execution has no captured profile. This is the queryable, Studio-friendly counterpart to inline explain.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -2044,8 +2080,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2078,7 +2116,7 @@ class RetrieversApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Get Execution Query Profile (explain-on-execute read path)
 
-        Return the query profile for a PAST execution, by execution_id — the same plan that `explain=true` returns inline at execute time, read back later. Contains per-stage timings + input/output counts, MVS execution stats, the optimizer summary, and (as it is wired) the shard ExecutionTrace (chosen legs, fusion, push-downs, nprobe, served/shadow planner). Reads the query_profile persisted on the RETRIEVER_EXECUTION analytics event (latest row wins). Returns 404 if the execution has no captured profile. This is the queryable, Studio-friendly counterpart to inline explain.
+        Return the query profile for a PAST execution, by execution_id — the same plan that `explain=true` returns inline at execute time, read back later. Contains per-stage timings + input/output counts, MVS execution stats, the optimizer summary, and (as it is wired) the shard ExecutionTrace (chosen legs, fusion, push-downs, nprobe, served/shadow planner). Reads the query_profile stored on the execution's record in the mxp_retriever_executions collection. Returns 404 if the execution has no captured profile. This is the queryable, Studio-friendly counterpart to inline explain.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -2121,8 +2159,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2155,7 +2195,7 @@ class RetrieversApi:
     ) -> RESTResponseType:
         """Get Execution Query Profile (explain-on-execute read path)
 
-        Return the query profile for a PAST execution, by execution_id — the same plan that `explain=true` returns inline at execute time, read back later. Contains per-stage timings + input/output counts, MVS execution stats, the optimizer summary, and (as it is wired) the shard ExecutionTrace (chosen legs, fusion, push-downs, nprobe, served/shadow planner). Reads the query_profile persisted on the RETRIEVER_EXECUTION analytics event (latest row wins). Returns 404 if the execution has no captured profile. This is the queryable, Studio-friendly counterpart to inline explain.
+        Return the query profile for a PAST execution, by execution_id — the same plan that `explain=true` returns inline at execute time, read back later. Contains per-stage timings + input/output counts, MVS execution stats, the optimizer summary, and (as it is wired) the shard ExecutionTrace (chosen legs, fusion, push-downs, nprobe, served/shadow planner). Reads the query_profile stored on the execution's record in the mxp_retriever_executions collection. Returns 404 if the execution has no captured profile. This is the queryable, Studio-friendly counterpart to inline explain.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -2198,8 +2238,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2339,8 +2381,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2416,8 +2460,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2493,8 +2539,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2591,7 +2639,7 @@ class RetrieversApi:
     ) -> Dict[str, object]:
         """Get Live Execution Status
 
-        Fetch live execution status from the durability journal. Returns real-time progress including current stage, completed stages, and heartbeat timestamp. If the execution is completed, returns the full results. Falls back to ClickHouse for historical executions.
+        Fetch live execution status from the durability journal. Returns real-time progress including current stage, completed stages, and heartbeat timestamp. If the execution is completed, returns the full results. Falls back to the execution history for past executions.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -2634,8 +2682,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2668,7 +2718,7 @@ class RetrieversApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Get Live Execution Status
 
-        Fetch live execution status from the durability journal. Returns real-time progress including current stage, completed stages, and heartbeat timestamp. If the execution is completed, returns the full results. Falls back to ClickHouse for historical executions.
+        Fetch live execution status from the durability journal. Returns real-time progress including current stage, completed stages, and heartbeat timestamp. If the execution is completed, returns the full results. Falls back to the execution history for past executions.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -2711,8 +2761,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2745,7 +2797,7 @@ class RetrieversApi:
     ) -> RESTResponseType:
         """Get Live Execution Status
 
-        Fetch live execution status from the durability journal. Returns real-time progress including current stage, completed stages, and heartbeat timestamp. If the execution is completed, returns the full results. Falls back to ClickHouse for historical executions.
+        Fetch live execution status from the durability journal. Returns real-time progress including current stage, completed stages, and heartbeat timestamp. If the execution is completed, returns the full results. Falls back to the execution history for past executions.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -2788,8 +2840,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2925,8 +2979,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2998,8 +3054,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3071,8 +3129,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3158,7 +3218,7 @@ class RetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_executions_request: Optional[ListExecutionsRequest] = None,
+        list_executions_request: Annotated[Optional[ListExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3194,7 +3254,7 @@ class RetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_executions_request:
+        :param list_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_executions_request: ListExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3241,8 +3301,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3267,7 +3329,7 @@ class RetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_executions_request: Optional[ListExecutionsRequest] = None,
+        list_executions_request: Annotated[Optional[ListExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3303,7 +3365,7 @@ class RetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_executions_request:
+        :param list_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_executions_request: ListExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3350,8 +3412,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3376,7 +3440,7 @@ class RetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_executions_request: Optional[ListExecutionsRequest] = None,
+        list_executions_request: Annotated[Optional[ListExecutionsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3412,7 +3476,7 @@ class RetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_executions_request:
+        :param list_executions_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_executions_request: ListExecutionsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3459,8 +3523,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3601,7 +3667,7 @@ class RetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_retrievers_request: Optional[ListRetrieversRequest] = None,
+        list_retrievers_request: Annotated[Optional[ListRetrieversRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3635,7 +3701,7 @@ class RetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_retrievers_request:
+        :param list_retrievers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_retrievers_request: ListRetrieversRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3681,8 +3747,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3706,7 +3774,7 @@ class RetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_retrievers_request: Optional[ListRetrieversRequest] = None,
+        list_retrievers_request: Annotated[Optional[ListRetrieversRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3740,7 +3808,7 @@ class RetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_retrievers_request:
+        :param list_retrievers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_retrievers_request: ListRetrieversRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3786,8 +3854,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3811,7 +3881,7 @@ class RetrieversApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_retrievers_request: Optional[ListRetrieversRequest] = None,
+        list_retrievers_request: Annotated[Optional[ListRetrieversRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3845,7 +3915,7 @@ class RetrieversApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_retrievers_request:
+        :param list_retrievers_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_retrievers_request: ListRetrieversRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3891,8 +3961,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4106,8 +4178,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4207,8 +4281,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4308,8 +4384,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4424,7 +4502,7 @@ class RetrieversApi:
     def patch_retriever(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name.")],
-        patch_retriever_request: PatchRetrieverRequest,
+        patch_retriever_request: Annotated[PatchRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4444,7 +4522,7 @@ class RetrieversApi:
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
-        :param patch_retriever_request: (required)
+        :param patch_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_retriever_request: PatchRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4483,8 +4561,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4501,7 +4581,7 @@ class RetrieversApi:
     def patch_retriever_with_http_info(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name.")],
-        patch_retriever_request: PatchRetrieverRequest,
+        patch_retriever_request: Annotated[PatchRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4521,7 +4601,7 @@ class RetrieversApi:
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
-        :param patch_retriever_request: (required)
+        :param patch_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_retriever_request: PatchRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4560,8 +4640,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4578,7 +4660,7 @@ class RetrieversApi:
     def patch_retriever_without_preload_content(
         self,
         retriever_id: Annotated[StrictStr, Field(description="Retriever ID or name.")],
-        patch_retriever_request: PatchRetrieverRequest,
+        patch_retriever_request: Annotated[PatchRetrieverRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4598,7 +4680,7 @@ class RetrieversApi:
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
-        :param patch_retriever_request: (required)
+        :param patch_retriever_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_retriever_request: PatchRetrieverRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4637,8 +4719,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4795,8 +4879,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4876,8 +4962,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4957,8 +5045,10 @@ class RetrieversApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

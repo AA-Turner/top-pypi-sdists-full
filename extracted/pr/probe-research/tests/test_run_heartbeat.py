@@ -11,6 +11,7 @@ silent gets a legitimately-running run reaped as crashed.
 from __future__ import annotations
 
 import gc
+import threading
 import time
 import warnings
 
@@ -718,13 +719,29 @@ def test_a_waiting_exporter_releases_the_shared_outbox_lock(app, tmp_path, monke
     ambient = _as_ambient(
         make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True, drain_interval=0.05)
     )
+    # The exporter asks for a new login once when the API refuses it, then again
+    # on every tick it waits, and it lets go of the lease between the two: its
+    # second unanswered ask means it is waiting. A fixed 0.4 s sleep was not
+    # always past the refusal on agent-ci's loaded py310 runner.
+    unanswered: list = []
+    real_refresh = ambient.refresh_credentials
+
+    def refresh(*, refused=None):
+        fresh = real_refresh(refused=refused)
+        exporter = threading.current_thread().name.startswith("probe-outbox-export-")
+        if refused == _OLD and not fresh and exporter:
+            unanswered.append(refused)
+        return fresh
+
+    monkeypatch.setattr(ambient, "refresh_credentials", refresh)
     try:
         run = open_run(ambient, experiment="e", name="r", heartbeat=False)
         app.rejected_tokens.add(_OLD)
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             run.log({"loss": 1.0}, step=0)
-            time.sleep(0.4)  # refused, and nothing new to read yet
+            # Refused, and nothing new to read yet.
+            assert _wait_for(lambda: len(unanswered) >= 2), "the exporter never waited for a login"
             assert ambient._exporter.alive
             handle = open(_lease_path(ambient.journal), "a+")
             try:

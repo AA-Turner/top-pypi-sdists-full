@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
-from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Event, Kind
+from probe.daemon.events import PEER_TOOL, READER_SOURCE, REQUEST_SOURCE, Event, Kind
 from probe.tap_core import secrets
 
 FORMAT_VERSION = 1
@@ -436,7 +436,7 @@ def add_device_tokens(n: int, lane: str = LANE_WRITE) -> None:
     never lose an update or rename each other's half-written file. The lock is
     waited for at most DEVICE_LOCK_WAIT_S; past that, TimeoutError (the caller
     counts it next time)."""
-    import fcntl
+    from probe._shared import oscompat as fcntl  # fcntl.flock, or msvcrt on Windows
 
     if n <= 0:
         return
@@ -924,11 +924,13 @@ class Store:
             "WHERE seq > ? ORDER BY seq LIMIT ?", (after_seq, int(limit))).fetchall()
 
     def digest_rows(self) -> list[sqlite3.Row]:
-        """The ML gate's digest (`gate.digest`): the researcher's prompts and the
-        agent's tool calls, oldest first -- never a tool's output."""
+        """The ML gate's digest (`gate.digest`): the researcher's prompts, the
+        messages other agents sent the session (`PEER_TOOL`) and the agent's tool
+        calls, oldest first -- never a tool's output."""
         return self.db.execute(
             "SELECT seq, stream, kind, text, tool, command, tool_input FROM events "
-            "WHERE kind IN ('prompt', 'tool_call') ORDER BY seq").fetchall()
+            "WHERE kind IN ('prompt', 'tool_call') OR (kind = 'meta' AND tool = ?) ORDER BY seq",
+            (PEER_TOOL,)).fetchall()
 
     def first_seq_of_turn(self, turn: int) -> int | None:
         row = self.db.execute("SELECT min(seq) AS s FROM events WHERE turn = ?", (turn,)).fetchone()

@@ -19,6 +19,10 @@ from tap.session_identity import validate_identity
 from tap.session_journal import DeliveryPending, Journal
 from tap.storage import Storage
 
+# Another session's folder: an absolute path on this system (`/synthetic/...`
+# has no drive, so Windows reads it as relative and the tap retains its lines).
+OTHER_CWD = "C:\\synthetic\\other" if os.name == "nt" else "/synthetic/other"
+
 
 class Wire:
     base_url = "http://synthetic.invalid"
@@ -192,7 +196,7 @@ def test_unavailable_protocol_never_stages_or_downgrades(setup):
     journal.close()
 
 
-def _other_source(config, *, cwd="/synthetic/other", native=True):
+def _other_source(config, *, cwd=OTHER_CWD, native=True):
     sid = str(uuid4())
     path = config.transcript_path.parent / f"{sid}.jsonl"
     event = dict(type="user", message=dict(role="user", content="other session"))
@@ -238,7 +242,7 @@ def test_reconcile_admits_fifth_and_sixth_after_reserved_or_poison_prefix(
     journal = Journal(wire.base_url, "synthetic", wire.source)
     for gap in gaps[-2:]:
         assert journal.get(gap.session_id)["source_byte_end"] == gap.size
-        assert journal.get(gap.session_id)["cwd"] == "/synthetic/other"
+        assert journal.get(gap.session_id)["cwd"] == OTHER_CWD
     journal.close()
 
 
@@ -276,7 +280,7 @@ def test_disable_between_staging_and_delivery_retains_immutable_pending(setup, m
     config, storage, wire = setup
     sid, path = _other_source(config)
     journal = Journal(wire.base_url, "synthetic", wire.source)
-    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd="/synthetic/other")
+    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd=OTHER_CWD)
     journal.close()
     disabled = tapmain.cfg.disabled_paths_file()
     disabled.parent.mkdir(parents=True, exist_ok=True)
@@ -285,7 +289,7 @@ def test_disable_between_staging_and_delivery_retains_immutable_pending(setup, m
     def disable_after_stage(self, session_id, **kwargs):
         result = stage(self, session_id, **kwargs)
         if session_id == sid:
-            disabled.write_text("/synthetic/other\n")
+            disabled.write_text(OTHER_CWD + "\n")
         return result
 
     monkeypatch.setattr(Journal, "stage", disable_after_stage)
@@ -307,7 +311,7 @@ def test_shared_drain_migrates_native_cwd_but_never_guesses_missing_cwd(setup):
     journal.close()
     assert tapmain._run_durable_loop(config, storage) == 0
     journal = Journal(wire.base_url, "synthetic", wire.source)
-    assert journal.get(native_sid)["cwd"] == "/synthetic/other"
+    assert journal.get(native_sid)["cwd"] == OTHER_CWD
     assert journal.get(native_sid)["source_byte_end"] == native_path.stat().st_size
     assert "working directory is unverified" in journal.get(unknown_sid)["error"]
     assert journal.get(unknown_sid)["source_byte_end"] == 0
@@ -325,14 +329,14 @@ def _own_and_stage_in_child(sid, path, ready, partial=b""):
         wire.receipts(sid),
         historical=False,
         provenance=validate_identity(Path(path), wire.source, sid),
-        cwd="/synthetic/other",
+        cwd=OTHER_CWD,
     )
     if partial:
         with Path(path).open("ab") as handle:
             handle.write(partial)
             handle.flush()
             os.fsync(handle.fileno())
-    journal.stage(sid, cwd="/synthetic/other")
+    journal.stage(sid, cwd=OTHER_CWD)
     ready.send(True)
     # The parent kills us with SIGKILL while the live owner lock is held.
     ready.recv()
@@ -381,7 +385,7 @@ def test_sigkill_orphan_finalizes_pinned_prefix_and_appended_tail_reopens(setup,
                         dict(
                             type="user",
                             sessionId=sid,
-                            cwd="/synthetic/other",
+                            cwd=OTHER_CWD,
                             message=dict(role="user", content="resumed"),
                         )
                     )
@@ -414,7 +418,7 @@ def test_live_wrapper_blocks_orphan_completion_even_without_owner_lock(setup, mo
     config, storage, wire = setup
     sid, path = _other_source(config)
     journal = Journal(wire.base_url, "synthetic", wire.source)
-    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd="/synthetic/other")
+    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd=OTHER_CWD)
     journal.close()
     old = time.time() - tapmain.ORPHAN_QUIET_SECONDS - 1
     os.utime(path, (old, old))
@@ -440,7 +444,7 @@ def test_sigkill_partial_record_pins_complete_prefix_then_restart_consumes_compl
             dict(
                 type="user",
                 sessionId=sid,
-                cwd="/synthetic/other",
+                cwd=OTHER_CWD,
                 message=dict(role="user", content="resumed " + "x" * 70000),
             )
         )
@@ -489,7 +493,7 @@ def test_sigkill_partial_record_pins_complete_prefix_then_restart_consumes_compl
         handle.write(remainder)
     resumed = SimpleNamespace(**vars(config))
     resumed.session_id, resumed.transcript_path = sid, path
-    resumed.cwd = Path("/synthetic/other")
+    resumed.cwd = Path(OTHER_CWD)
     resumed.shutdown_sentinel = path.parent / "resumed.shutdown"
     tapmain._shutdown_requested = False
     assert tapmain._run_durable_loop(resumed, storage) == 0
@@ -605,7 +609,7 @@ def test_another_daemon_never_completes_a_session_whose_agent_is_alive(
     config, storage, wire = setup
     sid, path = _other_source(config)
     journal = Journal(wire.base_url, "synthetic", wire.source)
-    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd="/synthetic/other")
+    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd=OTHER_CWD)
     journal.close()
     old = time.time() - tapmain.ORPHAN_QUIET_SECONDS - 1
     os.utime(path, (old, old))
@@ -659,7 +663,7 @@ def test_stopping_drains_only_its_own_session(setup, monkeypatch):
     config, storage, wire = setup
     sid, path = _other_source(config)
     journal = Journal(wire.base_url, "synthetic", wire.source)
-    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd="/synthetic/other")
+    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd=OTHER_CWD)
     journal.close()
     tapmain._shutdown_requested = True
     assert tapmain._run_durable_loop(config, storage) == 0
@@ -770,7 +774,7 @@ def test_a_lasting_409_is_sent_again_on_a_backoff_while_other_sessions_flow(setu
     other, other_path = _other_source(config)
     journal = Journal(wire.base_url, "synthetic", wire.source)
     journal.ensure(
-        other, other_path, wire.receipts(other), historical=False, cwd="/synthetic/other"
+        other, other_path, wire.receipts(other), historical=False, cwd=OTHER_CWD
     )
     journal.close()
     _owner_states(monkeypatch, {}, default=Owner.ALIVE)
@@ -782,7 +786,7 @@ def test_a_lasting_409_is_sent_again_on_a_backoff_while_other_sessions_flow(setu
             event = dict(
                 type="user",
                 sessionId=other,
-                cwd="/synthetic/other",
+                cwd=OTHER_CWD,
                 message=dict(role="user", content=f"later {len(written)}"),
             )
             with other_path.open("a") as handle:
@@ -846,6 +850,33 @@ def test_the_wait_outlives_a_restart_and_ends_once_the_batch_is_accepted(setup, 
     journal.close()
 
 
+def test_a_cooling_rebase_is_asked_again_after_each_wait(setup, monkeypatch):
+    """A batch refused again soon after its journal continued the server's
+    stream waits out the 409 (`RebaseCooling`), and this same daemon asks
+    `reconcile_pending` again after each wait: the racing producer may be
+    gone by then. Before, the first answer stood for the process's life."""
+    config, storage, wire = setup
+    monkeypatch.setattr(tapmain_journal, "CONFLICT_RETRY_JITTER", 0.0)
+    clock = _clock(monkeypatch, ticks=30)
+    posts = _refuse(monkeypatch, wire, config.session_id, clock)
+    asked = []
+
+    def cooling(self, sid, _wire):
+        asked.append(clock[0])
+        raise tapmain_journal.RebaseCooling(
+            "racing",
+            status_code=409,
+            body_sha256=hashlib.sha256(self.pending(sid)).hexdigest(),
+        )
+
+    monkeypatch.setattr(tapmain_journal.Journal, "reconcile_pending", cooling)
+    assert tapmain._run_durable_loop(config, storage) == 0
+    refused = [at for sid, at in posts if sid == config.session_id]
+    assert len(refused) >= 4 and asked == refused  # one ask per refusal, each after a wait
+    gaps = [round(later - earlier) for earlier, later in itertools.pairwise(refused)]
+    assert gaps[:3] == [60, 120, 240]
+
+
 @pytest.mark.parametrize("status", [422, 503])
 def test_other_refusals_keep_their_cadence_and_record_no_wait(setup, monkeypatch, status):
     """Only a 409 that reconciliation leaves standing waits. A 422 or a 5xx
@@ -862,3 +893,124 @@ def test_other_refusals_keep_their_cadence_and_record_no_wait(setup, monkeypatch
     assert "conflict_wait" not in journal.get(config.session_id)
     assert journal.conflict_retry_in(config.session_id) == 0
     journal.close()
+
+
+# -- the daemon worker, handed to a service that supervises it (plan Q3) ---------
+
+
+class _Link:
+    """The service's `probe.service.workers.Link`, as the recorder's controls carry it."""
+
+    def __init__(self):
+        self.specs = []
+        self.released = 0
+
+    def supervise(self, spec):
+        self.specs.append(spec)
+        return True
+
+    def release(self):
+        self.released += 1
+
+
+def _daemon_switch(monkeypatch, tmp_path, sid):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg"))
+    state = tmp_path / "xdg" / "probe" / "sessions" / f"{sid}.state"
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text("daemon")
+
+
+def test_the_worker_is_handed_over_once_the_recorder_owns_the_session(setup, monkeypatch, tmp_path):
+    config, storage, _ = setup
+    _daemon_switch(monkeypatch, tmp_path, config.session_id)
+    config.workers = link = _Link()
+    spawned = []
+    monkeypatch.setattr(tapmain.Supervisor, "_spawn_argv", lambda self: spawned.append(1))
+    assert tapmain._run_durable_loop(config, storage) == 0
+    assert len(link.specs) == 1 and link.specs[0]["sid"] == config.session_id
+    assert link.released == 1, "its loop's end releases it"
+    assert spawned == [], "the tap spawned nothing itself"
+
+
+def test_a_recorder_that_steps_back_for_another_hands_nothing_over(setup, monkeypatch, tmp_path):
+    """Another recorder holds the session's live claim (D39): this one leaves
+    at once and must start, or hand over, nothing -- each of its retries would
+    otherwise churn the worker."""
+    config, storage, _ = setup
+    _daemon_switch(monkeypatch, tmp_path, config.session_id)
+    config.workers = link = _Link()
+    monkeypatch.setattr(Journal, "claim_live", lambda self, sid: False)
+    assert tapmain._run_durable_loop(config, storage) == 0
+    assert link.specs == [] and link.released == 0
+
+
+def test_with_ingestion_off_the_worker_is_still_handed_over_a_pass_later(setup, monkeypatch, tmp_path):
+    """No live claim comes while ingestion is off, but the recorder stays: its
+    worker is handed over, as `tap watch` starts one."""
+    config, storage, _ = setup
+    _daemon_switch(monkeypatch, tmp_path, config.session_id)
+    config.workers = link = _Link()
+    monkeypatch.setattr(tapmain.killswitch, "is_ingestion_enabled", lambda **kw: (False, "off"))
+    _stop_after(monkeypatch, 2)
+    assert tapmain._run_durable_loop(config, storage) == 0
+    assert len(link.specs) == 1
+
+
+def test_a_hosted_recorder_publishes_the_journal_it_holds_the_claim_in(setup):
+    """The Probe service reads a session's receipts from the journal its own
+    recorder holds the live claim in, as published here (`WatchConfig.claimed`,
+    `hosted.Controls.claim`): set once the claim is taken, cleared when the
+    loop lets go of it. No lock is probed to find it."""
+    config, storage, wire = setup
+    published = []
+    config.claimed = published.append
+    assert tapmain._run_durable_loop(config, storage) == 0
+    journal = Journal(wire.base_url, "synthetic", "claude_code")
+    assert published == [str(journal.directory), None]
+    journal.close()
+
+
+def test_hosted_controls_hold_what_the_recorder_published():
+    from tap import hosted
+
+    controls = hosted.Controls()
+    assert controls.claimed is None
+    controls.claim("/journal/ns")
+    assert controls.claimed == "/journal/ns"
+    controls.claim(None)
+    assert controls.claimed is None
+
+
+@pytest.mark.parametrize("orphan", [False, True], ids=["live", "orphan"])
+def test_a_recovered_reservation_whose_file_is_another_sessions_sends_nothing(setup, monkeypatch, orphan):
+    """Codex on 33d27365e: another session's journal row with an empty
+    acknowledged prefix (a reservation nothing was sent of yet) whose file now
+    holds a different session's transcript. Recovering it (the shared drain,
+    or pinning it as an orphan) skipped the native identity check, which only
+    the recorder's own session got: it uploaded that transcript under the
+    reserved id, and finalized it. Each recovered session's source proves it
+    is that session's before anything of it is pinned, staged or sent."""
+    config, storage, wire = setup
+    sid, path = _other_source(config)
+    path.write_text("")  # reserved before its first line
+    journal = Journal(wire.base_url, "synthetic", wire.source)
+    journal.ensure(sid, path, wire.receipts(sid), historical=False, cwd=OTHER_CWD)
+    journal.close()
+    foreign = str(uuid4())
+    path.write_text("".join(json.dumps(dict(type="user", sessionId=foreign, cwd=OTHER_CWD,
+                                            message=dict(role="user", content=f"not {sid} {i}"))) + "\n"
+                            for i in range(2)))
+    if orphan:
+        old = time.time() - tapmain.ORPHAN_QUIET_SECONDS - 1
+        os.utime(path, (old, old))
+        monkeypatch.setattr(tapmain.reconcile, "has_live_daemon", lambda _: False)
+    assert tapmain._run_durable_loop(config, storage) == 0
+    assert not any(key[0] == sid for key in wire.accepted), "nothing of it left the machine"
+    assert any(key[0] == config.session_id for key in wire.accepted), "the recorder's own session still goes"
+    journal = Journal(wire.base_url, "synthetic", wire.source)
+    try:
+        state = journal.get(sid)
+        assert state["source_byte_end"] == 0 and not state["finalized"] and journal.pending(sid) is None
+        assert not state.get("snapshot_path"), "not pinned either"
+    finally:
+        journal.close()

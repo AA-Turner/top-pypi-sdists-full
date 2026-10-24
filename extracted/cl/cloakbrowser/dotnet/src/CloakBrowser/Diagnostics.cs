@@ -65,6 +65,15 @@ internal static class Diagnostics
         {
             diag["launch"] = new Dictionary<string, object?> { ["tested"] = false, ["reason"] = "binary not installed" };
         }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // Windows ignores --version and starts a real browser, which takes a
+            // license seat and never frees it. Read the version manifest instead.
+            string? manifest = Directory.EnumerateFiles(Path.GetDirectoryName(binPath!)!, "*.manifest").FirstOrDefault();
+            string reason = "not launched on Windows (it would take a license seat)";
+            if (manifest != null) reason += $"; binary {Path.GetFileNameWithoutExtension(manifest)}";
+            diag["launch"] = new Dictionary<string, object?> { ["tested"] = false, ["reason"] = reason };
+        }
         else
         {
             var (ok, version, error) = BinaryVersion(binPath!);
@@ -245,12 +254,7 @@ internal static class Diagnostics
 
     // Launch `<binary> --version` to prove it runs.
     //
-    // Chromium only handles --version on POSIX, so on Windows the switch is ignored
-    // and a browser starts instead of printing — the probe then times out and a
-    // healthy install looks broken. --no-startup-window makes it exit right away
-    // without putting a window on screen; a broken binary still exits non-zero, so
-    // the check keeps its meaning. It just reports no version there, as nothing is
-    // printed.
+    // POSIX only: Windows ignores --version and starts a browser instead.
     private static (bool ok, string version, string error) BinaryVersion(string binaryPath)
     {
         try
@@ -263,8 +267,6 @@ internal static class Diagnostics
                 UseShellExecute = false,
             };
             startInfo.ArgumentList.Add("--version");
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                startInfo.ArgumentList.Add("--no-startup-window");
             using var proc = new Process { StartInfo = startInfo };
             proc.Start();
             // Read both pipes asynchronously so a full pipe buffer can't deadlock

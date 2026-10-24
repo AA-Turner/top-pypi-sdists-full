@@ -141,8 +141,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -218,8 +220,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -295,8 +299,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -440,8 +446,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -517,8 +525,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -594,8 +604,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -745,8 +757,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -830,8 +844,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -915,8 +931,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1082,8 +1100,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1155,8 +1175,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1228,8 +1250,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1366,8 +1390,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1443,8 +1469,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1520,8 +1548,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1671,8 +1701,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1756,8 +1788,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1841,8 +1875,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1971,7 +2007,7 @@ class AnalyticsApi:
     ) -> BucketUsageResponse:
         """Get Bucket Usage
 
-        Get usage and cost metrics.  Analyzes bucket usage and costs including: - Storage costs (GB-hours) - Upload operation costs - Sync operation costs - Cost breakdown by category  **Use Cases:** - Track bucket costs - Optimize spending - Forecast future costs - Cost attribution  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/buckets/bkt_abc123/usage?group_by=day\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        A bucket's storage, upload and sync usage over time.  Per period: storage_gb_hours, the bytes the bucket held integrated over time from its hourly storage snapshots (GB is 10^9 bytes; time before the first snapshot in the window is not counted); upload_operations, the objects created through the object create endpoints; and sync_operations, the sync runs that finished, successful or failed. Objects a sync creates count under its run, not as uploads.  Credits and estimated cost read 0: storage, uploads and syncs have no price yet, and this route reports quantities until the invoice's price table carries them. The default window is the last 30 days.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -2020,8 +2056,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2056,7 +2094,7 @@ class AnalyticsApi:
     ) -> ApiResponse[BucketUsageResponse]:
         """Get Bucket Usage
 
-        Get usage and cost metrics.  Analyzes bucket usage and costs including: - Storage costs (GB-hours) - Upload operation costs - Sync operation costs - Cost breakdown by category  **Use Cases:** - Track bucket costs - Optimize spending - Forecast future costs - Cost attribution  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/buckets/bkt_abc123/usage?group_by=day\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        A bucket's storage, upload and sync usage over time.  Per period: storage_gb_hours, the bytes the bucket held integrated over time from its hourly storage snapshots (GB is 10^9 bytes; time before the first snapshot in the window is not counted); upload_operations, the objects created through the object create endpoints; and sync_operations, the sync runs that finished, successful or failed. Objects a sync creates count under its run, not as uploads.  Credits and estimated cost read 0: storage, uploads and syncs have no price yet, and this route reports quantities until the invoice's price table carries them. The default window is the last 30 days.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -2105,8 +2143,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2141,7 +2181,7 @@ class AnalyticsApi:
     ) -> RESTResponseType:
         """Get Bucket Usage
 
-        Get usage and cost metrics.  Analyzes bucket usage and costs including: - Storage costs (GB-hours) - Upload operation costs - Sync operation costs - Cost breakdown by category  **Use Cases:** - Track bucket costs - Optimize spending - Forecast future costs - Cost attribution  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/buckets/bkt_abc123/usage?group_by=day\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        A bucket's storage, upload and sync usage over time.  Per period: storage_gb_hours, the bytes the bucket held integrated over time from its hourly storage snapshots (GB is 10^9 bytes; time before the first snapshot in the window is not counted); upload_operations, the objects created through the object create endpoints; and sync_operations, the sync runs that finished, successful or failed. Objects a sync creates count under its run, not as uploads.  Credits and estimated cost read 0: storage, uploads and syncs have no price yet, and this route reports quantities until the invoice's price table carries them. The default window is the last 30 days.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -2190,8 +2230,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2361,8 +2403,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2438,8 +2482,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2515,8 +2561,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2654,8 +2702,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2727,8 +2777,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2800,8 +2852,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2938,8 +2992,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3015,8 +3071,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3092,8 +3150,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3237,8 +3297,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3314,8 +3376,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3391,8 +3455,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3542,8 +3608,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3627,8 +3695,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3712,8 +3782,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3891,8 +3963,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3976,8 +4050,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4061,8 +4137,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4238,8 +4316,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4319,8 +4399,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4400,8 +4482,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4576,8 +4660,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4661,8 +4747,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4746,8 +4834,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4921,8 +5011,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5002,8 +5094,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5083,8 +5177,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5235,8 +5331,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5316,8 +5414,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5397,8 +5497,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5522,7 +5624,7 @@ class AnalyticsApi:
     ) -> List[Dict[str, object]]:
         """Get Extractor Performance
 
-        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` ClickHouse table over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
+        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` analytics collection over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
 
         :param extractor_name: Filter by extractor
         :type extractor_name: str
@@ -5565,8 +5667,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5599,7 +5703,7 @@ class AnalyticsApi:
     ) -> ApiResponse[List[Dict[str, object]]]:
         """Get Extractor Performance
 
-        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` ClickHouse table over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
+        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` analytics collection over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
 
         :param extractor_name: Filter by extractor
         :type extractor_name: str
@@ -5642,8 +5746,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5676,7 +5782,7 @@ class AnalyticsApi:
     ) -> RESTResponseType:
         """Get Extractor Performance
 
-        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` ClickHouse table over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
+        Get feature extraction performance metrics.  Returns per-extractor execution metrics from the ``extraction_events`` analytics collection over the last ``hours`` (namespace-scoped), one row per (extractor_name, version): - Total executions per extractor - Average duration + P95/P99 latencies - Success/failure counts and success rate  Returns an empty array when no extraction has run in the window or analytics is unavailable.  **Example:** ```bash GET /v1/analytics/extractors/performance?hours=24 GET /v1/analytics/extractors/performance?extractor_name=text_extractor&hours=168 ```
 
         :param extractor_name: Filter by extractor
         :type extractor_name: str
@@ -5719,8 +5825,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5864,8 +5972,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5941,8 +6051,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6018,8 +6130,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6161,8 +6275,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6238,8 +6354,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6315,8 +6433,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6458,8 +6578,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6535,8 +6657,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6612,8 +6736,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6755,8 +6881,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6832,8 +6960,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -6909,8 +7039,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7054,8 +7186,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7131,8 +7265,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7208,8 +7344,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7357,8 +7495,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7438,8 +7578,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7519,8 +7661,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7669,8 +7813,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7746,8 +7892,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7823,8 +7971,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -7890,308 +8040,6 @@ class AnalyticsApi:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/v1/analytics/indexes/suggestions',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-
-    @validate_call
-    def get_inference_performance_analytics(
-        self,
-        model_name: Annotated[Optional[StrictStr], Field(description="Filter by model")] = None,
-        hours: Annotated[Optional[Annotated[int, Field(le=720, strict=True, ge=1)]], Field(description="Hours of history")] = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> List[Dict[str, object]]:
-        """Get Inference Performance
-
-        Inference performance metrics. Not implemented.  This route has no inference-performance aggregation behind it and returns 501 Not Implemented, so an empty response is never mistaken for real data.  For per-stage inference timings, use ``GET /v1/analytics/retrievers/{retriever_id}/stages``, which reports stage execution times and document flow.
-
-        :param model_name: Filter by model
-        :type model_name: str
-        :param hours: Hours of history
-        :type hours: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_inference_performance_analytics_serialize(
-            model_name=model_name,
-            hours=hours,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[Dict[str, object]]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '501': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def get_inference_performance_analytics_with_http_info(
-        self,
-        model_name: Annotated[Optional[StrictStr], Field(description="Filter by model")] = None,
-        hours: Annotated[Optional[Annotated[int, Field(le=720, strict=True, ge=1)]], Field(description="Hours of history")] = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[List[Dict[str, object]]]:
-        """Get Inference Performance
-
-        Inference performance metrics. Not implemented.  This route has no inference-performance aggregation behind it and returns 501 Not Implemented, so an empty response is never mistaken for real data.  For per-stage inference timings, use ``GET /v1/analytics/retrievers/{retriever_id}/stages``, which reports stage execution times and document flow.
-
-        :param model_name: Filter by model
-        :type model_name: str
-        :param hours: Hours of history
-        :type hours: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_inference_performance_analytics_serialize(
-            model_name=model_name,
-            hours=hours,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[Dict[str, object]]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '501': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def get_inference_performance_analytics_without_preload_content(
-        self,
-        model_name: Annotated[Optional[StrictStr], Field(description="Filter by model")] = None,
-        hours: Annotated[Optional[Annotated[int, Field(le=720, strict=True, ge=1)]], Field(description="Hours of history")] = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Get Inference Performance
-
-        Inference performance metrics. Not implemented.  This route has no inference-performance aggregation behind it and returns 501 Not Implemented, so an empty response is never mistaken for real data.  For per-stage inference timings, use ``GET /v1/analytics/retrievers/{retriever_id}/stages``, which reports stage execution times and document flow.
-
-        :param model_name: Filter by model
-        :type model_name: str
-        :param hours: Hours of history
-        :type hours: int
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_inference_performance_analytics_serialize(
-            model_name=model_name,
-            hours=hours,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[Dict[str, object]]",
-            '400': "ErrorResponse",
-            '401': "ErrorResponse",
-            '403': "ErrorResponse",
-            '404': "ErrorResponse",
-            '500': "ErrorResponse",
-            '501': "ErrorResponse",
-            '422': "HTTPValidationError",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _get_inference_performance_analytics_serialize(
-        self,
-        model_name,
-        hours,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        # process the query parameters
-        if model_name is not None:
-            
-            _query_params.append(('model_name', model_name))
-            
-        if hours is not None:
-            
-            _query_params.append(('hours', hours))
-            
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'NamespaceHeader', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/analytics/inference/performance',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -8274,8 +8122,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8355,8 +8205,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8436,8 +8288,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8588,8 +8442,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8669,8 +8525,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8750,8 +8608,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8898,8 +8758,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -8975,8 +8837,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9052,8 +8916,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9193,8 +9059,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9266,8 +9134,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9339,8 +9209,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9435,7 +9307,7 @@ class AnalyticsApi:
     ) -> NamespaceErrorsResponse:
         """Get Namespace Errors
 
-        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ClickHouse ``extraction_events`` warehouse; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ``extraction_events`` analytics collection; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
 
         :param hours: Hours of history to analyze
         :type hours: int
@@ -9475,8 +9347,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9508,7 +9382,7 @@ class AnalyticsApi:
     ) -> ApiResponse[NamespaceErrorsResponse]:
         """Get Namespace Errors
 
-        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ClickHouse ``extraction_events`` warehouse; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ``extraction_events`` analytics collection; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
 
         :param hours: Hours of history to analyze
         :type hours: int
@@ -9548,8 +9422,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9581,7 +9457,7 @@ class AnalyticsApi:
     ) -> RESTResponseType:
         """Get Namespace Errors
 
-        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ClickHouse ``extraction_events`` warehouse; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
+        Batch error/failure counts for every collection & cluster in the namespace.  Returns one entry per resource that has at least one error/failure in the window, in a single response — replacing the per-resource ``/analytics/{collections,clusters}/{id}/failures`` fan-out (the Studio Monitoring \"Errors & Health\" N+1, which fired ~13+ calls per visit, most returning zero). Collection errors come from the ``extraction_events`` analytics collection; cluster failures from Mongo ``clustering_results``. An empty ``collections``/``clusters`` list means that resource type is healthy for the window.  **Recommended workflow:** call this once for the aggregate health view, then call the per-resource ``/failures`` endpoint lazily ONLY for the (usually few) resources reporting errors to get the full error-type breakdown.  **Example:** ```bash curl -X GET \"https://api.mixpeek.com/v1/analytics/namespaces/errors?hours=24\" \\   -H \"Authorization: Bearer YOUR_API_KEY\" \\   -H \"X-Namespace: your-namespace\" ```
 
         :param hours: Hours of history to analyze
         :type hours: int
@@ -9621,8 +9497,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9757,8 +9635,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9830,8 +9710,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -9903,8 +9785,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10051,8 +9935,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10136,8 +10022,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10221,8 +10109,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10400,8 +10290,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10485,8 +10377,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10570,8 +10464,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10727,8 +10623,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10808,8 +10706,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -10889,8 +10789,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11043,8 +10945,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11124,8 +11028,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11205,8 +11111,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11359,8 +11267,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11440,8 +11350,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11521,8 +11433,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11669,8 +11583,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11746,8 +11662,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11823,8 +11741,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -11966,8 +11886,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12043,8 +11965,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12120,8 +12044,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12271,8 +12197,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12356,8 +12284,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12441,8 +12371,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12598,8 +12530,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12679,8 +12613,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12760,8 +12696,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12865,7 +12803,7 @@ class AnalyticsApi:
     ) -> Dict[str, object]:
         """Get Usage Summary
 
-        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations.  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
+        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations. - ``multi_vector_tokens``: tokens of multi-vectors stored by writes, as   carried by the ``mvs_write`` usage records in the window (``recorded``),   plus tokens written since the last record (``pending``).  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
 
         :param start_date: Start date (UTC)
         :type start_date: datetime
@@ -12908,8 +12846,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -12942,7 +12882,7 @@ class AnalyticsApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Get Usage Summary
 
-        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations.  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
+        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations. - ``multi_vector_tokens``: tokens of multi-vectors stored by writes, as   carried by the ``mvs_write`` usage records in the window (``recorded``),   plus tokens written since the last record (``pending``).  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
 
         :param start_date: Start date (UTC)
         :type start_date: datetime
@@ -12985,8 +12925,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -13019,7 +12961,7 @@ class AnalyticsApi:
     ) -> RESTResponseType:
         """Get Usage Summary
 
-        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations.  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
+        Get usage summary for billing.  Aggregates the organization's usage_records — the SAME billing source of truth that feeds daily_burn_rate and monthly invoicing, so this endpoint and the burn meter always agree.  Returns per-operation credit totals for the window with USD derived at the canonical $0.001/credit rate (CREDIT_RATE_USD): - ``usage``: one row per operation_type — ``{operation_type, credits,   cost_usd}`` — biggest spend first. Refund records are negative and net   automatically. - ``total_credits`` / ``total_cost``: window totals across operations. - ``multi_vector_tokens``: tokens of multi-vectors stored by writes, as   carried by the ``mvs_write`` usage records in the window (``recorded``),   plus tokens written since the last record (``pending``).  Scoped to the ORGANIZATION (matching the billing meter). Records are only partially namespace-attributed (async engine work carries no namespace), so filtering by namespace would silently under-report; ``namespace_id`` is echoed for request context only.  **Time Range:** - If both `start_date` and `end_date` are provided, uses that range - If neither provided, defaults to last 30 days - If only one provided, defaults to now as the other bound  **Example:** ```bash GET /v1/analytics/usage/summary GET /v1/analytics/usage/summary?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59Z ```
 
         :param start_date: Start date (UTC)
         :type start_date: datetime
@@ -13062,8 +13004,10 @@ class AnalyticsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

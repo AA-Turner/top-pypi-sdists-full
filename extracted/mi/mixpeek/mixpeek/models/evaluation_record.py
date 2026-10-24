@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, Stric
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from mixpeek.models.evaluation_config import EvaluationConfig
 from mixpeek.models.evaluation_status import EvaluationStatus
+from mixpeek.models.gate_verdict import GateVerdict
 from mixpeek.models.query_outcome import QueryOutcome
 from typing import Optional, Set
 from typing_extensions import Self
@@ -50,7 +51,10 @@ class EvaluationRecord(BaseModel):
     skipped_queries: Optional[StrictInt] = Field(default=None, description="Number of queries skipped during evaluation (empty query_input or a per-query execution failure) — these did not fail the whole eval.")
     error_message: Optional[StrictStr] = Field(default=None, description="Error message if failed")
     query_results: Optional[List[QueryOutcome]] = Field(default=None, description="Per-query outcomes: which branch each attempted query took and the actual error for skips, so an all-skipped run is actionable from the record without worker-log access.")
-    __properties: ClassVar[List[str]] = ["evaluation_id", "retriever_id", "dataset_id", "dataset_name", "config", "status", "created_at", "updated_at", "completed_at", "namespace_id", "internal_id", "query_count", "overall_metrics", "metrics_by_k", "total_queries", "evaluated_queries", "skipped_queries", "error_message", "query_results"]
+    baseline_evaluation_id: Optional[StrictStr] = Field(default=None, description="For a trained weight set's evaluation: the evaluation of the live configuration on the same dataset that this run was gated against.")
+    weight_set_id: Optional[StrictStr] = Field(default=None, description="For a trained weight set's evaluation: the weight set this run scored. When the verdict passed, the stage's learning_config.shipped_weight_set carries the same id.")
+    verdict: Optional[GateVerdict] = Field(default=None, description="For a trained weight set's evaluation: the gate verdict against baseline_evaluation_id, with both scores for every metric. A refused set keeps the live configuration.")
+    __properties: ClassVar[List[str]] = ["evaluation_id", "retriever_id", "dataset_id", "dataset_name", "config", "status", "created_at", "updated_at", "completed_at", "namespace_id", "internal_id", "query_count", "overall_metrics", "metrics_by_k", "total_queries", "evaluated_queries", "skipped_queries", "error_message", "query_results", "baseline_evaluation_id", "weight_set_id", "verdict"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -101,6 +105,9 @@ class EvaluationRecord(BaseModel):
                 if _item_query_results:
                     _items.append(_item_query_results.to_dict())
             _dict['query_results'] = _items
+        # override the default output from pydantic by calling `to_dict()` of verdict
+        if self.verdict:
+            _dict['verdict'] = self.verdict.to_dict()
         return _dict
 
     @classmethod
@@ -131,7 +138,10 @@ class EvaluationRecord(BaseModel):
             "evaluated_queries": obj.get("evaluated_queries"),
             "skipped_queries": obj.get("skipped_queries"),
             "error_message": obj.get("error_message"),
-            "query_results": [QueryOutcome.from_dict(_item) for _item in obj["query_results"]] if obj.get("query_results") is not None else None
+            "query_results": [QueryOutcome.from_dict(_item) for _item in obj["query_results"]] if obj.get("query_results") is not None else None,
+            "baseline_evaluation_id": obj.get("baseline_evaluation_id"),
+            "weight_set_id": obj.get("weight_set_id"),
+            "verdict": GateVerdict.from_dict(obj["verdict"]) if obj.get("verdict") is not None else None
         })
         return _obj
 

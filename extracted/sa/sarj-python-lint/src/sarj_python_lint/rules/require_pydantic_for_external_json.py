@@ -212,6 +212,11 @@ class RequirePydanticForExternalJson(Rule):
         tree = context.tree
         if tree is None:
             return []
+        functions = _functions(tree, node_index=context.node_index)
+        if not any(
+            _summary_record_receiver(node) is not None for function in functions for node in _own_scope(function)
+        ):
+            return []
         imports = context.imports
         if not any(
             _is_json_loads(call, imports)
@@ -222,7 +227,7 @@ class RequirePydanticForExternalJson(Rule):
         source_lines = context.source_lines
         summaries = _module_summaries(tree, imports, source_lines, node_index=context.node_index)
         findings: list[tuple[ast.expr, ast.Call]] = []
-        for function in _functions(tree, node_index=context.node_index):
+        for function in functions:
             findings.extend(_function_findings(function, imports, summaries))
 
         first_by_origin: dict[int, tuple[ast.expr, ast.Call]] = {}
@@ -249,9 +254,7 @@ class RequirePydanticForExternalJson(Rule):
 def _functions(
     tree: ast.Module, *, node_index: NodeIndex | None = None
 ) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, ...]:
-    return tuple(
-        node for node in walk_ast(tree, index=node_index) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    )
+    return tuple(nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef, index=node_index))
 
 
 def _module_summaries(
@@ -1472,16 +1475,6 @@ def _literal_string(node: ast.expr) -> str | None:
     return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
 
 
-def _expression_tail(node: ast.expr) -> str | None:
-    match node:
-        case ast.Name():
-            return node.id
-        case ast.Attribute():
-            return node.attr
-        case _:
-            return None
-
-
 def _unwrap_await(node: ast.expr) -> ast.expr:
     return node.value if isinstance(node, ast.Await) else node
 
@@ -1517,7 +1510,8 @@ def _summarize_function(
     records: dict[str, frozenset[int]],
 ) -> None:
     parameters = _parameter_positions(function)
-    returned = tuple(node.value for node in _own_scope(function) if isinstance(node, ast.Return) and node.value)
+    scope = _own_scope(function)
+    returned = tuple(node.value for node in scope if isinstance(node, ast.Return) and node.value)
     decoder_positions = {
         position
         for value in returned
@@ -1532,7 +1526,7 @@ def _summarize_function(
 
     consumed: set[int] = set()
     validated_names = _validated_names(function, imports, module_validator_names)
-    for node in _own_scope(function):
+    for node in scope:
         receiver = _summary_record_receiver(node)
         if (
             isinstance(receiver, ast.Name)

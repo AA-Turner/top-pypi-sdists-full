@@ -18,9 +18,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.costs_info import CostsInfo
+from mixpeek.models.serve_app_status import ServeAppStatus
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -47,7 +48,9 @@ class ExtractorDiscovery(BaseModel):
     position_fields: Optional[List[StrictStr]] = Field(default=None, description="Fields that uniquely identify each output document within a source object")
     capabilities: Optional[List[StrictStr]] = Field(default=None, description="What this extractor can do: 'batch' (feature extraction during ingestion), 'realtime' (query-time inference for retriever stages)")
     example_usage: Optional[Dict[str, Any]] = Field(default=None, description="Minimal working configuration for namespace + collection + input_mappings + parameters")
-    __properties: ClassVar[List[str]] = ["name", "version", "description", "supported_modalities", "output_features", "input_schema", "parameter_schema", "output_schema", "costs", "type_mode", "expected_input_types", "inference_type", "supported_input_types", "max_inputs", "default_parameters", "required_vector_indexes", "position_fields", "capabilities", "example_usage"]
+    realtime_available: Optional[StrictBool] = Field(default=None, description="Whether every Ray Serve application this extractor needs for real-time inference is running on the deployment serving this request. True when all of them report RUNNING. False when one is absent or not running; see serve_apps for which. Null when the extractor needs none, or when the live list could not be read.")
+    serve_apps: Optional[List[ServeAppStatus]] = Field(default=None, description="The Ray Serve applications this extractor needs for real-time inference, each with its live status. Empty when it needs none.")
+    __properties: ClassVar[List[str]] = ["name", "version", "description", "supported_modalities", "output_features", "input_schema", "parameter_schema", "output_schema", "costs", "type_mode", "expected_input_types", "inference_type", "supported_input_types", "max_inputs", "default_parameters", "required_vector_indexes", "position_fields", "capabilities", "example_usage", "realtime_available", "serve_apps"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,6 +94,13 @@ class ExtractorDiscovery(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of costs
         if self.costs:
             _dict['costs'] = self.costs.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in serve_apps (list)
+        _items = []
+        if self.serve_apps:
+            for _item_serve_apps in self.serve_apps:
+                if _item_serve_apps:
+                    _items.append(_item_serve_apps.to_dict())
+            _dict['serve_apps'] = _items
         return _dict
 
     @classmethod
@@ -121,7 +131,9 @@ class ExtractorDiscovery(BaseModel):
             "required_vector_indexes": obj.get("required_vector_indexes"),
             "position_fields": obj.get("position_fields"),
             "capabilities": obj.get("capabilities"),
-            "example_usage": obj.get("example_usage")
+            "example_usage": obj.get("example_usage"),
+            "realtime_available": obj.get("realtime_available"),
+            "serve_apps": [ServeAppStatus.from_dict(_item) for _item in obj["serve_apps"]] if obj.get("serve_apps") is not None else None
         })
         return _obj
 

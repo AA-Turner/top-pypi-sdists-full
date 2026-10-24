@@ -16,6 +16,7 @@ mod adaptive_quality;
 pub mod bwe_controller;
 mod connection;
 pub mod dlp;
+pub mod operational_diagnostics;
 pub mod params;
 pub use params::{
     parse_client_size, parse_image_formats, parse_sftp_config, parse_threat_detection_risk_levels,
@@ -114,8 +115,6 @@ pub use recording::{
 };
 pub use registry::ProtocolHandlerRegistry;
 pub use security::{
-    // Credential supply gate
-    check_credential_supply_allowed,
     // Database security
     check_sql_query_allowed,
     classify_sql_query,

@@ -28,7 +28,7 @@ VALUE3_ANY_OF_SCHEMAS = ["List[List[float]]", "List[float]", "str"]
 
 class Value3(BaseModel):
     """
-    Pre-computed embedding vector — the canonical carrier field for input_mode='vector'. The convenience endpoint POST /collections/features/search uses 'vector'; this retriever stage canonicalizes on 'value' but also ACCEPTS 'vector' as a forgiving alias (normalized to 'value'), so the identical shape works in both places. Accepts: (1) list[float] for single dense vectors, (2) list[list[float]] for multi-dense vectors (ColBERT token embeddings), (3) a template string (e.g., '{{INPUT.query}}') that resolves to either format. No inference is performed; the vector is used directly for similarity search.
+    Pre-computed embedding vector — the canonical carrier field for input_mode='vector'. The convenience endpoint POST /features/search uses 'vector'; this retriever stage canonicalizes on 'value' but also ACCEPTS 'vector' as a forgiving alias (normalized to 'value'), so the identical shape works in both places. Accepts: (1) list[float] for single dense vectors, (2) list[list[float]] for multi-dense vectors (ColBERT token embeddings), (3) a template string (e.g., '{{INPUT.query}}') that resolves to either format. No inference is performed; the vector is used directly for similarity search.
     """
 
     # data type: List[float]

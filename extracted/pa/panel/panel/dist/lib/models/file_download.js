@@ -20,7 +20,6 @@ function dataURItoBlob(dataURI) {
     return bb;
 }
 export class FileDownloadView extends InputWidgetView {
-    static __name__ = "FileDownloadView";
     icon_view;
     anchor_el;
     button_el;
@@ -184,7 +183,6 @@ export class FileDownloadView extends InputWidgetView {
     }
 }
 export class FileDownload extends InputWidget {
-    static __name__ = "FileDownload";
     constructor(attrs) {
         super(attrs);
     }

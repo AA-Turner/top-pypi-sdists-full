@@ -20,8 +20,8 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from typing import Any, ClassVar, Dict, List
+from mixpeek.models.batch_object_result import BatchObjectResult
 from mixpeek.models.failed_object_error import FailedObjectError
-from mixpeek.models.object_response import ObjectResponse
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,7 +29,7 @@ class CreateObjectsBatchResponse(BaseModel):
     """
     Response model for batch object creation with partial success support.  This endpoint uses partial success: valid objects are created even if some fail. Failed objects are tracked separately so users can fix and retry them.
     """ # noqa: E501
-    succeeded: List[ObjectResponse] = Field(description="List of successfully created objects")
+    succeeded: List[BatchObjectResult] = Field(description="Objects for the requests that succeeded, in request order. A row with replayed true is an existing object returned for a reused idempotency_key or a skip_duplicates match.")
     failed: List[FailedObjectError] = Field(description="List of objects that failed to create with error details")
     total_requested: StrictInt = Field(description="Total number of objects in the batch request")
     succeeded_count: StrictInt = Field(description="Number of objects successfully created")
@@ -101,7 +101,7 @@ class CreateObjectsBatchResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "succeeded": [ObjectResponse.from_dict(_item) for _item in obj["succeeded"]] if obj.get("succeeded") is not None else None,
+            "succeeded": [BatchObjectResult.from_dict(_item) for _item in obj["succeeded"]] if obj.get("succeeded") is not None else None,
             "failed": [FailedObjectError.from_dict(_item) for _item in obj["failed"]] if obj.get("failed") is not None else None,
             "total_requested": obj.get("total_requested"),
             "succeeded_count": obj.get("succeeded_count"),

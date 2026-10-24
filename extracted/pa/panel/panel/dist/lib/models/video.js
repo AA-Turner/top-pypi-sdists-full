@@ -1,8 +1,7 @@
 import { px } from "@bokehjs/core/dom";
 import { HTMLBox, HTMLBoxView } from "./layout";
-import video_css from "../styles/models/video.css";
+import video_css from "styles/models/video.css";
 export class VideoView extends HTMLBoxView {
-    static __name__ = "VideoView";
     video_el;
     _time;
     _blocked = false;
@@ -133,7 +132,6 @@ export class VideoView extends HTMLBoxView {
     }
 }
 export class Video extends HTMLBox {
-    static __name__ = "Video";
     constructor(attrs) {
         super(attrs);
     }

@@ -54,6 +54,7 @@ __all__: list[str] = [
     "devin",
     "dockerhub",
     "gh",
+    "lighthouse",
     "local",
     "registry",
     "roster",

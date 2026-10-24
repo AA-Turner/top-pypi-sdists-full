@@ -298,9 +298,15 @@ def _apply_driver_settings(driver) -> None:
 
 
 def _apply_initial_network_throttle(driver) -> None:
-    """Apply the advanced-settings network prerequisite, matching V2 setup."""
+    """Apply the advanced-settings network prerequisite, matching V2 setup.
+
+    Skipped on a virtual device (LT:Options isRealMobile false), which has no
+    network throttling.
+    """
     profile = os.getenv("NETWORK_PROFILE", "default")
     if profile == "default":
+        return
+    if _lt_options().get("isRealMobile") is False:
         return
     network_throttle(
         driver,

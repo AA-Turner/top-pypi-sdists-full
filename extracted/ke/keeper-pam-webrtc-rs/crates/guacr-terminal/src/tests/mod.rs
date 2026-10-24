@@ -4,12 +4,14 @@
 mod clipboard_tests;
 mod config_tests;
 mod copy_detector_tests;
+mod database_renderer_tests;
 mod dirty_tracker_tests;
 mod emulator_tests;
 mod framebuffer_tests;
 mod guacamole_input_tests;
 mod input_handler_tests;
 mod keysym_tests;
+mod ratatui_text_tests;
 mod recorder_tests;
 mod recording_pipeline_tests;
 mod renderer_tests;

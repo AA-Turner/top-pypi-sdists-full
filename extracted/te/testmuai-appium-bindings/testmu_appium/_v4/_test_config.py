@@ -34,7 +34,7 @@ _TO_CONFIGURE = {
 _HANDLED = {
     "udid", "private_cloud", "test_instance_id", "test_id", "platform_name",
     "folder_name", "project_name", "code_req_name", "session_timezone",
-    "driver_settings", "app_package",
+    "driver_settings", "app_package", "is_virtual_device",
 }
 
 #: Entry keys _build_lt_options translates into LT:Options caps (V2 build_caps
@@ -52,6 +52,10 @@ _LT_KEYS = {
     "enableVideoInjection", "enableScreenshotUnblock", "appium_plugins",
     "upload_media",
 }
+
+
+#: DEVICE_REGION values forwarded as LT:Options.region.
+_DEVICE_REGIONS = {"us", "eu", "ap"}
 
 
 def _env_bool(key: str, default: bool) -> bool:
@@ -107,6 +111,8 @@ def _build_lt_options(entry: dict) -> dict:
         or entry.get("device_orientation") or "AUTO"
     if entry.get("accessibility") is not None:
         lt["accessibility"] = str(entry.get("accessibility")).lower() == "true"
+
+    # advanced configurations
     if str(os.getenv("TUNNEL", entry.get("tunnel", False))).lower() == "true":
         lt["tunnel"] = True
         lt["tunnelName"] = os.getenv("TUNNEL_NAME", entry.get("tunnel_name", "") or "")
@@ -115,6 +121,10 @@ def _build_lt_options(entry: dict) -> dict:
     geo = os.getenv("GEO_LOCATION", entry.get("geo_location", "") or "")
     if geo:
         lt["geoLocation"] = geo
+    region = os.getenv("DEVICE_REGION", "").strip().lower()
+    if region in _DEVICE_REGIONS:
+        lt["region"] = region
+
     if platform_name == "android":
         login = entry.get("google_login_config") or {}
         email = _config_value(login.get("email", {}))
@@ -174,6 +184,7 @@ def _build_lt_options(entry: dict) -> dict:
     plugins = entry.get("appium_plugins")
     if isinstance(plugins, list) and plugins:
         lt["appiumPlugins"] = plugins
+
     # Files uploaded during authoring, as lt://<media_id> ids; the grid pushes
     # them to the device at session start. Written by code export from the
     # blob's uploaded_files — V2 carried the same cap in its baked fixed_caps.
@@ -183,6 +194,9 @@ def _build_lt_options(entry: dict) -> dict:
         media = upload_media_ids(media)
         if media:
             lt["uploadMedia"] = media
+
+    if str(entry.get("is_virtual_device", "")).lower() == "true":
+        lt["isRealMobile"] = False
     return lt
 
 

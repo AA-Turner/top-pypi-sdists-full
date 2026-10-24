@@ -137,6 +137,8 @@ pub struct GuacamoleSesRecorder {
     owned_writer: Option<RecordingWriter>,
     start_time: Instant,
     config: RecordingConfig,
+    payload: SesPayload,
+    terminal_size: Option<(u16, u16)>,
     last_sync_ms: u64,
     /// Last sync timestamp acknowledged by the client, in Guacamole-encoded form
     /// (e.g. "13.1775238357469"). Written as the second arg of server sync instructions
@@ -227,9 +229,36 @@ impl GuacamoleSesRecorder {
             owned_writer: None,
             start_time: Instant::now(),
             config: config.clone(),
+            payload,
+            terminal_size: None,
             last_sync_ms: 0,
             last_client_sync_encoded: "1.0".to_string(),
         })
+    }
+
+    /// Recording-only terminal cell geometry, timed on the same clock as frame syncs.
+    pub(crate) fn record_resize(&mut self, cols: u16, rows: u16) -> Result<(), RecordingError> {
+        if self.payload != SesPayload::Terminal || self.terminal_size == Some((cols, rows)) {
+            return Ok(());
+        }
+        let time_ms = if self.terminal_size.is_none() {
+            0
+        } else {
+            self.start_time.elapsed().as_millis() as u64
+        };
+        // All values are ASCII decimal: byte and codepoint lengths are identical.
+        write!(
+            self.writer,
+            "5.guacr,13.terminal-size,{}.{},{}.{},{}.{};",
+            cols.checked_ilog10().unwrap_or(0) + 1,
+            cols,
+            rows.checked_ilog10().unwrap_or(0) + 1,
+            rows,
+            time_ms.checked_ilog10().unwrap_or(0) + 1,
+            time_ms,
+        )?;
+        self.terminal_size = Some((cols, rows));
+        self.maybe_flush()
     }
 
     /// Record an instruction to the .ses file

@@ -148,6 +148,7 @@ class ConstructLibraryCdktf(
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_options: typing.Optional[typing.Union["_github_c49f935d.AutoApproveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
         auto_merge_options: typing.Optional[typing.Union["_github_c49f935d.AutoMergeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -324,6 +325,7 @@ class ConstructLibraryCdktf(
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
         :param auto_merge_options: (experimental) Configure options for automatic merging on GitHub. Has no effect if ``github.mergify`` or ``autoMerge`` is set to false. Default: - see defaults in ``AutoMergeOptions``
@@ -502,6 +504,7 @@ class ConstructLibraryCdktf(
             workflow_git_identity=workflow_git_identity,
             workflow_node_version=workflow_node_version,
             workflow_package_cache=workflow_package_cache,
+            workflow_permissions=workflow_permissions,
             auto_approve_options=auto_approve_options,
             auto_merge=auto_merge,
             auto_merge_options=auto_merge_options,
@@ -744,6 +747,7 @@ class ConstructLibraryCdktf(
         "workflow_git_identity": "workflowGitIdentity",
         "workflow_node_version": "workflowNodeVersion",
         "workflow_package_cache": "workflowPackageCache",
+        "workflow_permissions": "workflowPermissions",
         "disable_tsconfig": "disableTsconfig",
         "disable_tsconfig_dev": "disableTsconfigDev",
         "docgen": "docgen",
@@ -924,6 +928,7 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         workflow_git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
+        workflow_permissions: typing.Optional[typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
         docgen: typing.Optional[builtins.bool] = None,
@@ -1100,6 +1105,7 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
+        :param workflow_permissions: (experimental) Permissions for the main build, release and dependency upgrade jobs. Defined scopes override the job defaults and automatically inferred permissions, including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults. Use ``JobPermission.NONE`` to explicitly remove a permission. ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual scopes. Applies to all release branches, but not to separate package, publishing, self-mutation or pull request creation jobs, or unrelated workflows. Default: - Use the job defaults and automatically inferred permissions.
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
         :param disable_tsconfig_dev: (experimental) Do not generate a development tsconfig file. Default: false
         :param docgen: (experimental) Docgen by Typedoc. Default: false
@@ -1197,6 +1203,8 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
             projenrc_js_options = _javascript_eb5dbe11.ProjenrcOptions(**projenrc_js_options)
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
+        if isinstance(workflow_permissions, dict):
+            workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if isinstance(eslint_options, dict):
             eslint_options = _javascript_eb5dbe11.EslintOptions(**eslint_options)
         if isinstance(projenrc_ts_options, dict):
@@ -1355,6 +1363,7 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
             check_type(argname="argument workflow_git_identity", value=workflow_git_identity, expected_type=type_hints["workflow_git_identity"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workflow_package_cache", value=workflow_package_cache, expected_type=type_hints["workflow_package_cache"])
+            check_type(argname="argument workflow_permissions", value=workflow_permissions, expected_type=type_hints["workflow_permissions"])
             check_type(argname="argument disable_tsconfig", value=disable_tsconfig, expected_type=type_hints["disable_tsconfig"])
             check_type(argname="argument disable_tsconfig_dev", value=disable_tsconfig_dev, expected_type=type_hints["disable_tsconfig_dev"])
             check_type(argname="argument docgen", value=docgen, expected_type=type_hints["docgen"])
@@ -1670,6 +1679,8 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
             self._values["workflow_node_version"] = workflow_node_version
         if workflow_package_cache is not None:
             self._values["workflow_package_cache"] = workflow_package_cache
+        if workflow_permissions is not None:
+            self._values["workflow_permissions"] = workflow_permissions
         if disable_tsconfig is not None:
             self._values["disable_tsconfig"] = disable_tsconfig
         if disable_tsconfig_dev is not None:
@@ -3534,6 +3545,28 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def workflow_permissions(
+        self,
+    ) -> typing.Optional["_workflows_2b7f1587.JobPermissions"]:
+        '''(experimental) Permissions for the main build, release and dependency upgrade jobs.
+
+        Defined scopes override the job defaults and automatically inferred permissions,
+        including CodeArtifact and Codecov OIDC. Undefined scopes keep their defaults.
+        Use ``JobPermission.NONE`` to explicitly remove a permission.
+
+        ``buildWorkflowOptions.permissions`` replaces this entire set, including automatic
+        permissions. ``depsUpgradeOptions.workflowOptions.permissions`` overrides individual
+        scopes. Applies to all release branches, but not to separate package, publishing,
+        self-mutation or pull request creation jobs, or unrelated workflows.
+
+        :default: - Use the job defaults and automatically inferred permissions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_permissions")
+        return typing.cast(typing.Optional["_workflows_2b7f1587.JobPermissions"], result)
+
+    @builtins.property
     def disable_tsconfig(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler).
 
@@ -4166,6 +4199,7 @@ def _typecheckingstub__bbf02af18148d47e66a6d0672a809602f782953da7a849545a808c276
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+    workflow_permissions: typing.Optional[typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]]] = None,
     disable_tsconfig: typing.Optional[builtins.bool] = None,
     disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
     docgen: typing.Optional[builtins.bool] = None,

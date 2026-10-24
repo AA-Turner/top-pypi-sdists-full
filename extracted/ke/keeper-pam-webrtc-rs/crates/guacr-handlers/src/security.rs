@@ -59,19 +59,6 @@ pub struct HandlerSecuritySettings {
     pub max_session_duration_secs: u64,
 
     // ========================================================================
-    // Credential Supply Gate
-    // ========================================================================
-    /// Allow the gateway to inject credentials (username/password from vault) at runtime.
-    ///
-    /// When false (the secure default), the handler must not accept username/password
-    /// credentials supplied by the gateway. When true, the gateway is explicitly
-    /// permitted to inject vault credentials into the session.
-    ///
-    /// Parameter name: `allow-supply-user`
-    /// Values: "true" / "1" to enable; anything else (including absent) → false.
-    pub allow_supply_user: bool,
-
-    // ========================================================================
     // Wake-on-LAN (WoL)
     // ========================================================================
     /// Send WoL magic packet before connecting
@@ -108,7 +95,6 @@ impl Default for HandlerSecuritySettings {
             connection_timeout_secs: crate::DEFAULT_CONNECTION_TIMEOUT_SECS,
             idle_timeout_secs: 0,
             max_session_duration_secs: 0,
-            allow_supply_user: false,
             wol_send_packet: false,
             wol_mac_addr: None,
             wol_broadcast_addr: "255.255.255.255".to_string(),
@@ -129,7 +115,6 @@ impl HandlerSecuritySettings {
     /// - connection-timeout: seconds
     /// - idle-timeout: seconds
     /// - max-session-duration: seconds
-    /// - allow-supply-user: "true" or "1" to permit vault credential injection
     /// - wol-send-packet: "true" or "1" to enable
     /// - wol-mac-addr: MAC address (required if WoL enabled)
     /// - wol-broadcast-addr: broadcast IP (default: 255.255.255.255)
@@ -160,7 +145,6 @@ impl HandlerSecuritySettings {
                 .get("max-session-duration")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0),
-            allow_supply_user: parse_bool(params.get("allow-supply-user")),
             wol_send_packet: parse_bool(params.get("wol-send-packet")),
             wol_mac_addr: params.get("wol-mac-addr").cloned(),
             wol_broadcast_addr: params
@@ -213,15 +197,6 @@ impl HandlerSecuritySettings {
     /// Check if file modification is allowed (SFTP delete, rename, mkdir)
     pub fn is_file_modification_allowed(&self) -> bool {
         !self.read_only
-    }
-
-    /// Check if runtime credential supply is permitted for this connection.
-    ///
-    /// Returns true only when `allow-supply-user` was explicitly set to true in the
-    /// connection parameters. Defaults to false — the gateway must not inject
-    /// credentials unless the record explicitly authorizes it.
-    pub fn is_credential_supply_allowed(&self) -> bool {
-        self.allow_supply_user
     }
 }
 
@@ -553,25 +528,6 @@ pub fn classify_sql_query(query: &str) -> QueryType {
         QueryType::ReadOnly
     } else {
         QueryType::Modifying
-    }
-}
-
-/// Check if runtime credential supply is allowed by the connection's security settings.
-///
-/// Returns `Ok(())` when `allow-supply-user` was set to true on the connection.
-/// Returns `Err` with a descriptive message otherwise, suitable for sending to the client.
-///
-/// Call this before using `username`/`password` credentials injected by the gateway
-/// to ensure the vault record explicitly authorized credential supply for this session.
-pub fn check_credential_supply_allowed(settings: &HandlerSecuritySettings) -> Result<(), String> {
-    if settings.allow_supply_user {
-        Ok(())
-    } else {
-        Err(
-            "Runtime credential supply not permitted for this connection. \
-             Set allow-supply-user=true on the connection record to enable it."
-                .to_string(),
-        )
     }
 }
 

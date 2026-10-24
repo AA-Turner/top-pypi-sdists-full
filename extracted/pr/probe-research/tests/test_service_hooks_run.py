@@ -287,7 +287,19 @@ def test_the_next_event_runs_on_the_host_the_first_one_started(tmp_path, service
         assert seen["payload"]["tool_input"] == {"command": "ls"}
 
 
-def test_an_event_past_its_wait_times_out_and_is_stopped(tmp_path, service):
+@pytest.mark.parametrize("slow_stop", [False, True], ids=["stopped-in-grace", "stopped-past-grace"])
+def test_an_event_past_its_wait_times_out_and_is_stopped(tmp_path, service, monkeypatch, slow_stop):
+    """`slow_stop`: stopping the overrun outlasts the answer's grace, as it does
+    where `os.waitid` is missing (macOS), so its answer comes after the caller's
+    timed-out one: the folder still gets its warm host for the next event."""
+    if slow_stop:
+        stop = hookhosts._stop_group
+
+        def slower(proc):
+            stop(proc)
+            time.sleep(0.5)  # past server.ANSWER_GRACE_S
+
+        monkeypatch.setattr(hookhosts, "_stop_group", slower)
     path = service()
     root = _plugin(tmp_path, [_route(SLOW, timeout=30)])
     for _ in range(2):  # cold (a fresh dispatcher), then warm (on the host)
@@ -656,24 +668,25 @@ def test_a_thread_that_will_not_start_gives_its_slot_back_once(tmp_path, service
     thread; when that start fails the slot is given back at once and the queued
     item must not give it back a second time when it runs later (a
     BoundedSemaphore raises ValueError on the extra release)."""
-    from concurrent.futures import ThreadPoolExecutor
-
     path = service()
     root = _plugin(tmp_path, [_route(ALLOWS)])
     assert _ask(path, _params(root), timeout=20)["result"]["exit_code"] == 0  # the pool exists
-    real = ThreadPoolExecutor._adjust_thread_count
+    # Only this pool's next thread fails: the warm-host start the first event
+    # asked for runs on a pool of its own and must not take the failure.
+    pool = service.holder["service"]._hook_runs
+    real = pool._adjust_thread_count
     failed = []
 
-    def no_thread(self):
+    def no_thread():
         if not failed:
             failed.append(True)
             raise RuntimeError("can't start new thread")
-        return real(self)
+        return real()
 
-    monkeypatch.setattr(ThreadPoolExecutor, "_adjust_thread_count", no_thread)
+    monkeypatch.setattr(pool, "_adjust_thread_count", no_thread)
     first = _ask(path, _params(root), timeout=20)["result"]
     assert first.get("refused", "").startswith("the service could not take it"), first
-    monkeypatch.setattr(ThreadPoolExecutor, "_adjust_thread_count", real)
+    monkeypatch.setattr(pool, "_adjust_thread_count", real)
     for _ in range(3):  # the queued item runs on a later thread; nothing is released twice
         answer = _ask(path, _params(root), timeout=20)["result"]
         assert answer.get("exit_code") == 0, answer
@@ -752,7 +765,7 @@ def test_a_caller_in_a_sandbox_is_refused(tmp_path, service):
     lines = (_hello() + protocol.encode(protocol.request(1, Method.HOOKS_RUN, _params(root)))).decode()
     confined = subprocess.run([sys.executable, "-c", script, str(path), lines], capture_output=True, text=True,
                               timeout=60)
-    assert json.loads(confined.stdout)["result"] == {"refused": "a caller in a sandbox"}, confined.stderr
+    assert json.loads(confined.stdout)["result"] == {"refused": "a caller in a sandbox", "reason": "sandboxed"}, confined.stderr
 
 
 def test_a_peer_of_another_uid_is_never_answered(tmp_path, service):

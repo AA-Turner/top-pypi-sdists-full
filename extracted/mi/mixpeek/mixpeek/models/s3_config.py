@@ -30,7 +30,7 @@ class S3Config(BaseModel):
     """ # noqa: E501
     provider_type: Optional[StrictStr] = 's3'
     credentials: Credentials3
-    region: StrictStr = Field(description="REQUIRED. AWS region where the S3 bucket is located. Must match the bucket's actual region to avoid routing errors. For S3-compatible services, use their documented region value or 'us-east-1' as a default if regions are not applicable. Format: AWS region code (e.g., us-east-1, eu-west-1)")
+    region: Optional[StrictStr] = Field(default='us-east-1', description="Defaults to us-east-1, as the sync does. AWS region where the S3 bucket is located. Must match the bucket's actual region to avoid routing errors. For S3-compatible services, use their documented region value or 'us-east-1' as a default if regions are not applicable. Format: AWS region code (e.g., us-east-1, eu-west-1)")
     endpoint_url: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED for AWS S3 (uses default AWS endpoints). REQUIRED for S3-compatible services to specify custom endpoint URL. Must be a valid HTTPS or HTTP URL without trailing slash. Examples: - MinIO: https://minio.example.com - DigitalOcean Spaces: https://nyc3.digitaloceanspaces.com - Wasabi: https://s3.wasabisys.com")
     use_ssl: Optional[StrictBool] = Field(default=True, description="Whether to use TLS/SSL encryption for connections to S3. RECOMMENDED: Always True for production environments. Set to False only for local development with unencrypted endpoints. Default: True")
     verify_ssl: Optional[StrictBool] = Field(default=True, description="Whether to verify TLS/SSL certificates when connecting. RECOMMENDED: Always True for production to prevent MITM attacks. Set to False only for development with self-signed certificates. Requires use_ssl=True to have any effect. Default: True")
@@ -102,7 +102,7 @@ class S3Config(BaseModel):
         _obj = cls.model_validate({
             "provider_type": obj.get("provider_type") if obj.get("provider_type") is not None else 's3',
             "credentials": Credentials3.from_dict(obj["credentials"]) if obj.get("credentials") is not None else None,
-            "region": obj.get("region"),
+            "region": obj.get("region") if obj.get("region") is not None else 'us-east-1',
             "endpoint_url": obj.get("endpoint_url"),
             "use_ssl": obj.get("use_ssl") if obj.get("use_ssl") is not None else True,
             "verify_ssl": obj.get("verify_ssl") if obj.get("verify_ssl") is not None else True

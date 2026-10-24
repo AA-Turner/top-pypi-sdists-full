@@ -159,6 +159,14 @@ class Runtime(ABC):
             runtime_id: The identifier from ``RuntimeInfo.runtime_id``.
         """
 
+    async def remove_job(self, job_id: str) -> bool:
+        """Remove a VM that another process added to this runtime's session (an adopted agent's), by its job id.
+
+        True once it's removed. A runtime without sessions has nothing to remove it from: False.
+        """
+        del job_id
+        return False
+
     @abstractmethod
     async def exec(
         self,

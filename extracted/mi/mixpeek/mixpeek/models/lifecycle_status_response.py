@@ -19,9 +19,10 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.lifecycle_state import LifecycleState
+from mixpeek.models.namespace_storage_tier import NamespaceStorageTier
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -37,7 +38,8 @@ class LifecycleStatusResponse(BaseModel):
     last_transitioned_at: Optional[datetime] = None
     task_id: Optional[StrictStr] = None
     warning: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["collection_id", "lifecycle_state", "s3_vector_index", "vector_document_count", "s3_vector_count", "last_transitioned_at", "task_id", "warning"]
+    namespace_storage_tier: Optional[NamespaceStorageTier] = Field(default=None, description="The storage rung of the namespace this collection belongs to. Absent until the namespace has been rated once.")
+    __properties: ClassVar[List[str]] = ["collection_id", "lifecycle_state", "s3_vector_index", "vector_document_count", "s3_vector_count", "last_transitioned_at", "task_id", "warning", "namespace_storage_tier"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -78,6 +80,9 @@ class LifecycleStatusResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of namespace_storage_tier
+        if self.namespace_storage_tier:
+            _dict['namespace_storage_tier'] = self.namespace_storage_tier.to_dict()
         return _dict
 
     @classmethod
@@ -97,7 +102,8 @@ class LifecycleStatusResponse(BaseModel):
             "s3_vector_count": obj.get("s3_vector_count"),
             "last_transitioned_at": obj.get("last_transitioned_at"),
             "task_id": obj.get("task_id"),
-            "warning": obj.get("warning")
+            "warning": obj.get("warning"),
+            "namespace_storage_tier": NamespaceStorageTier.from_dict(obj["namespace_storage_tier"]) if obj.get("namespace_storage_tier") is not None else None
         })
         return _obj
 

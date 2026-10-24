@@ -10,6 +10,8 @@ import requests
 import yaml
 from PIL import Image
 
+from roboflow.util import http
+
 # HEIC/HEIF decoding is optional: pip install "roboflow[heic]"
 try:
     import pillow_heif
@@ -38,7 +40,7 @@ def check_image_url(url):
     if urllib.parse.urlparse(url).scheme not in ("http", "https"):
         return False
 
-    r = requests.head(url)
+    r = http.head(url)
     return r.status_code == requests.codes.ok
 
 
@@ -53,7 +55,7 @@ def mask_image(image, encoded_mask, transparency=60):
     import cv2
     import numpy as np
 
-    np_data = np.fromstring(base64.b64decode(encoded_mask), np.uint8)  # type: ignore[no-overload]
+    np_data = np.frombuffer(base64.b64decode(encoded_mask), np.uint8)
     mask = cv2.imdecode(np_data, cv2.IMREAD_UNCHANGED)
 
     # Fallback in case the API returns an incorrectly sized mask

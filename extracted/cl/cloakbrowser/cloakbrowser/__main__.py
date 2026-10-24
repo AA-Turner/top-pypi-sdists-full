@@ -75,19 +75,11 @@ def _module_available(module: str) -> bool:
 def _binary_version(binary_path: str) -> tuple[bool, str, str]:
     """Launch `<binary> --version` to prove it runs. Returns (ok, version, err).
 
-    Chromium only handles --version on POSIX, so on Windows the switch is ignored
-    and a browser starts instead of printing — the probe then times out and a
-    healthy install looks broken. --no-startup-window makes it exit right away
-    without putting a window on screen; a broken binary still exits non-zero, so
-    the check keeps its meaning. It just reports no version there, as nothing is
-    printed.
+    POSIX only: Windows ignores --version and starts a browser instead.
     """
-    argv = [binary_path, "--version"]
-    if platform.system() == "Windows":
-        argv.append("--no-startup-window")
     try:
         result = subprocess.run(
-            argv,
+            [binary_path, "--version"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -296,6 +288,16 @@ def _collect_diagnostics(quick: bool, proxy: str | None = None) -> dict:
         diag["launch"] = {"tested": False, "reason": "skipped (--quick)"}
     elif not binary or not (installed or (binary and os.path.isfile(binary))):
         diag["launch"] = {"tested": False, "reason": "binary not installed"}
+    elif platform.system() == "Windows":
+        # Windows ignores --version and starts a real browser, which takes a
+        # license seat and never frees it. Read the version manifest instead.
+        manifest = next(
+            (f for f in os.listdir(os.path.dirname(binary)) if f.endswith(".manifest")), ""
+        )
+        reason = "not launched on Windows (it would take a license seat)"
+        if manifest:
+            reason += f"; binary {manifest[: -len('.manifest')]}"
+        diag["launch"] = {"tested": False, "reason": reason}
     else:
         ok, version, err = _binary_version(binary)
         diag["launch"] = {"tested": True, "ok": ok, "version": version, "error": err}

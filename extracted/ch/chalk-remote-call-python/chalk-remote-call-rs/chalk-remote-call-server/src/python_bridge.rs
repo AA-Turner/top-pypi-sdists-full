@@ -45,7 +45,7 @@ impl PythonHandler {
     /// into a shared buffer). The only difference between the two paths is which
     /// emitter object `process_batches` is handed.
     async fn call_with_emitter<F>(
-        &self,
+        self: &Arc<Self>,
         ipc_bytes: Vec<u8>,
         function_name: String,
         metadata: HashMap<String, String>,
@@ -55,12 +55,13 @@ impl PythonHandler {
     where
         F: FnOnce(Python<'_>) -> PyResult<Py<PyAny>> + Send + 'static,
     {
-        let (handler, process_fn) =
-            Python::attach(|py| (self.handler.clone_ref(py), self.process_fn.clone_ref(py)));
-        let arg_names = self.arg_names.clone();
-
+        // GIL acquisition can block, so only clone the Rust owner on the runtime worker.
+        let owner = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             Python::attach(|py| -> Result<(), PythonError> {
+                let handler = owner.handler.clone_ref(py);
+                let process_fn = &owner.process_fn;
+                let arg_names = &owner.arg_names;
                 let py_bytes = PyBytes::new(py, &ipc_bytes).into_any().unbind();
                 let py_ctx = build_context(py, &function_name, &metadata, &peer)?
                     .into_any()
@@ -81,7 +82,7 @@ impl PythonHandler {
     /// Non-batched streaming dispatch. Calls `process_batches(..., emit)` so
     /// generator results are sent to the gRPC stream as each yield is encoded.
     pub async fn call_streaming(
-        &self,
+        self: &Arc<Self>,
         ipc_bytes: Vec<u8>,
         function_name: String,
         metadata: HashMap<String, String>,
@@ -100,7 +101,7 @@ impl PythonHandler {
     /// value, so completion never depends on emitter teardown timing (which is
     /// what caused a Python 3.10 hang in the channel-drain version).
     pub async fn call_into_buffer(
-        &self,
+        self: &Arc<Self>,
         ipc_bytes: Vec<u8>,
         function_name: String,
         metadata: HashMap<String, String>,
@@ -117,15 +118,16 @@ impl PythonHandler {
     /// `process_batches_coalesced`. Returns one IPC-encoded response per
     /// caller, in input order.
     pub async fn call_coalesced(
-        &self,
+        self: &Arc<Self>,
         callers: Vec<CallerInput>,
     ) -> Result<Vec<Vec<u8>>, PythonError> {
-        let (handler, process_fn) =
-            Python::attach(|py| (self.handler.clone_ref(py), self.process_fn.clone_ref(py)));
-        let arg_names = self.arg_names.clone();
-
+        // GIL acquisition can block, so only clone the Rust owner on the runtime worker.
+        let owner = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             Python::attach(|py| -> Result<Vec<Vec<u8>>, PythonError> {
+                let handler = &owner.handler;
+                let process_fn = &owner.process_fn;
+                let arg_names = &owner.arg_names;
                 let py_inputs = PyList::empty(py);
                 let py_contexts = PyList::empty(py);
                 for c in &callers {
@@ -139,8 +141,8 @@ impl PythonHandler {
                 let py_arg_names = build_arg_names(py, arg_names.as_deref())?;
                 invoke_process_fn(
                     py,
-                    &process_fn,
-                    &handler,
+                    process_fn,
+                    handler,
                     py_inputs.into_any().unbind(),
                     py_arg_names,
                     py_contexts.into_any().unbind(),
@@ -388,4 +390,105 @@ fn format_python_traceback(py: Python<'_>, err: &PyErr) -> PyResult<String> {
     )?;
     let lines: Vec<String> = formatted.extract()?;
     Ok(lines.concat().trim_end().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::future::{poll_fn, Future};
+    use std::task::Poll;
+    use std::time::Duration;
+
+    #[derive(Clone, Copy)]
+    enum Dispatch {
+        Streaming,
+        Buffered,
+        Coalesced,
+    }
+
+    // Polling a dispatch must yield even while another thread owns the GIL:
+    // otherwise Python contention blocks the worker that also serves health RPCs.
+    fn dispatch_yields_while_gil_is_held(dispatch: Dispatch) {
+        Python::initialize();
+        let (yielded, worker) = Python::attach(|py| {
+            let handler = Arc::new(PythonHandler::new(
+                py.None(),
+                py.eval(pyo3::ffi::c_str!("lambda *args: []"), None, None)
+                    .unwrap()
+                    .unbind(),
+                None,
+            ));
+            let (polled_tx, polled_rx) = std::sync::mpsc::channel();
+            let worker = std::thread::spawn(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .build()
+                    .unwrap();
+                runtime.block_on(async move {
+                    let call = async {
+                        match dispatch {
+                            Dispatch::Streaming => {
+                                let (tx, _rx) = mpsc::channel(1);
+                                handler
+                                    .call_streaming(
+                                        Vec::new(),
+                                        String::new(),
+                                        HashMap::new(),
+                                        String::new(),
+                                        tx,
+                                    )
+                                    .await
+                            }
+                            Dispatch::Buffered => {
+                                handler
+                                    .call_into_buffer(
+                                        Vec::new(),
+                                        String::new(),
+                                        HashMap::new(),
+                                        String::new(),
+                                        ChunkBuffer::new().into_shared(),
+                                    )
+                                    .await
+                            }
+                            Dispatch::Coalesced => {
+                                handler.call_coalesced(Vec::new()).await.map(|_| ())
+                            }
+                        }
+                    };
+                    tokio::pin!(call);
+                    poll_fn(|cx| {
+                        assert!(call.as_mut().poll(cx).is_pending());
+                        let _ = polled_tx.send(());
+                        Poll::Ready(())
+                    })
+                    .await;
+                    call.await.unwrap();
+                });
+            });
+            // No Python bytecode runs here, so CPython cannot periodically release
+            // the GIL and accidentally let a blocking attach pass the test.
+            let yielded = polled_rx.recv_timeout(Duration::from_secs(5)).is_ok();
+            (yielded, worker)
+        });
+        // Release the GIL before joining so even a regressed implementation exits.
+        worker.join().unwrap();
+        assert!(
+            yielded,
+            "dispatch blocked its Tokio worker acquiring the GIL"
+        );
+    }
+
+    #[test]
+    fn streaming_dispatch_yields_under_gil_contention() {
+        dispatch_yields_while_gil_is_held(Dispatch::Streaming);
+    }
+
+    #[test]
+    fn buffered_dispatch_yields_under_gil_contention() {
+        dispatch_yields_while_gil_is_held(Dispatch::Buffered);
+    }
+
+    #[test]
+    fn coalesced_dispatch_yields_under_gil_contention() {
+        dispatch_yields_while_gil_is_held(Dispatch::Coalesced);
+    }
 }

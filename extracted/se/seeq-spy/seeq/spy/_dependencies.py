@@ -7,11 +7,12 @@ class Dependencies:
     # This should remain updated with the extras_require in seeq-spy/setup.sq-variables.py
     dependency_mapping = {
         'all': ['bs4', 'chevron', 'cron_descriptor', 'ipylab', 'IPython', 'ipywidgets', 'jupyter_client',
-                'jupyterlab', 'mako', 'markdown', 'matplotlib', 'nbconvert', 'nbformat', 'notebook', 'psutil',
-                'recurrent', 'setuptools'],
+                'jupyterlab', 'keyring', 'mako', 'markdown', 'matplotlib', 'nbconvert', 'nbformat', 'notebook',
+                'psutil', 'recurrent', 'setuptools'],
         'jobs': ['cron_descriptor', 'jupyter_client', 'nbconvert', 'nbformat', 'recurrent'],
         'jupyter': ['ipylab', 'IPython', 'ipywidgets', 'jupyterlab', 'nbconvert', 'nbformat', 'notebook', 'psutil',
                     'setuptools'],
+        'keychain': ['keyring'],
         'templates': ['bs4', 'chevron', 'mako', 'markdown', 'matplotlib'],
         'widgets': ['IPython', 'ipywidgets', 'matplotlib', 'seeq-data-lab-env-mgr']
     }

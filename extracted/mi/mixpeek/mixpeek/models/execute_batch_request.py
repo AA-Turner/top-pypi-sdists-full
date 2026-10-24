@@ -27,9 +27,9 @@ from typing_extensions import Self
 
 class ExecuteBatchRequest(BaseModel):
     """
-    Request to execute a retriever against multiple queries in a single call.  The retriever is fetched and optimized once, then executed concurrently against each query. Much more efficient than calling /execute N times when scanning multiple assets against the same retriever.  Typical use case: IP safety / copyright clearance — check 20 media files against face, logo, or audio retrievers in one request.
+    Request to execute a retriever against multiple queries in a single call.  The retriever is fetched and optimized once, then executed concurrently against each query. Much more efficient than calling /execute N times when scanning multiple assets against the same retriever.  Typical use case: IP safety and copyright clearance, checking up to 16 media files against face, logo, or audio retrievers in one request.
     """ # noqa: E501
-    queries: Annotated[List[BatchQueryItem], Field(min_length=1, max_length=50)] = Field(description="List of queries to execute (1-50). Each gets the same retriever pipeline.")
+    queries: Annotated[List[BatchQueryItem], Field(min_length=1, max_length=16)] = Field(description="List of queries to execute (1-16). Each gets the same retriever pipeline. A request over 16 is refused with 422 and error.details.limits.max_queries set to 16; split larger sets into several requests.")
     settings: Optional[Dict[str, Any]] = Field(default=None, description="Shared settings applied to every query. Supports 'limit' (max results per query, default 10) and 'max_chunks' (for content-mode preprocessing).")
     concurrency: Optional[Annotated[int, Field(le=20, strict=True, ge=1)]] = Field(default=5, description="Max concurrent executions (1-20). Higher = faster but more resource usage.")
     return_presigned_urls: Optional[StrictBool] = Field(default=False, description="Generate presigned URLs for S3-backed blobs and url-shaped fields. Also accepted as a query param — if either source is true, presigning is enabled.")

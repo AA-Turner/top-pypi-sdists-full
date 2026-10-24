@@ -1,17 +1,19 @@
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use super::refdata::LongMode;
 use super::typed_builder::{ArrowType, ColumnSet, TypedBuilder};
+use arrow_array::ArrayRef;
+use arrow_array::RecordBatch;
 use arrow_array::builder::{
     BooleanBuilder, Date32Builder, Float64Builder, Int64Builder, StringBuilder,
     Time64MicrosecondBuilder, TimestampMicrosecondBuilder,
 };
-use arrow_array::ArrayRef;
-use arrow_array::RecordBatch;
 use arrow_schema::{Field, Schema, SchemaRef};
 use xbbg_core::{BlpError, DataType as BlpDataType, Element, Message, Name, Value};
+
+use crate::engine::delayed::{EXCHANGE_DELAY, IS_DELAYED_STREAM, parse_exchange_delay_minutes};
 
 /// Schema-metadata key carrying per-security entitlement IDs
 /// (`securityData[].eidData`, JSON: `{"<ticker>": [eid, ...]}`).
@@ -22,6 +24,25 @@ pub const METADATA_KEY_SECURITY_ERRORS: &str = "xbbg.security_errors";
 /// Schema-metadata key carrying per-security `fieldExceptions`
 /// (JSON: `{"<ticker>": [{"field", "category", "code", "subcategory", "message"}, ...]}`).
 pub const METADATA_KEY_FIELD_EXCEPTIONS: &str = "xbbg.field_exceptions";
+/// Schema-metadata key carrying per-security delayed-data status for requests
+/// made with `on_delayed`
+/// (JSON: `{"<ticker>": {"delayed": bool, "delay_minutes": int | null}}`).
+pub const METADATA_KEY_DELAYED: &str = "xbbg.delayed";
+
+/// Delayed-data status for one security, from `IS_DELAYED_STREAM` and
+/// `EXCHANGE_DELAY`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DelayedMeta {
+    /// Whether this session receives delayed rather than real-time data.
+    pub delayed: bool,
+    /// Minutes behind real time; `None` when real time or not reported.
+    pub delay_minutes: Option<u32>,
+}
+
+/// Read the `xbbg.delayed` status map from a request result.
+pub fn delayed_metadata(batch: &RecordBatch) -> Option<BTreeMap<String, DelayedMeta>> {
+    ResponseMetadata::parse_json(batch.schema_ref().metadata().get(METADATA_KEY_DELAYED))
+}
 
 /// `securityError` details captured for batch metadata.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -42,6 +63,70 @@ pub struct FieldExceptionMeta {
     pub message: String,
 }
 
+struct ResponseElementNames {
+    eid_data: Name,
+    security_error: Name,
+    field_exceptions: Name,
+    field_id: Name,
+    error_info: Name,
+    category: Name,
+    code: Name,
+    subcategory: Name,
+    message: Name,
+    field_data: Name,
+    is_delayed_stream: Name,
+    exchange_delay: Name,
+}
+
+static RESPONSE_NAMES: LazyLock<ResponseElementNames> = LazyLock::new(|| ResponseElementNames {
+    eid_data: Name::get_or_intern("eidData"),
+    security_error: Name::get_or_intern("securityError"),
+    field_exceptions: Name::get_or_intern("fieldExceptions"),
+    field_id: Name::get_or_intern("fieldId"),
+    error_info: Name::get_or_intern("errorInfo"),
+    category: Name::get_or_intern("category"),
+    code: Name::get_or_intern("code"),
+    subcategory: Name::get_or_intern("subcategory"),
+    message: Name::get_or_intern("message"),
+    field_data: Name::get_or_intern("fieldData"),
+    is_delayed_stream: Name::get_or_intern(IS_DELAYED_STREAM),
+    exchange_delay: Name::get_or_intern(EXCHANGE_DELAY),
+});
+
+/// Borrowed error details let callers log or emit an error row without copying
+/// the strings already owned by the response metadata.
+pub(super) struct SecurityErrorDetails<'a> {
+    pub category: &'a str,
+    pub code: i32,
+    pub subcategory: &'a str,
+    pub message: &'a str,
+}
+
+impl<'a> SecurityErrorDetails<'a> {
+    fn read(error: Option<&Element<'a>>, names: &ResponseElementNames) -> Self {
+        let string = |name: &Name| {
+            error
+                .and_then(|error| error.get(name))
+                .and_then(|element| element.get_str(0))
+                .unwrap_or("")
+        };
+        Self {
+            category: string(&names.category),
+            code: error
+                .and_then(|error| error.get(&names.code))
+                .and_then(|element| element.get_i32(0))
+                .unwrap_or_default(),
+            subcategory: string(&names.subcategory),
+            message: string(&names.message),
+        }
+    }
+}
+
+pub(super) struct SecurityDiagnostics<'a> {
+    pub security_error: Option<SecurityErrorDetails<'a>>,
+    pub field_exception_count: usize,
+}
+
 /// Response-level diagnostics that must survive into the result batch: raw
 /// responses carry `eidData` / `securityError` / `fieldExceptions` next to the
 /// field data, and dropping them silently is exactly the failure mode a
@@ -54,9 +139,134 @@ pub(crate) struct ResponseMetadata {
     eid_data: BTreeMap<String, Vec<i64>>,
     security_errors: BTreeMap<String, SecurityErrorMeta>,
     field_exceptions: BTreeMap<String, Vec<FieldExceptionMeta>>,
+    delayed: BTreeMap<String, DelayedMeta>,
+    /// Record `fieldData` delay status (bdp requests made with `on_delayed`).
+    capture_delayed: bool,
+    /// Status fields xbbg appended to the wire request; their exceptions are
+    /// not the caller's, so they are not reported.
+    hidden_fields: Vec<&'static str>,
 }
 
 impl ResponseMetadata {
+    /// Record `IS_DELAYED_STREAM` / `EXCHANGE_DELAY` from each security's
+    /// `fieldData`, dropping exceptions for the `hidden_fields` xbbg added.
+    pub(crate) fn capture_delayed(&mut self, hidden_fields: Vec<&'static str>) {
+        self.capture_delayed = true;
+        self.hidden_fields = hidden_fields;
+    }
+
+    /// Metadata carrying only delay status from a separate status lookup.
+    pub(crate) fn with_delayed(delayed: BTreeMap<String, DelayedMeta>) -> Self {
+        Self {
+            delayed,
+            ..Self::default()
+        }
+    }
+
+    /// Collect all diagnostics before callers decide whether to skip a security.
+    /// This also preserves field exceptions accompanying a security error.
+    pub(super) fn record_security<'a>(
+        &mut self,
+        ticker: &str,
+        security: &Element<'a>,
+    ) -> SecurityDiagnostics<'a> {
+        let names = &RESPONSE_NAMES;
+        if let Some(eids) = security.get(&names.eid_data) {
+            self.record_eid_data(ticker, &eids);
+        }
+        let security_error = security
+            .get(&names.security_error)
+            .filter(|error| !error.is_null())
+            .map(|error| SecurityErrorDetails::read(Some(&error), names));
+        if let Some(error) = &security_error {
+            self.record_security_error(
+                ticker,
+                SecurityErrorMeta {
+                    category: error.category.to_string(),
+                    code: error.code,
+                    subcategory: error.subcategory.to_string(),
+                    message: error.message.to_string(),
+                },
+            );
+        }
+        let mut field_exception_count = 0;
+        if let Some(exceptions) = security.get(&names.field_exceptions) {
+            for exception in exceptions.values() {
+                let field = exception
+                    .get(&names.field_id)
+                    .and_then(|element| element.get_str(0))
+                    .unwrap_or("?");
+                if self
+                    .hidden_fields
+                    .iter()
+                    .any(|hidden| hidden.eq_ignore_ascii_case(field))
+                {
+                    continue;
+                }
+                let error_info = exception.get(&names.error_info);
+                let error = SecurityErrorDetails::read(error_info.as_ref(), names);
+                self.record_field_exception(
+                    ticker,
+                    FieldExceptionMeta {
+                        field: field.to_string(),
+                        category: error.category.to_string(),
+                        code: error.code,
+                        subcategory: error.subcategory.to_string(),
+                        message: error.message.to_string(),
+                    },
+                );
+                field_exception_count += 1;
+                xbbg_log::debug!(
+                    ticker = ticker,
+                    field = field,
+                    message = error.message,
+                    "Response fieldException"
+                );
+            }
+        }
+        if self.capture_delayed
+            && let Some(field_data) = security.get(&names.field_data)
+        {
+            self.record_delayed(ticker, &field_data);
+        }
+        SecurityDiagnostics {
+            security_error,
+            field_exception_count,
+        }
+    }
+
+    /// Record one security's delay status; absent when Bloomberg did not
+    /// return the flag (bad security or field not applicable).
+    fn record_delayed(&mut self, ticker: &str, field_data: &Element<'_>) {
+        let names = &RESPONSE_NAMES;
+        let Some(delayed) = field_data
+            .get(&names.is_delayed_stream)
+            .filter(|flag| !flag.is_null())
+            .and_then(|flag| {
+                flag.get_bool(0)
+                    .or_else(|| flag.get_str(0).and_then(parse_flag_text))
+            })
+        else {
+            return;
+        };
+        let delay_minutes = if delayed {
+            field_data
+                .get(&names.exchange_delay)
+                .filter(|text| !text.is_null())
+                .and_then(|text| text.get_str(0))
+                .and_then(parse_exchange_delay_minutes)
+        } else {
+            None
+        };
+        self.delayed.insert(
+            ticker.to_string(),
+            DelayedMeta {
+                delayed,
+                delay_minutes,
+            },
+        );
+    }
+
     /// Record `securityData[].eidData` (an int array element) for `ticker`.
     pub(crate) fn record_eid_data(&mut self, ticker: &str, eids: &Element<'_>) {
         let entry = self.eid_data.entry(ticker.to_string()).or_default();
@@ -78,10 +288,11 @@ impl ResponseMetadata {
             .push(exception);
     }
 
-    fn is_empty(&self) -> bool {
+    pub(super) fn is_empty(&self) -> bool {
         self.eid_data.is_empty()
             && self.security_errors.is_empty()
             && self.field_exceptions.is_empty()
+            && self.delayed.is_empty()
     }
 
     /// Attach the collected diagnostics to `batch` as schema metadata.
@@ -103,6 +314,7 @@ impl ResponseMetadata {
             METADATA_KEY_FIELD_EXCEPTIONS,
             &self.field_exceptions,
         );
+        Self::insert_json(&mut metadata, METADATA_KEY_DELAYED, &self.delayed);
         let schema = Arc::new(batch.schema_ref().as_ref().clone().with_metadata(metadata));
         match batch.clone().with_schema(schema) {
             Ok(with_meta) => with_meta,
@@ -164,6 +376,11 @@ impl ResponseMetadata {
                         .extend(exceptions);
                 }
             }
+            if let Some(map) = Self::parse_json::<BTreeMap<String, DelayedMeta>>(
+                metadata.get(METADATA_KEY_DELAYED),
+            ) {
+                merged.delayed.extend(map);
+            }
         }
         merged
     }
@@ -177,6 +394,15 @@ impl ResponseMetadata {
                 None
             }
         }
+    }
+}
+
+/// Read a text boolean ("true", "Y", "1") for flags Bloomberg returns as text.
+fn parse_flag_text(text: &str) -> Option<bool> {
+    match text.trim().to_ascii_lowercase().as_str() {
+        "true" | "y" | "yes" | "1" => Some(true),
+        "false" | "n" | "no" | "0" => Some(false),
+        _ => None,
     }
 }
 
@@ -275,7 +501,7 @@ pub(crate) fn get_value_cached_datatype<'a>(
     cached_datatype: &mut Option<BlpDataType>,
 ) -> Option<Value<'a>> {
     if let Some(cached) = *cached_datatype {
-        if let Some(value) = get_value_for_datatype(element, cached, 0) {
+        if let Some(value) = element.get_value_fast_with_datatype(0, cached) {
             return Some(value);
         }
 
@@ -288,55 +514,14 @@ pub(crate) fn get_value_cached_datatype<'a>(
             );
         }
         *cached_datatype = Some(datatype);
-        return get_value_for_datatype(element, datatype, 0);
+        return element.get_value_fast_with_datatype(0, datatype);
     }
 
     let datatype = element.datatype();
     *cached_datatype = Some(datatype);
-    get_value_for_datatype(element, datatype, 0)
+    element.get_value_fast_with_datatype(0, datatype)
 }
 
-#[inline(always)]
-fn get_value_for_datatype<'a>(
-    element: &Element<'a>,
-    datatype: BlpDataType,
-    index: usize,
-) -> Option<Value<'a>> {
-    match datatype {
-        BlpDataType::Bool => element.get_bool(index).map(Value::Bool),
-        BlpDataType::Char | BlpDataType::Byte => {
-            if let Some(value) = element.get_bool(index) {
-                return Some(Value::Bool(value));
-            }
-            element.get_i32(index).map(|value| Value::Byte(value as u8))
-        }
-        BlpDataType::Int32 => element.get_i32(index).map(Value::Int32),
-        BlpDataType::Int64 => element.get_i64(index).map(Value::Int64),
-        BlpDataType::Float32 | BlpDataType::Float64 | BlpDataType::Decimal => {
-            element.get_f64(index).map(Value::Float64)
-        }
-        BlpDataType::String => element.get_str(index).map(Value::String),
-        BlpDataType::Date => element.get_datetime(index).map(|dt| {
-            let micros = dt.to_micros();
-            Value::Date32((micros / 86_400_000_000) as i32)
-        }),
-        BlpDataType::Time => element
-            .get_datetime(index)
-            .map(|dt| Value::Time64Micros(dt.to_time_micros())),
-        BlpDataType::Datetime => element.get_datetime(index).map(|dt| {
-            if dt.has_date_parts() {
-                Value::TimestampMicros(dt.to_micros())
-            } else {
-                Value::Time64Micros(dt.to_time_micros())
-            }
-        }),
-        BlpDataType::Enumeration => element.get_str(index).map(Value::Enum),
-        BlpDataType::Sequence
-        | BlpDataType::Choice
-        | BlpDataType::ByteArray
-        | BlpDataType::CorrelationId => Some(Value::Null),
-    }
-}
 /// Compute the common Arrow type for the "value" column from requested fields
 /// and field type hints.
 ///
@@ -763,6 +948,7 @@ pub(crate) struct WideColumns {
     date: Option<Date32Builder>,
     fields: Vec<WideFieldColumn>,
     row_count: usize,
+    schema: Option<SchemaRef>,
 }
 
 impl WideColumns {
@@ -797,6 +983,7 @@ impl WideColumns {
                 })
                 .collect(),
             row_count: 0,
+            schema: None,
         }
     }
 
@@ -875,6 +1062,9 @@ impl WideColumns {
             let arrow_type = column
                 .type_hint
                 .unwrap_or_else(|| ArrowType::from_value(&value));
+            if arrow_type != column.type_hint.unwrap_or(ArrowType::String) {
+                self.schema = None;
+            }
             let mut builder = TypedBuilder::new(arrow_type);
             for _ in 0..self.row_count {
                 builder.append_null();
@@ -884,56 +1074,76 @@ impl WideColumns {
         }
     }
 
-    pub(crate) fn finish_refdata(self) -> Result<RecordBatch, BlpError> {
+    pub(crate) fn finish_refdata(mut self) -> Result<RecordBatch, BlpError> {
         self.finish(false)
     }
 
-    pub(crate) fn finish_histdata(self) -> Result<RecordBatch, BlpError> {
+    /// Drain one chunk without discarding inferred field types or column names.
+    pub(crate) fn finish_histdata(&mut self) -> Result<RecordBatch, BlpError> {
         self.finish(true)
     }
 
-    fn finish(mut self, include_date: bool) -> Result<RecordBatch, BlpError> {
-        let mut arrow_fields =
-            Vec::with_capacity(self.fields.len() + if include_date { 2 } else { 1 });
-        let mut arrays: Vec<ArrayRef> = Vec::with_capacity(arrow_fields.capacity());
-
-        arrow_fields.push(Field::new(
-            "ticker",
-            ArrowType::String.to_arrow_datatype(),
-            true,
-        ));
+    fn finish(&mut self, include_date: bool) -> Result<RecordBatch, BlpError> {
+        let column_count = self.fields.len() + if include_date { 2 } else { 1 };
+        let schema = self.schema.get_or_insert_with(|| {
+            let mut fields = Vec::with_capacity(column_count);
+            fields.push(Field::new(
+                "ticker",
+                ArrowType::String.to_arrow_datatype(),
+                true,
+            ));
+            if include_date {
+                fields.push(Field::new(
+                    "date",
+                    ArrowType::Date32.to_arrow_datatype(),
+                    true,
+                ));
+            }
+            fields.extend(self.fields.iter().map(|column| {
+                let datatype = column.builder.as_ref().map_or_else(
+                    || {
+                        column
+                            .type_hint
+                            .unwrap_or(ArrowType::String)
+                            .to_arrow_datatype()
+                    },
+                    TypedBuilder::data_type,
+                );
+                Field::new(&column.name, datatype, true)
+            }));
+            Arc::new(Schema::new(fields))
+        });
+        let schema = Arc::clone(schema);
+        let mut arrays: Vec<ArrayRef> = Vec::with_capacity(column_count);
         arrays.push(Arc::new(self.ticker.finish()));
 
         if include_date {
-            let Some(mut date) = self.date.take() else {
+            let Some(date) = self.date.as_mut() else {
                 return Err(BlpError::Internal {
                     detail: "wide HistoricalData columns missing date builder".to_string(),
                 });
             };
-            arrow_fields.push(Field::new(
-                "date",
-                ArrowType::Date32.to_arrow_datatype(),
-                true,
-            ));
             arrays.push(Arc::new(date.finish()));
         }
 
-        for mut column in self.fields {
-            let mut builder = column.builder.take().unwrap_or_else(|| {
-                let mut builder = TypedBuilder::new(column.type_hint.unwrap_or(ArrowType::String));
-                for _ in 0..self.row_count {
-                    builder.append_null();
-                }
+        for column in &mut self.fields {
+            let mut empty_builder;
+            let builder = if let Some(builder) = column.builder.as_mut() {
                 builder
-            });
-            arrow_fields.push(Field::new(&column.name, builder.data_type(), true));
+            } else {
+                // An all-null chunk must not freeze an unhinted column's type.
+                empty_builder = TypedBuilder::new(column.type_hint.unwrap_or(ArrowType::String));
+                for _ in 0..self.row_count {
+                    empty_builder.append_null();
+                }
+                &mut empty_builder
+            };
             arrays.push(builder.finish());
         }
+        self.row_count = 0;
 
-        RecordBatch::try_new(Arc::new(Schema::new(arrow_fields)), arrays).map_err(|e| {
-            BlpError::Internal {
-                detail: format!("build wide RecordBatch: {e}"),
-            }
+        RecordBatch::try_new(schema, arrays).map_err(|e| BlpError::Internal {
+            detail: format!("build wide RecordBatch: {e}"),
         })
     }
 }
@@ -1108,6 +1318,74 @@ mod tests {
     use arrow_array::{Array, Date32Array, Float64Array, StringArray};
 
     #[test]
+    fn cached_char_and_byte_dispatch_preserves_core_boolean_coercion() {
+        use xbbg_core::test_support::TestEvent;
+
+        let schema = r#"<ServiceDefinition name="xbbg.test.cached_char" version="1.0.0.0">
+            <service name="//xbbg/test/cached_char" version="1.0.0.0">
+                <event name="Characters" eventType="CharactersType"/>
+            </service>
+            <schema><sequenceType name="CharactersType">
+                <element name="FLAG" type="Char" minOccurs="0"/>
+            </sequenceType></schema>
+        </ServiceDefinition>"#;
+        // blpapi_element.h permits CHAR -> char/integer, not CHAR -> bool.
+        // Y/N interpretation belongs to core; the Byte cache tag uses the same
+        // raw-char dispatcher and must not reintroduce the old bool getter.
+        for (character, expected) in [
+            (Some(b'Y'), Some(Value::Bool(true))),
+            (Some(b'N'), Some(Value::Bool(false))),
+            (Some(b'X'), Some(Value::Byte(b'X'))),
+            (Some(255), Some(Value::Byte(255))),
+            (None, None),
+        ] {
+            let event = TestEvent::subscription(schema, "Characters", |formatter| {
+                formatter.char("FLAG", character);
+            });
+            let mut messages = event.event().messages();
+            let message = messages.next().unwrap();
+            let element = message.elements().get_by_str("FLAG").unwrap();
+            for mut cached in [None, Some(BlpDataType::Char), Some(BlpDataType::Byte)] {
+                assert_eq!(
+                    get_value_cached_datatype(&element, &mut cached),
+                    expected,
+                    "{character:?}"
+                );
+                assert_eq!(
+                    get_value_cached_datatype(&element, &mut cached),
+                    element.get_value_fast_with_datatype(0, element.datatype())
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn cached_scalar_dispatch_refreshes_after_a_type_change() {
+        use xbbg_core::test_support::TestEvent;
+
+        let schema = r#"<ServiceDefinition name="xbbg.test.cached_type" version="1.0.0.0">
+            <service name="//xbbg/test/cached_type" version="1.0.0.0">
+                <event name="Text" eventType="TextType"/>
+            </service>
+            <schema><sequenceType name="TextType">
+                <element name="VALUE" type="String"/>
+            </sequenceType></schema>
+        </ServiceDefinition>"#;
+        let event = TestEvent::subscription(schema, "Text", |formatter| {
+            formatter.json(r#"{"VALUE":"not numeric"}"#);
+        });
+        let mut messages = event.event().messages();
+        let message = messages.next().unwrap();
+        let element = message.elements().get_by_str("VALUE").unwrap();
+        let mut cached = Some(BlpDataType::Int32);
+        assert_eq!(
+            get_value_cached_datatype(&element, &mut cached),
+            Some(Value::String("not numeric"))
+        );
+        assert_eq!(cached, Some(BlpDataType::String));
+    }
+
+    #[test]
     fn date_time_formatters_match_expected_strings() {
         assert_eq!(format_date32(0), "1970-01-01");
         assert_eq!(format_date32(1), "1970-01-02");
@@ -1243,8 +1521,8 @@ mod tests {
         </ServiceDefinition>"#;
         // The JSON formatter rejects incomplete Datetime strings; construct the
         // SDK's actual time-only Datetime representation with its typed setter.
-        let datetime = blpapi_sys::blpapi_HighPrecisionDatetime_t {
-            datetime: blpapi_sys::blpapi_Datetime_t {
+        let datetime = xbbg_core::ffi::SdkHighPrecisionDatetime {
+            datetime: xbbg_core::ffi::SdkDatetime {
                 parts: 112, // hour, minute and second, with no date bits
                 hours: 15,
                 minutes: 59,
@@ -1391,11 +1669,20 @@ mod tests {
                 message: "Field not applicable".to_string(),
             }],
         );
+        meta1.delayed.insert(
+            "IBM US Equity".to_string(),
+            DelayedMeta {
+                delayed: false,
+                delay_minutes: None,
+            },
+        );
         let batch1 = meta1.attach(tiny_batch());
-        assert!(batch1
-            .schema_ref()
-            .metadata()
-            .contains_key(METADATA_KEY_EID_DATA));
+        assert!(
+            batch1
+                .schema_ref()
+                .metadata()
+                .contains_key(METADATA_KEY_EID_DATA)
+        );
 
         // Shard 2: unentitled security — securityError AND eidData together
         // (the SAPI/B-PIPE case: EIDs are reported for securities the
@@ -1411,6 +1698,13 @@ mod tests {
                 code: 17,
                 subcategory: "NOT_ENTITLED".to_string(),
                 message: "Not entitled to security".to_string(),
+            },
+        );
+        meta2.delayed.insert(
+            "PRIVATE US Equity".to_string(),
+            DelayedMeta {
+                delayed: true,
+                delay_minutes: Some(15),
             },
         );
         let batch2 = meta2.attach(tiny_batch());
@@ -1432,6 +1726,14 @@ mod tests {
         let excs = merged.field_exceptions.get("IBM US Equity").unwrap();
         assert_eq!(excs.len(), 1);
         assert_eq!(excs[0].field, "BAD_FIELD");
+        assert_eq!(merged.delayed.len(), 2);
+        assert_eq!(
+            merged.delayed.get("PRIVATE US Equity"),
+            Some(&DelayedMeta {
+                delayed: true,
+                delay_minutes: Some(15),
+            })
+        );
 
         // Re-attach of the merged map keeps JSON parseable end to end.
         let final_batch = merged.attach(tiny_batch());
@@ -1439,5 +1741,297 @@ mod tests {
         assert_eq!(re_merged.eid_data.len(), 2);
         assert_eq!(re_merged.security_errors.len(), 1);
         assert_eq!(re_merged.field_exceptions.len(), 1);
+        assert_eq!(re_merged.delayed.len(), 2);
+    }
+
+    #[test]
+    fn reference_and_bulk_responses_share_complete_security_diagnostics() {
+        use crate::engine::state::refdata::OutputFormat;
+        use crate::engine::state::{BulkDataState, RefDataState};
+        use tokio::sync::oneshot;
+        use xbbg_core::EventType;
+        use xbbg_core::test_support::TestEvent;
+
+        fn response(bulk: bool, failed: bool) -> TestEvent {
+            let field_data = if bulk {
+                r#"<element name="BULK" type="Row" maxOccurs="unbounded"/>"#
+            } else {
+                r#"<element name="VALUE" type="Float64"/>"#
+            };
+            let security_error = if failed {
+                r#"<element name="securityError" type="ErrorInfo"/>"#
+            } else {
+                ""
+            };
+            let schema = format!(
+                r#"<ServiceDefinition name="xbbg.test.diagnostics" version="1.0.0.0">
+                <service name="//xbbg/test/diagnostics" version="1.0.0.0">
+                    <event name="ReferenceDataResponse" eventType="Response"/>
+                </service>
+                <schema>
+                    <sequenceType name="Response">
+                        <element name="securityData" type="SecurityData" maxOccurs="unbounded"/>
+                    </sequenceType>
+                    <sequenceType name="SecurityData">
+                        <element name="security" type="String"/>
+                        <element name="fieldData" type="FieldData" minOccurs="0"/>
+                        <element name="eidData" type="Int32" maxOccurs="unbounded"/>
+                        {security_error}
+                        <element name="fieldExceptions" type="FieldException" maxOccurs="unbounded"/>
+                    </sequenceType>
+                    <sequenceType name="FieldData">{field_data}</sequenceType>
+                    <sequenceType name="Row"><element name="VALUE" type="Float64"/></sequenceType>
+                    <sequenceType name="FieldException">
+                        <element name="fieldId" type="String"/>
+                        <element name="errorInfo" type="ErrorInfo"/>
+                    </sequenceType>
+                    <sequenceType name="ErrorInfo">
+                        <element name="category" type="String"/>
+                        <element name="code" type="Int32"/>
+                        <element name="subcategory" type="String"/>
+                        <element name="message" type="String"/>
+                    </sequenceType>
+                </schema>
+            </ServiceDefinition>"#
+            );
+            let error = serde_json::json!({
+                "category": "TEST_ERROR", "code": 9,
+                "subcategory": "SYNTHETIC", "message": "Synthetic diagnostic"
+            });
+            let mut security = serde_json::json!({
+                "security": if failed { "DENIED Equity" } else { "TEST Equity" },
+                "eidData": if failed { vec![22] } else { vec![11] },
+                "fieldExceptions": [{"fieldId": "VALUE", "errorInfo": error}]
+            });
+            if failed {
+                security["securityError"] = error;
+            } else {
+                security["fieldData"] = if bulk {
+                    serde_json::json!({"BULK": [{"VALUE": 1.5}]})
+                } else {
+                    serde_json::json!({"VALUE": 1.5})
+                };
+            }
+            TestEvent::with_schema(
+                &schema,
+                if failed {
+                    EventType::Response
+                } else {
+                    EventType::PartialResponse
+                },
+                "ReferenceDataResponse",
+                &[],
+                |formatter| {
+                    formatter.json(&serde_json::json!({"securityData": [security]}).to_string())
+                },
+            )
+        }
+
+        for bulk in [false, true] {
+            let first = response(bulk, false);
+            let last = response(bulk, true);
+            let mut first_messages = first.event().messages();
+            let first_message = first_messages.next().unwrap();
+            let mut last_messages = last.event().messages();
+            let last_message = last_messages.next().unwrap();
+            let (sender, mut receiver) = oneshot::channel();
+            if bulk {
+                let mut state = BulkDataState::new("BULK".into(), sender);
+                state.on_partial(&first_message);
+                state.finish(&last_message);
+            } else {
+                let mut state = RefDataState::with_format(
+                    vec!["VALUE".into()],
+                    OutputFormat::Long,
+                    LongMode::String,
+                    None,
+                    true,
+                    sender,
+                );
+                state.on_partial(&first_message);
+                state.finish(&last_message);
+            }
+            let batch = receiver.try_recv().unwrap().unwrap();
+            assert_eq!(batch.num_rows(), if bulk { 1 } else { 2 });
+            let metadata = batch.schema_ref().metadata();
+            let eids: serde_json::Value =
+                serde_json::from_str(&metadata[METADATA_KEY_EID_DATA]).unwrap();
+            assert_eq!(
+                eids,
+                serde_json::json!({"TEST Equity": [11], "DENIED Equity": [22]})
+            );
+            let errors: serde_json::Value =
+                serde_json::from_str(&metadata[METADATA_KEY_SECURITY_ERRORS]).unwrap();
+            assert_eq!(errors["DENIED Equity"]["message"], "Synthetic diagnostic");
+            let exceptions: serde_json::Value =
+                serde_json::from_str(&metadata[METADATA_KEY_FIELD_EXCEPTIONS]).unwrap();
+            for ticker in ["TEST Equity", "DENIED Equity"] {
+                assert_eq!(exceptions[ticker][0]["field"], "VALUE");
+                assert_eq!(exceptions[ticker][0]["code"], 9);
+            }
+            if !bulk {
+                let values = batch
+                    .column_by_name("value")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .unwrap();
+                assert!(values.value(1).contains("Synthetic diagnostic"));
+            }
+        }
+    }
+
+    #[test]
+    fn bdp_delay_capture_records_status_without_rows_or_added_field_exceptions() {
+        use crate::engine::state::RefDataState;
+        use crate::engine::state::refdata::OutputFormat;
+        use tokio::sync::oneshot;
+        use xbbg_core::EventType;
+        use xbbg_core::test_support::TestEvent;
+
+        // TestUtil materializes every declared field, so a security without the
+        // flag needs its own schema rather than an omitted value.
+        let schema = |status_fields: &str| {
+            format!(
+                r#"<ServiceDefinition name="xbbg.test.delayed" version="1.0.0.0">
+            <service name="//xbbg/test/delayed" version="1.0.0.0">
+                <event name="ReferenceDataResponse" eventType="Response"/>
+            </service>
+            <schema>
+                <sequenceType name="Response">
+                    <element name="securityData" type="SecurityData" maxOccurs="unbounded"/>
+                </sequenceType>
+                <sequenceType name="SecurityData">
+                    <element name="security" type="String"/>
+                    <element name="fieldData" type="FieldData"/>
+                    <element name="fieldExceptions" type="FieldException" maxOccurs="unbounded"/>
+                </sequenceType>
+                <sequenceType name="FieldData">
+                    <element name="VALUE" type="Float64"/>{status_fields}
+                </sequenceType>
+                <sequenceType name="FieldException">
+                    <element name="fieldId" type="String"/>
+                    <element name="errorInfo" type="ErrorInfo"/>
+                </sequenceType>
+                <sequenceType name="ErrorInfo">
+                    <element name="category" type="String"/>
+                    <element name="code" type="Int32"/>
+                    <element name="subcategory" type="String"/>
+                    <element name="message" type="String"/>
+                </sequenceType>
+            </schema>
+        </ServiceDefinition>"#
+            )
+        };
+        let not_applicable = |field: &str| {
+            serde_json::json!({"fieldId": field, "errorInfo": {
+                "category": "BAD_FLD", "code": 9,
+                "subcategory": "NOT_APPLICABLE_TO_REF_DATA",
+                "message": "Field not applicable to security"
+            }})
+        };
+        let flagged = serde_json::json!({"securityData": [
+            {"security": "VOD LN Equity", "fieldExceptions": [],
+             "fieldData": {"VALUE": 1.5, "IS_DELAYED_STREAM": true, "EXCHANGE_DELAY": "15 Minutes"}},
+            {"security": "AAPL US Equity", "fieldExceptions": [],
+             "fieldData": {"VALUE": 2.5, "IS_DELAYED_STREAM": false, "EXCHANGE_DELAY": "15 Minutes"}}
+        ]})
+        .to_string();
+        let unflagged = serde_json::json!({"securityData": [
+            {"security": "BOND Corp", "fieldData": {"VALUE": 3.5},
+             "fieldExceptions": [not_applicable("IS_DELAYED_STREAM"), not_applicable("EXCHANGE_DELAY")]}
+        ]})
+        .to_string();
+        let partial = TestEvent::with_schema(
+            &schema(
+                r#"<element name="IS_DELAYED_STREAM" type="Boolean"/>
+                    <element name="EXCHANGE_DELAY" type="String"/>"#,
+            ),
+            EventType::PartialResponse,
+            "ReferenceDataResponse",
+            &[],
+            |formatter| formatter.json(&flagged),
+        );
+        let last = TestEvent::with_schema(
+            &schema(""),
+            EventType::Response,
+            "ReferenceDataResponse",
+            &[],
+            |formatter| formatter.json(&unflagged),
+        );
+
+        // The caller asked only for VALUE: both status fields were added by xbbg.
+        // When the caller asks for the flag itself, its exceptions are theirs.
+        for (fields, hidden, reported_exceptions) in [
+            (
+                vec!["VALUE"],
+                vec![IS_DELAYED_STREAM, EXCHANGE_DELAY],
+                vec![],
+            ),
+            (
+                vec!["VALUE", IS_DELAYED_STREAM],
+                vec![EXCHANGE_DELAY],
+                vec![IS_DELAYED_STREAM],
+            ),
+        ] {
+            let (sender, mut receiver) = oneshot::channel();
+            let mut state = RefDataState::with_format(
+                fields.iter().map(|field| (*field).to_string()).collect(),
+                OutputFormat::Long,
+                LongMode::String,
+                None,
+                false,
+                sender,
+            )
+            .capture_delayed(hidden);
+            state.on_partial(&partial.event().messages().next().unwrap());
+            state.finish(&last.event().messages().next().unwrap());
+            let batch = receiver.try_recv().unwrap().unwrap();
+
+            let row_fields = batch
+                .column_by_name("field")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+            assert!(
+                row_fields
+                    .iter()
+                    .flatten()
+                    .all(|field| fields.contains(&field)),
+                "added status fields must not become rows"
+            );
+            assert_eq!(
+                delayed_metadata(&batch).unwrap(),
+                BTreeMap::from([
+                    (
+                        "AAPL US Equity".to_string(),
+                        DelayedMeta {
+                            delayed: false,
+                            delay_minutes: None,
+                        },
+                    ),
+                    (
+                        "VOD LN Equity".to_string(),
+                        DelayedMeta {
+                            delayed: true,
+                            delay_minutes: Some(15),
+                        },
+                    ),
+                ])
+            );
+            let exceptions: BTreeMap<String, Vec<FieldExceptionMeta>> = batch
+                .schema_ref()
+                .metadata()
+                .get(METADATA_KEY_FIELD_EXCEPTIONS)
+                .map(|json| serde_json::from_str(json).unwrap())
+                .unwrap_or_default();
+            let reported: Vec<&str> = exceptions
+                .values()
+                .flatten()
+                .map(|exception| exception.field.as_str())
+                .collect();
+            assert_eq!(reported, reported_exceptions);
+        }
     }
 }

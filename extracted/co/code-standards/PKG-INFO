@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 8.105.15
+Version: 8.123.0
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -21,19 +21,19 @@ Requires-Python: >=3.14
 Requires-Dist: basedpyright==1.40.2
 Requires-Dist: deptry==0.25.1
 Requires-Dist: jsonschema==4.26.0
-Requires-Dist: lefthook==2.2.1
+Requires-Dist: lefthook==2.2.2
 Requires-Dist: packaging==26.3
 Requires-Dist: pathspec==1.1.1
 Requires-Dist: pre-commit==4.7.0
 Requires-Dist: pydantic==2.14.1
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
-Requires-Dist: repo-standards==6.11.0
-Requires-Dist: ruff==0.17.0
-Requires-Dist: sarj-iac-lint==0.25.1
-Requires-Dist: sarj-python-lint==1.64.0
-Requires-Dist: sarj-rule-contracts==0.2.5
-Requires-Dist: sarj-sql-lint==0.23.0
+Requires-Dist: repo-standards==6.12.6
+Requires-Dist: ruff==0.17.2
+Requires-Dist: sarj-iac-lint==0.29.1
+Requires-Dist: sarj-python-lint==1.69.0
+Requires-Dist: sarj-rule-contracts==0.2.6
+Requires-Dist: sarj-sql-lint==0.25.1
 Requires-Dist: shellcheck-py==0.11.0.1; (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'darwin' and platform_machine == 'x86_64') or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')
 Requires-Dist: typer==0.27.3
 Description-Content-Type: text/markdown
@@ -63,6 +63,8 @@ code-standards doctor
 code-standards update
 ```
 
+New ESLint setups use `eslint.config.ts` and the compiler-checked `eslint.strict.ts` preset. Existing `.mjs` preset imports remain supported; to migrate, remove the old generated preset and change its imports to `.ts` before running setup.
+
 Use repeatable `check --rule ENGINE:ID` selectors to select native rules, ESLint rules, or managed security audits. Exclusions, baselines, and severities still apply; Ruff selectors are not supported. Native linters and ESLint execute only selected rules. ESLint retains configured parsers, options, severities, and suppression directives.
 
 Selected ESLint checks apply live inline suppressions and validate selected bulk suppression counts. The complete lint gate owns unused inline-directive and inline-configuration checks: a partial run cannot establish whether an unselected rule's directive is needed.
@@ -79,7 +81,7 @@ The shared ESLint policy includes `@shadcn/lint` design-system guidance at warni
 
 Use `code-standards check --rule eslint:shadcn/no-restyle` to inspect one upstream rule. Declare shared-package imports and custom class helpers in `settings.shadcn`, scoped to each application's files in the consumer's ESLint configuration. Add reviewed component contracts or exact class/property allowances through the upstream rule options; do not replace every warning with a global error. Tailwind theme-loading warnings indicate grammar fallback with reduced coverage. The project-discovery API is experimental and is protected by an exact dependency pin and executable integration tests.
 
-Terraform, Kubernetes, and GitHub Actions adoption adds isolated Checkov 3.3.28 and zizmor 1.31.1 runtimes. Setup and generated CI prewarm these tools; checks run offline with packaged policy. Use `--rule checkov:CKV_GCP_95` or `--rule zizmor:template-injection` to select upstream audits. Their findings start as warnings, use the canonical diagnostic baseline, and retain upstream IDs. Checkov honors its inline suppression directives; zizmor ignore comments are disabled. Explicit zizmor selectors include auditor-persona checks; online-only audits cannot run offline. Parsing or execution failures leave the analysis incomplete. Image digest evidence for source templates is deferred to their rendered deployment artifacts.
+Terraform, Kubernetes, and GitHub Actions adoption adds isolated Checkov 3.3.30 and zizmor 1.31.1 runtimes. Setup and generated CI prewarm these tools; checks run offline with packaged policy. Use `--rule checkov:CKV_GCP_95` or `--rule zizmor:template-injection` to select upstream audits. Their findings start as warnings, use the canonical diagnostic baseline, and retain upstream IDs. Checkov honors its inline suppression directives; zizmor ignore comments are disabled. Explicit zizmor selectors include auditor-persona checks; online-only audits cannot run offline. Parsing or execution failures leave the analysis incomplete. Image digest evidence for source templates is deferred to their rendered deployment artifacts.
 
 The opt-in `jscpd` capability runs the jscpd 5.4.0 copy-paste detector, which setup installs through mise. Setup and upgrades list it in `[capabilities].disable`; remove it there to enable it. Each check scans Python, TypeScript, Swift and Kotlin source outside test directories, because a copy can only be found by comparing it with the whole tree. Every repeated block of at least 50 tokens is a `jscpd:duplicate-code` warning on its own lines that names the other copies, so the changed-line baseline reports it when either side is edited. The repository's own jscpd configuration is ignored.
 
@@ -95,17 +97,34 @@ The shared ShellCheck policy enables `check-set-e-suppressed` alongside the exis
 
 For concise Bash, preserve arguments with quoted expansions and command arrays, use a literal `printf` format, and handle fallible commands explicitly. Built-in lookup and parameter expansion can replace external commands when their lookup, output and exit-status contracts agree. These choices use existing upstream checks; intentional stream contracts and predicates require review rather than automatic semantic rewrites.
 
-The opt-in `knip` capability uses Knip 6.41.0 production mode. Remove it from `[capabilities].disable` and declare `application = true` under `[knip]` to enable advisory `knip:files` evidence. Version one supports a single private application with entry and project arrays containing production patterns ending in `!` in `knip.json` or `.knip.json`. Native aliases and framework entries remain authoritative; unresolved imports, configuration diagnostics, workspaces and dynamic configuration make the graph inconclusive. Review runtime and public owners before deleting a module. No automatic fixes or application inference are performed.
+The opt-in `knip` capability uses Knip 6.42.1 production mode. Remove it from `[capabilities].disable` and declare `application = true` under `[knip]` to enable advisory `knip:files` evidence. Version one supports a single private application with entry and project arrays containing production patterns ending in `!` in `knip.json` or `.knip.json`. Native aliases and framework entries remain authoritative; unresolved imports, configuration diagnostics, workspaces and dynamic configuration make the graph inconclusive. Review runtime and public owners before deleting a module. No automatic fixes or application inference are performed.
 
 Unused private Python test helpers require `reportUnusedFunction` set to `warning` in the consumer's existing BasedPyright test execution environments. This bundle preserves native configuration and bounds test warnings to authored, undecorated module-level private helpers in conventional test paths. Decorated fixtures, methods and production callbacks are excluded; no consumer diagnostic setting is enabled automatically. Existing production diagnostics are preserved.
 
 `check --jobs 2` overlaps native analysis with the external-tool pipeline. The default is `--jobs 1`; external tools remain sequential and report ordering is deterministic.
 
-DevOps execution blocks may sequence existing commands without helper scripts. Keep interpreter source, control flow, logical chains, pipelines and substitutions in independently linted files; Python `-m` and script paths, and jq/awk `-f` files remain supported. SARJ310 is an error, including short inline programs. Cloud Build SARJ315 checks unique IDs, ordered step dependencies, script/argv exclusivity and rejects untrusted substitutions in shell source; pass substitutions as quoted arguments to external scripts.
+DevOps execution blocks may sequence existing commands without helper scripts. Keep interpreter source, control flow, logical chains, pipelines and substitutions in independently linted files; Python `-m` and script paths, and jq/awk `-f` files remain supported. SARJ310 is an error, including short inline programs. Cloud Build SARJ315 checks YAML and JSON for unique IDs, ordered step dependencies, script/argv exclusivity and untrusted substitutions in shell source; pass substitutions as quoted arguments to external scripts. JSON configs are discovered in operational directories or with `cloudbuild` in their filename; JSON syntax must be strict, with unique keys and finite numbers. Files named with `cloudbuild`, and Build-shaped files under a `cloudbuild` directory, use the bundled, digest-verified Google Build v1 field schema for field names, types, enums and protobuf durations/integers. The offline schema rejects output-only fields; trigger expansion, resource access and hosted admission require the deployment environment.
 
-The source gate uses pinned actionlint, shared ShellCheck, offline Zizmor, Hadolint and Skaffold v4beta7 schema validation. Cloud Deploy validation is a documented partial structural contract. Terraform validation and TFLint require explicit repository trust and prepared local providers; analysis never initializes or downloads them. Compose requires an exact consumer `[devops].compose_version`; its source check does not resolve environment inputs.
+The source gate uses pinned actionlint, shared ShellCheck, offline Zizmor, Hadolint and Skaffold v4beta7 schema validation. Every selected `action.yml`/`action.yaml` uses GitHub's pinned action parser and converter offline, including composite steps, expression syntax and available contexts, runtime requirements, step IDs and action-reference forms. This uses the core Node runtime and needs no referencing workflow, consumer npm setup or security capability. Cloud Deploy validation is a documented partial structural contract. Terraform validation and TFLint require explicit repository trust and prepared local providers; analysis never initializes or downloads them. Compose requires an exact consumer `[devops].compose_version`; its source check does not resolve environment inputs. Declare `compose_projects = [["base.yaml", "overlays/production.yaml"]]` in `[devops]` to validate custom filenames and overlays in invocation order. Selecting any member checks the whole project; declared fragments are not checked independently. Undeclared conventional filenames remain standalone projects. Missing inputs and native field errors fail coverage. Source checks use Compose's partially resolved model; full consistency requires the actual deployment environment.
 
-Release gates use `code-standards analyze --prepared-only --prepared-devops prepared.json --prepared-target TARGET_ID`. Declare exact `prepared_targets` under `[devops]` with an authored `source` path. Version-one receipts bind target IDs, authored input hashes, staged chart archives, ordered values, typed set arguments, manifests and a hashed local schema closure. Helm 4.3.0 strict lint and stage-specific rendering feed kubeconform 0.8.0 and kube-linter 0.8.3. Missing tools, schemas, targets and invalid receipts fail the gate. Prepared-only findings bypass source debt baselines; container exceptions require exact target, GVK, namespace, object, check, container kind, container name and a reason, and stale exceptions fail.
+File discovery, enabled capabilities and native validation each determine coverage. Check the selected paths and tool reports; a syntax check does not establish deployment validity.
+
+| Format | Specialized coverage | Boundary |
+| --- | --- | --- |
+| Terraform `.tf`, `.tf.json` | Native validation, TFLint and applicable Sarj rules | Local providers and explicit trust required; JSON is never passed to `fmt` |
+| `.tfvars`, `.tftest.hcl` | Native Terraform formatting | Variable/test files do not select module validation or TFLint |
+| `.tfvars.json`, `.tftest.json`, other `.hcl` | Applicable Sarj rules | No native formatting; JSON semantic coverage is limited |
+| Actions workflows and action metadata | actionlint for workflows; pinned GitHub action parser for all `action.yml`/`action.yaml` files, including composite steps; Zizmor and shared execution checks | Offline validation covers structure and expression syntax/contexts; expression values and runtime availability require GitHub; security capabilities may be disabled |
+| Cloud Build YAML/JSON | Pinned Google Build v1 field schema, SARJ315 and shared execution checks | Schema selection uses a `cloudbuild` filename or Build-shaped source in that directory; trigger inputs and hosted admission remain external |
+| Dockerfile variants | Hadolint and executable-field checks | Image-default entrypoints are not inferred |
+| Conventional Compose filenames and declared `compose_projects` | Pinned native Compose validation of ordered file groups | Environment interpolation/resolution stays disabled; deployment must supply its actual environment inputs |
+| Skaffold and Cloud Deploy YAML | Pinned Skaffold schema; partial Cloud Deploy structure | Generated resources need prepared validation |
+| Helm charts, Kubernetes and CRDs | Prepared Helm lint/render, kubeconform and kube-linter | Receipts must bind the rendered artifacts and local schema closure |
+| Templates, systemd units, Nginx, Kamailio, Prometheus and Compose configs | Prepared native validation of rendered files with the matching runtime | Declare prepared targets and hash their authored inputs, rendered files and include closure; other service formats need their own application validator |
+
+Native prepared targets use `kind` values `systemd`, `nginx`, `kamailio`, `prometheus-config`, `prometheus-rules` or `compose`, plus `native_version`, `manifests` and `artifacts`. `native_version` is the exact first version-output line of the installed validator; Nginx writes it to stderr. Compose instead uses its exact semantic version and requires a hashed `environment_file`; ordered `manifests` run through native `config --quiet` with full interpolation and consistency checks. List executable artifacts under `executables` when unit validation requires them. Render templates first and bind template/variable inputs with `source_inputs`. The gate verifies hashes, stages a private copy and invokes only the service's check mode. Native service validation requires explicit repository trust and the deployment's matching runtime, including any referenced modules or runtime files; it never installs or starts a service. Systemd disables generators and verifies against the staged root. Other validators may resolve absolute runtime paths on the validation host; this is not a filesystem sandbox.
+
+Release gates use `code-standards analyze --prepared-only --prepared-devops prepared.json --prepared-target TARGET_ID`; add `--trust-repository-code` for native service and Compose targets. Declare exact `prepared_targets` under `[devops]` with an authored `source` path. Version-one receipts bind target IDs, authored input hashes, staged chart archives, ordered values, typed set arguments, manifests and a hashed local schema closure. Helm 4.3.1 strict lint and stage-specific rendering feed kubeconform 0.8.0 and kube-linter 0.8.3. Missing tools, schemas, targets and invalid receipts fail the gate. Prepared-only findings bypass source debt baselines; container exceptions require exact target, GVK, namespace, object, check, container kind, container name and a reason, and stale exceptions fail.
 
 Prepared YAML rejects duplicate parsed keys and cyclic aliases. Each document must stay below depth 64 and at or below 100,000 expanded nodes, including repeated aliases.
 

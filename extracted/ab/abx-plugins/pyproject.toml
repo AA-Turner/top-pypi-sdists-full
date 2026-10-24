@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.13.474"
+version = "1.13.520"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
@@ -19,11 +19,12 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abxbus==2.5.77",
-    "abxpkg==1.13.58",
+    "abxbus==2.5.79",
+    "abxpkg==1.13.67",
+    "certifi>=2026.10.19",
     "imagesize>=2.0.0",
     "rich-click>=1.9.7",
-    "uv>=0.8.22",
+    "uv>=0.13.5",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +32,7 @@ opencode = ["httpx>=0.28.1", "requests>=2.32.3", "websockets>=15"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.3,<10",
+    "pytest>=9.0.3,<9.1",  # pytest-codeblocks still uses the collect hook removed in 9.1.
     "pytest-codeblocks>=0.17.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
     "pytest-httpserver>=1.1.0",
@@ -98,7 +99,9 @@ timeout_method = "thread"
 
 [tool.uv]
 exclude-newer = "5 days"
-exclude-newer-package = { abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second", abx-plugins = "2100-01-01T00:00:00Z" }
+# Security fixes for GHSA-6q48-6c7w-9gw2 and GHSA-hq85-5cpj-mr62
+# are newer than the default age window; allow only the published fixes.
+exclude-newer-package = { certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second", abx-plugins = "2100-01-01T00:00:00Z" }
 
 [tool.pyright]
 include = [
@@ -138,3 +141,7 @@ skip = "*.json"
 
 [tool.ty.src]
 exclude = ["abx_plugins/plugins/papersdl/papers-dl-patches/**"]
+
+[tool.ruff.lint]
+# Keep the pre-0.16 Ruff policy explicit when upgrading the linter.
+select = ["E4", "E7", "E9", "F"]

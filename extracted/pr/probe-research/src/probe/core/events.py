@@ -86,6 +86,12 @@ INTERRUPTED_EXIT_CODE = 128 + int(signal.SIGINT)
 _STOP_SIGNALS: tuple[int, ...] = tuple(
     getattr(signal, name) for name in ("SIGTERM", "SIGHUP") if hasattr(signal, name)
 )
+#: SIGINT and, on Windows, SIGBREAK (what `action.cancel`'s CTRL_BREAK arrives
+#: as): ignored for a json run except inside `interruptible`. Its default
+#: action there ends the process, which would cut short a credentials write.
+_INTERRUPT_SIGNALS: tuple[int, ...] = tuple(
+    getattr(signal, name) for name in ("SIGINT", "SIGBREAK") if hasattr(signal, name)
+)
 
 
 class Event(StrEnum):
@@ -376,7 +382,8 @@ def redirect_stdout() -> Iterator[TextIO]:
 def _interrupt(_signum: int, _frame: Any) -> None:
     """SIGINT inside `interruptible`. Once: the next SIGINT is ignored again at
     once, so it cannot cut short the cleanup this one starts."""
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    for number in _INTERRUPT_SIGNALS:
+        signal.signal(number, signal.SIG_IGN)
     if _run is not None:
         _run.stopped_by = signal.SIGINT
     raise KeyboardInterrupt
@@ -392,7 +399,7 @@ def _stop(signum: int, _frame: Any) -> None:
 
 
 def _ignore_signals() -> None:
-    for number in (signal.SIGINT, *_STOP_SIGNALS):
+    for number in (*_INTERRUPT_SIGNALS, *_STOP_SIGNALS):
         signal.signal(number, signal.SIG_IGN)
 
 
@@ -407,7 +414,8 @@ def _owned_signals() -> Iterator[bool]:
         return
     previous: dict[int, Any] = {}
     try:
-        previous[signal.SIGINT] = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        for number in _INTERRUPT_SIGNALS:
+            previous[number] = signal.signal(number, signal.SIG_IGN)
         for number in _STOP_SIGNALS:
             previous[number] = signal.signal(number, _stop)
     except (OSError, ValueError):
@@ -431,10 +439,16 @@ def interruptible() -> Iterator[None]:
         yield
         return
     previous = signal.signal(signal.SIGINT, _interrupt)
+    # Windows: `action.cancel` sends CTRL_BREAK to the child's process group
+    # (it cannot send SIGINT there), which arrives as SIGBREAK.
+    brk = getattr(signal, "SIGBREAK", None)
+    previous_break = signal.signal(brk, _interrupt) if brk is not None else None
     try:
         yield
     finally:
         signal.signal(signal.SIGINT, signal.SIG_IGN if previous is None else previous)
+        if brk is not None:
+            signal.signal(brk, signal.SIG_IGN if previous_break is None else previous_break)
 
 
 @contextmanager

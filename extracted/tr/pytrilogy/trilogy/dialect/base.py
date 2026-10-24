@@ -3,6 +3,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -484,6 +485,7 @@ DATATYPE_MAP: dict[DataType, str] = {
     DataType.MAP: "map",
     DataType.DATE: "date",
     DataType.DATETIME: "datetime",
+    DataType.TIMESTAMP: "timestamptz",
     DataType.ARRAY: "list",
 }
 
@@ -581,7 +583,8 @@ DB_COLUMN_TYPE_MAP: dict[str, DataType] = {
     "datetime": DataType.DATETIME,
     "datetime2": DataType.DATETIME,
     "smalldatetime": DataType.DATETIME,
-    "timestamp": DataType.TIMESTAMP,
+    # SQL standard: a bare TIMESTAMP is WITHOUT TIME ZONE
+    "timestamp": DataType.DATETIME,
     "timestamp without time zone": DataType.DATETIME,
     "timestamp with time zone": DataType.TIMESTAMP,
     "timestamptz": DataType.TIMESTAMP,
@@ -689,7 +692,9 @@ FUNCTION_MAP = {
     FunctionType.ARRAY: lambda x, types: f"[{', '.join(x)}]",
     FunctionType.ROW_TUPLE: lambda x, types: f"({', '.join(x)})",
     FunctionType.DATE_LITERAL: lambda x, types: f"date '{x}'",
-    FunctionType.DATETIME_LITERAL: lambda x, types: f"datetime '{x}'",
+    FunctionType.DATETIME_LITERAL: lambda x, types: (
+        f"timestamptz '{x}'" if x.tzinfo else f"datetime '{x}'"
+    ),
     # MAP
     FunctionType.MAP_KEYS: lambda x, types: f"map_keys({x[0]})",
     FunctionType.MAP_VALUES: lambda x, types: f"map_values({x[0]})",
@@ -2544,6 +2549,8 @@ class BaseDialect:
             return self.render_string_literal(e)
         elif isinstance(e, (int, float)):
             return str(e)
+        elif isinstance(e, Decimal):
+            return format(e, "f")
         elif isinstance(e, TupleWrapper):
             return f"({','.join([self.render_expr(x, cte=cte, raise_invalid=raise_invalid) for x in e])})"
         elif isinstance(e, MapWrapper):
@@ -2780,6 +2787,15 @@ class BaseDialect:
     def render_cte(self, cte: CTE | UnionCTE, auto_sort: bool = True) -> CompiledCTE:
         if isinstance(cte, UnionCTE):
             operator = self.SET_OPERATOR_MAP.get(cte.operator, cte.operator)
+            # A set operation pairs columns by position: as the final select,
+            # every arm projects in the union's (output) order.
+            if not auto_sort:
+                position = {c.address: i for i, c in enumerate(cte.output_columns)}
+                for child in cte.internal_ctes:
+                    child.output_columns = sorted(
+                        child.output_columns,
+                        key=lambda c: position.get(c.address, len(position)),
+                    )
             base_statement = f"\n{operator}\n".join(
                 [
                     self.render_cte(child, auto_sort=False).statement

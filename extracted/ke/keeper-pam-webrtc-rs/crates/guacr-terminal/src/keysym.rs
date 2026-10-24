@@ -46,6 +46,17 @@ impl ModifierState {
     }
 }
 
+/// Decode only the X11 ASCII/Latin-1 and explicitly Unicode-prefixed forms.
+/// Legacy script-specific keysyms are not Unicode codepoints.
+fn keysym_character(keysym: u32) -> Option<char> {
+    let scalar = match keysym {
+        0x0020..=0x007E | 0x00A0..=0x00FF => keysym,
+        0x01000000..=0x01FFFFFF => keysym & 0x00FFFFFF,
+        _ => return None,
+    };
+    char::from_u32(scalar).filter(|character| !character.is_control())
+}
+
 /// Convert X11 keysym to terminal input bytes
 ///
 /// Guacamole protocol uses X11 keysyms for keyboard input.
@@ -172,16 +183,19 @@ pub fn x11_keysym_to_kitty_sequence(
         0xFFC8 => 57386, // F11
         0xFFC9 => 57387, // F12
 
-        // Unsupported key - fall back to legacy
-        _ => {
-            return x11_keysym_to_bytes_with_modes(
-                keysym,
-                pressed,
-                modifiers,
-                backspace_code,
-                application_cursor,
-            )
-        }
+        // Decode only printable Unicode forms; retain legacy special-key policy.
+        _ => match keysym_character(keysym) {
+            Some(character) => character as u32,
+            None => {
+                return x11_keysym_to_bytes_with_modes(
+                    keysym,
+                    pressed,
+                    modifiers,
+                    backspace_code,
+                    application_cursor,
+                )
+            }
+        },
     };
 
     // Build modifier bitmask
@@ -370,8 +384,14 @@ pub fn x11_keysym_to_bytes_with_modes(
         // ASCII printable characters (0x0020 - 0x007E) - must come after special keys
         0x0020..=0x007E => vec![keysym as u8],
 
-        // Unsupported key
-        _ => Vec::new(),
+        // Latin-1 and Unicode-prefixed scalars require real UTF-8, not a byte cast.
+        _ => match keysym_character(keysym) {
+            Some(character) => {
+                let mut utf8 = [0; 4];
+                character.encode_utf8(&mut utf8).as_bytes().to_vec()
+            }
+            None => Vec::new(),
+        },
     }
 }
 

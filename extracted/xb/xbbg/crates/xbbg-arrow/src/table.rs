@@ -5,16 +5,16 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use arrow_array::{Array, ArrayRef, BooleanArray, RecordBatch, RecordBatchOptions, StringArray};
-use arrow_ord::sort::{lexsort_to_indices, SortColumn, SortOptions};
+use arrow_ord::sort::{SortColumn, SortOptions, lexsort_to_indices};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use arrow_select::concat::{concat, concat_batches};
 use arrow_select::filter::filter_record_batch;
 use arrow_select::interleave::interleave;
 use arrow_select::take::take_record_batch;
 
-use crate::column::{compact_array, ColumnData};
+use crate::column::{ColumnData, compact_array};
 use crate::error::{ArrowCoreError, Result};
-use crate::scalar::{build_array_for_kind, cell_matches, infer_kind, CellValue, InferredKind};
+use crate::scalar::{CellValue, InferredKind, build_array_for_kind, cell_matches, infer_kind};
 
 /// Sort direction for Arrow table sorting.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -158,11 +158,6 @@ impl TableData {
             .map(|batch| batch.column(index).clone())
             .collect::<Vec<_>>();
         ColumnData::new(name, field, chunks)
-    }
-
-    /// Extract a logical column by name.
-    pub fn column_by_name(&self, name: &str) -> Result<ColumnData> {
-        self.column_by_index(self.column_index(name)?)
     }
 
     /// Select columns by name.
@@ -605,7 +600,9 @@ mod tests {
     #[test]
     fn extracts_column_chunks_without_materializing_python_values() {
         let table = sample_table();
-        let column = table.column_by_name("ticker").unwrap();
+        let column = table
+            .column_by_index(table.column_index("ticker").unwrap())
+            .unwrap();
         assert_eq!(column.name, "ticker");
         assert_eq!(column.len(), 3);
         assert_eq!(column.null_count(), 0);
@@ -637,7 +634,9 @@ mod tests {
         let sorted = table
             .sort_by(&[("volume".to_string(), SortDirection::Ascending)], false)
             .unwrap();
-        let column = sorted.column_by_name("ticker").unwrap();
+        let column = sorted
+            .column_by_index(sorted.column_index("ticker").unwrap())
+            .unwrap();
         let (chunk, _) = column.chunk_for_index(0).unwrap();
         let values = chunk.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(values.value(0), "IBM");
@@ -944,8 +943,10 @@ mod tests {
     #[test]
     fn compact_copies_slices_and_preserves_schema_and_nulls() {
         let schema = Arc::new(Schema::new_with_metadata(
-            vec![Field::new("payload", DataType::Utf8, true)
-                .with_metadata(HashMap::from([("kind".to_string(), "text".to_string())]))],
+            vec![
+                Field::new("payload", DataType::Utf8, true)
+                    .with_metadata(HashMap::from([("kind".to_string(), "text".to_string())])),
+            ],
             HashMap::from([("source".to_string(), "test".to_string())]),
         ));
         let mut values = (0..256)
@@ -973,7 +974,9 @@ mod tests {
         assert!(payload.value(0).starts_with("0128-"));
         assert!(payload.is_null(1));
 
-        let retained_column = retained.column_by_name("payload").unwrap();
+        let retained_column = retained
+            .column_by_index(retained.column_index("payload").unwrap())
+            .unwrap();
         let compact_column = retained_column.compact().unwrap();
         assert_eq!(compact_column.field, retained_column.field);
         assert!(compact_column.nbytes() < retained_column.nbytes());

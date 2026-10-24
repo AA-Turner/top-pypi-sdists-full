@@ -17,6 +17,8 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field
+from typing_extensions import Annotated
 from mixpeek.models.infer_config_request import InferConfigRequest
 from mixpeek.models.infer_config_response import InferConfigResponse
 from mixpeek.models.suggested_config_response import SuggestedConfigResponse
@@ -94,8 +96,10 @@ class OnboardingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -163,8 +167,10 @@ class OnboardingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -232,8 +238,10 @@ class OnboardingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -306,7 +314,7 @@ class OnboardingApi:
     @validate_call
     def infer_config_onboarding(
         self,
-        infer_config_request: InferConfigRequest,
+        infer_config_request: Annotated[InferConfigRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -324,7 +332,7 @@ class OnboardingApi:
 
         Given a free-text use-case description, uses an LLM to recommend the best scaffold template, extractors, retriever stages, and sample queries for the user's project.
 
-        :param infer_config_request: (required)
+        :param infer_config_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type infer_config_request: InferConfigRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -362,8 +370,10 @@ class OnboardingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -379,7 +389,7 @@ class OnboardingApi:
     @validate_call
     def infer_config_onboarding_with_http_info(
         self,
-        infer_config_request: InferConfigRequest,
+        infer_config_request: Annotated[InferConfigRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -397,7 +407,7 @@ class OnboardingApi:
 
         Given a free-text use-case description, uses an LLM to recommend the best scaffold template, extractors, retriever stages, and sample queries for the user's project.
 
-        :param infer_config_request: (required)
+        :param infer_config_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type infer_config_request: InferConfigRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -435,8 +445,10 @@ class OnboardingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -452,7 +464,7 @@ class OnboardingApi:
     @validate_call
     def infer_config_onboarding_without_preload_content(
         self,
-        infer_config_request: InferConfigRequest,
+        infer_config_request: Annotated[InferConfigRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -470,7 +482,7 @@ class OnboardingApi:
 
         Given a free-text use-case description, uses an LLM to recommend the best scaffold template, extractors, retriever stages, and sample queries for the user's project.
 
-        :param infer_config_request: (required)
+        :param infer_config_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type infer_config_request: InferConfigRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -508,8 +520,10 @@ class OnboardingApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

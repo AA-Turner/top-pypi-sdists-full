@@ -16,7 +16,6 @@ from minijinja import (
     load_from_path,
 )
 
-
 requires_threads = pytest.mark.skipif(
     sys.platform == "emscripten", reason="threads are not supported"
 )
@@ -456,8 +455,7 @@ def test_undeclared_variables():
 
 def test_loop_controls():
     env = Environment()
-    rv = env.render_str(
-        """
+    rv = env.render_str("""
     {% for x in [1, 2, 3, 4, 5] %}
       {% if x == 1 %}
         {% continue %}
@@ -466,8 +464,7 @@ def test_loop_controls():
       {% endif %}
       {{ x }}
     {% endfor %}
-    """
-    )
+    """)
     assert rv.split() == ["2"]
 
 
@@ -497,9 +494,12 @@ def test_pass_through_sort():
 
 
 def test_fucked_up_object():
+    # Seeded so that the total order violation is reliably detected by the sort.
+    rng = random.Random(42)
+
     @total_ordering
     class X:
-        __lt__ = __eq__ = lambda s, o: random.random() > 0.5
+        __lt__ = __eq__ = lambda s, o: rng.random() > 0.5
 
     values = [X()] * 500
     env = Environment()
@@ -673,6 +673,67 @@ def test_failing_iterator():
         for n in (0, 2):
             with pytest.raises(ValueError, match="backend unavailable"):
                 env.render_str(template, items=Broken(n))
+
+
+def test_unreached_iterator_error_is_discarded():
+    class Broken:
+        def __init__(self):
+            self.n = 0
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            self.n += 1
+            if self.n > 2:
+                raise ValueError("backend unavailable")
+            return self.n
+
+    env = Environment()
+    tmpl = "{% for x in items %}{{ x }}{% break %}{% endfor %}"
+    assert env.render_str(tmpl, items=Broken()) == "1"
+    assert env.render_str("{{ items|first }}", items=Broken()) == "1"
+
+    # the iterator error must not be raised in place of unrelated errors
+    with pytest.raises(TemplateError, match="syntax error"):
+        env.render_str("{{ ) }}")
+    with pytest.raises(TemplateError, match="unable to calculate 1 / 0"):
+        env.render_str(tmpl + "{{ 1 / 0 }}", items=Broken())
+    with pytest.raises(TemplateError, match="tried to use \\+ operator"):
+        env.eval_expr("(items|first) + 'x'", items=Broken())
+
+
+def test_python_exception_identity():
+    exc = KeyError("canary")
+
+    def fail():
+        raise exc
+
+    env = Environment(filters={"fail": lambda _: fail()})
+    with pytest.raises(KeyError) as exc_info:
+        env.render_str("{{ 42|fail }}")
+    assert exc_info.value is exc
+    assert exc_info.traceback[-1].name == "fail"
+
+
+def test_loader_exception_is_not_a_missing_template():
+    def loader(name):
+        if name == "broken.html":
+            raise PermissionError("access denied")
+        if name == "ok.html":
+            return "ok"
+
+    env = Environment(loader=loader)
+    for template in [
+        '{% include "broken.html" %}',
+        '{% include "broken.html" ignore missing %}',
+        '{% include ["broken.html", "ok.html"] %}',
+    ]:
+        with pytest.raises(PermissionError, match="access denied"):
+            env.render_str(template)
+    assert env.render_str('{% include "missing.html" ignore missing %}') == ""
+    with pytest.raises(TemplateError, match="syntax error"):
+        env.render_str("{{ ) }}")
 
 
 def test_dict_and_list_lookups():

@@ -115,6 +115,7 @@ def _job_matches(job, identity):
 
 def _job_sources(job):
     """Display the approved transcript producers, never a label or folder worker."""
+    from probe.harness import get_registry
     if job.get("kind") != "transcripts":
         return []
     files = (job.get("payload") or {}).get("files")
@@ -126,7 +127,8 @@ def _job_sources(job):
         if (not isinstance(source, str) or not source or len(source) > 64
                 or not all(c in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in source)):
             continue
-        source = "claude_code" if source == "claude" else source
+        harness = get_registry().find(source)  # an alias (`claude`) names its producer id
+        source = harness.id if harness else source
         if source not in sources:
             sources.append(source)
         if len(sources) == SOURCE_IDS:
@@ -261,10 +263,11 @@ def preview_backfill(request):
     worker = request.get("agent")
     if folder_rows:
         from . import backfill
-        available_workers = backfill.available_agents()
+        # Only the file importer's agents (`backfill.IMPORTER_AGENTS`), installed.
+        available_workers = [a.value for a in backfill.available_agents()]
         if worker is None:
-            worker = next((a.value for a in available_workers if a.value in ("claude", "codex")), None)
-        if worker not in ("claude", "codex") or backfill.Agent(worker) not in available_workers:
+            worker = next(iter(available_workers), None)
+        if worker not in available_workers:
             raise ValueError("Folder backfills need Claude Code or Codex installed and signed in.")
     with _client() as client:
         identity = _identity(client)
@@ -367,8 +370,9 @@ _UNCOUNTED = {
 #: A socket folder someone else could have made: the client will not connect.
 _FOREIGN_FOLDER = "Probe will not ask the service for live sessions: its folder is not private to this user."
 _NO_RECEIPTS = "Delivery receipts are unavailable."
-#: Last received and Pending come from each recorder's own state (D29).
-_RECEIPTS = "Last received and Pending are the recorder's own: its last upload, and what waits to go."
+#: Last received and Pending come from each live session's journal (D29).
+_RECEIPTS = ("Last received and Pending are the recorder's own, for the live sessions: when the server last "
+             "took a transcript, and the lines it has not taken yet.")
 #: Seconds for each of the two calls: the listing, then the service's state.
 _LIST_TIMEOUT_S = 3
 _STATE_TIMEOUT_S = 1
@@ -382,8 +386,6 @@ def _live_sessions():
     from probe import __version__
     from probe.service import client
     from probe.service.protocol import Method, State
-    if os.name != "posix":
-        return None, ServiceState.UNSUPPORTED, None
     sessions, state, text = None, ServiceState.RUNNING, None
     try:
         listing = client.call(Method.SESSION_LIST, client="app", client_version=__version__, timeout=_LIST_TIMEOUT_S)
@@ -419,43 +421,51 @@ def _live_sessions():
     return sessions, state, text
 
 
-def _receipts(row):
-    """(last received as ISO 8601 UTC, pending batches) from the recorder's own
-    state (`<capture state dir>/state.db`, the tap's: `meta.last_successful_post_at`
-    and the outbox), read-only and briefly; (None, None) when it cannot be read
-    (no recorder yet, locked, another schema). Plan D29."""
-    import sqlite3
+def _received(sessions, identity=None):
+    """`{agent: (last received as ISO 8601 UTC, lines waiting)}` over the
+    sessions the service lists (plan D29), from each one's transcript journal:
+    the receipts `session.list` carries (`probe.service.receipts`), or, from a
+    service that predates them, read here the same way. Only the receipts of
+    the account answered for (`identity`): each names its journal's `scope`,
+    and one of another account (or of none named) is left out. Never
+    `<capture dir>/state.db`: its outbox stopped moving when capture moved to
+    the journal (#1415), so its numbers were weeks old. Empty when nothing is
+    known."""
+    import os
     import time
-    try:
-        path = row.capture.state_dir() / "state.db"
-        if not path.is_file():
-            return None, None
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=0.5)
-    except Exception:  # noqa: BLE001 -- the Overview shows unknown, never fails
-        return None, None
-    try:
-        pending = conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0]
-        found = conn.execute("SELECT v FROM meta WHERE k = 'last_successful_post_at'").fetchone()
-    except sqlite3.Error:
-        return None, None
-    finally:
-        conn.close()
-    last = None
-    try:
-        if found is not None and int(found[0]) > 0:
-            last = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(found[0])))
-    except (TypeError, ValueError, OverflowError):
-        last = None
-    return last, int(pending) if isinstance(pending, int) else None
+    from probe.service import receipts
+    rows = [s for s in sessions or [] if isinstance(s, dict)]
+    if not rows:
+        return {}
+    if not any("receipts" in s for s in rows):
+        try:
+            found = receipts.read([s.get("sid") for s in rows], receipts.journal_roots([dict(os.environ)]), {})
+        except Exception:  # noqa: BLE001 -- the Overview shows unknown, never fails
+            found = {}
+        rows = [{**s, "receipts": found.get(s.get("sid"))} for s in rows]
+    if identity is not None:
+        mine = {"backend": receipts.backend_of(identity.get("base_url")), "customer": identity.get("customer_id")}
+        rows = [s if isinstance(s.get("receipts"), dict) and s["receipts"].get("scope") == mine
+                else {**s, "receipts": None} for s in rows]
+    out = {}
+    for row in receipts.by_harness(rows, scoped=False):
+        at = row.get("received_at")
+        try:
+            last = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(at)) if at is not None else None
+        except (TypeError, ValueError, OverflowError, OSError):
+            last = None
+        out[row["harness"]] = (last, row.get("pending_lines"))
+    return out
 
 
 def snapshot_delivery(identity=None):
     from probe.harness import get_registry
     rows = get_registry().captured()
     sessions, state, text = _live_sessions()
+    received = _received(sessions, identity)
     agents = []
     for row in rows:
-        last, pending = _receipts(row)
+        last, pending = received.get(row.id, (None, None))
         agents.append({"source": row.id,
                        "activeAgents": (sum(1 for session in sessions
                            if session.get("harness") == row.id and session.get("alive") is True)
@@ -557,9 +567,13 @@ def _dispatch(request):
         return _public_job(job, identity=identity)
 
 
+#: The ops that take the setup lock (`dispatch`): admission and job lifecycle.
+LOCKED = frozenset({"start_backfill", "resume_job", "cancel_job", "onboarding_complete"})
+
+
 def dispatch(request):
     # Admission and lifecycle changes must not race logout/uninstall/update.
-    if isinstance(request, dict) and request.get("op") in {"start_backfill", "resume_job", "cancel_job", "onboarding_complete"}:
+    if isinstance(request, dict) and request.get("op") in LOCKED:
         from . import wizard_lock
         with wizard_lock.held():
             # Existing import_job events retain their names and their approving
@@ -575,19 +589,30 @@ def dispatch(request):
     return _dispatch(request)
 
 
+def respond(raw: bytes) -> tuple[str, int]:
+    """One closed JSON request (its bytes, at most MAX_INPUT) -> (its v1
+    envelope as one JSON line, the exit status). What `probe desktop request
+    --json` prints and exits with, and what the Probe service's
+    `desktop.request` answers (`python -m probe.core.run desktop`): one code
+    path, so the two transports cannot answer differently."""
+    try:
+        if len(raw) > MAX_INPUT:
+            raise ValueError("Desktop request exceeds 1 MiB.")
+        value = dispatch(json.loads(raw.decode("utf-8"), object_pairs_hook=_closed_object))
+        return json.dumps({"v": 1, "ok": True, "data": value}, allow_nan=False), 0
+    except Exception as exc:
+        from probe.sdk.redaction import scrub_string
+        from . import wizard_lock
+        return (json.dumps({"v": 1, "ok": False, "error": scrub_string(str(exc))[:1500]}),
+                wizard_lock.BUSY_EXIT_CODE if isinstance(exc, wizard_lock.Busy) else 1)
+
+
 @app.command("request")
 def request_command(json_output: bool = typer.Option(False, "--json")):
     """Read one closed JSON request on stdin; return one v1 JSON envelope."""
     if not json_output:
         raise typer.BadParameter("The desktop interface requires --json.")
-    try:
-        raw = sys.stdin.buffer.read(MAX_INPUT + 1)
-        if len(raw) > MAX_INPUT:
-            raise ValueError("Desktop request exceeds 1 MiB.")
-        value = dispatch(json.loads(raw.decode("utf-8"), object_pairs_hook=_closed_object))
-        typer.echo(json.dumps({"v": 1, "ok": True, "data": value}, allow_nan=False))
-    except Exception as exc:
-        from probe.sdk.redaction import scrub_string
-        typer.echo(json.dumps({"v": 1, "ok": False, "error": scrub_string(str(exc))[:1500]}))
-        from . import wizard_lock
-        raise typer.Exit(wizard_lock.BUSY_EXIT_CODE if isinstance(exc, wizard_lock.Busy) else 1) from None
+    text, code = respond(sys.stdin.buffer.read(MAX_INPUT + 1))
+    typer.echo(text)
+    if code:
+        raise typer.Exit(code)

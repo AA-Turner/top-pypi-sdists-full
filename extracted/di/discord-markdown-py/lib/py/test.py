@@ -1,6 +1,26 @@
-from discord_markdown import DEFAULT_FUEL, parse, unparse
+from discord_markdown import DEFAULT_FUEL, Syntax, parse, unparse
 
 print(parse("foo"))
+
+# Every syntax is on by default.
+assert parse("**foo**") == [{"type": "paragraph", "value": [{"type": "bold", "value": [{"type": "text", "value": "foo"}]}]}]
+
+# `flags` turns syntax on by bit, and a mask turns it off.
+assert parse("**foo** _bar_", flags=Syntax.UNDERSCORE_ITALIC) == [
+    {
+        "type": "paragraph",
+        "value": [
+            {"type": "text", "value": "**foo** "},
+            {"type": "italic", "value": [{"type": "text", "value": "bar"}]},
+        ],
+    }
+]
+assert parse("@everyone", flags=Syntax.ALL & ~Syntax.MENTIONS) == [
+    {"type": "paragraph", "value": [{"type": "text", "value": "@everyone"}]}
+]
+# no flags at all would be plain text, so zero means everything
+assert parse("**foo**", flags=0) == parse("**foo**")
+print("flags select syntax")
 
 # Ordinary content needs a tiny fraction of the default budget.
 print(parse("**foo** _bar_", fuel=DEFAULT_FUEL))

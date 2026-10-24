@@ -55,7 +55,7 @@ class BucketObjectsApi:
     def aggregate_objects_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        object_aggregation_request: ObjectAggregationRequest,
+        object_aggregation_request: Annotated[ObjectAggregationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -75,7 +75,7 @@ class BucketObjectsApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param object_aggregation_request: (required)
+        :param object_aggregation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type object_aggregation_request: ObjectAggregationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -114,8 +114,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -132,7 +134,7 @@ class BucketObjectsApi:
     def aggregate_objects_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        object_aggregation_request: ObjectAggregationRequest,
+        object_aggregation_request: Annotated[ObjectAggregationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -152,7 +154,7 @@ class BucketObjectsApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param object_aggregation_request: (required)
+        :param object_aggregation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type object_aggregation_request: ObjectAggregationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -191,8 +193,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -209,7 +213,7 @@ class BucketObjectsApi:
     def aggregate_objects_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        object_aggregation_request: ObjectAggregationRequest,
+        object_aggregation_request: Annotated[ObjectAggregationRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -229,7 +233,7 @@ class BucketObjectsApi:
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param object_aggregation_request: (required)
+        :param object_aggregation_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type object_aggregation_request: ObjectAggregationRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -268,8 +272,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -363,7 +369,7 @@ class BucketObjectsApi:
     def bulk_soft_delete_objects_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        bulk_soft_delete_request: BulkSoftDeleteRequest,
+        bulk_soft_delete_request: Annotated[BulkSoftDeleteRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -379,11 +385,11 @@ class BucketObjectsApi:
     ) -> BulkSoftDeleteResponse:
         """Bulk Soft-Delete Objects
 
-        Soft-delete many objects by ID in one call (recoverable). Records are     retained and flipped to a non-active lifecycle state (so retrieval excludes     them), with the lifecycle propagated to downstream documents. Bucket stats     are recomputed once. Designed for large purges (e.g. scoping a synced bucket     to a subset) without the per-object webhook/stats storms of single delete.
+        Soft-delete many objects by ID in one call. Records are     retained and flipped to a non-active lifecycle state (so retrieval excludes     them), with the lifecycle propagated to downstream documents. There is no     self-service restore endpoint: clearing the marker is a support action, so     treat this as a one-way call. Bucket stats     are recomputed once. Designed for large purges (e.g. scoping a synced bucket     to a subset) without the per-object webhook/stats storms of single delete.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param bulk_soft_delete_request: (required)
+        :param bulk_soft_delete_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_soft_delete_request: BulkSoftDeleteRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -422,8 +428,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -440,7 +448,7 @@ class BucketObjectsApi:
     def bulk_soft_delete_objects_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        bulk_soft_delete_request: BulkSoftDeleteRequest,
+        bulk_soft_delete_request: Annotated[BulkSoftDeleteRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -456,11 +464,11 @@ class BucketObjectsApi:
     ) -> ApiResponse[BulkSoftDeleteResponse]:
         """Bulk Soft-Delete Objects
 
-        Soft-delete many objects by ID in one call (recoverable). Records are     retained and flipped to a non-active lifecycle state (so retrieval excludes     them), with the lifecycle propagated to downstream documents. Bucket stats     are recomputed once. Designed for large purges (e.g. scoping a synced bucket     to a subset) without the per-object webhook/stats storms of single delete.
+        Soft-delete many objects by ID in one call. Records are     retained and flipped to a non-active lifecycle state (so retrieval excludes     them), with the lifecycle propagated to downstream documents. There is no     self-service restore endpoint: clearing the marker is a support action, so     treat this as a one-way call. Bucket stats     are recomputed once. Designed for large purges (e.g. scoping a synced bucket     to a subset) without the per-object webhook/stats storms of single delete.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param bulk_soft_delete_request: (required)
+        :param bulk_soft_delete_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_soft_delete_request: BulkSoftDeleteRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -499,8 +507,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -517,7 +527,7 @@ class BucketObjectsApi:
     def bulk_soft_delete_objects_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        bulk_soft_delete_request: BulkSoftDeleteRequest,
+        bulk_soft_delete_request: Annotated[BulkSoftDeleteRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -533,11 +543,11 @@ class BucketObjectsApi:
     ) -> RESTResponseType:
         """Bulk Soft-Delete Objects
 
-        Soft-delete many objects by ID in one call (recoverable). Records are     retained and flipped to a non-active lifecycle state (so retrieval excludes     them), with the lifecycle propagated to downstream documents. Bucket stats     are recomputed once. Designed for large purges (e.g. scoping a synced bucket     to a subset) without the per-object webhook/stats storms of single delete.
+        Soft-delete many objects by ID in one call. Records are     retained and flipped to a non-active lifecycle state (so retrieval excludes     them), with the lifecycle propagated to downstream documents. There is no     self-service restore endpoint: clearing the marker is a support action, so     treat this as a one-way call. Bucket stats     are recomputed once. Designed for large purges (e.g. scoping a synced bucket     to a subset) without the per-object webhook/stats storms of single delete.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param bulk_soft_delete_request: (required)
+        :param bulk_soft_delete_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type bulk_soft_delete_request: BulkSoftDeleteRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -576,8 +586,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -671,7 +683,7 @@ class BucketObjectsApi:
     def create_object_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_object_request: CreateObjectRequest,
+        create_object_request: Annotated[CreateObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement. Valid values: 'insert', 'update', 'upsert'. Only applies if bucket has unique_key configured. Overrides bucket's default_policy if provided.")] = None,
         auto_process: Annotated[Optional[StrictBool], Field(description="Automatically create a batch and submit it for processing. When true, the object will be immediately queued for processing without requiring separate batch creation and submission calls. Ideal for onboarding and single-object workflows.")] = None,
         _request_timeout: Union[
@@ -689,11 +701,11 @@ class BucketObjectsApi:
     ) -> ObjectResponse:
         """Create Object
 
-        This endpoint creates a new object in the specified bucket.     The object must conform to the bucket's schema.      **Processing**: By default, objects are created in DRAFT status and require     batch submission for processing. Set `auto_process=true` to automatically     create a batch and submit it for processing (zero-touch workflow).      If the bucket has a unique_key configured, the insertion policy determines behavior:     - insert: Create only. Fail with 409 Conflict if unique key exists.     - update: Update only. Fail with 404 Not Found if unique key doesn't exist.     - upsert: Create if new, update if exists (idempotent).      Policy resolution:     1. Use ?policy= query parameter if provided     2. Fall back to bucket's default_policy if configured     3. Error 400 if neither is specified
+        This endpoint creates a new object in the specified bucket.     The object must conform to the bucket's schema.      **Processing**: By default, objects are created in PENDING status, which     means not processed yet, and are processed when a batch that includes them     is submitted. An object stays PENDING until that batch run finishes with it;     the batch status shows whether it has been submitted. Set the `auto_process=true` query parameter     to automatically create a batch and submit it for processing (zero-touch     workflow). Sending `auto_process` in the JSON body returns 422, unless the     bucket schema declares a field with that name.      If the bucket has a unique_key configured, the insertion policy determines behavior:     - insert: Create only. Fail with 409 Conflict if unique key exists.     - update: Update only. Fail with 404 Not Found if unique key doesn't exist.     - upsert: Create if new, update if exists (idempotent).      Policy resolution:     1. Use ?policy= query parameter if provided     2. Fall back to bucket's default_policy if configured     3. Error 400 if neither is specified
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_object_request: (required)
+        :param create_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_object_request: CreateObjectRequest
         :param policy: Insertion policy for unique key enforcement. Valid values: 'insert', 'update', 'upsert'. Only applies if bucket has unique_key configured. Overrides bucket's default_policy if provided.
         :type policy: str
@@ -738,8 +750,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -756,7 +770,7 @@ class BucketObjectsApi:
     def create_object_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_object_request: CreateObjectRequest,
+        create_object_request: Annotated[CreateObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement. Valid values: 'insert', 'update', 'upsert'. Only applies if bucket has unique_key configured. Overrides bucket's default_policy if provided.")] = None,
         auto_process: Annotated[Optional[StrictBool], Field(description="Automatically create a batch and submit it for processing. When true, the object will be immediately queued for processing without requiring separate batch creation and submission calls. Ideal for onboarding and single-object workflows.")] = None,
         _request_timeout: Union[
@@ -774,11 +788,11 @@ class BucketObjectsApi:
     ) -> ApiResponse[ObjectResponse]:
         """Create Object
 
-        This endpoint creates a new object in the specified bucket.     The object must conform to the bucket's schema.      **Processing**: By default, objects are created in DRAFT status and require     batch submission for processing. Set `auto_process=true` to automatically     create a batch and submit it for processing (zero-touch workflow).      If the bucket has a unique_key configured, the insertion policy determines behavior:     - insert: Create only. Fail with 409 Conflict if unique key exists.     - update: Update only. Fail with 404 Not Found if unique key doesn't exist.     - upsert: Create if new, update if exists (idempotent).      Policy resolution:     1. Use ?policy= query parameter if provided     2. Fall back to bucket's default_policy if configured     3. Error 400 if neither is specified
+        This endpoint creates a new object in the specified bucket.     The object must conform to the bucket's schema.      **Processing**: By default, objects are created in PENDING status, which     means not processed yet, and are processed when a batch that includes them     is submitted. An object stays PENDING until that batch run finishes with it;     the batch status shows whether it has been submitted. Set the `auto_process=true` query parameter     to automatically create a batch and submit it for processing (zero-touch     workflow). Sending `auto_process` in the JSON body returns 422, unless the     bucket schema declares a field with that name.      If the bucket has a unique_key configured, the insertion policy determines behavior:     - insert: Create only. Fail with 409 Conflict if unique key exists.     - update: Update only. Fail with 404 Not Found if unique key doesn't exist.     - upsert: Create if new, update if exists (idempotent).      Policy resolution:     1. Use ?policy= query parameter if provided     2. Fall back to bucket's default_policy if configured     3. Error 400 if neither is specified
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_object_request: (required)
+        :param create_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_object_request: CreateObjectRequest
         :param policy: Insertion policy for unique key enforcement. Valid values: 'insert', 'update', 'upsert'. Only applies if bucket has unique_key configured. Overrides bucket's default_policy if provided.
         :type policy: str
@@ -823,8 +837,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -841,7 +857,7 @@ class BucketObjectsApi:
     def create_object_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_object_request: CreateObjectRequest,
+        create_object_request: Annotated[CreateObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         policy: Annotated[Optional[StrictStr], Field(description="Insertion policy for unique key enforcement. Valid values: 'insert', 'update', 'upsert'. Only applies if bucket has unique_key configured. Overrides bucket's default_policy if provided.")] = None,
         auto_process: Annotated[Optional[StrictBool], Field(description="Automatically create a batch and submit it for processing. When true, the object will be immediately queued for processing without requiring separate batch creation and submission calls. Ideal for onboarding and single-object workflows.")] = None,
         _request_timeout: Union[
@@ -859,11 +875,11 @@ class BucketObjectsApi:
     ) -> RESTResponseType:
         """Create Object
 
-        This endpoint creates a new object in the specified bucket.     The object must conform to the bucket's schema.      **Processing**: By default, objects are created in DRAFT status and require     batch submission for processing. Set `auto_process=true` to automatically     create a batch and submit it for processing (zero-touch workflow).      If the bucket has a unique_key configured, the insertion policy determines behavior:     - insert: Create only. Fail with 409 Conflict if unique key exists.     - update: Update only. Fail with 404 Not Found if unique key doesn't exist.     - upsert: Create if new, update if exists (idempotent).      Policy resolution:     1. Use ?policy= query parameter if provided     2. Fall back to bucket's default_policy if configured     3. Error 400 if neither is specified
+        This endpoint creates a new object in the specified bucket.     The object must conform to the bucket's schema.      **Processing**: By default, objects are created in PENDING status, which     means not processed yet, and are processed when a batch that includes them     is submitted. An object stays PENDING until that batch run finishes with it;     the batch status shows whether it has been submitted. Set the `auto_process=true` query parameter     to automatically create a batch and submit it for processing (zero-touch     workflow). Sending `auto_process` in the JSON body returns 422, unless the     bucket schema declares a field with that name.      If the bucket has a unique_key configured, the insertion policy determines behavior:     - insert: Create only. Fail with 409 Conflict if unique key exists.     - update: Update only. Fail with 404 Not Found if unique key doesn't exist.     - upsert: Create if new, update if exists (idempotent).      Policy resolution:     1. Use ?policy= query parameter if provided     2. Fall back to bucket's default_policy if configured     3. Error 400 if neither is specified
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_object_request: (required)
+        :param create_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_object_request: CreateObjectRequest
         :param policy: Insertion policy for unique key enforcement. Valid values: 'insert', 'update', 'upsert'. Only applies if bucket has unique_key configured. Overrides bucket's default_policy if provided.
         :type policy: str
@@ -908,8 +924,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1013,7 +1031,7 @@ class BucketObjectsApi:
     def create_objects_batch_buckets(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_objects_batch_request: CreateObjectsBatchRequest,
+        create_objects_batch_request: Annotated[CreateObjectsBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         auto_process: Annotated[Optional[StrictBool], Field(description="Automatically create a batch and submit it for processing. When true, all successfully created objects will be immediately queued for processing without requiring separate batch calls. Ideal for onboarding and bulk upload workflows.")] = None,
         _request_timeout: Union[
             None,
@@ -1030,11 +1048,11 @@ class BucketObjectsApi:
     ) -> CreateObjectsBatchResponse:
         """Create Objects in Batch
 
-        This endpoint creates multiple new objects in the specified bucket as a batch.     Each object must conform to the bucket's schema.      **Processing**: By default, objects are created in DRAFT status and require     batch submission for processing. Set `auto_process=true` to automatically     create a processing batch and submit it (zero-touch workflow).      **Partial Success**: This endpoint uses partial success - valid objects are created     even if some fail validation. Failed objects are returned separately with error details,     allowing you to fix and retry only the failed ones.      **Response**: Returns both succeeded and failed objects. The batch succeeds (200 OK) as long     as at least one object is created. Check the `failed` array for objects that need attention.
+        This endpoint creates multiple new objects in the specified bucket as a batch.     Each object must conform to the bucket's schema.      **Processing**: By default, objects are created in PENDING status, which     means not processed yet, and are processed when a batch that includes them     is submitted. An object stays PENDING until that batch run finishes with it;     the batch status shows whether it has been submitted. Set the `auto_process=true` query parameter     to automatically create a processing batch and submit it (zero-touch     workflow). Sending `auto_process` in the JSON body, at the top level or in     an object, returns 422, unless the bucket schema declares a field with that     name inside objects.      **Partial Success**: This endpoint uses partial success - valid objects are created     even if some fail validation. Failed objects are returned separately with error details,     allowing you to fix and retry only the failed ones.      **Response**: Returns both succeeded and failed objects. The batch succeeds (200 OK) as long     as at least one object is created. Check the `failed` array for objects that need attention.     If EVERY object in the batch failed, the response is 422 instead of 200 -- the body shape is     identical (`succeeded: []`, `failed: [...]`), only the status code signals total failure.      **unique_key buckets**: not supported here yet. If the bucket declares a `unique_key`     policy, this endpoint rejects the whole request (422) instead of silently creating     duplicates -- use `POST /v1/buckets/{bucket_id}/objects` (singular) per object instead,     which enforces it.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_objects_batch_request: (required)
+        :param create_objects_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_objects_batch_request: CreateObjectsBatchRequest
         :param auto_process: Automatically create a batch and submit it for processing. When true, all successfully created objects will be immediately queued for processing without requiring separate batch calls. Ideal for onboarding and bulk upload workflows.
         :type auto_process: bool
@@ -1076,8 +1094,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1094,7 +1114,7 @@ class BucketObjectsApi:
     def create_objects_batch_buckets_with_http_info(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_objects_batch_request: CreateObjectsBatchRequest,
+        create_objects_batch_request: Annotated[CreateObjectsBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         auto_process: Annotated[Optional[StrictBool], Field(description="Automatically create a batch and submit it for processing. When true, all successfully created objects will be immediately queued for processing without requiring separate batch calls. Ideal for onboarding and bulk upload workflows.")] = None,
         _request_timeout: Union[
             None,
@@ -1111,11 +1131,11 @@ class BucketObjectsApi:
     ) -> ApiResponse[CreateObjectsBatchResponse]:
         """Create Objects in Batch
 
-        This endpoint creates multiple new objects in the specified bucket as a batch.     Each object must conform to the bucket's schema.      **Processing**: By default, objects are created in DRAFT status and require     batch submission for processing. Set `auto_process=true` to automatically     create a processing batch and submit it (zero-touch workflow).      **Partial Success**: This endpoint uses partial success - valid objects are created     even if some fail validation. Failed objects are returned separately with error details,     allowing you to fix and retry only the failed ones.      **Response**: Returns both succeeded and failed objects. The batch succeeds (200 OK) as long     as at least one object is created. Check the `failed` array for objects that need attention.
+        This endpoint creates multiple new objects in the specified bucket as a batch.     Each object must conform to the bucket's schema.      **Processing**: By default, objects are created in PENDING status, which     means not processed yet, and are processed when a batch that includes them     is submitted. An object stays PENDING until that batch run finishes with it;     the batch status shows whether it has been submitted. Set the `auto_process=true` query parameter     to automatically create a processing batch and submit it (zero-touch     workflow). Sending `auto_process` in the JSON body, at the top level or in     an object, returns 422, unless the bucket schema declares a field with that     name inside objects.      **Partial Success**: This endpoint uses partial success - valid objects are created     even if some fail validation. Failed objects are returned separately with error details,     allowing you to fix and retry only the failed ones.      **Response**: Returns both succeeded and failed objects. The batch succeeds (200 OK) as long     as at least one object is created. Check the `failed` array for objects that need attention.     If EVERY object in the batch failed, the response is 422 instead of 200 -- the body shape is     identical (`succeeded: []`, `failed: [...]`), only the status code signals total failure.      **unique_key buckets**: not supported here yet. If the bucket declares a `unique_key`     policy, this endpoint rejects the whole request (422) instead of silently creating     duplicates -- use `POST /v1/buckets/{bucket_id}/objects` (singular) per object instead,     which enforces it.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_objects_batch_request: (required)
+        :param create_objects_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_objects_batch_request: CreateObjectsBatchRequest
         :param auto_process: Automatically create a batch and submit it for processing. When true, all successfully created objects will be immediately queued for processing without requiring separate batch calls. Ideal for onboarding and bulk upload workflows.
         :type auto_process: bool
@@ -1157,8 +1177,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1175,7 +1197,7 @@ class BucketObjectsApi:
     def create_objects_batch_buckets_without_preload_content(
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
-        create_objects_batch_request: CreateObjectsBatchRequest,
+        create_objects_batch_request: Annotated[CreateObjectsBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         auto_process: Annotated[Optional[StrictBool], Field(description="Automatically create a batch and submit it for processing. When true, all successfully created objects will be immediately queued for processing without requiring separate batch calls. Ideal for onboarding and bulk upload workflows.")] = None,
         _request_timeout: Union[
             None,
@@ -1192,11 +1214,11 @@ class BucketObjectsApi:
     ) -> RESTResponseType:
         """Create Objects in Batch
 
-        This endpoint creates multiple new objects in the specified bucket as a batch.     Each object must conform to the bucket's schema.      **Processing**: By default, objects are created in DRAFT status and require     batch submission for processing. Set `auto_process=true` to automatically     create a processing batch and submit it (zero-touch workflow).      **Partial Success**: This endpoint uses partial success - valid objects are created     even if some fail validation. Failed objects are returned separately with error details,     allowing you to fix and retry only the failed ones.      **Response**: Returns both succeeded and failed objects. The batch succeeds (200 OK) as long     as at least one object is created. Check the `failed` array for objects that need attention.
+        This endpoint creates multiple new objects in the specified bucket as a batch.     Each object must conform to the bucket's schema.      **Processing**: By default, objects are created in PENDING status, which     means not processed yet, and are processed when a batch that includes them     is submitted. An object stays PENDING until that batch run finishes with it;     the batch status shows whether it has been submitted. Set the `auto_process=true` query parameter     to automatically create a processing batch and submit it (zero-touch     workflow). Sending `auto_process` in the JSON body, at the top level or in     an object, returns 422, unless the bucket schema declares a field with that     name inside objects.      **Partial Success**: This endpoint uses partial success - valid objects are created     even if some fail validation. Failed objects are returned separately with error details,     allowing you to fix and retry only the failed ones.      **Response**: Returns both succeeded and failed objects. The batch succeeds (200 OK) as long     as at least one object is created. Check the `failed` array for objects that need attention.     If EVERY object in the batch failed, the response is 422 instead of 200 -- the body shape is     identical (`succeeded: []`, `failed: [...]`), only the status code signals total failure.      **unique_key buckets**: not supported here yet. If the bucket declares a `unique_key`     policy, this endpoint rejects the whole request (422) instead of silently creating     duplicates -- use `POST /v1/buckets/{bucket_id}/objects` (singular) per object instead,     which enforces it.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
-        :param create_objects_batch_request: (required)
+        :param create_objects_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_objects_batch_request: CreateObjectsBatchRequest
         :param auto_process: Automatically create a batch and submit it for processing. When true, all successfully created objects will be immediately queued for processing without requiring separate batch calls. Ideal for onboarding and bulk upload workflows.
         :type auto_process: bool
@@ -1238,8 +1260,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1397,8 +1421,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1474,8 +1500,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1551,8 +1579,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1700,8 +1730,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1785,8 +1817,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1870,8 +1904,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1970,7 +2006,7 @@ class BucketObjectsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_objects_request: Optional[ListObjectsRequest] = None,
+        list_objects_request: Annotated[Optional[ListObjectsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1986,7 +2022,7 @@ class BucketObjectsApi:
     ) -> ListObjectsResponse:
         """List Objects
 
-        This endpoint lists objects in a bucket with cursor-based pagination, filtering, and sorting.      **Filtering**: Use dot notation for metadata fields     - Example: ?metadata.type=video&metadata.status=ready      **Sorting**: Specify field and direction     - Example: ?sort_field=metadata.created_at&sort_direction=desc     - Direction: asc (ascending) or desc (descending), defaults to asc      **Pagination**: Cursor-based for efficient deep pagination     - First page: ?limit=100 (omit cursor)     - Next pages: ?limit=100&cursor={next_cursor}     - Use next_cursor from response to navigate     - No limit on pagination depth      **Total Count**: Optional (expensive operation)     - Use ?include_total=true to get total count     - Adds 50-200ms to response time     - Returns total, page, page_size, total_pages fields in pagination response
+        This endpoint lists objects in a bucket with cursor-based pagination, filtering, and sorting.     Filtering, sorting and field selection go in the JSON request body. Pagination goes in the     query string. A body key this endpoint does not read is rejected with a 422.      **Filtering**: `filters` in the body takes a logical operator tree. Use dot notation for     metadata fields (for example `metadata.type`).      **Sorting**: `sort` in the body is one object with a field and a direction     - Example: {\"sort\": {\"field\": \"created_at\", \"direction\": \"desc\"}}     - Direction: asc (ascending) or desc (descending), defaults to asc     - Without `sort`, objects come back in creation order, oldest first      **Pagination**: Cursor-based for efficient deep pagination     - First page: ?limit=100 (omit cursor)     - Next pages: ?limit=100&cursor={next_cursor}     - Use next_cursor from response to navigate     - No limit on pagination depth      **Total Count**: Optional (expensive operation)     - Use ?include_total=true to get total count     - Adds 50-200ms to response time     - Returns total, page, page_size, total_pages fields in pagination response
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -2006,7 +2042,7 @@ class BucketObjectsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_objects_request:
+        :param list_objects_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_objects_request: ListObjectsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2053,8 +2089,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2079,7 +2117,7 @@ class BucketObjectsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_objects_request: Optional[ListObjectsRequest] = None,
+        list_objects_request: Annotated[Optional[ListObjectsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2095,7 +2133,7 @@ class BucketObjectsApi:
     ) -> ApiResponse[ListObjectsResponse]:
         """List Objects
 
-        This endpoint lists objects in a bucket with cursor-based pagination, filtering, and sorting.      **Filtering**: Use dot notation for metadata fields     - Example: ?metadata.type=video&metadata.status=ready      **Sorting**: Specify field and direction     - Example: ?sort_field=metadata.created_at&sort_direction=desc     - Direction: asc (ascending) or desc (descending), defaults to asc      **Pagination**: Cursor-based for efficient deep pagination     - First page: ?limit=100 (omit cursor)     - Next pages: ?limit=100&cursor={next_cursor}     - Use next_cursor from response to navigate     - No limit on pagination depth      **Total Count**: Optional (expensive operation)     - Use ?include_total=true to get total count     - Adds 50-200ms to response time     - Returns total, page, page_size, total_pages fields in pagination response
+        This endpoint lists objects in a bucket with cursor-based pagination, filtering, and sorting.     Filtering, sorting and field selection go in the JSON request body. Pagination goes in the     query string. A body key this endpoint does not read is rejected with a 422.      **Filtering**: `filters` in the body takes a logical operator tree. Use dot notation for     metadata fields (for example `metadata.type`).      **Sorting**: `sort` in the body is one object with a field and a direction     - Example: {\"sort\": {\"field\": \"created_at\", \"direction\": \"desc\"}}     - Direction: asc (ascending) or desc (descending), defaults to asc     - Without `sort`, objects come back in creation order, oldest first      **Pagination**: Cursor-based for efficient deep pagination     - First page: ?limit=100 (omit cursor)     - Next pages: ?limit=100&cursor={next_cursor}     - Use next_cursor from response to navigate     - No limit on pagination depth      **Total Count**: Optional (expensive operation)     - Use ?include_total=true to get total count     - Adds 50-200ms to response time     - Returns total, page, page_size, total_pages fields in pagination response
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -2115,7 +2153,7 @@ class BucketObjectsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_objects_request:
+        :param list_objects_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_objects_request: ListObjectsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2162,8 +2200,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2188,7 +2228,7 @@ class BucketObjectsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_objects_request: Optional[ListObjectsRequest] = None,
+        list_objects_request: Annotated[Optional[ListObjectsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2204,7 +2244,7 @@ class BucketObjectsApi:
     ) -> RESTResponseType:
         """List Objects
 
-        This endpoint lists objects in a bucket with cursor-based pagination, filtering, and sorting.      **Filtering**: Use dot notation for metadata fields     - Example: ?metadata.type=video&metadata.status=ready      **Sorting**: Specify field and direction     - Example: ?sort_field=metadata.created_at&sort_direction=desc     - Direction: asc (ascending) or desc (descending), defaults to asc      **Pagination**: Cursor-based for efficient deep pagination     - First page: ?limit=100 (omit cursor)     - Next pages: ?limit=100&cursor={next_cursor}     - Use next_cursor from response to navigate     - No limit on pagination depth      **Total Count**: Optional (expensive operation)     - Use ?include_total=true to get total count     - Adds 50-200ms to response time     - Returns total, page, page_size, total_pages fields in pagination response
+        This endpoint lists objects in a bucket with cursor-based pagination, filtering, and sorting.     Filtering, sorting and field selection go in the JSON request body. Pagination goes in the     query string. A body key this endpoint does not read is rejected with a 422.      **Filtering**: `filters` in the body takes a logical operator tree. Use dot notation for     metadata fields (for example `metadata.type`).      **Sorting**: `sort` in the body is one object with a field and a direction     - Example: {\"sort\": {\"field\": \"created_at\", \"direction\": \"desc\"}}     - Direction: asc (ascending) or desc (descending), defaults to asc     - Without `sort`, objects come back in creation order, oldest first      **Pagination**: Cursor-based for efficient deep pagination     - First page: ?limit=100 (omit cursor)     - Next pages: ?limit=100&cursor={next_cursor}     - Use next_cursor from response to navigate     - No limit on pagination depth      **Total Count**: Optional (expensive operation)     - Use ?include_total=true to get total count     - Adds 50-200ms to response time     - Returns total, page, page_size, total_pages fields in pagination response
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
@@ -2224,7 +2264,7 @@ class BucketObjectsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_objects_request:
+        :param list_objects_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_objects_request: ListObjectsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2271,8 +2311,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2493,8 +2535,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2598,8 +2642,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2703,8 +2749,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2823,7 +2871,7 @@ class BucketObjectsApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         object_identifier: Annotated[StrictStr, Field(description="The unique identifier of the object.")],
-        patch_object_request: PatchObjectRequest,
+        patch_object_request: Annotated[PatchObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2839,13 +2887,13 @@ class BucketObjectsApi:
     ) -> ObjectResponse:
         """Partially Update Object
 
-        This endpoint partially updates an existing object in the specified bucket (PATCH operation).     Only provided fields will be updated. At minimum, metadata can always be updated.     Immutable fields like object_id and timestamps cannot be modified.     It does not trigger processing.
+        This endpoint partially updates an existing object in the specified bucket (PATCH operation).     Send the object's custom fields flat at the root of the body, for example {\"campaign_id\": \"camp_002\"}.     Only the fields you send change. `key_prefix` and `skip_duplicates` are also accepted.     This route has no `metadata` field. System names such as `status`, `object_id` and `blobs` are reserved and return a 422.     It does not trigger processing.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
         :param object_identifier: The unique identifier of the object. (required)
         :type object_identifier: str
-        :param patch_object_request: (required)
+        :param patch_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_object_request: PatchObjectRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2885,8 +2933,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2904,7 +2954,7 @@ class BucketObjectsApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         object_identifier: Annotated[StrictStr, Field(description="The unique identifier of the object.")],
-        patch_object_request: PatchObjectRequest,
+        patch_object_request: Annotated[PatchObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2920,13 +2970,13 @@ class BucketObjectsApi:
     ) -> ApiResponse[ObjectResponse]:
         """Partially Update Object
 
-        This endpoint partially updates an existing object in the specified bucket (PATCH operation).     Only provided fields will be updated. At minimum, metadata can always be updated.     Immutable fields like object_id and timestamps cannot be modified.     It does not trigger processing.
+        This endpoint partially updates an existing object in the specified bucket (PATCH operation).     Send the object's custom fields flat at the root of the body, for example {\"campaign_id\": \"camp_002\"}.     Only the fields you send change. `key_prefix` and `skip_duplicates` are also accepted.     This route has no `metadata` field. System names such as `status`, `object_id` and `blobs` are reserved and return a 422.     It does not trigger processing.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
         :param object_identifier: The unique identifier of the object. (required)
         :type object_identifier: str
-        :param patch_object_request: (required)
+        :param patch_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_object_request: PatchObjectRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2966,8 +3016,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2985,7 +3037,7 @@ class BucketObjectsApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         object_identifier: Annotated[StrictStr, Field(description="The unique identifier of the object.")],
-        patch_object_request: PatchObjectRequest,
+        patch_object_request: Annotated[PatchObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3001,13 +3053,13 @@ class BucketObjectsApi:
     ) -> RESTResponseType:
         """Partially Update Object
 
-        This endpoint partially updates an existing object in the specified bucket (PATCH operation).     Only provided fields will be updated. At minimum, metadata can always be updated.     Immutable fields like object_id and timestamps cannot be modified.     It does not trigger processing.
+        This endpoint partially updates an existing object in the specified bucket (PATCH operation).     Send the object's custom fields flat at the root of the body, for example {\"campaign_id\": \"camp_002\"}.     Only the fields you send change. `key_prefix` and `skip_duplicates` are also accepted.     This route has no `metadata` field. System names such as `status`, `object_id` and `blobs` are reserved and return a 422.     It does not trigger processing.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
         :param object_identifier: The unique identifier of the object. (required)
         :type object_identifier: str
-        :param patch_object_request: (required)
+        :param patch_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_object_request: PatchObjectRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3047,8 +3099,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3146,7 +3200,7 @@ class BucketObjectsApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         object_identifier: Annotated[StrictStr, Field(description="The unique identifier of the object.")],
-        update_object_request: UpdateObjectRequest,
+        update_object_request: Annotated[UpdateObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3162,13 +3216,13 @@ class BucketObjectsApi:
     ) -> ObjectResponse:
         """Update Object
 
-        This endpoint updates an existing object in the specified bucket.     The updated object must conform to the bucket's schema. It does not trigger processing.
+        This endpoint updates an existing object in the specified bucket.     It accepts `key_prefix`, `skip_duplicates` and `metadata`. A `metadata` key the object     holds inside its own `metadata` object is updated there; any other key is set at the     root of the object. Fields you leave out keep their values. It cannot     replace blobs: to change an object's files, delete it and create it again.     It does not trigger processing.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
         :param object_identifier: The unique identifier of the object. (required)
         :type object_identifier: str
-        :param update_object_request: (required)
+        :param update_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_object_request: UpdateObjectRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3208,8 +3262,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3227,7 +3283,7 @@ class BucketObjectsApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         object_identifier: Annotated[StrictStr, Field(description="The unique identifier of the object.")],
-        update_object_request: UpdateObjectRequest,
+        update_object_request: Annotated[UpdateObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3243,13 +3299,13 @@ class BucketObjectsApi:
     ) -> ApiResponse[ObjectResponse]:
         """Update Object
 
-        This endpoint updates an existing object in the specified bucket.     The updated object must conform to the bucket's schema. It does not trigger processing.
+        This endpoint updates an existing object in the specified bucket.     It accepts `key_prefix`, `skip_duplicates` and `metadata`. A `metadata` key the object     holds inside its own `metadata` object is updated there; any other key is set at the     root of the object. Fields you leave out keep their values. It cannot     replace blobs: to change an object's files, delete it and create it again.     It does not trigger processing.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
         :param object_identifier: The unique identifier of the object. (required)
         :type object_identifier: str
-        :param update_object_request: (required)
+        :param update_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_object_request: UpdateObjectRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3289,8 +3345,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3308,7 +3366,7 @@ class BucketObjectsApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         object_identifier: Annotated[StrictStr, Field(description="The unique identifier of the object.")],
-        update_object_request: UpdateObjectRequest,
+        update_object_request: Annotated[UpdateObjectRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3324,13 +3382,13 @@ class BucketObjectsApi:
     ) -> RESTResponseType:
         """Update Object
 
-        This endpoint updates an existing object in the specified bucket.     The updated object must conform to the bucket's schema. It does not trigger processing.
+        This endpoint updates an existing object in the specified bucket.     It accepts `key_prefix`, `skip_duplicates` and `metadata`. A `metadata` key the object     holds inside its own `metadata` object is updated there; any other key is set at the     root of the object. Fields you leave out keep their values. It cannot     replace blobs: to change an object's files, delete it and create it again.     It does not trigger processing.
 
         :param bucket_identifier: The unique identifier of the bucket. (required)
         :type bucket_identifier: str
         :param object_identifier: The unique identifier of the object. (required)
         :type object_identifier: str
-        :param update_object_request: (required)
+        :param update_object_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type update_object_request: UpdateObjectRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3370,8 +3428,10 @@ class BucketObjectsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

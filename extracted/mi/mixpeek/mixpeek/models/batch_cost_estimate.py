@@ -38,8 +38,9 @@ class BatchCostEstimate(BaseModel):
     features: Optional[List[StrictStr]] = Field(default=None, description="What this batch searches by (dimension 3 of pricing): feature keys billed per file type; custom plugins as 'custom:<name>'.")
     extractors: Optional[List[StrictStr]] = Field(default=None, description="Internal implementation of `features` — prefer rendering `features`; extractor names are the deeper disclosure layer.")
     content_summary: Optional[Dict[str, Any]] = Field(default=None, description="Dimensions 1+2 of pricing: file types and how much of each (counts, video minutes, pages, tokens…)")
+    documents_to_remove: Optional[StrictInt] = Field(default=None, description="OPTIONAL. For dedup_strategy replace: the documents the batch's objects have now in its collections. A replace removes each of these that its re-run does not overwrite in place, after the new documents are written, so this is the most it removes. Absent for skip and force.")
     warnings: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["batch_id", "collection_ids", "dedup_strategy", "object_count", "already_extracted_count", "estimated_credits", "estimated_usd", "estimated_repay_credits", "features", "extractors", "content_summary", "warnings"]
+    __properties: ClassVar[List[str]] = ["batch_id", "collection_ids", "dedup_strategy", "object_count", "already_extracted_count", "estimated_credits", "estimated_usd", "estimated_repay_credits", "features", "extractors", "content_summary", "documents_to_remove", "warnings"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -103,6 +104,7 @@ class BatchCostEstimate(BaseModel):
             "features": obj.get("features"),
             "extractors": obj.get("extractors"),
             "content_summary": obj.get("content_summary"),
+            "documents_to_remove": obj.get("documents_to_remove"),
             "warnings": obj.get("warnings")
         })
         return _obj

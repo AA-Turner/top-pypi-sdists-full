@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.budget_limits import BudgetLimits
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,7 +33,8 @@ class ApplyTaxonomyRequest(BaseModel):
     scroll_filters: Optional[Dict[str, Any]] = Field(default=None, description="Optional filters to limit which documents are enriched. NOT REQUIRED. If not provided, all documents in the collection will be enriched. Use to process specific subsets (e.g., documents missing enrichment).")
     batch_size: Optional[Annotated[int, Field(le=5000, strict=True, ge=100)]] = Field(default=1000, description="Number of documents to process in each parallel batch. NOT REQUIRED. Defaults to 1000. Larger batches = fewer Ray tasks but more memory per task. Smaller batches = more Ray tasks but lower memory per task.")
     parallelism: Optional[Annotated[int, Field(le=20, strict=True, ge=1)]] = Field(default=4, description="Number of parallel Ray workers to use for processing. NOT REQUIRED. Defaults to 4. Higher parallelism = faster processing but more cluster resources. Set based on available Ray cluster capacity.")
-    __properties: ClassVar[List[str]] = ["taxonomy_id", "scroll_filters", "batch_size", "parallelism"]
+    budget_limits: Optional[BudgetLimits] = Field(default=None, description="Optional budget for this job. max_time_ms stops the job when it has run that long: documents already enriched keep their assignments, the task ends CANCELED, and its stats carry budget, spent and stopped_at. max_credits is refused: taxonomy enrichment bills 0 credits, so a credit cap could never stop this job.")
+    __properties: ClassVar[List[str]] = ["taxonomy_id", "scroll_filters", "batch_size", "parallelism", "budget_limits"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +75,9 @@ class ApplyTaxonomyRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of budget_limits
+        if self.budget_limits:
+            _dict['budget_limits'] = self.budget_limits.to_dict()
         return _dict
 
     @classmethod
@@ -88,7 +93,8 @@ class ApplyTaxonomyRequest(BaseModel):
             "taxonomy_id": obj.get("taxonomy_id"),
             "scroll_filters": obj.get("scroll_filters"),
             "batch_size": obj.get("batch_size") if obj.get("batch_size") is not None else 1000,
-            "parallelism": obj.get("parallelism") if obj.get("parallelism") is not None else 4
+            "parallelism": obj.get("parallelism") if obj.get("parallelism") is not None else 4,
+            "budget_limits": BudgetLimits.from_dict(obj["budget_limits"]) if obj.get("budget_limits") is not None else None
         })
         return _obj
 

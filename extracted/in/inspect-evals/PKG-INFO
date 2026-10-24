@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.25.0
+Version: 0.26.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -27,7 +27,7 @@ Requires-Dist: datasets>=4.8.5
 Requires-Dist: huggingface_hub>=1.2.0
 Requires-Dist: hf_xet
 Requires-Dist: httpx>=0.27.0
-Requires-Dist: inspect_ai>=0.3.261
+Requires-Dist: inspect_ai>=0.3.278
 Requires-Dist: jinja2
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: pillow>=11.3.0
@@ -41,6 +41,8 @@ Requires-Dist: pypdf>=5.1.0; extra == "register-tooling"
 Requires-Dist: PyGithub>=2.0; extra == "register-tooling"
 Provides-Extra: gdown
 Requires-Dist: gdown>=6; extra == "gdown"
+Provides-Extra: assistant-bench
+Requires-Dist: mcp>=1.23.3; extra == "assistant-bench"
 Provides-Extra: b3
 Requires-Dist: openai; extra == "b3"
 Requires-Dist: rouge_score; extra == "b3"
@@ -124,6 +126,7 @@ Provides-Extra: makemesay
 Requires-Dist: nltk; extra == "makemesay"
 Provides-Extra: gaia
 Requires-Dist: filelock; extra == "gaia"
+Requires-Dist: inspect_ai>=0.3.278; extra == "gaia"
 Provides-Extra: osworld
 Requires-Dist: filelock; extra == "osworld"
 Provides-Extra: cti-realm

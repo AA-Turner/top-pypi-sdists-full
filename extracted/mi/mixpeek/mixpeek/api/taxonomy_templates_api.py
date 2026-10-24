@@ -50,7 +50,7 @@ class TaxonomyTemplatesApi:
     def create_taxonomy_template_taxonomies_from(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -70,7 +70,7 @@ class TaxonomyTemplatesApi:
 
         :param taxonomy_id: Taxonomy ID (required)
         :type taxonomy_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -104,13 +104,15 @@ class TaxonomyTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -127,7 +129,7 @@ class TaxonomyTemplatesApi:
     def create_taxonomy_template_taxonomies_from_with_http_info(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -147,7 +149,7 @@ class TaxonomyTemplatesApi:
 
         :param taxonomy_id: Taxonomy ID (required)
         :type taxonomy_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -181,13 +183,15 @@ class TaxonomyTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -204,7 +208,7 @@ class TaxonomyTemplatesApi:
     def create_taxonomy_template_taxonomies_from_without_preload_content(
         self,
         taxonomy_id: Annotated[StrictStr, Field(description="Taxonomy ID")],
-        create_template_from_resource_request: CreateTemplateFromResourceRequest,
+        create_template_from_resource_request: Annotated[CreateTemplateFromResourceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -224,7 +228,7 @@ class TaxonomyTemplatesApi:
 
         :param taxonomy_id: Taxonomy ID (required)
         :type taxonomy_id: str
-        :param create_template_from_resource_request: (required)
+        :param create_template_from_resource_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_template_from_resource_request: CreateTemplateFromResourceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -258,13 +262,15 @@ class TaxonomyTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "CreateTemplateFromResourceResponse",
+            '200': "CreateTemplateFromResourceResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -413,8 +419,10 @@ class TaxonomyTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -486,8 +494,10 @@ class TaxonomyTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -559,8 +569,10 @@ class TaxonomyTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -638,7 +650,7 @@ class TaxonomyTemplatesApi:
     def instantiate_taxonomy_template_taxonomies(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest,
+        instantiate_taxonomy_template_request: Annotated[InstantiateTaxonomyTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -658,7 +670,7 @@ class TaxonomyTemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_taxonomy_template_request: (required)
+        :param instantiate_taxonomy_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -692,13 +704,15 @@ class TaxonomyTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTaxonomyTemplateResponse",
+            '200': "InstantiatedTaxonomyTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -715,7 +729,7 @@ class TaxonomyTemplatesApi:
     def instantiate_taxonomy_template_taxonomies_with_http_info(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest,
+        instantiate_taxonomy_template_request: Annotated[InstantiateTaxonomyTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -735,7 +749,7 @@ class TaxonomyTemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_taxonomy_template_request: (required)
+        :param instantiate_taxonomy_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -769,13 +783,15 @@ class TaxonomyTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTaxonomyTemplateResponse",
+            '200': "InstantiatedTaxonomyTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -792,7 +808,7 @@ class TaxonomyTemplatesApi:
     def instantiate_taxonomy_template_taxonomies_without_preload_content(
         self,
         template_id: Annotated[StrictStr, Field(description="Template ID")],
-        instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest,
+        instantiate_taxonomy_template_request: Annotated[InstantiateTaxonomyTemplateRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -812,7 +828,7 @@ class TaxonomyTemplatesApi:
 
         :param template_id: Template ID (required)
         :type template_id: str
-        :param instantiate_taxonomy_template_request: (required)
+        :param instantiate_taxonomy_template_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type instantiate_taxonomy_template_request: InstantiateTaxonomyTemplateRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -846,13 +862,15 @@ class TaxonomyTemplatesApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '201': "InstantiatedTaxonomyTemplateResponse",
+            '200': "InstantiatedTaxonomyTemplateResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -945,7 +963,7 @@ class TaxonomyTemplatesApi:
     @validate_call
     def list_taxonomy_templates_taxonomies(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -963,7 +981,7 @@ class TaxonomyTemplatesApi:
 
         List taxonomy templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1001,8 +1019,10 @@ class TaxonomyTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1018,7 +1038,7 @@ class TaxonomyTemplatesApi:
     @validate_call
     def list_taxonomy_templates_taxonomies_with_http_info(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1036,7 +1056,7 @@ class TaxonomyTemplatesApi:
 
         List taxonomy templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1074,8 +1094,10 @@ class TaxonomyTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1091,7 +1113,7 @@ class TaxonomyTemplatesApi:
     @validate_call
     def list_taxonomy_templates_taxonomies_without_preload_content(
         self,
-        list_templates_request: Optional[ListTemplatesRequest] = None,
+        list_templates_request: Annotated[Optional[ListTemplatesRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1109,7 +1131,7 @@ class TaxonomyTemplatesApi:
 
         List taxonomy templates (system + organization + user).  Supports filtering, sorting, and search like other list operations.
 
-        :param list_templates_request:
+        :param list_templates_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_templates_request: ListTemplatesRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1147,8 +1169,10 @@ class TaxonomyTemplatesApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

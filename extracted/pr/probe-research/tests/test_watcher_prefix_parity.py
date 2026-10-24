@@ -296,10 +296,18 @@ def both(hook, monkeypatch, tmp_path):
     `probe session status` / `probe doctor` render the CLI's. They must not
     disagree about the same machine.
 
-    `_looks_like_the_uploader` is the ONE documented divergence — the CLI asks
-    `/bin/ps` what a live pid IS, the hook takes it at face value because it
-    runs every few seconds for the life of a session — so it is stubbed out
-    rather than compared.
+    Documented divergences, stubbed out or tested on the hook alone rather than
+    compared:
+    * `_looks_like_the_uploader`: the CLI asks `/bin/ps` what a live pid in a
+      pid file IS, the hook takes it at face value because it runs every few
+      seconds for the life of a session -- stubbed here.
+    * `_halted`: the CLI asks the tap's own modules, which most CLI installs
+      cannot import, so it answers "not halted"; the hook reads the latch from
+      the tap's state db itself (`test_a_session_in_the_401_latch_reads_halted`).
+    * a watcher file this user does not own, that is a link or not a regular
+      file: the hook ignores it, the CLI reads it (`test_the_hook_reads_only_*`).
+    The `.hosted` marker's pid is NOT a divergence: both require the service
+    (`probe.service` in its command line).
     """
     from probe.cli import capture_state
 
@@ -386,6 +394,197 @@ def test_a_live_pid_reads_running_on_both_sides(both, source, tmp_path):
         pid_path.unlink(missing_ok=True)
     assert reading == {"running": True, "reason": "running"}
     assert reading == cli
+
+
+def _hosted_path(source: str) -> Path:
+    return Path("/tmp") / f"{EXPECTED_PREFIX[source]}-watcher-{SID}.hosted"
+
+
+@pytest.fixture
+def stand_in_service():
+    """A live process whose command line names `probe.service`, which is what
+    the CLI's `_hosted_pid` asks `ps` for: a real process, so the CLI side is
+    not stubbed."""
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)", "probe.service"])
+    try:
+        yield proc.pid
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the hosted marker is read on POSIX only here")
+@pytest.mark.parametrize("source", _SOURCES)
+def test_a_session_the_service_records_reads_running_on_both_sides(both, source, tmp_path, stand_in_service):
+    """THE BUG THIS EXISTS FOR: a session the Probe service records has a
+    `.hosted` marker and no pid file, and the status line said `not started`
+    for every one of them while `probe session status` said running."""
+    (tmp_path / source).mkdir(parents=True)
+    hosted = _hosted_path(source)
+    hosted.write_text(str(stand_in_service), encoding="utf-8")
+    try:
+        reading, cli = both(source)
+    finally:
+        hosted.unlink(missing_ok=True)
+    assert reading == {"running": True, "reason": "running"}
+    assert reading == cli
+
+
+@pytest.mark.parametrize("value", ["999999999", "1", "0", "not a pid"])
+def test_a_hosted_marker_naming_no_live_service_reads_not_started_on_both_sides(both, value, tmp_path):
+    (tmp_path / "claude_code").mkdir(parents=True)
+    hosted = _hosted_path("claude_code")
+    hosted.write_text(value, encoding="utf-8")
+    try:
+        reading, cli = both("claude_code")
+    finally:
+        hosted.unlink(missing_ok=True)
+    assert reading == {"running": False, "reason": "not started"}
+    assert reading == cli
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="no file owners to compare")
+def test_another_users_hosted_marker_is_not_believed_on_both_sides(both, monkeypatch, tmp_path, stand_in_service):
+    """`/tmp` is shared: a marker this user does not own could name any pid."""
+    (tmp_path / "claude_code").mkdir(parents=True)
+    hosted = _hosted_path("claude_code")
+    hosted.write_text(str(stand_in_service), encoding="utf-8")
+    real_uid = os.getuid()
+    monkeypatch.setattr(os, "getuid", lambda: real_uid + 1)
+    try:
+        reading, cli = both("claude_code")
+    finally:
+        hosted.unlink(missing_ok=True)
+    assert reading == {"running": False, "reason": "not started"}
+    assert reading == cli
+
+
+def test_a_readable_pid_file_is_answered_before_the_hosted_marker_on_both_sides(both, tmp_path, stand_in_service):
+    """The CLI's order: a pid file it can read decides, live or dead; only no
+    readable pid file sends it to the marker."""
+    (tmp_path / "claude_code").mkdir(parents=True)
+    pid_path, hosted = _pid_path("claude_code"), _hosted_path("claude_code")
+    pid_path.write_text("999999999", encoding="utf-8")
+    hosted.write_text(str(stand_in_service), encoding="utf-8")
+    try:
+        reading, cli = both("claude_code")
+    finally:
+        pid_path.unlink(missing_ok=True)
+        hosted.unlink(missing_ok=True)
+    assert reading == {"running": False, "reason": "not started"}
+    assert reading == cli
+
+
+def test_a_hosted_marker_naming_a_live_process_that_is_not_the_service_reads_not_started_on_both_sides(both, tmp_path):
+    """A service that stopped without resuming its sessions leaves its marker,
+    and nothing rewrites it: a reused pid must not read as recording."""
+    (tmp_path / "claude_code").mkdir(parents=True)
+    other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    hosted = _hosted_path("claude_code")
+    hosted.write_text(str(other.pid), encoding="utf-8")
+    try:
+        reading, cli = both("claude_code")
+    finally:
+        hosted.unlink(missing_ok=True)
+        other.kill()
+        other.wait()
+    assert reading == {"running": False, "reason": "not started"}
+    assert reading == cli
+
+
+def test_without_proc_the_marker_must_name_the_pid_in_the_service_lock(hook, monkeypatch, tmp_path, stand_in_service):
+    """macOS has no /proc: the service's lock file names the service's pid."""
+    monkeypatch.setenv("PROBE_AGENT", "claude_code")
+    monkeypatch.setenv(EXPECTED_PLUGIN_DIR["claude_code"][0], str(tmp_path / "tap"))
+    (tmp_path / "tap").mkdir()
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setattr(hook, "_PROC_DIR", str(tmp_path / "no-proc"))
+    lock = hook._load("_service_paths").lock_path()
+    lock.parent.mkdir(parents=True)
+    hosted = _hosted_path("claude_code")
+    hosted.write_text(str(stand_in_service), encoding="utf-8")
+    try:
+        lock.write_text(f"{stand_in_service} 12345\n", encoding="utf-8")
+        assert hook._capture_reading(SID) == {"running": True, "reason": "running"}
+        lock.write_text(f"{os.getpid()} 12345\n", encoding="utf-8")
+        assert hook._capture_reading(SID) == {"running": False, "reason": "not started"}
+        lock.unlink()
+        assert hook._capture_reading(SID) == {"running": False, "reason": "not started"}
+    finally:
+        hosted.unlink(missing_ok=True)
+
+
+def test_the_hook_never_probes_pid_1_from_a_hosted_marker(hook, monkeypatch, tmp_path):
+    monkeypatch.setenv("PROBE_AGENT", "claude_code")
+    monkeypatch.setenv(EXPECTED_PLUGIN_DIR["claude_code"][0], str(tmp_path))
+    probed = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: probed.append(pid))
+    monkeypatch.setattr(hook, "_PROC_DIR", str(tmp_path / "no-proc"))
+    hosted = _hosted_path("claude_code")
+    hosted.write_text("1", encoding="utf-8")
+    try:
+        assert hook._capture_reading(SID) == {"running": False, "reason": "not started"}
+    finally:
+        hosted.unlink(missing_ok=True)
+    assert probed == []
+
+
+@pytest.mark.parametrize("which", ["pid", "hosted"])
+def test_a_session_in_the_401_latch_reads_halted(hook, monkeypatch, tmp_path, stand_in_service, which):
+    """A recorder the service keeps retrying after a 401 leaves a live service
+    behind its marker: the segment must not say capture is fine."""
+    import sqlite3
+
+    monkeypatch.setenv("PROBE_AGENT", "claude_code")
+    monkeypatch.setenv(EXPECTED_PLUGIN_DIR["claude_code"][0], str(tmp_path))
+    db = sqlite3.connect(tmp_path / "state.db")
+    db.execute("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+    db.commit()
+    path = _pid_path("claude_code") if which == "pid" else _hosted_path("claude_code")
+    path.write_text(str(os.getpid() if which == "pid" else stand_in_service), encoding="utf-8")
+    try:
+        assert hook._capture_reading(SID) == {"running": True, "reason": "running"}
+        db.execute("INSERT INTO meta VALUES ('last_401_at', '2026-10-24T03:00:00Z')")
+        db.commit()
+        assert hook._capture_reading(SID) == {"running": False, "reason": "halted"}
+    finally:
+        db.close()
+        path.unlink(missing_ok=True)
+
+
+def test_the_hook_reads_only_its_own_regular_watcher_files(hook, monkeypatch, tmp_path, stand_in_service):
+    """`/tmp` is shared. Another user's pid file, a link, or a FIFO (which would
+    block an `open` until the service killed the refresh) is not this session's."""
+    import threading
+
+    monkeypatch.setenv("PROBE_AGENT", "claude_code")
+    monkeypatch.setenv(EXPECTED_PLUGIN_DIR["claude_code"][0], str(tmp_path))
+    pid_path, hosted = _pid_path("claude_code"), _hosted_path("claude_code")
+    hosted.write_text(str(stand_in_service), encoding="utf-8")
+    try:
+        os.mkfifo(pid_path)
+        answers = []
+        reader = threading.Thread(target=lambda: answers.append(hook._capture_reading(SID)), daemon=True)
+        reader.start()
+        reader.join(5)
+        assert not reader.is_alive(), "a FIFO pid file blocked the refresh"
+        assert answers == [{"running": True, "reason": "running"}]
+        pid_path.unlink()
+
+        target = tmp_path / "elsewhere.pid"
+        target.write_text(str(os.getpid()), encoding="utf-8")
+        hosted.unlink()
+        pid_path.symlink_to(target)
+        assert hook._capture_reading(SID) == {"running": False, "reason": "not started"}
+        pid_path.unlink()
+
+        pid_path.write_text(str(os.getpid()), encoding="utf-8")
+        real_uid = os.getuid()
+        monkeypatch.setattr(os, "getuid", lambda: real_uid + 1)
+        assert hook._capture_reading(SID) == {"running": False, "reason": "not started"}
+    finally:
+        pid_path.unlink(missing_ok=True)
+        hosted.unlink(missing_ok=True)
 
 
 def test_the_hook_never_signals_a_process_group(hook, monkeypatch, tmp_path):

@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class PatchObjectRequest(BaseModel):
     """
-    Request model for partially updating a bucket object (PATCH operation).  Task 10: Use extra='allow' to accept any user-defined fields at root level. No nested metadata dict - all fields are flat.
+    Request model for partially updating a bucket object (PATCH operation).  Send the object's custom fields flat at the root of the body. Only the fields you send change. There is no nested `metadata` object.
     """ # noqa: E501
     key_prefix: Optional[StrictStr] = Field(default=None, description="Updated storage key/path prefix of the object")
     skip_duplicates: Optional[StrictBool] = Field(default=None, description="Skip duplicate blobs")

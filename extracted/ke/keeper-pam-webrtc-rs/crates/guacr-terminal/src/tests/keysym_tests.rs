@@ -12,6 +12,99 @@ fn test_ascii_characters() {
 }
 
 #[test]
+fn test_latin1_printable_keysyms_are_utf8() {
+    for (keysym, text) in [
+        (0x00A0, "\u{a0}"),
+        (0x00E9, "é"),
+        (0x00F1, "ñ"),
+        (0x00FF, "ÿ"),
+    ] {
+        assert_eq!(x11_keysym_to_bytes(keysym, true, None), text.as_bytes());
+        assert_eq!(
+            x11_keysym_to_bytes_with_modes(keysym, true, None, 8, true),
+            text.as_bytes()
+        );
+        assert!(x11_keysym_to_bytes(keysym, false, None).is_empty());
+    }
+}
+
+#[test]
+fn test_unicode_prefixed_keysyms_encode_scalars_without_truncation() {
+    for (keysym, text) in [
+        (0x01000041, "A"),
+        (0x010000E9, "é"),
+        (0x01000100, "Ā"),
+        (0x010003BB, "λ"),
+        (0x01004E2D, "中"),
+        (0x0101F642, "🙂"),
+        (0x0110FFFF, "\u{10ffff}"),
+    ] {
+        assert_eq!(x11_keysym_to_bytes(keysym, true, None), text.as_bytes());
+        assert_eq!(
+            x11_keysym_to_kitty_sequence(keysym, true, None, 127, false, 0),
+            text.as_bytes()
+        );
+        assert!(x11_keysym_to_bytes(keysym, false, None).is_empty());
+    }
+}
+
+#[test]
+fn test_invalid_unicode_and_unmapped_legacy_keysyms_are_rejected() {
+    for keysym in [
+        0x0100D800, 0x0100DFFF, 0x01110000, 0x01FFFFFF, 0x02000041, 0x000007E1,
+    ] {
+        assert!(x11_keysym_to_bytes(keysym, true, None).is_empty());
+        assert!(x11_keysym_to_kitty_sequence(keysym, true, None, 127, false, 2).is_empty());
+    }
+}
+
+#[test]
+fn test_kitty_printable_unicode_uses_scalar_not_x11_prefix() {
+    let mods = ModifierState {
+        shift: true,
+        ..ModifierState::new()
+    };
+    for (keysym, scalar) in [(0x00E9, 233), (0x010003BB, 955), (0x0101F642, 128578)] {
+        assert_eq!(
+            x11_keysym_to_kitty_sequence(keysym, true, None, 127, false, 1),
+            format!("\x1b[{scalar}u").as_bytes()
+        );
+        assert_eq!(
+            x11_keysym_to_kitty_sequence(keysym, true, Some(&mods), 127, false, 2),
+            format!("\x1b[{scalar};1:1u").as_bytes()
+        );
+        assert_eq!(
+            x11_keysym_to_kitty_sequence(keysym, false, None, 127, false, 2),
+            format!("\x1b[{scalar};0:3u").as_bytes()
+        );
+    }
+}
+
+#[test]
+fn test_unicode_does_not_change_existing_control_or_mode_policy() {
+    let mods = ModifierState {
+        control: true,
+        alt: true,
+        ..ModifierState::new()
+    };
+    assert_eq!(x11_keysym_to_bytes(0x0063, true, Some(&mods)), b"\x03");
+    assert_eq!(
+        x11_keysym_to_bytes(0x00E9, true, Some(&mods)),
+        "é".as_bytes()
+    );
+    assert_eq!(
+        x11_keysym_to_bytes_with_modes(0xFF52, true, None, 8, true),
+        b"\x1bOA"
+    );
+    assert_eq!(
+        x11_keysym_to_bytes_with_modes(0xFF08, true, None, 8, true),
+        b"\x08"
+    );
+    assert_eq!(x11_keysym_to_bytes(0x12, true, None), b"\x12");
+    assert!(x11_keysym_to_bytes(0xFFE3, true, None).is_empty());
+}
+
+#[test]
 fn test_special_keys() {
     assert_eq!(x11_keysym_to_bytes(0xFF0D, true, None), vec![b'\r']); // Enter
     assert_eq!(x11_keysym_to_bytes(0xFF08, true, None), vec![0x7F]); // Backspace

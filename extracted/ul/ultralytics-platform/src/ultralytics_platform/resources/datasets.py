@@ -206,12 +206,17 @@ class Datasets:
         ]
         | NotGiven = NOT_GIVEN,
         owner_body: str | NotGiven = NOT_GIVEN,
+        splits: Sequence[Literal["train", "val", "test"]] | NotGiven = NOT_GIVEN,
+        version: int | NotGiven = NOT_GIVEN,
+        image_ids: Sequence[str] | NotGiven = NOT_GIVEN,
+        annotations: bool | NotGiven = NOT_GIVEN,
+        into: str | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> DatasetsCloneResponse:
         """Clone a dataset.
 
-        Copies an accessible dataset into your personal workspace or a team workspace.
+        Copies an accessible dataset, or selected splits, a saved version, or selected images of it, into your workspace or into a dataset you own.
 
         Args:
             owner (str): Dataset owner
@@ -222,6 +227,11 @@ class Datasets:
             visibility (Literal["public", "private"], optional): Resource visibility
             license (Literal["None", "CC0-1.0", "PDM-1.0", "CC-BY-2.5", "CC-BY-3.0", "CC-BY-4.0", "CC-BY-NC-2.0", "CC-BY-NC-3.0", "CC-BY-NC-4.0", "CC-BY-SA-3.0", "CC-BY-SA-4.0", "CC-BY-NC-SA-3.0", "CC-BY-NC-SA-4.0", "CC-BY-ND-4.0", "CC-BY-NC-ND-2.0", "CC-BY-NC-ND-4.0", "Apache-2.0", "MIT", "BSD-3-Clause", "AGPL-3.0", "GPL-2.0", "GPL-3.0", "LGPL-3.0", "ODbL-1.0", "DbCL-1.0", "Research-Only", "Other"], optional): Dataset license identifier
             owner_body (str, optional): Destination owner
+            splits (Sequence[Literal["train", "val", "test"]], optional): Live splits to clone; defaults to all
+            version (int, optional): Saved version to clone instead of live images
+            image_ids (Sequence[str], optional): Clone only these live images
+            annotations (bool, optional): Copy annotations with the images; false clones raw images only
+            into (str, optional): Merge unlabeled into this dataset you own instead
             timeout (float | httpx.Timeout, optional): Request timeout override.
             extra_headers (dict[str, str], optional): Additional request headers.
 
@@ -246,6 +256,11 @@ class Datasets:
                     "visibility": visibility,
                     "license": license,
                     "owner": owner_body,
+                    "splits": splits,
+                    "version": version,
+                    "imageIds": image_ids,
+                    "annotations": annotations,
+                    "into": into,
                 },
             ),
         )
@@ -1032,7 +1047,7 @@ class Datasets:
     ) -> DatasetsCreateBatchResponse:
         """Auto-annotate images or blur faces.
 
-        For auto-annotation, saves a dataset version, then queues a run that labels the dataset's unlabeled images with the given model, or every image when `includeAnnotated` is set. Set `operation: blur` to blur faces using the platform detector, optionally limited to `imageId`. Blurring creates no version. `confidence` defaults to 0.25; `boxScale` defaults to 1 and scales face boxes around their centers. Set `preview: true` to prepare up to six full-resolution images and their thumbnails without changing the dataset. Pass the returned `jobId` as `previewJobId` with the same settings to apply those exact assets; only remaining dataset images require processing. Existing labels are never changed, and the run is billed for the images it actually processes.
+        For auto-annotation, saves a dataset version (cloud storage datasets have none), then queues a run that labels the dataset's unlabeled images with the given model, or every image when `includeAnnotated` is set. Set `operation: blur` to blur faces using the platform detector, optionally limited to `imageId`. Blurring requires hosted storage and creates no version. `confidence` defaults to 0.25; `boxScale` defaults to 1 and scales face boxes around their centers. Set `preview: true` to prepare up to six full-resolution images and their thumbnails without changing the dataset. Pass the returned `jobId` as `previewJobId` with the same settings to apply those exact assets; only remaining dataset images require processing. Existing labels are never changed, and the run is billed for the images it actually processes.
 
         Args:
             owner (str): Dataset owner
@@ -1597,12 +1612,17 @@ class AsyncDatasets:
         ]
         | NotGiven = NOT_GIVEN,
         owner_body: str | NotGiven = NOT_GIVEN,
+        splits: Sequence[Literal["train", "val", "test"]] | NotGiven = NOT_GIVEN,
+        version: int | NotGiven = NOT_GIVEN,
+        image_ids: Sequence[str] | NotGiven = NOT_GIVEN,
+        annotations: bool | NotGiven = NOT_GIVEN,
+        into: str | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> DatasetsCloneResponse:
         """Clone a dataset.
 
-        Copies an accessible dataset into your personal workspace or a team workspace.
+        Copies an accessible dataset, or selected splits, a saved version, or selected images of it, into your workspace or into a dataset you own.
 
         Args:
             owner (str): Dataset owner
@@ -1613,6 +1633,11 @@ class AsyncDatasets:
             visibility (Literal["public", "private"], optional): Resource visibility
             license (Literal["None", "CC0-1.0", "PDM-1.0", "CC-BY-2.5", "CC-BY-3.0", "CC-BY-4.0", "CC-BY-NC-2.0", "CC-BY-NC-3.0", "CC-BY-NC-4.0", "CC-BY-SA-3.0", "CC-BY-SA-4.0", "CC-BY-NC-SA-3.0", "CC-BY-NC-SA-4.0", "CC-BY-ND-4.0", "CC-BY-NC-ND-2.0", "CC-BY-NC-ND-4.0", "Apache-2.0", "MIT", "BSD-3-Clause", "AGPL-3.0", "GPL-2.0", "GPL-3.0", "LGPL-3.0", "ODbL-1.0", "DbCL-1.0", "Research-Only", "Other"], optional): Dataset license identifier
             owner_body (str, optional): Destination owner
+            splits (Sequence[Literal["train", "val", "test"]], optional): Live splits to clone; defaults to all
+            version (int, optional): Saved version to clone instead of live images
+            image_ids (Sequence[str], optional): Clone only these live images
+            annotations (bool, optional): Copy annotations with the images; false clones raw images only
+            into (str, optional): Merge unlabeled into this dataset you own instead
             timeout (float | httpx.Timeout, optional): Request timeout override.
             extra_headers (dict[str, str], optional): Additional request headers.
 
@@ -1637,6 +1662,11 @@ class AsyncDatasets:
                     "visibility": visibility,
                     "license": license,
                     "owner": owner_body,
+                    "splits": splits,
+                    "version": version,
+                    "imageIds": image_ids,
+                    "annotations": annotations,
+                    "into": into,
                 },
             ),
         )
@@ -2423,7 +2453,7 @@ class AsyncDatasets:
     ) -> DatasetsCreateBatchResponse:
         """Auto-annotate images or blur faces.
 
-        For auto-annotation, saves a dataset version, then queues a run that labels the dataset's unlabeled images with the given model, or every image when `includeAnnotated` is set. Set `operation: blur` to blur faces using the platform detector, optionally limited to `imageId`. Blurring creates no version. `confidence` defaults to 0.25; `boxScale` defaults to 1 and scales face boxes around their centers. Set `preview: true` to prepare up to six full-resolution images and their thumbnails without changing the dataset. Pass the returned `jobId` as `previewJobId` with the same settings to apply those exact assets; only remaining dataset images require processing. Existing labels are never changed, and the run is billed for the images it actually processes.
+        For auto-annotation, saves a dataset version (cloud storage datasets have none), then queues a run that labels the dataset's unlabeled images with the given model, or every image when `includeAnnotated` is set. Set `operation: blur` to blur faces using the platform detector, optionally limited to `imageId`. Blurring requires hosted storage and creates no version. `confidence` defaults to 0.25; `boxScale` defaults to 1 and scales face boxes around their centers. Set `preview: true` to prepare up to six full-resolution images and their thumbnails without changing the dataset. Pass the returned `jobId` as `previewJobId` with the same settings to apply those exact assets; only remaining dataset images require processing. Existing labels are never changed, and the run is billed for the images it actually processes.
 
         Args:
             owner (str): Dataset owner

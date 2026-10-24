@@ -39,6 +39,11 @@ from probe.sdk import session_marker  # noqa: E402
 from probe.sdk.session_marker import WIZARD_HINT  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
+
+
+def SUPERVISOR_VALUE(pid, start, sid):
+    """`probe.service.workers.supervisor_value`'s shape, for another process."""
+    return json.dumps({"pid": pid, "start": start, "sid": sid})
 RUN = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
 
@@ -483,6 +488,132 @@ def test_the_session_lock_is_taken_once_the_first_worker_lets_go(tmp_path):
         assert worker_mod.session_lock(SID, should_stop=lambda: True, poll_s=0.01) == 0
     finally:
         again.close()
+
+
+def _zombie_supervisor():
+    """A process that ran and exited, still unreaped (this test is its parent):
+    a Probe service that exited before its worker looked, whose own parent has
+    not waited for it yet. Returns (its Popen, its start time while it ran)."""
+    import subprocess
+    import sys
+
+    from probe.service import procid
+
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(0.5)"])
+    start = procid.start_time(child.pid)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        info = procid.proc(child.pid)
+        if info is not None and info.zombie:
+            break
+        time.sleep(0.02)
+    assert start and procid.proc(child.pid).zombie, "the stand-in service never became a zombie"
+    return child, start
+
+
+def test_a_worker_whose_supervisor_exited_unreaped_reads_it_as_gone(tmp_path, monkeypatch):
+    """Codex R1 on #3309: the service exited before its worker looked but was
+    still a zombie; `kill(pid, 0)` succeeds on one, so the worker took init as
+    its parent and never saw its supervisor go: it ignored hand-over asks and
+    kept its lock forever. Here it is waiting for the lock: it must leave (0,
+    its parent is gone), not wait out its bound."""
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
+    monkeypatch.chdir(tmp_path)  # the worker moves into its session's folder: put this process back after
+    _set_state("daemon")
+    zombie, start = _zombie_supervisor()
+    real_lock = worker_mod.session_lock
+    monkeypatch.setattr(worker_mod, "session_lock",
+                        lambda *a, **kw: real_lock(*a, **{**kw, "poll_s": 0.02, "max_wait_s": 2.0}))
+    monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV, SUPERVISOR_VALUE(zombie.pid, start, SID))
+    held = _hold_lock()
+    try:
+        assert _run_main(_argv(tmp_path)) == 0, "it took a dead service for a live parent"
+    finally:
+        held.close()
+        zombie.wait()
+
+
+def test_a_worker_without_its_supervisor_s_start_time_still_reads_a_zombie_as_gone(tmp_path, monkeypatch):
+    """Codex R3 on #3309: a service that cannot read its start time now still
+    sends its pid; the worker compares that pid with its parent and reads it
+    as gone once it has exited (a zombie included). Mutation caught: ignoring
+    an identity that has no start time (the worker falls back to init)."""
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
+    monkeypatch.chdir(tmp_path)
+    _set_state("daemon")
+    zombie, _start = _zombie_supervisor()
+    real_lock = worker_mod.session_lock
+    monkeypatch.setattr(worker_mod, "session_lock",
+                        lambda *a, **kw: real_lock(*a, **{**kw, "poll_s": 0.02, "max_wait_s": 2.0}))
+    monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV, SUPERVISOR_VALUE(zombie.pid, None, SID))
+    held = _hold_lock()
+    try:
+        assert _run_main(_argv(tmp_path)) == 0, "it took a dead service for a live parent"
+    finally:
+        held.close()
+        zombie.wait()
+
+
+def test_a_supervisor_known_only_by_pid_is_alive_while_it_runs(monkeypatch):
+    """No start time: a running supervisor that is not this process's parent
+    (an interpreter that forked under it) is no orphan.
+    Mutation caught: reading every start-less identity as gone."""
+    assert worker_mod.parent_gone((os.getpid(), None), os.getppid()) is False
+
+
+def test_a_worker_started_outside_its_session_folder_moves_into_it(tmp_path, monkeypatch):
+    """The service starts a worker from a local folder (a hung project mount
+    must not stall its one supervising thread): the worker goes into its
+    session's folder itself, as the tap's spawn left it there."""
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
+    _set_state("daemon")
+    argv = _argv(tmp_path)
+    work = argv[argv.index("--cwd") + 1]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    seen = []
+
+    class NoWorker:
+        def __init__(self, *args, **kwargs):
+            seen.append(os.getcwd())
+            raise LookupError("stop here")
+
+    monkeypatch.setattr(worker_mod, "Worker", NoWorker)
+    from probe.service import procid
+
+    # This test process stands in for the service that started it (both, as it sends them).
+    monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV,
+                       SUPERVISOR_VALUE(os.getpid(), procid.start_time(os.getpid()), SID))
+    monkeypatch.setenv(worker_mod.ENTER_CWD_ENV, "1")
+    assert _run_main(argv) == worker_mod.EXIT_DO_NOT_RESPAWN
+    assert seen == [work]
+
+
+def test_a_worker_the_service_started_enters_its_folder_even_without_its_identity(tmp_path, monkeypatch):
+    """Codex R2 on #3309: the service leaves its identity out when it cannot
+    read its own start time (a `ps` that timed out on macOS), and the worker
+    then stayed in the service's state folder, where project-relative settings
+    resolve wrong. Being started from there is its own signal, not the identity's."""
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
+    _set_state("daemon")
+    argv = _argv(tmp_path)
+    work = argv[argv.index("--cwd") + 1]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    seen = []
+
+    class NoWorker:
+        def __init__(self, *args, **kwargs):
+            seen.append(os.getcwd())
+            raise LookupError("stop here")
+
+    monkeypatch.setattr(worker_mod, "Worker", NoWorker)
+    monkeypatch.delenv("PROBE_DAEMON_SUPERVISOR", raising=False)
+    monkeypatch.setenv("PROBE_DAEMON_ENTER_CWD", "1")
+    assert _run_main(argv) == worker_mod.EXIT_DO_NOT_RESPAWN
+    assert seen == [work]
 
 
 def test_an_orphaned_worker_finishes_and_takes_no_new_input(tmp_path, monkeypatch):
@@ -2222,3 +2353,42 @@ def test_the_lock_taker_clears_an_ask_meant_for_the_previous_holder(tmp_path):
         assert not marker.exists()
     finally:
         got.close()
+
+
+def test_a_failed_delete_of_the_ask_never_sends_the_lock_holder_back_for_its_own_lock(tmp_path, monkeypatch):
+    """Windows: a next worker touching the hand-over ask can make its delete
+    fail. The worker already holds the lock then, and msvcrt's byte lock
+    refuses a second lock even to its own holder: retrying would wait forever
+    (and block every worker after it). As msvcrt does, a held lock is refused."""
+    from probe._shared import oscompat
+    from probe.daemon import mailbox
+
+    held: set = set()
+
+    def windows_flock(fd, operation):
+        if operation & oscompat.LOCK_EX:
+            if fd in held:
+                raise OSError("locked")  # msvcrt: the region is locked, by anyone
+            held.add(fd)
+        else:
+            held.discard(fd)
+
+    monkeypatch.setattr(oscompat, "flock", windows_flock)
+    marker = mailbox.handover_path(SID)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.touch()
+    real_unlink = Path.unlink
+
+    def busy_unlink(self, *args, **kwargs):
+        if self == marker:
+            raise PermissionError("in use by another process")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", busy_unlink)
+    polls = []
+    got = worker_mod.session_lock(SID, poll_s=0.01, should_stop=lambda: polls.append(1) or len(polls) > 20)
+    try:
+        assert not isinstance(got, int), f"waited on its own lock and gave up: {got}"
+    finally:
+        if not isinstance(got, int):
+            got.close()

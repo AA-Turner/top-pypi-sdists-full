@@ -14,7 +14,7 @@ import torch.nn as nn
 from einops import rearrange
 from torch.nn import functional as F
 
-from fla.layers.utils import get_layer_cache, get_unpad_data, index_first_axis, pad_input, update_layer_cache
+from fla.layers.utils import get_layer_cache, repad_hidden_states, unpad_hidden_states, update_layer_cache
 from fla.modules import FusedRMSNormGated, RMSNorm, ShortConvolution
 from fla.modules.l2norm import l2_norm
 from fla.ops.mesa_net import chunk_mesa_net, mesa_net_decoding_one_step
@@ -22,12 +22,12 @@ from fla.ops.mesa_net import chunk_mesa_net, mesa_net_decoding_one_step
 if TYPE_CHECKING:
     from transformers.processing_utils import Unpack
 
-    from fla.models.utils import Cache
+    from fla.models.cache_utils import Cache
 
 
 class MesaNet(nn.Module):
     """
-    The layer implementaion for [MesaNet: Sequence Modeling by Locally Optimal Test-Time Training].  # noqa
+    The layer implementation for [MesaNet: Sequence Modeling by Locally Optimal Test-Time Training].  # noqa
 
     Args:
         hidden_size (int, Optional):
@@ -145,13 +145,12 @@ class MesaNet(nn.Module):
         last_state = get_layer_cache(self, past_key_values)
 
         cu_seqlens = kwargs.get('cu_seqlens')
-        if cu_seqlens is None and attention_mask is not None:
-            indices, cu_seqlens, _ = get_unpad_data(attention_mask[:, -q_len:])
-            hidden_states = index_first_axis(rearrange(hidden_states, "b s ... -> (b s) ..."), indices).unsqueeze(0)
+        hidden_states, indices, cu_seqlens = unpad_hidden_states(hidden_states, cu_seqlens, attention_mask, q_len)
 
         conv_state_q, conv_state_k = None, None
         if last_state is not None:
             conv_state_q, conv_state_k = last_state['conv_state']
+        prev_conv_state_q = conv_state_q
         q, conv_state_q = self.q_conv1d(
             x=self.q_proj(hidden_states),
             cache=conv_state_q,
@@ -175,9 +174,11 @@ class MesaNet(nn.Module):
 
         last_h_kk, last_h_kv = last_state['recurrent_state'] if last_state is not None else (None, None)
 
-        # prefilling or training
+        # prefilling, training, or cached inputs without guaranteed one-step shapes
         # Note that QK will be normalized inside the kernel to avoid saving the activations, thereby reducing the memory usage.
-        if last_state is None:
+        # no-grad single-token convolution updates its cache in place
+        is_decoding = q_len == 1 if cu_seqlens is None else conv_state_q is not None and conv_state_q is prev_conv_state_q
+        if last_state is None or not is_decoding:
             o, h_kk, h_kv = chunk_mesa_net(
                 q=q,
                 k=k,
@@ -185,6 +186,8 @@ class MesaNet(nn.Module):
                 g=g,
                 beta=beta,
                 lamb=lamb,
+                h_kk_init=last_h_kk,
+                h_kv_init=last_h_kv,
                 output_final_state=use_cache,
                 max_CG_iteration=self.max_cg_step_training,
                 use_qk_l2norm_in_kernel=True,
@@ -192,20 +195,21 @@ class MesaNet(nn.Module):
             )
         # decoding
         else:
+            dim = 1 if cu_seqlens is None else 0
             q = l2_norm(q)
             k = l2_norm(k)
             o, h_kk, h_kv = mesa_net_decoding_one_step(
-                q=q.squeeze(0),
-                k=k.squeeze(0),
-                v=v.squeeze(0),
-                g=g.squeeze(0),
-                beta=beta.squeeze(0),
+                q=q.squeeze(dim),
+                k=k.squeeze(dim),
+                v=v.squeeze(dim),
+                g=g.squeeze(dim),
+                beta=beta.squeeze(dim),
                 lamb=lamb,
                 prev_h_kk=last_h_kk,
                 prev_h_kv=last_h_kv,
                 max_CG_iteration=self.max_cg_step_decoding,
             )
-            o = o.unsqueeze(0).to(q)
+            o = o.unsqueeze(dim).to(q)
 
         update_layer_cache(
             self,
@@ -221,6 +225,5 @@ class MesaNet(nn.Module):
             o = self.o_norm(o)
         o = rearrange(o, 'b t h d -> b t (h d)')
         o = self.o_proj(o)
-        if attention_mask is not None:
-            o = pad_input(o.squeeze(0), indices, batch_size, q_len)
+        o = repad_hidden_states(o, indices, batch_size, q_len)
         return o, None, past_key_values

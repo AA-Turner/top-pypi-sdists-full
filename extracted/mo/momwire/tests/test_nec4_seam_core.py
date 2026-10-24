@@ -115,13 +115,47 @@ CASES: list[tuple[str, str, str]] = [
         SERVED,
     ),
     ("gm_then_gs", deck(GW + "GM 0 0 0 0 30 0 0 .1 0\nGS 0 0 .5\n"), SERVED),
+    # GX (momwire#1651): served among the wire cards and beside a GM, and
+    # the symmetry's cell and flag reach the printout; GR still refuses.
     (
         "gx_geometry",
         deck(
             "GW 1 5 0 .1 -.25 0 .1 .25 .001\nGX 10 010\n",
             body=FR + "EX 0 1 3 0 1\nXQ\n",
         ),
-        "the GX geometry card",
+        SERVED,
+    ),
+    (
+        "gx_three_planes_then_gm",
+        deck(
+            "GW 1 5 .1 .1 .05 .1 .3 .3 .001\nGX 100 111\nGM 0 0 0 0 0 0 0 1 0\n",
+            body=FR + "EX 0 101 3 0 1\nXQ\n",
+        ),
+        SERVED,
+    ),
+    (
+        "gx_then_gw",
+        deck(
+            "GW 1 5 .1 0 -.25 .1 0 .25 .001\nGX 10 100\nGW 3 5 0 .2 -.25 0 .2 .25 .001\n",
+            body=FR + "EX 0 3 3 0 1\nXQ\n",
+        ),
+        SERVED,
+    ),
+    (
+        "gx_after_gs",
+        deck(
+            "GW 1 5 .1 0 -.25 .1 0 .25 .001\nGS 0 0 .5\nGX 10 100\n",
+            body=FR + "EX 0 1 3 0 1\nXQ\n",
+        ),
+        "a GX card after a GS card",
+    ),
+    (
+        "gr_geometry",
+        deck(
+            "GW 1 5 .1 0 -.25 .1 0 .25 .001\nGR 10 4\n",
+            body=FR + "EX 0 1 3 0 1\nXQ\n",
+        ),
+        "the GR geometry card",
     ),
     ("gs_ranged", deck(GW + "GS 1 1 .5\n"), "GS scaling a range of tags"),
     (
@@ -139,13 +173,41 @@ CASES: list[tuple[str, str, str]] = [
         deck(GW + "GS 0 0 .5\nGM 0 0 0 0 10 0 0 0 0\n"),
         "a GM card after a GS card",
     ),
+    # GA and GH (momwire#1592): served where a GW may stand.
+    ("ga_arc", deck("GA 1 12 2 0 180 .001\n"), SERVED),
+    ("gh_helix", deck("GH 1 24 1 .3 .15 .15 .002 .002\n"), SERVED),
+    (
+        "ga_gw_gm",
+        deck("GA 1 12 2 0 180 .001\nGW 2 9 -2 0 0 2 0 0 .001\nGM 0 0 0 0 0 0 0 5 0\n"),
+        SERVED,
+    ),
+    (
+        "ga_after_gm",
+        deck(GW + "GM 0 0 0 0 10 0 0 0 0\nGA 2 4 1 0 90 .001\n"),
+        "a GA card after a GS or GM card",
+    ),
+    (
+        "gh_after_gs",
+        deck(GW + "GS 0 0 .5\nGH 2 8 1 .3 .1 .1 .001 .001\n"),
+        "a GH card after a GS or GM card",
+    ),
     (
         "is_card",
         deck(body="IS 0 1 0 0 3.5 0 .002\n" + FR + EX + "XQ\n"),
         "the IS card is not",
     ),
     ("mp_card", deck(body="MP 4 32\n" + FR + EX + "XQ\n"), "the MP card is not"),
-    ("pt_card", deck(body="PT -1\n" + FR + EX + "XQ\n"), "the PT card is not"),
+    # PT -1 (momwire#1650): served, the current table suppressed until the
+    # next PT; every other form refuses by name.
+    ("pt_minus_one", deck(body="PT -1\n" + FR + EX + "XQ\n"), SERVED),
+    (
+        "pt_minus_one_between_runs",
+        deck(body=FR + EX + "XQ\nPT -1\nEX 0 1 5 0 1\nXQ\n"),
+        SERVED,
+    ),
+    ("pt_zero", deck(body="PT 0 1 2 4\n" + FR + EX + "XQ\n"), "PT 0 is not"),
+    ("pt_restore", deck(body="PT -1\nPT -2\n" + FR + EX + "XQ\n"), "PT -2 is not"),
+    ("pt_one", deck(body="PT 1\n" + FR + EX + "XQ\n"), "PT 1 is not"),
     ("no_execute_card", deck(body=FR + EX), "a deck with no execute card"),
     (
         "execute_before_ge",
@@ -185,6 +247,9 @@ CASES: list[tuple[str, str, str]] = [
     ),
     ("pq_off_restricted", deck(body="PQ -1 1 2 3\n" + FR + EX + "XQ\n"), SERVED),
     ("rp_xnda_1005", deck(body=FR + EX + "RP 0 1 1 1005\n"), "RP with XNDA 1005"),
+    ("rp_xnda_1012", deck(body=FR + EX + "RP 0 1 1 1012\n"), SERVED),
+    ("rp_xnda_1013", deck(body=FR + EX + "RP 0 1 1 1013\n"), SERVED),
+    ("rp_xnda_1014", deck(body=FR + EX + "RP 0 1 1 1014\n"), "RP with XNDA 1014"),
     (
         "rp_negative_range",
         deck(body=FR + EX + "RP 0 1 1 1000 0 0 0 0 -5\n"),
@@ -224,7 +289,7 @@ CASES: list[tuple[str, str, str]] = [
         ),
         SERVED,
     ),
-    ("reader_refusal", deck(body=FR + "EX 4 1 6 0 1\nXQ\n"), "EX type 4 is not served"),
+    ("reader_refusal", deck(body=FR + "EX 4 1 6 0 1\nXQ\n"), "EX 4 is not served"),
     (
         "separators_after_ge_raise",
         deck(body=FR + EX + ", ,\nXQ\n"),
@@ -276,7 +341,7 @@ CASES: list[tuple[str, str, str]] = [
         + FR
         + EX
         + "XQ\nEN\n",
-        "EX type 4",
+        "EX 4 is not served by this engine's nec4 dialect",
     ),
     ("chain_open_end", "CM a\nCE\n" + GW + "GE 0\n" + FR + EX + "XQ\nNX\n", SERVED),
     ("text_after_en", deck() + "garbage ' \xe9 after EN\n", SERVED),

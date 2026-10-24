@@ -58,6 +58,9 @@
 #      (FAILED_ROLLED_BACK) or no rollback was needed because the only failing
 #      dimensions were build provenance on an otherwise healthy lane
 #      (FAILED_BUILD_PROVENANCE; the lane was left exactly as it was)
+#      or the runtime family refreshed and the health-gate passed, but the
+#      omninode_cloud migration one-shot failed and onex-api was stopped
+#      (FAILED_CLOUD_MIGRATION; no rollback)
 #   2  refresh FAILED and could not be confirmed healthy (warm-rollback also
 #      unhealthy, OR cold-aware path failed with nothing to roll back to) --
 #      STOP AND REPORT, do not retry-until-green
@@ -66,7 +69,8 @@
 #      the lane label. The census's own drift code, passed through unchanged.
 #   4/5 the closing census could not run (inventory unobservable / host
 #      undeclared); the census's own codes, passed through unchanged.
-#   64 usage / precondition error
+#   64 usage / precondition error, including a --ref whose commit is not
+#      contained in origin/dev (OMN-21272; refused before the lane lock)
 
 set -euo pipefail
 
@@ -186,6 +190,9 @@ readonly COMPOSE_PROJECT="${DEV_COMPOSE_PROJECT}"
 readonly REDPANDA_CONTAINER="omnibase-infra-redpanda"
 readonly POSTGRES_CONTAINER="omnibase-infra-postgres"
 readonly CORE_SERVICES=(omninode-runtime runtime-effects runtime-worker projection-api)
+# OMN-18496: must equal CLOUD_MIGRATION_FAILED_EXIT_CODE in
+# src/omnibase_infra/handlers/handler_runtime_deploy.sh.
+readonly CLOUD_MIGRATION_FAILED_DEPLOY_EXIT=3
 
 # OMN-17448: BUILD/RESTART scope, deliberately WIDER than CORE_SERVICES and
 # deliberately not merged into it.
@@ -352,6 +359,42 @@ if [[ -n "${OMNIBASE_INFRA_COMPOSE_PROJECT:-}" && "${OMNIBASE_INFRA_COMPOSE_PROJ
     err "OMNIBASE_INFRA_COMPOSE_PROJECT='${OMNIBASE_INFRA_COMPOSE_PROJECT}' is set but this script"
     err "  ONLY drives '${COMPOSE_PROJECT}' (dev). Unset it before calling this script."
     exit 64
+fi
+
+# --- the ref must be on dev (OMN-21272) -------------------------------------
+# This script drives ONLY the dev compose project, so it deploys only what dev
+# carries. On 2026-10-21 a `--ref 30baa7158ea2` -- a feature-branch merge commit
+# not on dev -- held the dev lane lock from 10:51:31Z; the deploy agent's job for
+# the next dev merge ended lane_lock_contended, and the guard wrote a FAIL about
+# a deploy that never happened. A --ref whose commit is not contained in
+# origin/dev is refused HERE, in every mode and before the lane lock is taken,
+# so it never holds the lane window. The fetch is the same one the refresh makes
+# below; it only moves remote-tracking refs.
+if [[ "${CENSUS_ONLY}" != true && "${MODE}" != "print-rollback-cmd" ]]; then
+    REF_GUARD_CLONE="${OMNI_HOME}/omnibase_infra"
+    if [[ ! -d "${REF_GUARD_CLONE}/.git" ]]; then
+        err "Expected clone not found: ${REF_GUARD_CLONE} (needed to check --ref is on dev)."
+        exit 64
+    fi
+    ref_guard_git() { git -c "safe.directory=${REF_GUARD_CLONE}" -C "${REF_GUARD_CLONE}" "$@"; }
+    if ! ref_guard_git fetch origin --prune; then
+        err "could not fetch origin in ${REF_GUARD_CLONE}; cannot check --ref '${REF}' is on dev."
+        err "  Nothing was locked, read, built or recreated."
+        exit 64
+    fi
+    if ! REF_GUARD_SHA="$(ref_guard_git rev-parse --verify --quiet "${REF}^{commit}")"; then
+        err "REF_NOT_ON_DEV: --ref '${REF}' does not resolve to a commit in ${REF_GUARD_CLONE}."
+        err "  Nothing was locked, read, built or recreated."
+        exit 64
+    fi
+    if ! ref_guard_git merge-base --is-ancestor "${REF_GUARD_SHA}" origin/dev; then
+        err "REF_NOT_ON_DEV: --ref '${REF}' (${REF_GUARD_SHA}) is not contained in origin/dev."
+        err "  This script drives only the dev lane, which deploys only what dev carries;"
+        err "  refusing before the lane lock so this ref never holds the lane (OMN-21272)."
+        err "  Nothing was locked, read, built or recreated."
+        exit 64
+    fi
+    log "--ref '${REF}' (${REF_GUARD_SHA:0:12}) is contained in origin/dev"
 fi
 
 # --- the closing lane census (OMN-20876) -----------------------------------
@@ -1196,6 +1239,20 @@ else
     err "=============================================================="
 fi
 
+# --- cloud migration one-shot (OMN-18496) -----------------------------------
+# The deploy restarted and verified the runtime family and stopped onex-api.
+# The health gate does not cover onex-api; the refresh must not certify it.
+# No rollback, because the lane is serving.
+if [[ "${RESULT}" == "SUCCESS" && "${DEPLOY_EXIT}" -eq "${CLOUD_MIGRATION_FAILED_DEPLOY_EXIT}" ]]; then
+    RESULT="FAILED_CLOUD_MIGRATION"
+    err "=============================================================="
+    err "STOP AND REPORT: onex-runtime-deploy exited ${DEPLOY_EXIT}: the omninode_cloud"
+    err "migration one-shot failed. The runtime family was restarted and the"
+    err "health-gate passed; ${ONEX_API_SERVICE} was stopped and is not serving."
+    err "The one-shot's exit code and log tail are in the deploy output above."
+    err "=============================================================="
+fi
+
 # --- close with the lane census (OMN-20876) ----------------------------------
 # A refresh that landed is only done when the lane it landed on matches its
 # manifest: the census is read last, and its exit code is the refresh's.
@@ -1265,6 +1322,7 @@ jq -n \
     --argjson provenance_failures "${PROVENANCE_FAILURES_JSON}" \
     --argjson decision "${DECISION_RECORD_JSON}" \
     --argjson onex_api "${ONEX_API_JSON}" \
+    --argjson deploy_exit "${DEPLOY_EXIT}" \
     --argjson census_ran "${CENSUS_RAN}" \
     --argjson census_exit "${CENSUS_EXIT}" \
     --argjson census_removed "${CENSUS_REMOVED_JSON}" \
@@ -1282,6 +1340,7 @@ jq -n \
         lane_health: {healthy: $lane_is_healthy, failing_dimensions: $unhealthy_dimensions},
         build_provenance: {failing_dimensions: $provenance_failures},
         onex_api: $onex_api,
+        deploy_exit: $deploy_exit,
         lane_census: {ran: $census_ran, exit: $census_exit, leftovers_removed: $census_removed},
         rollback: {
             triggered: $rollback_triggered,
@@ -1301,7 +1360,9 @@ case "${RESULT}" in
     SUCCESS) exit 0 ;;
     # 1 == refresh failed, lane HEALTHY. FAILED_ROLLED_BACK got there by being
     # restored; FAILED_BUILD_PROVENANCE got there by never being touched.
-    FAILED_ROLLED_BACK|FAILED_BUILD_PROVENANCE) exit 1 ;;
+    # FAILED_CLOUD_MIGRATION: lane serving, onex-api stopped by a failed cloud
+    # migration one-shot.
+    FAILED_ROLLED_BACK|FAILED_BUILD_PROVENANCE|FAILED_CLOUD_MIGRATION) exit 1 ;;
     # The lane is serving and the refresh landed; the census disagrees with the
     # manifest. The census's own code, so a caller can tell drift (30) from an
     # unreadable census (4, 5).

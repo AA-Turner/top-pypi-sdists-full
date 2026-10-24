@@ -23,7 +23,7 @@ carried the key as ``execute_ai_request(mandate_key=...)`` and resolved nothing,
 so a Holder an admin bound would have changed nothing about any run — the
 coverage board could read green over a label. :func:`hold_step` closes that:
 every step RESOLVES the mandate on every run through the one door every Run
-Mandate step already uses (``matrx_ai.mandates.resolve_mandate_by_key``), loads
+Mandate step uses (the mandate runner's port, ``agent_action.prepare_step_mandate``), loads
 the Holder, and stamps it onto the request metadata so the persisted request
 names who held it. The runtime gate ``matrx_ai.orchestrator.mandate_carrier``
 records ``mandate_carried_unresolved`` for any call that names the key without
@@ -74,6 +74,9 @@ from matrx_ai.graph_nodes.class_pin import CLASS_FIELD, node_class_pin
 #: The Mandate that holds every runtime AI step of an authored workflow.
 #: Declared in ``aidream/workflows/mandates.py``; spelled here once.
 WORKFLOW_STEP_INTELLIGENCE_MANDATE = "workflow.step_intelligence"
+
+#: The door a refused resolution of that mandate is recorded under (the step itself runs as authored).
+STEP_INTELLIGENCE_DOOR = "workflow_step_intelligence"
 
 
 def step_metadata(
@@ -222,7 +225,8 @@ async def hold_step(
     resolve or they refuse, because without a Holder there is nothing to run.
     Here there is: the author already said what to run.
     """
-    from matrx_ai.mandates import MandateResolutionUnavailable, resolve_mandate_by_key
+    from matrx_ai.graph_nodes.agent_action import prepare_step_mandate
+    from matrx_ai.mandates import MandateResolutionUnavailable
     from matrx_ai.orchestrator.mandate_carrier import (
         MANDATE_HOLDER_METADATA_KEY,
         MANDATE_UNHELD_METADATA_KEY,
@@ -233,10 +237,13 @@ async def hold_step(
     resolution = None
     agent = None
     try:
-        resolution = await resolve_mandate_by_key(
+        # THROUGH THE RUNNER PORT (runner plan 25 step 9a): a failure to resolve is the runner's
+        # typed refusal, RECORDED on its own run row before it reaches the except below — and the
+        # step still runs as its author wrote it.
+        resolution = await prepare_step_mandate(
             WORKFLOW_STEP_INTELLIGENCE_MANDATE,
             consumer=consumer,
-            report_failure=False,
+            door=STEP_INTELLIGENCE_DOOR,
         )
         if resolution.holder_type != "agent" or resolution.source is None:
             raise MandateResolutionUnavailable(

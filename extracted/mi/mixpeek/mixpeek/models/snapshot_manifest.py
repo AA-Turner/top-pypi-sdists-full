@@ -21,6 +21,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.snapshot_frontier import SnapshotFrontier
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -39,9 +40,10 @@ class SnapshotManifest(BaseModel):
     s3_object_count: Optional[StrictInt] = 0
     s3_total_bytes: Optional[StrictInt] = 0
     s3_objects_copied: Optional[StrictBool] = False
-    include_vectors: Optional[StrictBool] = Field(default=True, description="Whether this snapshot exported its own vector points. Daily sweeps coalesce the (full-dataset) vector export to ONE snapshot per physical shard; metadata-only snapshots set this False and rely on the shard representative's export (see vector_shard_key).")
-    vector_shard_key: Optional[StrictStr] = Field(default=None, description="Physical shard this namespace's vectors live on; the shard representative's snapshot holds the actual vector export.")
-    __properties: ClassVar[List[str]] = ["snapshot_id", "namespace_id", "namespace_name", "schema_version", "created_at", "snapshot_type", "mongo_collections", "vector_point_count", "s3_object_count", "s3_total_bytes", "s3_objects_copied", "include_vectors", "vector_shard_key"]
+    include_vectors: Optional[StrictBool] = Field(default=True, description="Whether this snapshot exported the namespace's own vector points. Daily and manual snapshots export them. False marks a metadata-only snapshot: it holds the namespace's records but no vector points, and restoring it writes no vectors.")
+    vector_shard_key: Optional[StrictStr] = Field(default=None, description="Physical shard this namespace's vectors lived on when the snapshot was taken.")
+    frontier: Optional[SnapshotFrontier] = Field(default=None, description="Store positions, configuration, digests and secret versions recorded at capture; null on manifests older than schema version 2")
+    __properties: ClassVar[List[str]] = ["snapshot_id", "namespace_id", "namespace_name", "schema_version", "created_at", "snapshot_type", "mongo_collections", "vector_point_count", "s3_object_count", "s3_total_bytes", "s3_objects_copied", "include_vectors", "vector_shard_key", "frontier"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,6 +84,9 @@ class SnapshotManifest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of frontier
+        if self.frontier:
+            _dict['frontier'] = self.frontier.to_dict()
         return _dict
 
     @classmethod
@@ -106,7 +111,8 @@ class SnapshotManifest(BaseModel):
             "s3_total_bytes": obj.get("s3_total_bytes") if obj.get("s3_total_bytes") is not None else 0,
             "s3_objects_copied": obj.get("s3_objects_copied") if obj.get("s3_objects_copied") is not None else False,
             "include_vectors": obj.get("include_vectors") if obj.get("include_vectors") is not None else True,
-            "vector_shard_key": obj.get("vector_shard_key")
+            "vector_shard_key": obj.get("vector_shard_key"),
+            "frontier": SnapshotFrontier.from_dict(obj["frontier"]) if obj.get("frontier") is not None else None
         })
         return _obj
 

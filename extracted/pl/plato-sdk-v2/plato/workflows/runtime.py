@@ -286,6 +286,17 @@ class WorkflowRuntime:
 
         # Journal replay — cache hits are free (no budget check, no semaphore).
         cached = self._journal.claim_replay(key)
+        replaces_seq: int | None = None
+        if cached is not None and not await self._replayed_merge_on_main(cached):
+            # The checkpoint journaled this merge but its code snapshot lacks
+            # it; replaying would skip code main does not have.
+            narrator.info(
+                "agent call %s: journal records merge %s, but the restored main does not have it; running it again",
+                call_id,
+                cached.merged_sha,
+            )
+            replaces_seq = cached.seq
+            cached = None
         if cached is not None:
             self._stats.calls_cached += 1
             narrator.info("agent call %s replayed from journal (cached_from=%s)", call_id, cached.call_id)
@@ -358,6 +369,7 @@ class WorkflowRuntime:
                     status="error",
                     error="workflow cancelled while call in flight",
                     salvage_ref=salvage_ref,
+                    replaces_seq=replaces_seq,
                     label=opts.label,
                     phase=opts.phase,
                 )
@@ -407,6 +419,7 @@ class WorkflowRuntime:
             attempts=outcome.attempts,
             cost_usd=outcome.cost_usd,
             error=outcome.error,
+            replaces_seq=replaces_seq,
             label=opts.label,
             phase=opts.phase,
             payload=payload,
@@ -424,6 +437,12 @@ class WorkflowRuntime:
             except Exception:
                 logger.warning("on_call_complete hook failed for %s", call_id, exc_info=True)
         return result
+
+    async def _replayed_merge_on_main(self, cached: JournalRecord) -> bool:
+        """True unless ``cached`` records a merge that the restored main does not have."""
+        if not cached.merged or not cached.merged_sha:
+            return True
+        return await self._backend.merged_commit_on_main(cached.merged_sha)
 
     async def _llm(
         self,

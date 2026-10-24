@@ -6,7 +6,6 @@ import { div } from "@bokehjs/core/dom";
 import { build_view } from "@bokehjs/core/build_views";
 import { ButtonClick } from "@bokehjs/core/bokeh_events";
 export class ClickableIconView extends ControlView {
-    static __name__ = "ClickableIconView";
     icon_view;
     label_el;
     was_svg_icon;
@@ -150,7 +149,6 @@ export class ClickableIconView extends ControlView {
     }
 }
 export class ClickableIcon extends Control {
-    static __name__ = "ClickableIcon";
     static __module__ = "panel.models.icon";
     constructor(attrs) {
         super(attrs);

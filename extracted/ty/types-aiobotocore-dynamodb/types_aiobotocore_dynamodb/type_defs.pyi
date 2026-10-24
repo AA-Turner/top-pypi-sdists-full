@@ -75,9 +75,9 @@ try:
 except ImportError:
     from builtins import object as ConditionBase  # type: ignore[assignment]
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "ArchivalSummaryTypeDef",
@@ -182,6 +182,7 @@ __all__ = (
     "DescribeTableReplicaAutoScalingOutputTypeDef",
     "DescribeTimeToLiveInputTypeDef",
     "DescribeTimeToLiveOutputTypeDef",
+    "DisassociateReplicationGroupMemberActionTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableKinesisStreamingConfigurationTypeDef",
     "EndpointTypeDef",
@@ -662,6 +663,14 @@ class DescribeTimeToLiveInputTypeDef(TypedDict):
 class TimeToLiveDescriptionTypeDef(TypedDict):
     TimeToLiveStatus: NotRequired[TimeToLiveStatusType]
     AttributeName: NotRequired[str]
+
+DisassociateReplicationGroupMemberActionTypeDef = TypedDict(
+    "DisassociateReplicationGroupMemberActionTypeDef",
+    {
+        "RegionName": str,
+        "DisassociationMode": Literal["WAIT_FOR_REPLICATION"],
+    },
+)
 
 class EnableKinesisStreamingConfigurationTypeDef(TypedDict):
     ApproximateCreationDateTimePrecision: NotRequired[ApproximateCreationDateTimePrecisionType]
@@ -1950,6 +1959,7 @@ class ReplicationGroupUpdateTypeDef(TypedDict):
     Create: NotRequired[CreateReplicationGroupMemberActionTypeDef]
     Update: NotRequired[UpdateReplicationGroupMemberActionTypeDef]
     Delete: NotRequired[DeleteReplicationGroupMemberActionTypeDef]
+    Disassociate: NotRequired[DisassociateReplicationGroupMemberActionTypeDef]
 
 class GlobalTableDescriptionTypeDef(TypedDict):
     ReplicationGroup: NotRequired[list[ReplicaDescriptionTypeDef]]
@@ -1984,6 +1994,7 @@ class TableDescriptionTypeDef(TypedDict):
     ArchivalSummary: NotRequired[ArchivalSummaryTypeDef]
     TableClassSummary: NotRequired[TableClassSummaryTypeDef]
     DeletionProtectionEnabled: NotRequired[bool]
+    DisassociationProtectionEnabled: NotRequired[bool]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[TableWarmThroughputDescriptionTypeDef]
     MultiRegionConsistency: NotRequired[MultiRegionConsistencyType]
@@ -2206,6 +2217,7 @@ class UpdateTableInputTableUpdateTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
+    DisassociationProtectionEnabled: NotRequired[bool]
     VectorIndexUpdates: NotRequired[Sequence[VectorIndexUpdateTypeDef]]
 
 class UpdateTableInputTypeDef(TypedDict):
@@ -2224,6 +2236,7 @@ class UpdateTableInputTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
+    DisassociationProtectionEnabled: NotRequired[bool]
     VectorIndexUpdates: NotRequired[Sequence[VectorIndexUpdateTypeDef]]
 
 TableCreationParametersUnionTypeDef = Union[

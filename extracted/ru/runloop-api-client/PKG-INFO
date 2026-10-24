@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 2.0.0
+Version: 3.0.0
 Summary: Official Python SDK for Runloop — secure Linux sandboxes (Devboxes) where AI agents run code, edit files, and expose ports
 Project-URL: Homepage, https://runloop.ai
 Project-URL: Repository, https://github.com/runloopai/api-client-python

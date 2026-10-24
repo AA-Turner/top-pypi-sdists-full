@@ -19,29 +19,28 @@ import json
 import pprint
 import re  # noqa: F401
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from mixpeek.models.input_mapping import InputMapping
-from mixpeek.models.input_mappings_any_of_value import InputMappingsAnyOfValue
 from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-INPUTMAPPINGS_ANY_OF_SCHEMAS = ["Dict[str, InputMappingsAnyOfValue]", "List[InputMapping]"]
+INPUTMAPPINGS_ANY_OF_SCHEMAS = ["List[InputMapping]", "object"]
 
 class InputMappings(BaseModel):
     """
     Mapping from extractor input names to source field paths. Tells the extractor which source fields to process. Single value: {'image': 'thumbnail_url'} maps one blob field to one extractor input. Array value: {'files': ['image', 'spec_pdf', 'description']} maps multiple blob fields to a single extractor input as a list — used by multi-file extractors like gemini_multifile_extractor that embed all blobs of an object into one embedding.
     """
 
-    # data type: Dict[str, InputMappingsAnyOfValue]
-    anyof_schema_1_validator: Optional[Dict[str, InputMappingsAnyOfValue]] = None
+    # data type: object
+    anyof_schema_1_validator: Optional[Dict[str, Any]] = None
     # data type: List[InputMapping]
     anyof_schema_2_validator: Optional[List[InputMapping]] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[Dict[str, InputMappingsAnyOfValue], List[InputMapping]]] = None
+        actual_instance: Optional[Union[List[InputMapping], object]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "Dict[str, InputMappingsAnyOfValue]", "List[InputMapping]" }
+    any_of_schemas: Set[str] = { "List[InputMapping]", "object" }
 
     model_config = {
         "validate_assignment": True,
@@ -62,7 +61,7 @@ class InputMappings(BaseModel):
     def actual_instance_must_validate_anyof(cls, v):
         instance = InputMappings.model_construct()
         error_messages = []
-        # validate data type: Dict[str, InputMappingsAnyOfValue]
+        # validate data type: object
         try:
             instance.anyof_schema_1_validator = v
             return v
@@ -76,7 +75,7 @@ class InputMappings(BaseModel):
             error_messages.append(str(e))
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in InputMappings with anyOf schemas: Dict[str, InputMappingsAnyOfValue], List[InputMapping]. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in InputMappings with anyOf schemas: List[InputMapping], object. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -89,7 +88,7 @@ class InputMappings(BaseModel):
         """Returns the object represented by the json string"""
         instance = cls.model_construct()
         error_messages = []
-        # deserialize data into Dict[str, InputMappingsAnyOfValue]
+        # deserialize data into object
         try:
             # validation
             instance.anyof_schema_1_validator = json.loads(json_str)
@@ -110,7 +109,7 @@ class InputMappings(BaseModel):
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into InputMappings with anyOf schemas: Dict[str, InputMappingsAnyOfValue], List[InputMapping]. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into InputMappings with anyOf schemas: List[InputMapping], object. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -124,7 +123,7 @@ class InputMappings(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], Dict[str, InputMappingsAnyOfValue], List[InputMapping]]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], List[InputMapping], object]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

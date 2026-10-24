@@ -38,6 +38,7 @@ from typing import Any, Mapping, Sequence
 from .opc.security import guard_zip_file, read_member
 from .mutation_report import MutationReport, project_byte_splice
 from .patch import (
+    _escaped_text,
     _finalize,
     _patch_zip_entries,
     _read_source_bytes,
@@ -185,9 +186,9 @@ def _op_replace_text(xml: str, op: Mapping[str, Any]) -> tuple[str, dict[str, An
     replace = str(op.get("replace", ""))
     expected = int(op.get("count", 1))
     esc_find = html.escape(find, quote=False)
-    # A tab goes in as an hp:tab element: Hancom never finishes laying out a
-    # raw tab character inside hp:t.
-    esc_replace = "<hp:tab/>".join(html.escape(part, quote=False) for part in replace.split("\t"))
+    # A tab goes in as an hp:tab element (Hancom never finishes laying out a
+    # raw tab character inside hp:t), a line break as an hp:lineBreak.
+    esc_replace = _escaped_text(replace, b"hp:").decode("utf-8")
     hits: list[tuple[int, int]] = []
     for t in _T_CONTENT_RE.finditer(xml):
         a, b = t.start(1), t.end(1)
@@ -215,14 +216,6 @@ def _op_replace_text(xml: str, op: Mapping[str, Any]) -> tuple[str, dict[str, An
             raise ValueError("replace_text: match outside any <hp:p> paragraph")
         by_para.setdefault(span, []).append(hit)
 
-    edits: list[tuple[int, int, str]] = []
-    for (pa, pb), phits in by_para.items():
-        block = xml[pa:pb]
-        for a, b in sorted(phits, reverse=True):
-            block = block[: a - pa] + esc_replace + block[b - pa:]
-        block = _strip_paragraph_layout_cache(block.encode("utf-8")).decode("utf-8")
-        edits.append((pa, pb, block))
-
     # 모듈 취지는 표-밖 본문이지만(위 docstring), <hp:t> 검색은 구조적으로
     # 표 셀 내부까지 닿는다 — 편집된 문단이 셀(subList) 안이면 그 셀의
     # lineWrap=SQUEEZE도 함께 BREAK로 바꾼다. 안 바꾸면 실측대로 압축 자간이
@@ -232,6 +225,7 @@ def _op_replace_text(xml: str, op: Mapping[str, Any]) -> tuple[str, dict[str, An
     # 문단이 여럿이어도 셀 편집은 한 번만.
     sublist_spans = _all_sublist_spans(xml)
     fixed_sublists: set[tuple[int, int]] = set()
+    wrap_edits: list[tuple[int, int, str]] = []
     for pa, _pb in by_para:
         sublist_span = _innermost_span(pa, sublist_spans)
         if sublist_span is None or sublist_span in fixed_sublists:
@@ -239,7 +233,28 @@ def _op_replace_text(xml: str, op: Mapping[str, Any]) -> tuple[str, dict[str, An
         fixed_sublists.add(sublist_span)
         wrap_edit = _squeeze_wrap_edit_for_sublist(xml, sublist_span)
         if wrap_edit is not None:
-            edits.append(wrap_edit)
+            wrap_edits.append(wrap_edit)
+
+    # 표를 담은 문단과 그 표의 셀 문단이 둘 다 편집되면 두 문단 구간이 겹친다.
+    # 바깥 문단 하나로 묶어 그 안의 치환·셀 SQUEEZE 편집을 한 번에 적용한 뒤
+    # 캐시를 지운다(바깥 문단의 캐시 제거가 안쪽 문단의 캐시도 지운다).
+    outer = [
+        span for span in by_para
+        if not any(other != span and other[0] <= span[0] and span[1] <= other[1] for other in by_para)
+    ]
+    edits: list[tuple[int, int, str]] = []
+    for pa, pb in outer:
+        local = [(a, b, esc_replace) for a, b in hits if pa <= a < pb]
+        local += [edit for edit in wrap_edits if pa <= edit[0] and edit[1] <= pb]
+        block = xml[pa:pb]
+        for a, b, replacement in sorted(local, key=lambda e: e[0], reverse=True):
+            block = block[: a - pa] + replacement + block[b - pa:]
+        block = _strip_paragraph_layout_cache(block.encode("utf-8")).decode("utf-8")
+        edits.append((pa, pb, block))
+    edits += [
+        edit for edit in wrap_edits
+        if not any(pa <= edit[0] and edit[1] <= pb for pa, pb in outer)
+    ]
 
     for a, b, replacement in sorted(edits, key=lambda e: e[0], reverse=True):
         xml = xml[:a] + replacement + xml[b:]

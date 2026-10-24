@@ -8,8 +8,8 @@ async function handleInit(wasmModule) {
 	port.postMessage({ type: INIT });
 }
 
-function handleParse(content, allowedRules) {
-	const result = rawParse(content, allowedRules);
+function handleParse(content, flags) {
+	const result = rawParse(content, flags);
 	port.postMessage({ type: PARSE, result });
 }
 
@@ -19,7 +19,7 @@ port.onmessage = (event) => {
 			void handleInit(event.data.module);
 			break;
 		case PARSE:
-			handleParse(event.data.content, event.data.allowedRules);
+			handleParse(event.data.content, event.data.flags);
 			break;
 	}
 };

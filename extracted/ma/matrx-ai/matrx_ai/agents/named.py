@@ -946,7 +946,6 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         label: str | None = None,
         source_app: str | None = None,
         source_feature: str | None = None,
-        independent_request: bool = False,
         suppress_stream: bool = False,
         stream_data_types: frozenset[str] | None = None,
         variable_mapping: dict[str, ValueMapping | dict[str, Any]] | None = None,
@@ -993,15 +992,6 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             source_feature: Optional override for child CX source_feature.
                             Defaults to ``cls.child_source_feature`` or
                             ``cls.name`` (required — one must resolve).
-            independent_request: When True, the forked child context gets
-                                a fresh ``request_id`` so this call is
-                                rooted as its own ``cx_user_request``
-                                rather than as a sub-step of the parent.
-                                Use for fan-out workloads where each call
-                                is a standalone user-level unit (e.g.
-                                concurrent per-page summaries in the
-                                research pipeline). Passes straight
-                                through to ``run_agent``.
 
         Returns:
             ``AgentRunResult`` — never raises. Inspect ``success``,
@@ -1108,7 +1098,6 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             user_input=user_input,
             json_schema=cls.Output,
             extra_client_tools=extra_client_tools or None,
-            independent_request=independent_request,
             suppress_stream=suppress_stream,
             stream_data_types=stream_data_types,
             store=store,

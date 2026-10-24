@@ -38,9 +38,12 @@ async def summarize_content(
     content: str,
     instructions: str,
     ctx: ToolContext,
-    model_id: str = "gemini-3.5-flash",
 ) -> tuple[str, list[TokenUsage]]:
-    """Summarize content using the unified AI system.
+    """Summarize content through the ``tools.summarize_content`` mandate.
+
+    The mandate's agent owns the model. A model passed from here outranked
+    it: every summary ran on gemini-3.5-flash while the agent named Gemini
+    3.8 Flash (2026-10-23). Never add a model override here.
 
     Returns ``(summary_text, usage_history)``.
     """
@@ -56,7 +59,6 @@ async def summarize_content(
                     ),
                     label="summarize_content",
                     source_feature="summarize_content",
-                    config_overrides={"model": model_id},
                     # NESTED-AGENT STREAM LEAK: this runs INSIDE the web_read tool
                     # while the caller's agent is streaming to a user, so without a
                     # mute the summarizer's tokens ride the caller's user-facing

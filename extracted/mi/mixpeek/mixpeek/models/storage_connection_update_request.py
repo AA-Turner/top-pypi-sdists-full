@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class StorageConnectionUpdateRequest(BaseModel):
     """
-    Request payload for updating storage connection metadata.  Allows partial updates to connection metadata without changing credentials. Credentials can be updated via provider_config.  **What You Can Update:** - Connection name and description - Metadata tags - Status (active/suspended) - Provider credentials (via provider_config)  **Examples:** ```python # Update name and description {     \"name\": \"Updated Drive Name\",     \"description\": \"New description\" }  # Suspend connection {     \"status\": \"suspended\",     \"is_active\": False }  # Refresh credentials {     \"provider_config\": {         \"credentials\": {...}     } } ```
+    Request payload for updating storage connection metadata.  Allows partial updates to connection metadata without changing credentials. Credentials can be updated via provider_config.  **What You Can Update:** - Connection name and description - Metadata tags - Status (active/suspended) - Provider credentials (via provider_config)  **Examples:** ```python # Update name and description {     \"name\": \"Updated Drive Name\",     \"description\": \"New description\" }  # Suspend connection {     \"status\": \"SUSPENDED\",     \"is_active\": False }  # Refresh credentials {     \"provider_config\": {         \"credentials\": {...}     } } ```
     """ # noqa: E501
     name: Optional[Annotated[str, Field(min_length=1, strict=True, max_length=100)]] = Field(default=None, description="OPTIONAL. New name for the connection. Must be unique within the organization if provided. Format: 1-100 characters.")
     description: Optional[Annotated[str, Field(strict=True, max_length=500)]] = Field(default=None, description="OPTIONAL. New description for the connection. Set to empty string to clear existing description. Format: Up to 500 characters.")
@@ -36,6 +36,7 @@ class StorageConnectionUpdateRequest(BaseModel):
     is_active: Optional[StrictBool] = Field(default=None, description="OPTIONAL. Quick boolean flag for filtering. True when status is ACTIVE, False otherwise. Automatically maintained when status changes.")
     write_enabled: Optional[StrictBool] = Field(default=None, description="Turn write access to this connection's storage on or off. Omitted leaves it as it is; a connection that has never had it set cannot be written to.")
     provider_config: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Updated provider configuration including credentials. Replaces provider_config, except that credential fields you omit are kept when the credential type is unchanged, so a read-modify-write of one setting does not drop the stored secret. Send a credential field to replace it. SECURITY: credential fields never appear in read responses.")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["name", "description", "metadata", "status", "is_active", "write_enabled", "provider_config"]
 
     model_config = ConfigDict(
@@ -68,8 +69,10 @@ class StorageConnectionUpdateRequest(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -77,6 +80,11 @@ class StorageConnectionUpdateRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         return _dict
 
     @classmethod
@@ -97,6 +105,11 @@ class StorageConnectionUpdateRequest(BaseModel):
             "write_enabled": obj.get("write_enabled"),
             "provider_config": obj.get("provider_config")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

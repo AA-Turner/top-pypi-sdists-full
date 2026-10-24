@@ -324,6 +324,20 @@ _REPORTABLE_PLUGIN_ID = re.compile(
 )
 
 
+def _ledger_readable() -> bool:
+    """Claude Code's install ledger can be read: absent (nothing installed) or
+    a JSON object. `_ledger_version` reads an unreadable one as "not
+    installed", which `nothing_installed` must not take at its word."""
+    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    try:
+        data = json.loads(path.read_text())
+    except FileNotFoundError:
+        return True
+    except Exception:  # noqa: BLE001 - permissions, a half-written file, bad JSON
+        return False
+    return isinstance(data, dict) and isinstance(data.get("plugins") or {}, dict)
+
+
 def _ledger_ids() -> list[str]:
     path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
     try:
@@ -881,8 +895,9 @@ class PluginResult:
     # commands would fail the same way and `perform_update` leaves them off.
     # The fix is already in `message` or `tap_detail`, whichever is shown.
     git_blocked: bool = False
-    # OBSERVATIONS for the server's update report (`update_report`), never
-    # inputs to what this run does. Each separates a cause the message alone
+    # OBSERVATIONS, never inputs to what this run installs: they say how it
+    # ended, for the server's update report (`update_report`) and for whether
+    # it failed (`nothing_installed`). Each separates a cause the message alone
     # could only say in prose:
     #: the coding agent's own CLI is not on this process's PATH -- the
     #: detached updater's PATH, not the user's shell.
@@ -891,6 +906,9 @@ class PluginResult:
     refresh_failed: bool = False
     #: a refresh, update or install command did not complete.
     command_failed: bool = False
+    #: the agent's own list of installed plugins could not be read, before or
+    #: after the run: nothing listed is then not nothing installed.
+    list_unreadable: bool = False
     #: Probe plugins installed under an id this update does not move
     #: (`legacy_plugin_ids`).
     legacy_ids: tuple[str, ...] = ()
@@ -911,23 +929,31 @@ CODEX_TAP_NOOP = "the Codex reinstall returned success but the tap version did n
 def tap_verdict(result: PluginResult, target: str | None) -> tuple[str, bool]:
     """`(line, behind)` for the tap after an update run.
 
-    `behind` is True only for an INSTALLED tap still older than the manifest's
-    `tap.latest` once the update ran: the stale tap that capture relies on and
-    that nothing reported. A missing tap is a skip, not a failure. A behind line
-    carries the reason (`tap_detail`), the way the plugin's own failure does, or
-    "same failure as above" when it IS the plugin's failure, printed just above.
+    `behind` is True for an INSTALLED tap still older than the manifest's
+    `tap.latest` once the update ran -- the stale tap that capture relies on and
+    that nothing reported -- and for a tap the run REMOVED (installed before,
+    gone after: capture stops at the next session start). Either fails the
+    plugin half. A tap that was never installed is a skip, not a failure. A
+    behind line carries the reason (`tap_detail`), the way the plugin's own
+    failure does, or "same failure as above" when it IS the plugin's failure,
+    printed just above.
     """
     after = result.tap_after
+    # A tap that failed with the plugin's own failure (a failed refresh, or any
+    # Codex failure) is printed right under it: saying it twice doubled the
+    # longest thing on the screen.
+    detail = "same failure as above" if result.tap_detail == result.message else result.tap_detail
     if not after:
+        if result.tap_before:
+            # The no-op sentences ("did not advance") are not what happened. A
+            # list that could not be read (Codex) cannot say it is gone.
+            seen = "could not be confirmed" if result.list_unreadable else "is gone"
+            line = f"transcript tap {result.tap_before} {seen} after the update"
+            real = detail if detail not in (TAP_NOOP, CODEX_TAP_NOOP) else ""
+            return (f"{line}: {real}" if real else line, True)
         return ("transcript tap not installed (skipped)", False)
     if target and is_newer(target, after):
         line = f"transcript tap is still {after}, behind the latest {target}"
-        # A tap that failed with the plugin's own failure (a failed refresh, or
-        # any Codex failure) is printed right under it: saying it twice doubled
-        # the longest thing on the screen.
-        detail = (
-            "same failure as above" if result.tap_detail == result.message else result.tap_detail
-        )
         return (f"{line}: {detail}" if detail else line, True)
     if is_newer(after, result.tap_before):
         line = f"transcript tap updated to {after}"
@@ -1095,6 +1121,46 @@ def tap_changed(result: PluginResult) -> bool:
     return is_newer(result.tap_after, result.tap_before)
 
 
+def listed_version(listing: str | None, name: str) -> str | None:
+    """`name`'s version out of Codex/Kimi's `a=1.0, b=2.0` listing; a bare
+    version (Claude's) passes through."""
+    if not listing:
+        return None
+    if "=" not in listing:
+        return listing
+    for part in listing.split(","):
+        key, _, value = part.strip().partition("=")
+        if key == name:
+            return value or None
+    return None
+
+
+def nothing_installed(result: PluginResult, source: str) -> bool:
+    """True when an attempted run found none of Probe's plugins in `source`'s
+    agent -- neither the tracking plugin nor the tap, before the run or after
+    it, by a list it could read. The update had nothing to move, so whatever its
+    commands said (a `claude plugin update` of a plugin that is not there fails,
+    as does a refresh of a marketplace never added), it is NOT a failed update:
+    the same reading as an agent that is not on PATH at all.
+
+    THE ONE RULE for both readings of a run: whether the plugin half failed
+    (`upgrading._perform_update`'s `plugin_ok`, the local record and the
+    report's outcome) and what the report's plugin component says
+    (`update_report.plugin_component`, `not_installed`). They used to disagree:
+    a machine with Claude Code or Codex but no Probe plugin in it reported a
+    failed update on every session start, with nothing in the report failing.
+    """
+    if not result.attempted or result.confirmed or result.list_unreadable:
+        return False
+    name = tracking_plugin_name(source)
+    return not (
+        listed_version(result.before, name)
+        or listed_version(result.after, name)
+        or result.tap_before
+        or result.tap_after
+    )
+
+
 def update_plugin(target_latest: str | None) -> PluginResult:
     """Update the Claude Code plugin via `claude`, then VERIFY it actually advanced (H1).
 
@@ -1116,6 +1182,7 @@ def update_plugin(target_latest: str | None) -> PluginResult:
 
     before = installed_plugin_version()
     tap_before = installed_tap_version()
+    readable_before = _ledger_readable()
     # Both go through claude_cli, which carries the DEVNULL this step always
     # needed -- no TTY -> no raw-mode on the parent terminal. The refresh goes
     # through plugin_cli so it gets the same REFRESH_TIMEOUT_S every other
@@ -1168,6 +1235,7 @@ def update_plugin(target_latest: str | None) -> PluginResult:
         "git_blocked": not refresh.ok and bool(git_blocker(refresh.detail)),
         "refresh_failed": not refresh.ok,
         "command_failed": not completed,
+        "list_unreadable": not (readable_before and _ledger_readable()),
         "legacy_ids": legacy_plugin_ids(),
     }
 
@@ -1306,16 +1374,20 @@ def clean_reason(text: str | None) -> str:
     return reason
 
 
-def _codex_plugin_versions(_codex: str | None = None) -> dict[str, str]:
+def _codex_plugin_versions(_codex: str | None = None) -> dict[str, str] | None:
+    """Codex's installed plugins, `{name: version}`. None when the list could
+    not be read (the command failed, or printed something that is not its JSON
+    object): that is not an empty list, and `nothing_installed` must not read
+    it as one."""
     result = plugin_cli.list_plugins(plugin_cli.CODEX)
     if not result.ok:
-        return {}
+        return None
     try:
         body = json.loads(result.detail)
     except ValueError:
-        return {}
+        return None
     if not isinstance(body, dict):
-        return {}
+        return None
     return {
         row["name"]: row["version"]
         for row in body.get("installed") or []
@@ -1339,7 +1411,8 @@ def update_codex_plugins() -> PluginResult:
             missing_binary=True,
         )
     names = (tracking_plugin_name("codex"), "probe-research-tap")
-    before_versions = _codex_plugin_versions(codex)
+    listed_before = _codex_plugin_versions(codex)
+    before_versions = listed_before or {}
     failed_run = None
     result = plugin_cli.refresh_marketplace(plugin_cli.CODEX, MARKETPLACE)
     if not result.ok and _CODEX_NOT_CONFIGURED in (result.detail or "").lower():
@@ -1358,7 +1431,8 @@ def update_codex_plugins() -> PluginResult:
         if not result.ok:
             failed_run = result
     failure = _failed(failed_run) if failed_run is not None else ""
-    after_versions = _codex_plugin_versions(codex)
+    listed_after = _codex_plugin_versions(codex)
+    after_versions = listed_after or {}
     missing = [name for name in names if not after_versions.get(name)]
     confirmed = not failure and not missing
     changed = confirmed and any(
@@ -1367,7 +1441,15 @@ def update_codex_plugins() -> PluginResult:
     before = (
         ", ".join(f"{name}={version}" for name, version in sorted(before_versions.items())) or None
     )
-    after = ", ".join(f"{name}={after_versions.get(name)}" for name in names) if confirmed else None
+    # Unconfirmed, still what IS listed: a first install that added the
+    # tracking plugin and then failed on the tap left Probe in Codex, and
+    # reading None here made that "nothing installed" (`nothing_installed`).
+    after = (
+        ", ".join(f"{name}={after_versions.get(name)}" for name in names)
+        if confirmed
+        else ", ".join(f"{name}={after_versions[name]}" for name in names if after_versions.get(name))
+        or None
+    )
     tap_before = before_versions.get("probe-research-tap")
     tap_after = after_versions.get("probe-research-tap")
     tap = {
@@ -1378,6 +1460,7 @@ def update_codex_plugins() -> PluginResult:
         "git_blocked": failed_run is not None and bool(git_blocker(failed_run.detail)),
         "refresh_failed": refresh_failed,
         "command_failed": failed_run is not None,
+        "list_unreadable": listed_before is None or listed_after is None,
         "legacy_ids": legacy_plugin_ids(sorted({*before_versions, *after_versions})),
     }
     if confirmed:
@@ -1389,8 +1472,8 @@ def update_codex_plugins() -> PluginResult:
         False,
         before,
         after,
-        # Not "does not show": `_codex_plugin_versions` returns nothing when the
-        # list itself failed, so this cannot tell missing from unreadable.
+        # Not "does not show": the list may be the thing that failed
+        # (`list_unreadable` says which; the sentence is true either way).
         failure
         or f"could not confirm {' or '.join(missing)} in `codex plugin list --json` after reinstalling",
         **tap,
@@ -1410,7 +1493,12 @@ def update_kimi_plugins() -> PluginResult:
         )
     listed = plugin_cli.list_plugins(plugin_cli.KIMI)
     if not listed.ok:
-        return PluginResult(True, False, False, None, None, listed.detail)
+        # Unread, not empty: a failure, never "nothing installed".
+        return PluginResult(
+            True, False, False, None, None,
+            listed.detail or "could not read Kimi Code's plugin list",
+            command_failed=True, list_unreadable=True,
+        )
     installed = [
         line.split()[0]
         for line in listed.detail.splitlines()

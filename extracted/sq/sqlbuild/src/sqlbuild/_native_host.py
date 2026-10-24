@@ -360,6 +360,18 @@ _TARGETS: dict[str, tuple[str, str]] = {
         "sqlbuild.executor.diff.classes.query_artifact_lifecycle",
         "QueryDiffArtifactLifecycle",
     ),
+    "create_review_schema": (
+        "sqlbuild.executor.review.main.create_review_schema",
+        "create_review_schema",
+    ),
+    "drop_review_schema": (
+        "sqlbuild.executor.review.main.drop_review_schema",
+        "drop_review_schema",
+    ),
+    "leftover_review_schemas": (
+        "sqlbuild.executor.review.main.leftover_review_schemas",
+        "leftover_review_schemas",
+    ),
     "FullDiffSizeGuardError": ("sqlbuild.executor.diff.exceptions", "FullDiffSizeGuardError"),
     "execute_query_diff": ("sqlbuild.executor.diff.main._execute_query", "execute_query_diff"),
     "execute_diff": ("sqlbuild.executor.diff.main.execute", "execute_diff"),
@@ -389,6 +401,7 @@ _TARGETS: dict[str, tuple[str, str]] = {
     "JanitorRelationKey": ("sqlbuild.executor.janitor.models", "JanitorRelationKey"),
     "JanitorSkippedRelation": ("sqlbuild.executor.janitor.models", "JanitorSkippedRelation"),
     "JanitorSkippedSchema": ("sqlbuild.executor.janitor.models", "JanitorSkippedSchema"),
+    "JanitorUsageCheck": ("sqlbuild.executor.janitor.models", "JanitorUsageCheck"),
     "run_load_pipeline": ("sqlbuild.executor.load.main.run", "run_load_pipeline"),
     "LoadCallbacks": ("sqlbuild.executor.load.models", "LoadCallbacks"),
     "LoadExecutionResult": ("sqlbuild.executor.load.models", "LoadExecutionResult"),

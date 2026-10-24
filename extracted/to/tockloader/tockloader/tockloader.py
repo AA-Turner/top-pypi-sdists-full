@@ -35,6 +35,7 @@ from .nrfutil import NrfUtil
 from .openocd import OpenOCD, collect_temp_files
 from .probers import ProbeRs
 from .stlink import STLink
+from .esptool import EspTool
 from .linkserver import LinkServer
 from .flash_file import FlashFile
 from .tickv import TockTicKV
@@ -141,6 +142,8 @@ class TockLoader:
                 "cmd_flags": {"bundle_apps": True},
             },
             "raspberry_pi_pico": {"start_address": 0x10020000},
+            "esp32-c3-devkitm-1": {"start_address": 0x42100000},
+            "esp32-c3-devkit-rust-2": {"start_address": 0x42100000},
             "tickv": {
                 "tickv": {
                     "region_size": 4096,
@@ -159,7 +162,9 @@ class TockLoader:
                 "cmd_flags": {"openocd": True},
             },
             "nucleo_u545re_q": {
-                "start_address": 0x08040000,
+                # The board's `layout.ld` links against the secure flash alias,
+                # so apps live at the secure alias of the `prog` region too.
+                "start_address": 0x0C040000,
                 "cmd_flags": {"openocd": True},
             },
         },
@@ -195,6 +200,7 @@ class TockLoader:
                             getattr(self.args, "nrfutil", False),
                             getattr(self.args, "openocd", False),
                             getattr(self.args, "stlink", False),
+                            getattr(self.args, "esptool", False),
                             getattr(self.args, "flash_file") != None,
                             getattr(self.args, "serial", False),
                         ],
@@ -204,7 +210,7 @@ class TockLoader:
             > 1
         ):
             raise TockLoaderException(
-                "Can only use one of --jlink, --openocd, --stlink, --nrfutil, --flash-file or --serial options"
+                "Can only use one of --jlink, --openocd, --stlink, --esptool, --nrfutil, --flash-file or --serial options"
             )
 
         # Get an object that allows talking to the board.
@@ -220,6 +226,9 @@ class TockLoader:
         elif hasattr(self.args, "stlink") and self.args.stlink:
             # User passed `--stlink`. Force the STLink channel.
             self.channel = STLink(self.args)
+        elif hasattr(self.args, "esptool") and self.args.esptool:
+            # User passed `--esptool`. Force the esptool channel.
+            self.channel = EspTool(self.args)
         elif hasattr(self.args, "probers") and self.args.probers:
             # User passed `--probers`. Force the probe-rs channel.
             self.channel = ProbeRs(self.args)
@@ -289,6 +298,15 @@ class TockLoader:
                 if linkserver_channel.attached_board_exists():
                     self.channel = linkserver_channel
                     logging.info("Using LinkServer channel to comm. with the board.")
+                    break
+
+                # Next try esptool. This must come before the serial bootloader,
+                # which would otherwise claim the serial port of an Espressif
+                # chip.
+                esptool_channel = EspTool(self.args)
+                if esptool_channel.attached_board_exists():
+                    self.channel = esptool_channel
+                    logging.info("Using esptool channel to communicate with the board.")
                     break
 
                 # Try using the serial bootloader. Traditionally, we have
@@ -497,6 +515,7 @@ class TockLoader:
             # If we want to erase first, loop through looking for non sticky
             # apps and remove them from the existing app list.
             if erase:
+                logging.debug("Erasing any existing apps.")
                 new_existing_apps = []
                 for existing_app in existing_apps:
                     if existing_app.is_sticky():
@@ -689,40 +708,45 @@ class TockLoader:
             # Get a list of installed apps
             apps = self._extract_all_app_headers()
 
-            if len(apps) == 0:
-                raise TockLoaderException("No apps are installed on the board")
+            # Candidate apps to remove.
+            candidate_apps = []
 
-            # User did not specify apps. Pick from list.
+            # If the user didn't specify an app list...
             if len(app_names) == 0:
-                options = ["** All"]
-                options.extend([app.get_name() for app in apps])
-                name = helpers.menu(
-                    options,
-                    return_type="value",
-                    prompt="Select app to configure ",
-                    title="Which apps to configure?",
-                )
-                if name == "** All":
-                    app_names = [app.get_name() for app in apps]
+                if len(apps) == 0:
+                    raise TockLoaderException("No apps are installed on the board")
+                elif len(apps) == 1:
+                    # If there's only one app, delete it
+                    candidate_apps = apps
+                    logging.info("Only one app on board.")
                 else:
-                    app_names = [name]
+                    options = ["** All"]
+                    options.extend([app.get_name() for app in apps])
+                    app_indices = helpers.menu_multiple_indices(
+                        options, prompt="Select app to configure "
+                    )
+
+                    if 0 in app_indices:
+                        # Delete all
+                        candidate_apps = apps
+                    else:
+                        for app_index in app_indices:
+                            candidate_apps.append(apps[app_index - 1])
+            else:
+                # User did specify an app list.
+                for app in apps:
+                    if app.get_name() in app_names:
+                        candidate_apps.append(app)
 
             # Configure all selected apps
-            changed = False
-            for app in apps:
-                if app.get_name() in app_names:
-                    app.get_header().set_flag(flag_name, flag_value)
-                    changed = True
+            for app in candidate_apps:
+                app.get_header().set_flag(flag_name, flag_value)
 
-            if changed:
-                self._reshuffle_apps(apps)
+            self._reshuffle_apps(apps)
+            for app in candidate_apps:
                 logging.info(
-                    'Set flag "{}" to "{}" for apps: {}'.format(
-                        flag_name, flag_value, ", ".join(app_names)
-                    )
+                    f'Set flag "{flag_name}" to "{flag_value}" for app {app.get_name()}'
                 )
-            else:
-                logging.info("No matching apps found. Nothing changed.")
 
     def list_attributes(self):
         """
@@ -1310,6 +1334,8 @@ class TockLoader:
         in the array.
         """
 
+        logging.debug("Shuffling apps.")
+
         #
         # JUNE 2020: This function can be really complicated (balancing apps
         # compiled for a fixed address, MPU alignment concerns, ordering
@@ -1334,9 +1360,7 @@ class TockLoader:
         else:
             ram_start_address_hex = "{:#x}".format(ram_start_address)
 
-        logging.debug(
-            "Shuffling apps. Flash={:#x} RAM={}".format(address, ram_start_address_hex)
-        )
+        logging.debug("Apps@ Flash={:#x} RAM={}".format(address, ram_start_address_hex))
 
         # First, we are going to split the work into three cases:
         #
@@ -1412,6 +1436,7 @@ class TockLoader:
             # flash. Also keep around the index of the app in original array.
             slices = []
             for i, app in enumerate(apps):
+                logging.debug(f"Checking addresses for App {app.get_name()}")
                 apps_in_flash = app.get_fixed_addresses_flash_and_sizes()
                 app_slices = []
                 for starting_address, size in apps_in_flash:
@@ -1695,6 +1720,8 @@ class TockLoader:
         - `extract_app_binary`: Get the actual app binary in addition to the
           headers.
         """
+        logging.debug("Finding all existing apps.")
+
         apps = []
 
         # This can be the default, it can be configured in the attributes on

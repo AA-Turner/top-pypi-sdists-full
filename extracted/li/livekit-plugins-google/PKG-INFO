@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-google
-Version: 1.8.8
+Version: 1.8.9
 Summary: Agent Framework plugin for services from Google Cloud
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -22,7 +22,7 @@ Requires-Dist: google-cloud-speech<3,>=2.36
 Requires-Dist: google-cloud-texttospeech<3,>=2.32
 Requires-Dist: google-genai>=2.30.1; python_version >= '3.10'
 Requires-Dist: httpx2<3,>=2.12
-Requires-Dist: livekit-agents>=1.8.8
+Requires-Dist: livekit-agents>=1.8.9
 Description-Content-Type: text/markdown
 
 # Google AI plugin for LiveKit Agents

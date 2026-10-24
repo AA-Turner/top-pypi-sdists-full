@@ -1,14 +1,15 @@
 """Converter to ingest scikit-learn models into Treelite"""
 
 import ctypes
+import json
 from typing import Optional
 
 import numpy as np
 from packaging.version import parse as parse_version
 
 from ..core import _LIB, TreeliteError, _check_call
-from ..model import Model
-from ..util import c_array
+from ..model import Model, _numpy2pybuffer
+from ..util import c_array, c_str
 from .isolation_forest import calculate_depths, expected_depth
 
 
@@ -19,6 +20,7 @@ class ArrayOfArrays:
 
     def __init__(self, *, dtype):
         int8_ptr_type = ctypes.POINTER(ctypes.c_int8)
+        uint8_ptr_type = ctypes.POINTER(ctypes.c_uint8)
         int64_ptr_type = ctypes.POINTER(ctypes.c_int64)
         uint32_ptr_type = ctypes.POINTER(ctypes.c_uint32)
         float64_ptr_type = ctypes.POINTER(ctypes.c_double)
@@ -31,6 +33,8 @@ class ArrayOfArrays:
             self.ptr_type = uint32_ptr_type
         elif dtype == np.int8:
             self.ptr_type = int8_ptr_type
+        elif dtype == np.uint8:
+            self.ptr_type = uint8_ptr_type
         elif dtype == "void":
             self.ptr_type = void_ptr_type
         else:
@@ -78,6 +82,18 @@ def import_model(sklearn_model) -> Model:
         treelite.gtil.predict(tl_model, X) == -clf.score_samples(X)
         # clf is an IsolationForest
         # tl_model is a Treelite representation of clf
+
+    To reproduce the output of :py:meth:`~sklearn.ensemble.IsolationForest.decision_function`,
+    retrieve the value of ``IsolationForest.offset_`` and apply it,
+    as follows:
+
+    .. code-block:: python
+
+        # Treelite model stores an optional list of attributes (as a JSON string).
+        # We can retrieve `offset_` from it.
+        offset = tl_model.attributes.get("sklearn_iforest_offset", -0.5)
+        # Apply offset_ to compute the decision function.
+        decision_function = -treelite.gtil.predict(tl_model, X) - offset
 
     Parameters
     ----------
@@ -175,6 +191,7 @@ def import_model(sklearn_model) -> Model:
     feature = ArrayOfArrays(dtype=np.int64)
     threshold = ArrayOfArrays(dtype=np.float64)
     value = ArrayOfArrays(dtype=np.float64)
+    missing_go_to_left = ArrayOfArrays(dtype=np.uint8)
     n_node_samples = ArrayOfArrays(dtype=np.int64)
     weighted_n_node_samples = ArrayOfArrays(dtype=np.float64)
     impurity = ArrayOfArrays(dtype=np.float64)
@@ -220,6 +237,9 @@ def import_model(sklearn_model) -> Model:
                     expected_shape=leaf_value_expected_shape(tree.node_count),
                 )
                 feature.add(tree.feature, expected_shape=(tree.node_count,))
+            missing_go_to_left.add(
+                tree.missing_go_to_left, expected_shape=(tree.node_count,)
+            )
             n_node_samples.add(tree.n_node_samples, expected_shape=(tree.node_count,))
             weighted_n_node_samples.add(
                 tree.weighted_n_node_samples, expected_shape=(tree.node_count,)
@@ -229,7 +249,7 @@ def import_model(sklearn_model) -> Model:
     handle = ctypes.c_void_p()
     if isinstance(sklearn_model, (RandomForestR, ExtraTreesR)):
         _check_call(
-            _LIB.TreeliteLoadSKLearnRandomForestRegressor(
+            _LIB.TreeliteLoadSKLearnRandomForestRegressorEx(
                 ctypes.c_int(sklearn_model.n_estimators),
                 ctypes.c_int(sklearn_model.n_features_in_),
                 ctypes.c_int(sklearn_model.n_outputs_),
@@ -239,6 +259,7 @@ def import_model(sklearn_model) -> Model:
                 feature.as_c_array(),
                 threshold.as_c_array(),
                 value.as_c_array(),
+                missing_go_to_left.as_c_array(),
                 n_node_samples.as_c_array(),
                 weighted_n_node_samples.as_c_array(),
                 impurity.as_c_array(),
@@ -247,7 +268,7 @@ def import_model(sklearn_model) -> Model:
         )
     elif isinstance(sklearn_model, IsolationForest):
         _check_call(
-            _LIB.TreeliteLoadSKLearnIsolationForest(
+            _LIB.TreeliteLoadSKLearnIsolationForestEx(
                 ctypes.c_int(sklearn_model.n_estimators),
                 ctypes.c_int(sklearn_model.n_features_in_),
                 c_array(ctypes.c_int64, node_count),
@@ -256,17 +277,19 @@ def import_model(sklearn_model) -> Model:
                 feature.as_c_array(),
                 threshold.as_c_array(),
                 value.as_c_array(),
+                missing_go_to_left.as_c_array(),
                 n_node_samples.as_c_array(),
                 weighted_n_node_samples.as_c_array(),
                 impurity.as_c_array(),
                 ctypes.c_double(ratio_c),
+                ctypes.c_double(sklearn_model.offset_),
                 ctypes.byref(handle),
             )
         )
     elif isinstance(sklearn_model, (RandomForestC, ExtraTreesC)):
         n_classes = np.array(sklearn_model.n_classes_, dtype=np.int32)
         _check_call(
-            _LIB.TreeliteLoadSKLearnRandomForestClassifier(
+            _LIB.TreeliteLoadSKLearnRandomForestClassifierEx(
                 ctypes.c_int(sklearn_model.n_estimators),
                 ctypes.c_int(sklearn_model.n_features_in_),
                 ctypes.c_int(sklearn_model.n_outputs_),
@@ -277,6 +300,7 @@ def import_model(sklearn_model) -> Model:
                 feature.as_c_array(),
                 threshold.as_c_array(),
                 value.as_c_array(),
+                missing_go_to_left.as_c_array(),
                 n_node_samples.as_c_array(),
                 weighted_n_node_samples.as_c_array(),
                 impurity.as_c_array(),
@@ -428,7 +452,7 @@ def _import_hist_gradient_boosting(sklearn_model) -> Model:
     handle = ctypes.c_void_p()
     if isinstance(sklearn_model, (HistGradientBoostingR,)):
         _check_call(
-            _LIB.TreeliteLoadSKLearnHistGradientBoostingRegressor(
+            _LIB.TreeliteLoadSKLearnHistGradientBoostingRegressorEx(
                 ctypes.c_int(sklearn_model.n_iter_),
                 ctypes.c_int(sklearn_model.n_features_in_),
                 c_array(ctypes.c_int64, node_count),
@@ -443,6 +467,7 @@ def _import_hist_gradient_boosting(sklearn_model) -> Model:
                 sklearn_model._baseline_prediction.ctypes.data_as(
                     ctypes.POINTER(ctypes.c_double)
                 ),
+                c_str(sklearn_model.loss),
                 ctypes.byref(handle),
             )
         )

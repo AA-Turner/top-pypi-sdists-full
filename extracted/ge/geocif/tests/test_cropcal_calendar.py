@@ -205,6 +205,24 @@ def test_legacy_and_calendar_conventions_preserve_ordering():
         assert days["plant"] < days["midgreenup"] < days["midgreendown"] <= days["harvest"]
 
 
+def test_mid_convention_sits_inside_the_same_bins():
+    """``mid`` keeps the bins and moves each day to the bin's middle: planting
+    7-8 days later than ``calendar`` (a start edge), the rest 6-8 days earlier
+    (end edges). Wrap rows and the wall-to-wall ``plant_bin == 24`` included."""
+    rows = [codes for _label, codes, _branch in _BRANCH_CASES]
+    rows.append(_codes("111122222222222233333333"))
+    for codes in rows:
+        bins = cal.stage_bins(codes)
+        edge = cal.to_days(bins, convention="calendar")
+        mid = cal.to_days(bins, convention="mid")
+        assert 7 <= mid["plant"] - edge["plant"] <= 8
+        for key in ("midgreenup", "midgreendown", "harvest"):
+            assert 6 <= edge[key] - mid[key] <= 8
+        for key in ("len_stage1", "len_stage2", "len_stage3"):
+            assert mid[key] == edge[key]
+    assert [cal._bin_mid_doy(b, cal.REFERENCE_YEAR) for b in (0, 1, 3, 23)] == [8, 23, 53, 357]
+
+
 def test_legacy_convention_drifts_early_through_the_year():
     """Legacy packs the year into 24x15 = 360 days, so it runs progressively
     early against the real calendar.

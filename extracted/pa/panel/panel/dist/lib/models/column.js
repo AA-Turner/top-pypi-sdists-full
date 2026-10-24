@@ -10,16 +10,13 @@ import { div } from "@bokehjs/core/dom";
 import { Column as BkColumn, ColumnView as BkColumnView } from "@bokehjs/models/layouts/column";
 import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 export class ScrollButtonClick extends ModelEvent {
-    static __name__ = "ScrollButtonClick";
     static {
         this.prototype.event_name = "scroll_button_click";
     }
 }
-let ScrollToEvent = class ScrollToEvent extends ModelEvent {
-    static { ScrollToEvent_1 = this; }
+let ScrollToEvent = ScrollToEvent_1 = class ScrollToEvent extends ModelEvent {
     model;
     index;
-    static __name__ = "ScrollToEvent";
     constructor(model, index) {
         super();
         this.model = model;
@@ -39,9 +36,15 @@ ScrollToEvent = ScrollToEvent_1 = __decorate([
     server_event("scroll_to")
 ], ScrollToEvent);
 export { ScrollToEvent };
+const SCROLL_CLASSES = [
+    "scroll", "scroll-horizontal", "scroll-vertical",
+    "scrollable", "scrollable-horizontal", "scrollable-vertical",
+];
 export class ColumnView extends BkColumnView {
-    static __name__ = "ColumnView";
     _updating = false;
+    _stylesheet_listener = false;
+    _initial_scroll_pending = false;
+    _auto_scroll_pending = false;
     scroll_down_button_el;
     connect_signals() {
         super.connect_signals();
@@ -50,6 +53,11 @@ export class ColumnView extends BkColumnView {
         this.on_change(scroll_position, () => this.scroll_to_position());
         this.on_change(scroll_button_threshold, () => this.toggle_scroll_button());
         this.model.on_event(ScrollToEvent, (event) => this.scroll_to_index(event.index));
+    }
+    // The css classes of the scroll options (`_SCROLL_MAPPING`), not any class
+    // that happens to start with "scroll".
+    get is_scroll_container() {
+        return this.model.css_classes.some((cls) => SCROLL_CLASSES.includes(cls));
     }
     get distance_from_latest() {
         return this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight;
@@ -82,6 +90,9 @@ export class ColumnView extends BkColumnView {
         }
         requestAnimationFrame(() => {
             this.el.scrollTo({ top: this.model.scroll_position, behavior: "instant" });
+            if (this.is_scroll_container && getComputedStyle(this.el).overflowY === "visible") {
+                this._initial_scroll_pending = true;
+            }
         });
     }
     scroll_to_latest(scroll_limit = null) {
@@ -92,19 +103,19 @@ export class ColumnView extends BkColumnView {
             }
         }
         requestAnimationFrame(() => {
-            this.model.scroll_position = Math.round(this.el.scrollHeight);
+            const latest = Math.round(this.el.scrollHeight);
+            // A scroll_position that did not change emits no event to scroll on
+            this.el.scrollTo({ top: latest, behavior: "instant" });
+            this.model.scroll_position = latest;
         });
     }
     trigger_auto_scroll() {
         const limit = this.model.auto_scroll_limit;
         if (limit == 0) {
+            this._auto_scroll_pending = false;
             return;
         }
-        const within_limit = this.distance_from_latest <= limit;
-        if (!within_limit) {
-            return;
-        }
-        this.scroll_to_latest();
+        this._auto_scroll_pending = this.distance_from_latest <= limit;
     }
     record_scroll_position() {
         this._updating = true;
@@ -143,6 +154,24 @@ export class ColumnView extends BkColumnView {
             this.scroll_to_latest();
             this.model.trigger_event(new ScrollButtonClick());
         });
+        if (!this._stylesheet_listener) {
+            this._stylesheet_listener = true;
+            // Scrolling is a no-op until the stylesheets making it scrollable load.
+            this.shadow_el.addEventListener("load", (event) => {
+                if (event.target instanceof HTMLLinkElement && this._initial_scroll_pending) {
+                    this._apply_initial_scroll();
+                }
+            }, true);
+        }
+    }
+    _apply_initial_scroll() {
+        if (this.model.scroll_position) {
+            this.scroll_to_position();
+        }
+        if (this.model.view_latest) {
+            this.scroll_to_latest();
+        }
+        this._initial_scroll_pending = this.is_scroll_container && getComputedStyle(this.el).overflowY === "visible";
     }
     async update_children() {
         const created = await this.build_child_views();
@@ -183,22 +212,22 @@ export class ColumnView extends BkColumnView {
         this.r_after_render();
         this._update_children();
         this.invalidate_layout();
+        if (this._auto_scroll_pending) {
+            this._auto_scroll_pending = false;
+            // A new child may only get its final size a frame later.
+            requestAnimationFrame(() => this.scroll_to_latest());
+        }
     }
     after_render() {
         super.after_render();
+        this._initial_scroll_pending = true;
         requestAnimationFrame(() => {
-            if (this.model.scroll_position) {
-                this.scroll_to_position();
-            }
-            if (this.model.view_latest) {
-                this.scroll_to_latest();
-            }
+            this._apply_initial_scroll();
             this.toggle_scroll_button();
         });
     }
 }
 export class Column extends BkColumn {
-    static __name__ = "Column";
     constructor(attrs) {
         super(attrs);
     }

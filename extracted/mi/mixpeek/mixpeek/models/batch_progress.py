@@ -42,16 +42,20 @@ class BatchProgress(BaseModel):
     first_error: Optional[StrictStr] = Field(default=None, description="First item-level error captured during processing (truncated to ~500 chars), e.g. 'ValueError: cannot embed empty text'. Explains WHAT the `errors` counter is counting. None when no item-level error has been captured (or the engine image pre-dates this field). See also batch-level error_summary (error-type counts) and failed_objects (per-object detail).")
     extraction_first_error: Optional[StrictStr] = Field(default=None, description="First map/extraction-stage error (rows dropped before the datasink). Distinct from datasink write errors. Typically equals first_error unless a later write-stage error was also captured.")
     documents_skipped: Optional[StrictInt] = Field(default=0, description="Number of input rows the processor explicitly marked skipped (metadata-only objects, missing required embedding fields, content-flag filtered, null-text chunks). Skipped rows are not failures and not successes; they count toward the tier-completion invariant via the audit. Phase 1.3 of INGESTION_RELIABILITY_PLAN.md.")
+    objects_extracted: Optional[StrictInt] = Field(default=None, description="Objects that finished extraction (their rows reached the write stage). The batch headline (`processed`, `percent`, the status message) counts these, never the dispatch counter, so a batch whose objects all fail extraction reads 0 here and 0 percent. Null when the engine has not reported extraction progress yet.")
+    objects_skipped: Optional[StrictInt] = Field(default=None, description="Objects the pipeline deliberately skipped (nothing to embed, already extracted under dedup_strategy skip). Skipped objects are neither extracted nor failed. Null when `objects_extracted` is null.")
+    objects_failed: Optional[StrictInt] = Field(default=None, description="Objects whose extraction failed. `failed_objects` on the batch lists them (bounded) and carries each error. Null when `objects_extracted` is null.")
     current_stage: Optional[BatchStageInfo] = Field(default=None, description="Current processing stage as reported by the Ray engine. Populated once the engine begins work (may lag by ~10s). Useful to distinguish 'loading model' from 'no activity' during early processing.")
     phases: Optional[BatchPhases] = Field(default=None, description="Honest streaming-phase breakdown: dispatch → extraction → write, each with its own processed/total/status. Exactly one phase is 'active' and its key equals current_stage.name. The SOLE per-stage source of truth — use this rather than current_stage for per-phase counters. None on engine images that pre-date this field.")
     active_step: Optional[BatchStepInfo] = Field(default=None, description="Active pipeline step for multi-step extractors. Shows which processor is currently running (e.g., 'GroundingDINOProcessor 1/3'). None for single-step pipelines.")
     overshoot_percent: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="When processed exceeds total (due to Ray Data retries or pipeline data expansion), this field shows the excess percentage above 100%. For example, 32.0 means 132% of items have been processed. None when processed <= total.")
     queue_position: Optional[StrictInt] = Field(default=None, description="1-based position in the Ray job submission queue. Non-null only while the batch is waiting for a concurrency slot. Once a slot is acquired (job submitted to Ray), this becomes null.")
+    queue_reason: Optional[StrictStr] = Field(default=None, description="Why the batch is waiting, while it is QUEUED: the cluster's extractor capacity (how many of its extractor jobs are running and how many this batch needs) or the tier's concurrent-batch limit. Null once the batch starts.")
     stage_history: Optional[List[BatchStageTiming]] = Field(default=None, description="Completed stage timing breakdown, newest last. Populated as stages complete, capped at 50 entries by the writer; the stage still running is in current_stage and is NOT here. Null on the batch LIST path, which strips it for payload size, and present on GET /v1/buckets/{bucket_id}/batches/{batch_id}: null here means not returned on this path, not that no stages ran.")
     documents_written: Optional[StrictInt] = Field(default=None, description="Derived documents written across completed tier/extractor jobs.")
     chunk_stats: Optional[BatchChunkStats] = Field(default=None, description="Realized chunking statistics (unit, total_chunks, mean units per chunk) reported by the text chunker. None for non-chunking extractors or engine images that pre-date this field.")
     status_warnings: Optional[List[StrictStr]] = Field(default=None, description="Read-time warnings that explain ambiguous terminal status or accounting gaps.")
-    __properties: ClassVar[List[str]] = ["processed", "total", "percent", "items_per_second", "eta_seconds", "batch_count", "errors", "first_error", "extraction_first_error", "documents_skipped", "current_stage", "phases", "active_step", "overshoot_percent", "queue_position", "stage_history", "documents_written", "chunk_stats", "status_warnings"]
+    __properties: ClassVar[List[str]] = ["processed", "total", "percent", "items_per_second", "eta_seconds", "batch_count", "errors", "first_error", "extraction_first_error", "documents_skipped", "objects_extracted", "objects_skipped", "objects_failed", "current_stage", "phases", "active_step", "overshoot_percent", "queue_position", "queue_reason", "stage_history", "documents_written", "chunk_stats", "status_warnings"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -133,11 +137,15 @@ class BatchProgress(BaseModel):
             "first_error": obj.get("first_error"),
             "extraction_first_error": obj.get("extraction_first_error"),
             "documents_skipped": obj.get("documents_skipped") if obj.get("documents_skipped") is not None else 0,
+            "objects_extracted": obj.get("objects_extracted"),
+            "objects_skipped": obj.get("objects_skipped"),
+            "objects_failed": obj.get("objects_failed"),
             "current_stage": BatchStageInfo.from_dict(obj["current_stage"]) if obj.get("current_stage") is not None else None,
             "phases": BatchPhases.from_dict(obj["phases"]) if obj.get("phases") is not None else None,
             "active_step": BatchStepInfo.from_dict(obj["active_step"]) if obj.get("active_step") is not None else None,
             "overshoot_percent": obj.get("overshoot_percent"),
             "queue_position": obj.get("queue_position"),
+            "queue_reason": obj.get("queue_reason"),
             "stage_history": [BatchStageTiming.from_dict(_item) for _item in obj["stage_history"]] if obj.get("stage_history") is not None else None,
             "documents_written": obj.get("documents_written"),
             "chunk_stats": BatchChunkStats.from_dict(obj["chunk_stats"]) if obj.get("chunk_stats") is not None else None,

@@ -25,6 +25,7 @@ from chalk.client._model_remote import (
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
     ComputeClass,
+    ExecutionBackend,
     GrpcReadinessProbe,
     GrpcStartupProbe,
     ScalingGroupResourceRequest,
@@ -124,6 +125,9 @@ class ModelDeploymentSpec:
     compute_class
         Where to run the model container. ``HOST`` requires fixed replicas without
         autoscaling triggers; the default is the Kubernetes pod-based class.
+    execution_target
+        Cluster placement. ``SERVERLESS`` selects serverless compute; ``ENVIRONMENT``
+        or omission uses the environment's cluster. Placement cannot change after creation.
     """
 
     model_version: int
@@ -138,6 +142,7 @@ class ModelDeploymentSpec:
     retries: Optional[int] = None
     queue_policy: Optional[QueuePolicy] = None
     compute_class: Optional[ComputeClass] = None
+    execution_target: Optional[ExecutionBackend] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -172,6 +177,8 @@ class ModelDeployment:
     """The owning registry model's stable ID, when returned by the API."""
     compute_class: Optional[ComputeClass] = None
     """The selected revision's execution environment, or ``None`` when unspecified."""
+    execution_target: Optional[ExecutionBackend] = None
+    """The selected revision's cluster placement, or ``None`` when unspecified."""
 
     _client: Any = dataclasses.field(default=None, repr=False, compare=False)
 
@@ -481,6 +488,20 @@ def _compute_class_from_proto(container_spec: Any) -> Optional[ComputeClass]:
         return None
 
 
+def _execution_target_from_proto(container_spec: Any) -> Optional[ExecutionBackend]:
+    if not container_spec.HasField("execution_target"):
+        return None
+    from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
+
+    backend = container_spec.execution_target.backend
+    if backend == container_pb.EXECUTION_BACKEND_UNSPECIFIED:
+        return None
+    try:
+        return ExecutionBackend(container_pb.ExecutionBackend.Name(backend).removeprefix("EXECUTION_BACKEND_"))
+    except ValueError:
+        return None
+
+
 def _model_name_by_id(
     client: Any, model_id: Optional[str], recorded_name: str, names: Optional[dict[str, str]] = None
 ) -> str:
@@ -546,6 +567,7 @@ def model_deployment_from_proto(
         scaling=auto_scaling_spec_from_proto(spec.scaling_spec),
         resources=_resources_from_proto(spec.container_spec),
         compute_class=_compute_class_from_proto(spec.container_spec),
+        execution_target=_execution_target_from_proto(spec.container_spec),
         created_at=_timestamp(record if record is not None else pb, "created_at"),
         updated_at=_timestamp(source, "updated_at"),
         deleted_at=_timestamp(source, "deleted_at"),
@@ -638,6 +660,15 @@ def compute_class_to_proto(compute_class: ComputeClass) -> container_pb.ComputeC
     }[compute_class]
 
 
+def execution_backend_to_proto(execution_target: ExecutionBackend) -> container_pb.ExecutionBackend:
+    from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
+
+    return {
+        ExecutionBackend.ENVIRONMENT: container_pb.EXECUTION_BACKEND_ENVIRONMENT,
+        ExecutionBackend.SERVERLESS: container_pb.EXECUTION_BACKEND_SERVERLESS,
+    }[execution_target]
+
+
 def readiness_probe_to_proto(probe: GrpcReadinessProbe) -> Any:
     from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
 
@@ -694,6 +725,7 @@ def merge_model_spec(
     readiness_probe: Optional[GrpcReadinessProbe] = None,
     startup_probe: Optional[GrpcStartupProbe] = None,
     compute_class: Optional[ComputeClass] = None,
+    execution_target: Optional[ExecutionBackend] = None,
 ) -> Any:
     """Return a copy of a ``ModelScalingGroupSpec`` with the given fields replaced.
 
@@ -759,6 +791,8 @@ def merge_model_spec(
         container.startup_probe.CopyFrom(startup_probe_to_proto(startup_probe))
     if compute_class is not None:
         container.compute_class = compute_class_to_proto(compute_class)
+    if execution_target is not None:
+        container.execution_target.backend = execution_backend_to_proto(execution_target)
     return spec
 
 

@@ -55,6 +55,8 @@ from probe.cli import claude_cli
 # stdlib-only), and it imports nothing from probe.cli back.
 from probe.sdk.durable import through_symlink, write_text_atomic
 
+HARNESS_ID = "pi"
+
 #: The npm name our package.json declares, and the identity a
 #: `npm:probe-research-pi` entry is matched against. Not yet installable this
 #: way -- see `resolve_package_root`'s docstring -- but an entry in this form

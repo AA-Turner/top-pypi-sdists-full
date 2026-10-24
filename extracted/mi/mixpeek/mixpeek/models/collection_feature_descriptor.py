@@ -33,7 +33,8 @@ class CollectionFeatureDescriptor(BaseModel):
     version: StrictStr = Field(description="Extractor version")
     vector_index: VectorIndex = Field(description="Vector index configuration (name, dimensions, type, distance, inference_name)")
     primary: Optional[StrictBool] = Field(default=False, description="True if this is the primary output (short address allowed)")
-    __properties: ClassVar[List[str]] = ["feature_address", "feature_extractor_name", "version", "vector_index", "primary"]
+    feature_uri: StrictStr = Field(description="The feature's URI, the same string as feature_address. Requests take it under this name: feature_search's feature_uri, a cluster's feature_uri, and the key of a vector in a document upsert.")
+    __properties: ClassVar[List[str]] = ["feature_address", "feature_extractor_name", "version", "vector_index", "primary", "feature_uri"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -65,8 +66,10 @@ class CollectionFeatureDescriptor(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
+            "feature_uri",
         ])
 
         _dict = self.model_dump(
@@ -93,7 +96,8 @@ class CollectionFeatureDescriptor(BaseModel):
             "feature_extractor_name": obj.get("feature_extractor_name"),
             "version": obj.get("version"),
             "vector_index": VectorIndex.from_dict(obj["vector_index"]) if obj.get("vector_index") is not None else None,
-            "primary": obj.get("primary") if obj.get("primary") is not None else False
+            "primary": obj.get("primary") if obj.get("primary") is not None else False,
+            "feature_uri": obj.get("feature_uri")
         })
         return _obj
 

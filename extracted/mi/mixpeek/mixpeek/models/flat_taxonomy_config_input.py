@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from mixpeek.models.input_mapping import InputMapping
 from mixpeek.models.source_collection_input import SourceCollectionInput
 from mixpeek.models.step_analytics_config_input import StepAnalyticsConfigInput
@@ -34,8 +35,9 @@ class FlatTaxonomyConfigInput(BaseModel):
     retriever_id: StrictStr = Field(description="The retriever to use for matching against the source collection.")
     input_mappings: List[InputMapping] = Field(description="Input mappings defining how to construct retriever inputs.")
     source_collection: SourceCollectionInput = Field(description="The single source collection for this flat taxonomy.")
+    top_k: Optional[Annotated[int, Field(le=50, strict=True, ge=1)]] = Field(default=1, description="Maximum nodes a materialized run assigns to each document, best first, as the taxonomy_enrich stage's top_k does on demand. The best match fills the _internal._taxonomy_<id>_id, _label and _score fields. Above 1, every kept match is also listed, ranked, in _internal._taxonomy_<id>_assignments, and append-mode enrichment fields collect their values from every kept match. Default 1: one node per document.")
     step_analytics: Optional[StepAnalyticsConfigInput] = Field(default=None, description="Optional configuration for step transition analytics. Enables tracking how documents progress through taxonomy labels over time (e.g., email thread progression from 'inquiry' to 'closed_won'). If not provided, only basic assignment events are logged.")
-    __properties: ClassVar[List[str]] = ["taxonomy_type", "retriever_id", "input_mappings", "source_collection", "step_analytics"]
+    __properties: ClassVar[List[str]] = ["taxonomy_type", "retriever_id", "input_mappings", "source_collection", "top_k", "step_analytics"]
 
     @field_validator('taxonomy_type')
     def taxonomy_type_validate_enum(cls, value):
@@ -115,6 +117,7 @@ class FlatTaxonomyConfigInput(BaseModel):
             "retriever_id": obj.get("retriever_id"),
             "input_mappings": [InputMapping.from_dict(_item) for _item in obj["input_mappings"]] if obj.get("input_mappings") is not None else None,
             "source_collection": SourceCollectionInput.from_dict(obj["source_collection"]) if obj.get("source_collection") is not None else None,
+            "top_k": obj.get("top_k") if obj.get("top_k") is not None else 1,
             "step_analytics": StepAnalyticsConfigInput.from_dict(obj["step_analytics"]) if obj.get("step_analytics") is not None else None
         })
         return _obj

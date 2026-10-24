@@ -52,9 +52,25 @@
 #include "../include/secp256k1_ecdsa_adaptor.h"
 #endif
 
+#ifdef ENABLE_MODULE_GENERATOR
+#include "../include/secp256k1_generator.h"
+#endif
+
 #if defined(__GNUC__)
 # pragma GCC diagnostic push
 # pragma GCC diagnostic warning "-Wunused-function"
+#endif
+
+#ifdef ENABLE_MODULE_SCHNORRSIG
+static int nonce_function_custom(unsigned char *nonce32, const unsigned char *msg, size_t msglen, const unsigned char *key32, const unsigned char *xonly_pk32, const unsigned char *algo, size_t algolen, void *data) {
+    return secp256k1_nonce_function_bip340(nonce32, msg, msglen, key32, xonly_pk32, algo, algolen, data);
+}
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+static int ecdsa_adaptor_nonce_function_custom(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *pk33, const unsigned char *algo, size_t algolen, void *data) {
+    return secp256k1_nonce_function_ecdsa_adaptor(nonce32, msg32, key32, pk33, algo, algolen, data);
+}
 #endif
 
 static void run_tests(secp256k1_context *ctx, unsigned char *key);
@@ -106,6 +122,10 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
 #endif
 #ifdef ENABLE_MODULE_EXTRAKEYS
     secp256k1_keypair keypair;
+#endif
+#ifdef ENABLE_MODULE_SCHNORRSIG
+    secp256k1_schnorrsig_extraparams extraparams = SECP256K1_SCHNORRSIG_EXTRAPARAMS_INIT;
+    unsigned char aux_rand[32] = { 0 };
 #endif
 #ifdef ENABLE_MODULE_ELLSWIFT
     unsigned char ellswift[64];
@@ -220,6 +240,37 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
     SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
     CHECK(ret == 1);
     ret = secp256k1_schnorrsig_sign32(ctx, sig, msg, &keypair, NULL);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+
+    SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+    ret = secp256k1_keypair_create(ctx, &keypair, key);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+    SECP256K1_CHECKMEM_UNDEFINE(&keypair, sizeof(keypair));
+    ret = secp256k1_schnorrsig_sign_custom(ctx, sig, msg, 32, &keypair, NULL);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+
+    extraparams.noncefp = NULL;
+    extraparams.ndata = aux_rand;
+    SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+    ret = secp256k1_keypair_create(ctx, &keypair, key);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+    SECP256K1_CHECKMEM_UNDEFINE(&keypair, sizeof(keypair));
+    ret = secp256k1_schnorrsig_sign_custom(ctx, sig, msg, 32, &keypair, &extraparams);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+
+    extraparams.noncefp = nonce_function_custom;
+    extraparams.ndata = aux_rand;
+    SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+    ret = secp256k1_keypair_create(ctx, &keypair, key);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+    SECP256K1_CHECKMEM_UNDEFINE(&keypair, sizeof(keypair));
+    ret = secp256k1_schnorrsig_sign_custom(ctx, sig, msg, sizeof(msg), &keypair, &extraparams);
     SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
     CHECK(ret == 1);
 #endif
@@ -354,6 +405,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         unsigned char adaptor_sig[162];
         unsigned char deckey[32];
         unsigned char expected_deckey[32];
+        unsigned char adaptor_aux_rand[32] = { 0 };
         secp256k1_pubkey enckey;
 
         for (i = 0; i < 32; i++) {
@@ -384,6 +436,39 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         ret = secp256k1_memcmp_var(deckey, expected_deckey, sizeof(expected_deckey));
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 0);
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        ret = secp256k1_ecdsa_adaptor_encrypt(ctx, adaptor_sig, key, &enckey, msg, NULL, adaptor_aux_rand);
+        SECP256K1_CHECKMEM_DEFINE(adaptor_sig, sizeof(adaptor_sig));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        ret = secp256k1_ecdsa_adaptor_encrypt(ctx, adaptor_sig, key, &enckey, msg, ecdsa_adaptor_nonce_function_custom, adaptor_aux_rand);
+        SECP256K1_CHECKMEM_DEFINE(adaptor_sig, sizeof(adaptor_sig));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+    }
+#endif
+
+#ifdef ENABLE_MODULE_GENERATOR
+    {
+        secp256k1_pedersen_commitment commit;
+        uint64_t value = 42;
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(&value, sizeof(value));
+        ret = secp256k1_pedersen_commit(ctx, &commit, key, value, secp256k1_generator_h);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        /* value * H is the point at infinity */
+        value = 0;
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(&value, sizeof(value));
+        ret = secp256k1_pedersen_commit(ctx, &commit, key, value, secp256k1_generator_h);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
     }
 #endif
 

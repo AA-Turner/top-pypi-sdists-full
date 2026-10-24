@@ -93,13 +93,14 @@ from bitfab.replay import replay as _run_replay
 from bitfab.replay_branch import DbBranchOptions, ReplayBranch
 from bitfab.replay_interrupt import ReplayInterrupt
 from bitfab.selective_replay import SelectiveReplayOptions, json_fingerprint
-from bitfab.serialize import deserialize_value, serialize_value, to_json_safe
+from bitfab.serialize import to_json_safe
 from bitfab.simulation_plan import (
     CONTENT_OFF_KEY,
     DECLARED_IN_CODE_FIELD,
     ROOT_TRACE_FUNCTION_KEY_FIELD,
     SimulationPlan,
 )
+from bitfab.span_meta import build_input_meta, build_output_meta, restore_output
 from bitfab.span_origin import (
     FRAMEWORK_INSTRUMENTATIONS,
     SpanInstrumentation,
@@ -2019,6 +2020,7 @@ class Bitfab:
         args, kwargs = _deserialize_inputs(
             {
                 "input": source.get("input"),
+                "inputMeta": source.get("inputMeta"),
                 "inputSerialized": source.get("inputSerialized"),
             },
             dict_input_as_positional=auto_wrapped,
@@ -2741,13 +2743,7 @@ class Bitfab:
                 output = mock_entry.get("output")
                 output_meta = mock_entry.get("outputMeta")
                 if output_meta is not None:
-                    # Fail open: a deserialization error falls back to the raw
-                    # JSON output rather than aborting the mocked replay, matching
-                    # the guard the base marked/all path has always applied.
-                    with contextlib.suppress(Exception):
-                        output = deserialize_value(
-                            {"json": output, "meta": output_meta}
-                        )
+                    output = restore_output(output, output_meta)
                 return output
 
             def _plan_mock_replay(
@@ -4997,42 +4993,45 @@ class Bitfab:
             ),
         )
 
-    def _prepare_for_serialization(self, value: Any, _depth: int = 0) -> Any:
-        """Pre-process a value for jsonpickle serialization.
-
-        Converts complex non-serializable objects (e.g. framework classes with
-        network connections, runtime state) to their human-readable form so
-        jsonpickle doesn't attempt to serialize massive object graphs.
-        Preserves types that jsonpickle handles well (datetime, UUID, etc.).
-
-        Depth-bounded to avoid infinite recursion on cyclic graphs (e.g. a
-        dict that contains itself). Without the bound, a circular dict input
-        hangs the background span thread and produces a lost-0-span trace.
-        """
+    def _prepare_for_serialization(
+        self,
+        value: Any,
+        _depth: int = 0,
+        _converted: dict[int, Any] | None = None,
+    ) -> Any:
         if _depth > 16:
             return f"<{type(value).__qualname__}: max_depth>"
         if value is None or isinstance(value, (str, int, float, bool)):
             return value
+        converted = {} if _converted is None else _converted
         if isinstance(value, enum.Enum):
-            return self._prepare_for_serialization(value.value, _depth + 1)
+            return self._prepare_for_serialization(value.value, _depth + 1, converted)
+        if id(value) in converted:
+            return converted[id(value)]
         if isinstance(value, dict):
-            return {
-                k: self._prepare_for_serialization(v, _depth + 1)
+            prepared_dict = {
+                k: self._prepare_for_serialization(v, _depth + 1, converted)
                 for k, v in value.items()
             }
+            converted[id(value)] = prepared_dict
+            return prepared_dict
         if isinstance(value, (list, tuple)):
             items = [
-                self._prepare_for_serialization(item, _depth + 1) for item in value
+                self._prepare_for_serialization(item, _depth + 1, converted)
+                for item in value
             ]
-            return _rebuild_sequence(value, items)
+            prepared_sequence = _rebuild_sequence(value, items)
+            converted[id(value)] = prepared_sequence
+            return prepared_sequence
         if self._is_jsonpickle_safe(value):
             return value
         if hasattr(value, "model_dump") or (
             hasattr(value, "dict") and callable(value.dict)
         ):
             return value
-        # Complex objects: convert to human-readable form
-        return self._serialize_value(value)
+        readable = self._serialize_value(value)
+        converted[id(value)] = readable
+        return readable
 
     def _send_trace_completion(
         self,
@@ -5144,19 +5143,23 @@ class Bitfab:
             "input": _cap_payload_size(self._serialize_inputs(raw_args, raw_kwargs)),
             "output": _cap_payload_size(self._serialize_value(result)),
         }
-        prepared_args = [self._prepare_for_serialization(arg) for arg in raw_args]
+        converted: dict[int, Any] = {}
+        prepared_args = [
+            self._prepare_for_serialization(arg, _converted=converted)
+            for arg in raw_args
+        ]
         prepared_kwargs = {
-            k: self._prepare_for_serialization(v) for k, v in raw_kwargs.items()
+            k: self._prepare_for_serialization(v, _converted=converted)
+            for k, v in raw_kwargs.items()
         }
-        inputs_struct: dict[str, Any] = {"args": prepared_args}
-        if prepared_kwargs:
-            inputs_struct["kwargs"] = prepared_kwargs
-        serialized_inputs = serialize_value(inputs_struct)
-        serialized_output = serialize_value(self._prepare_for_serialization(result))
-        if "meta" in serialized_inputs or prepared_kwargs:
-            content["input_serialized"] = serialized_inputs
-        if "meta" in serialized_output:
-            content["output_serialized"] = serialized_output
+        input_meta = build_input_meta(prepared_args, prepared_kwargs, content["input"])
+        output_meta = build_output_meta(
+            self._prepare_for_serialization(result), content["output"]
+        )
+        if input_meta is not None:
+            content["input_meta"] = input_meta
+        if output_meta is not None:
+            content["output_meta"] = output_meta
         return content
 
     def _send_span(

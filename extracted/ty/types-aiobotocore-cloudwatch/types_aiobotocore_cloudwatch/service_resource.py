@@ -42,6 +42,7 @@ from .literals import (
     StatisticType,
 )
 from .type_defs import (
+    ActionConfigurationOutputTypeDef,
     DescribeAlarmHistoryInputAlarmDescribeHistoryTypeDef,
     DescribeAlarmHistoryOutputTypeDef,
     DimensionFilterTypeDef,
@@ -400,6 +401,7 @@ class Alarm(AIOBoto3ServiceResource):
     warm_up_configuration: Awaitable[WarmUpConfigurationTypeDef]
     evaluation_criteria: Awaitable[EvaluationCriteriaTypeDef]
     evaluation_interval: Awaitable[int]
+    action_configuration: Awaitable[ActionConfigurationOutputTypeDef]
     meta: CloudWatchResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

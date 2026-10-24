@@ -21,6 +21,9 @@ Usage::
         ListAttributesPaginator,
         ListClustersPaginator,
         ListContainerInstancesPaginator,
+        ListGatewayClusterAssociationsPaginator,
+        ListGatewayRoutesPaginator,
+        ListGatewaysPaginator,
         ListServicesByNamespacePaginator,
         ListServicesPaginator,
         ListTaskDefinitionFamiliesPaginator,
@@ -52,6 +55,9 @@ Usage::
     list_attributes_paginator: ListAttributesPaginator = client.get_paginator("list_attributes")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
     list_container_instances_paginator: ListContainerInstancesPaginator = client.get_paginator("list_container_instances")
+    list_gateway_cluster_associations_paginator: ListGatewayClusterAssociationsPaginator = client.get_paginator("list_gateway_cluster_associations")
+    list_gateway_routes_paginator: ListGatewayRoutesPaginator = client.get_paginator("list_gateway_routes")
+    list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
     list_services_by_namespace_paginator: ListServicesByNamespacePaginator = client.get_paginator("list_services_by_namespace")
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
     list_task_definition_families_paginator: ListTaskDefinitionFamiliesPaginator = client.get_paginator("list_task_definition_families")
@@ -66,6 +72,9 @@ from .paginator import (
     ListAttributesPaginator,
     ListClustersPaginator,
     ListContainerInstancesPaginator,
+    ListGatewayClusterAssociationsPaginator,
+    ListGatewayRoutesPaginator,
+    ListGatewaysPaginator,
     ListServicesByNamespacePaginator,
     ListServicesPaginator,
     ListTaskDefinitionFamiliesPaginator,
@@ -98,6 +107,9 @@ __all__ = (
     "ListAttributesPaginator",
     "ListClustersPaginator",
     "ListContainerInstancesPaginator",
+    "ListGatewayClusterAssociationsPaginator",
+    "ListGatewayRoutesPaginator",
+    "ListGatewaysPaginator",
     "ListServicesByNamespacePaginator",
     "ListServicesPaginator",
     "ListTaskDefinitionFamiliesPaginator",

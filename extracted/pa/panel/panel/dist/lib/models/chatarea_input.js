@@ -2,7 +2,6 @@ import { TextAreaInput as PnTextAreaInput, TextAreaInputView as PnTextAreaInputV
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 export class ChatMessageEvent extends ModelEvent {
     value;
-    static __name__ = "ChatMessageEvent";
     constructor(value) {
         super();
         this.value = value;
@@ -15,7 +14,6 @@ export class ChatMessageEvent extends ModelEvent {
     }
 }
 export class ChatAreaInputView extends PnTextAreaInputView {
-    static __name__ = "ChatAreaInputView";
     connect_signals() {
         super.connect_signals();
         const { value_input } = this.model.properties;
@@ -41,7 +39,6 @@ export class ChatAreaInputView extends PnTextAreaInputView {
     }
 }
 export class ChatAreaInput extends PnTextAreaInput {
-    static __name__ = "ChatAreaInput";
     declare;
     constructor(attrs) {
         super(attrs);

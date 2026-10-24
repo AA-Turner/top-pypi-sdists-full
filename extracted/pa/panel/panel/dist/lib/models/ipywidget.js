@@ -2,7 +2,6 @@ import { InlineStyleSheet } from "@bokehjs/core/dom";
 import { HTMLBox, HTMLBoxView } from "./layout";
 const Jupyter = window.Jupyter;
 export class IPyWidgetView extends HTMLBoxView {
-    static __name__ = "IPyWidgetView";
     ipyview;
     ipychildren;
     manager;
@@ -68,7 +67,6 @@ export class IPyWidgetView extends HTMLBoxView {
     }
 }
 export class IPyWidget extends HTMLBox {
-    static __name__ = "IPyWidget";
     constructor(attrs) {
         super(attrs);
     }

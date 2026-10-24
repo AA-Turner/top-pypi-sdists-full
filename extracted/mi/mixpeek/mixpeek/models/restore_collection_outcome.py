@@ -30,7 +30,7 @@ class RestoreCollectionOutcome(BaseModel):
     collection: StrictStr
     expected: StrictInt
     restored: StrictInt
-    status: StrictStr = Field(description="'restored' (full), 'partial' (restored < expected), or 'failed'")
+    status: StrictStr = Field(description="'restored' (full), 'partial' (restored < expected), 'failed', or 'skipped' (left out on purpose: a restore beside the source does not clone history, telemetry or secrets)")
     reason: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["collection", "expected", "restored", "status", "reason"]
 

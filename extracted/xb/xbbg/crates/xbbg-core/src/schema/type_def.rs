@@ -9,9 +9,9 @@ use crate::datatype::DataType;
 use crate::ffi;
 use crate::name::Name;
 
+use super::SchemaStatus;
 use super::constant::ConstantList;
 use super::element_def::SchemaElementDefinition;
-use super::SchemaStatus;
 
 /// Definition of a schema type.
 ///
@@ -134,20 +134,11 @@ impl<'owner> SchemaTypeDefinition<'owner> {
     }
 
     /// Get the deprecation status of this type.
-    #[cfg(feature = "live")]
     pub fn status(&self) -> SchemaStatus {
         unsafe {
             let status = ffi::blpapi_SchemaTypeDefinition_status(self.ptr);
             SchemaStatus::from_raw(status)
         }
-    }
-
-    /// Get the deprecation status of this type.
-    ///
-    /// Note: In mock mode, always returns Active.
-    #[cfg(not(feature = "live"))]
-    pub fn status(&self) -> SchemaStatus {
-        SchemaStatus::Active
     }
 }
 

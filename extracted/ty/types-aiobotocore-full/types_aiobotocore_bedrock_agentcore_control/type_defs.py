@@ -879,6 +879,7 @@ __all__ = (
     "RatingScaleOutputTypeDef",
     "RatingScaleTypeDef",
     "ReasoningConfigurationTypeDef",
+    "RecordExpirySpecificationTypeDef",
     "RecordingConfigTypeDef",
     "ReflectionConfigurationTypeDef",
     "RegistryRecordCredentialProviderConfigurationOutputTypeDef",
@@ -1675,6 +1676,11 @@ class SemanticExtractionOverrideTypeDef(TypedDict):
 class UserPreferenceExtractionOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
+
+
+class RecordExpirySpecificationTypeDef(TypedDict):
+    recordExpiryDurationDays: NotRequired[int]
+    action: NotRequired[Literal["REMOVE"]]
 
 
 class LambdaTransformConfigurationTypeDef(TypedDict):
@@ -7439,6 +7445,7 @@ MemoryStrategyTypeDef = TypedDict(
         "updatedAt": NotRequired[datetime],
         "status": NotRequired[MemoryStrategyStatusType],
         "memoryRecordSchema": NotRequired[MemoryRecordSchemaOutputTypeDef],
+        "recordExpiryDurationDays": NotRequired[int],
     },
 )
 
@@ -7548,6 +7555,7 @@ class SemanticMemoryStrategyInputTypeDef(TypedDict):
     namespaces: NotRequired[Sequence[str]]
     namespaceTemplates: NotRequired[Sequence[str]]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class SummaryMemoryStrategyInputTypeDef(TypedDict):
@@ -7556,6 +7564,7 @@ class SummaryMemoryStrategyInputTypeDef(TypedDict):
     namespaces: NotRequired[Sequence[str]]
     namespaceTemplates: NotRequired[Sequence[str]]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
@@ -7564,6 +7573,7 @@ class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
     namespaces: NotRequired[Sequence[str]]
     namespaceTemplates: NotRequired[Sequence[str]]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class CustomReflectionConfigurationInputTypeDef(TypedDict):
@@ -7583,6 +7593,7 @@ class EpisodicMemoryStrategyInputTypeDef(TypedDict):
     namespaceTemplates: NotRequired[Sequence[str]]
     reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class ModifyReflectionConfigurationTypeDef(TypedDict):
@@ -7612,6 +7623,7 @@ class CustomMemoryStrategyInputTypeDef(TypedDict):
     namespaceTemplates: NotRequired[Sequence[str]]
     configuration: NotRequired[CustomConfigurationInputTypeDef]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class ModifyMemoryStrategyInputTypeDef(TypedDict):
@@ -7621,6 +7633,7 @@ class ModifyMemoryStrategyInputTypeDef(TypedDict):
     namespaceTemplates: NotRequired[Sequence[str]]
     configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 
 class MemoryStrategyInputTypeDef(TypedDict):

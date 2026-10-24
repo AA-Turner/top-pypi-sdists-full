@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyngrok
-Version: 9.0.2
+Version: 9.0.3
 Summary: A Python wrapper for ngrok; programmatic tunnels for ingress, webhooks, demos, and APIs
 Author-email: Alex Laird <contact@alexlaird.com>
 Maintainer-email: Alex Laird <contact@alexlaird.com>
@@ -49,14 +49,13 @@ Requires-Dist: flake8; extra == "dev"
 Requires-Dist: flake8-pyproject; extra == "dev"
 Requires-Dist: pep8-naming; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: Sphinx<8.2; extra == "docs"
+Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinx-notfound-page; extra == "docs"
-Requires-Dist: sphinx_autodoc_typehints==1.25.2; extra == "docs"
+Requires-Dist: sphinx_autodoc_typehints; extra == "docs"
 Requires-Dist: sphinx-substitution-extensions; extra == "docs"
 Requires-Dist: sphinx-sitemap; extra == "docs"
 Requires-Dist: sphinxext-opengraph; extra == "docs"
 Requires-Dist: furo; extra == "docs"
-Requires-Dist: sphinxcontrib-googleanalytics; extra == "docs"
 Requires-Dist: mypy; extra == "docs"
 Requires-Dist: types-PyYAML; extra == "docs"
 Dynamic: license-file

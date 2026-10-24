@@ -151,7 +151,7 @@ def _run_frontend(documents: dict[str, str], chunk: int) -> dict[str, list[dict[
         # cwd. Stage the cross-repo bridge inside the frontend checkout so both
         # its node_modules packages and tsconfig aliases resolve in CI.
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".ts", dir=root, delete=False
+            mode="w", suffix=".mts", dir=root, delete=False
         ) as staged_file:
             staged_file.write(script.read_text())
             staged = Path(staged_file.name)

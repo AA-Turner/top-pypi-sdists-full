@@ -58,10 +58,10 @@ def fused_chunk_ttt_linear_fwd_kernel(
     STORE_FINAL_STATE: tl.constexpr,
     IS_VARLEN: tl.constexpr,
 ):
-    i_nh = tl.program_id(0)
+    i_nh = tl.program_id(0).to(tl.int64)
     i_n, i_h = i_nh // H, i_nh % H
     if IS_VARLEN:
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
         NT = tl.cdiv(T, BT)
     else:
@@ -133,7 +133,7 @@ def fused_chunk_ttt_linear_fwd_kernel(
 
         b_o = - tl.dot(b_e[:, None] * b_A.to(b_v2.dtype), b_v2, allow_tf32=False)
         b_o += b_hb[None, :] - tl.dot(b_Ae.to(b_v2.dtype), b_v2, allow_tf32=False)
-        b_o += tl.dot(b_q, b_h.to(b_q.dtype), allow_tf32=False)
+        b_o = tl.dot(b_q, b_h.to(b_q.dtype), b_o, allow_tf32=False)
         b_e_last = tl.load(p_e_last)
         b_h = b_h - tl.dot(b_e_last * b_k, b_v2.to(b_k.dtype), allow_tf32=False)
         b_hb = b_hb - tl.sum(b_e_last * b_v2.to(b_k.dtype), axis=0)
@@ -189,7 +189,7 @@ def fused_chunk_ttt_linear_bwd_kernel_h(
     USE_INITIAL_STATE: tl.constexpr,
     USE_INITIAL_STATE_B: tl.constexpr,
 ):
-    i_nh = tl.program_id(0)
+    i_nh = tl.program_id(0).to(tl.int64)
     i_n, i_h = i_nh // H, i_nh % H
     bos, _ = i_n * T, i_n * T + T
     NT = tl.cdiv(T, BT)
@@ -325,7 +325,7 @@ def fused_chunk_ttt_linear_bwd_kernel_dh(
     USE_FINAL_STATE_GRADIENT: tl.constexpr,
     USE_FINAL_STATE_GRADIENT_B: tl.constexpr,
 ):
-    i_nh = tl.program_id(0)
+    i_nh = tl.program_id(0).to(tl.int64)
     i_n, i_h = i_nh // H, i_nh % H
     bos, _ = i_n * T, i_n * T + T
     NT = tl.cdiv(T, BT)
@@ -768,7 +768,6 @@ def fused_chunk_ttt_linear(
     initial_state_bias: torch.Tensor | None = None,
     output_final_state: bool = False,
     cu_seqlens: torch.LongTensor | None = None,
-    **kwargs,
 ):
     r"""
     Args:
@@ -811,10 +810,6 @@ def fused_chunk_ttt_linear(
     assert k.shape[-1] == v.shape[-1], "DK must equal to DV."
     if isinstance(eta, float):
         eta = torch.full_like(q[:, :, :, :1], eta)
-    if 'head_first' in kwargs:
-        raise DeprecationWarning(
-            "head_first has been removed. Inputs must be in `[B, T, H, ...]` format.",
-        )
     if cu_seqlens is not None:
         if q.shape[0] != 1:
             raise ValueError(

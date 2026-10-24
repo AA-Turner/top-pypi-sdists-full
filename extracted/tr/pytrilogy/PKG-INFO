@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.404
+Version: 0.3.409
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -30,8 +30,8 @@ Requires-Dist: playwright ; extra == 'report'
 Requires-Dist: fastapi ; extra == 'serve'
 Requires-Dist: uvicorn ; extra == 'serve'
 Requires-Dist: snowflake-sqlalchemy ; extra == 'snowflake'
-Requires-Dist: haybarn ; extra == 'vgi'
-Requires-Dist: vgi-python ; python_full_version >= '3.13' and extra == 'vgi'
+Requires-Dist: haybarn>=1.5.6rc1 ; extra == 'vgi'
+Requires-Dist: vgi-python>=0.46 ; python_full_version >= '3.13' and extra == 'vgi'
 Provides-Extra: ai
 Provides-Extra: analysis
 Provides-Extra: bigquery

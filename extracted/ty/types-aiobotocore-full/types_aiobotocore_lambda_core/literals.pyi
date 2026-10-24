@@ -24,6 +24,7 @@ else:
 __all__ = (
     "ComputeResourceTypeType",
     "LambdaCoreServiceName",
+    "ListNetworkConnectorVersionsPaginatorName",
     "ListNetworkConnectorsPaginatorName",
     "NetworkConnectorLastUpdateStatusReasonCodeType",
     "NetworkConnectorLastUpdateStatusType",
@@ -37,7 +38,8 @@ __all__ = (
     "ServiceName",
 )
 
-ComputeResourceTypeType = Literal["MicroVm"]
+ComputeResourceTypeType = Literal["MicroVm", "WebFunction"]
+ListNetworkConnectorVersionsPaginatorName = Literal["list_network_connector_versions"]
 ListNetworkConnectorsPaginatorName = Literal["list_network_connectors"]
 NetworkConnectorLastUpdateStatusReasonCodeType = Literal[
     "DisallowedByVpcEncryptionControl",
@@ -46,6 +48,7 @@ NetworkConnectorLastUpdateStatusReasonCodeType = Literal[
     "InternalError",
     "InvalidSecurityGroup",
     "InvalidSubnet",
+    "SecurityGroupsPerInterfaceLimitExceeded",
     "SubnetOutOfIPAddresses",
 ]
 NetworkConnectorLastUpdateStatusType = Literal["Failed", "InProgress", "Successful"]
@@ -56,6 +59,7 @@ NetworkConnectorStateReasonCodeType = Literal[
     "InternalError",
     "InvalidSecurityGroup",
     "InvalidSubnet",
+    "SecurityGroupsPerInterfaceLimitExceeded",
     "SubnetOutOfIPAddresses",
 ]
 NetworkConnectorStateType = Literal[
@@ -217,13 +221,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -291,6 +294,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -425,6 +429,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -475,7 +480,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -502,7 +506,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_network_connectors"]
+PaginatorName = Literal["list_network_connector_versions", "list_network_connectors"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

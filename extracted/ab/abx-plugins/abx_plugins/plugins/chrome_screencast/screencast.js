@@ -4,7 +4,7 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
   const session = await page.createCDPSession();
   let stopped = false, pending = null, timer = null, lastFrameAt = 0;
   let navigation = Promise.resolve();
-  let captureOptions;
+  let captureOptions, acquiring = false;
   const minFrameMs = 1000 / fps;
   const flush = () => {
     timer = null;
@@ -18,20 +18,24 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
   };
   const navigated = () => {
     if (stopped) return;
-    clearTimeout(timer); timer = null; pending = null;
+    clearTimeout(timer); timer = null; pending = null; acquiring = false;
     // Frame commit can precede an active renderer page, so restarting there
     // fails with "Not attached to an active page". DOMContentLoaded belongs to
     // the ready main document. Rebind its surface and serialize final cleanup.
     navigation = navigation.then(async () => {
       if (stopped) return;
+      clearTimeout(timer); timer = null; pending = null;
       await session.send("Page.stopScreencast");
-      if (!stopped) await session.send("Page.startScreencast", captureOptions);
+      if (!stopped) {
+        acquiring = true;
+        await session.send("Page.startScreencast", captureOptions);
+      }
     }).catch(error => {
       if (!stopped) console.error(`Screencast navigation failed: ${error.message}`);
     });
   };
   const stop = async () => {
-    stopped = true; clearTimeout(timer); pending = null;
+    stopped = true; acquiring = false; clearTimeout(timer); pending = null;
     page.off("domcontentloaded", navigated);
     await navigation;
     session.removeAllListeners("Page.screencastFrame");
@@ -44,20 +48,43 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
     const viewport = metrics.visualViewport || metrics.layoutViewport || {};
     session.on("Page.screencastFrame", frame => {
       if (stopped) return;
-      pending = frame;
+      const firstFrame = acquiring;
+      acquiring = false;
+      if (firstFrame) pending = frame;
+      // A late encoded frame can arrive after stop has completed and flush has
+      // cleared pending. Only the first frame owns this acquisition cycle.
+      // Send stop before ACK frees a native frame slot for another paint.
+      const stopCapture = firstFrame ? session.send("Page.stopScreencast") : null;
       // Acknowledge receipt immediately: Chrome drops paints when its frame
       // window fills, so delaying ACKs can lose a static page's final image.
-      // Throttle delivery below while retaining the latest received frame.
+      // Stop native acquisition between samples instead of encoding frames
+      // that delivery would discard. Restart also captures a static final paint.
       void session.send("Page.screencastFrameAck", { sessionId: frame.sessionId }).catch(() => {});
-      const wait = minFrameMs - (Date.now() - lastFrameAt);
-      if (wait <= 0) { clearTimeout(timer); flush(); }
-      else if (!timer) timer = setTimeout(flush, wait);
+      if (!firstFrame) return;
+      navigation = Promise.all([navigation, stopCapture]).then(() => {
+        if (stopped) return;
+        clearTimeout(timer); flush();
+        timer = setTimeout(() => {
+          timer = null;
+          navigation = navigation.then(async () => {
+            if (!stopped) {
+              acquiring = true;
+              await session.send("Page.startScreencast", captureOptions);
+            }
+          }).catch(error => {
+            if (!stopped) console.error(`Screencast frame failed: ${error.message}`);
+          });
+        }, Math.max(0, minFrameMs - (Date.now() - lastFrameAt)));
+      }).catch(error => {
+        if (!stopped) console.error(`Screencast frame failed: ${error.message}`);
+      });
     });
     captureOptions = {
       format: "jpeg", quality,
       maxWidth: Math.max(1, Math.floor((viewport.clientWidth || 1440) * scale)),
       maxHeight: Math.max(1, Math.floor((viewport.clientHeight || 900) * scale)), everyNthFrame: 1,
     };
+    acquiring = true;
     await session.send("Page.startScreencast", captureOptions);
     page.on("domcontentloaded", navigated);
     return stop;

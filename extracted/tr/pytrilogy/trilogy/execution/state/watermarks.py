@@ -2,6 +2,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
@@ -31,7 +32,11 @@ from trilogy.execution.state.exceptions import (
 )
 from trilogy.execution.state.isolation import hidden_datasources
 
-WatermarkValueType = str | int | float | datetime | date | None
+WatermarkValueType = str | int | float | Decimal | datetime | date | None
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
 
 
 @dataclass
@@ -102,11 +107,17 @@ class StaleAsset:
     explicit: bool = False
 
 
-def _compare_watermark_values(a: str | float | date, b: str | float | date) -> int:
+def _compare_watermark_values(
+    a: str | float | Decimal | date, b: str | float | Decimal | date
+) -> int:
     """Compare two watermark values, returning -1, 0, or 1.
 
-    Handles type mismatches by comparing string representations.
+    Numbers order by value whatever their python type: a DECIMAL root against
+    a DOUBLE target (a sniffed CSV) is the same order SQL's ``>`` refreshes by.
+    Other type mismatches compare string representations.
     """
+    if _is_number(a) and _is_number(b):
+        return (a > b) - (a < b)  # type: ignore[operator]
     if type(a) is type(b):
         if isinstance(a, datetime):
             a_aware = a.tzinfo is not None
@@ -129,8 +140,8 @@ def _compare_watermark_values(a: str | float | date, b: str | float | date) -> i
 
 
 def _watermark_distance(
-    current: str | float | date, expected: str | float | date
-) -> timedelta | float | None:
+    current: str | float | Decimal | date, expected: str | float | Decimal | date
+) -> timedelta | float | Decimal | None:
     """How far ``current`` trails ``expected``, or None if not measurable.
 
     Ordering (``_compare_watermark_values``) is enough to say *whether* an asset
@@ -149,14 +160,16 @@ def _watermark_distance(
         return expected - current
     if isinstance(current, bool) or isinstance(expected, bool):
         return None
-    if isinstance(current, (int, float)) and isinstance(expected, (int, float)):
-        return expected - current
+    if _is_number(current) and _is_number(expected):
+        if isinstance(current, float) or isinstance(expected, float):
+            return float(expected) - float(current)  # type: ignore[arg-type]
+        return expected - current  # type: ignore[operator]
     return None
 
 
 def within_allowed_lag(
-    current: str | float | date | None,
-    expected: str | float | date,
+    current: str | float | Decimal | date | None,
+    expected: str | float | Decimal | date,
     lag: FreshnessLag,
     key: str,
 ) -> bool:
@@ -306,24 +319,29 @@ def is_missing_table(
     return False
 
 
-# Widths and zone-awareness an engine picks on its own when it stores a value:
-# DuckDB writes a trilogy float as DOUBLE, a count as BIGINT, and keeps a
-# tz-aware source as TIMESTAMPTZ. A numeric the engine computes in floating
-# point (`geo_y`, arithmetic over a double) is stored as DOUBLE too. A declared
-# type change is caught by the model fingerprint, so only a change of kind is
-# drift.
+# Widths an engine picks on its own when it stores a value: DuckDB writes a
+# trilogy float as DOUBLE and a count as BIGINT. A numeric the engine computes
+# in floating point (`geo_y`, arithmetic over a double) is stored as DOUBLE too.
+# A declared type change is caught by the model fingerprint, so only a change of
+# kind is drift.
 _STORAGE_FAMILY = {
     DataType.DOUBLE: DataType.FLOAT,
     DataType.NUMERIC: DataType.FLOAT,
     DataType.BIGINT: DataType.INTEGER,
-    DataType.TIMESTAMP: DataType.DATETIME,
 }
 
+# Zone-awareness is a kind for a table, whose DDL is rendered from the model: a
+# naive column under an aware declaration coerces every write and yields naive
+# watermarks the aware roots cannot be compared with. A file is written by
+# `COPY (select)`, so its awareness is the source's, which a rewrite cannot
+# change - judging it would rebuild forever.
+_FILE_STORAGE_FAMILY = {**_STORAGE_FAMILY, DataType.TIMESTAMP: DataType.DATETIME}
 
-def _same_storage_kind(actual: DataType, expected: DataType) -> bool:
-    return _STORAGE_FAMILY.get(actual, actual) == _STORAGE_FAMILY.get(
-        expected, expected
-    )
+
+def _same_storage_kind(
+    actual: DataType, expected: DataType, family: dict[DataType, DataType]
+) -> bool:
+    return family.get(actual, actual) == family.get(expected, expected)
 
 
 def schema_mismatch(
@@ -343,6 +361,7 @@ def schema_mismatch(
     if _is_table_address(datasource):
         actual = _table_columns(datasource, executor, cache)
         compare_types = True
+        family = _STORAGE_FAMILY
     elif (
         isinstance(address, Address)
         and address.type in DATA_FILE_TYPES
@@ -350,6 +369,7 @@ def schema_mismatch(
     ):
         actual = _file_columns(datasource, executor, cache)
         compare_types = address.type == AddressType.PARQUET
+        family = _FILE_STORAGE_FAMILY
     else:
         return None
     if actual is None:
@@ -374,7 +394,7 @@ def schema_mismatch(
             f"type of {n} ({actual[n].value} vs {expected[n].value})"
             for n in expected
             if actual[n] != DataType.UNKNOWN
-            and not _same_storage_kind(actual[n], expected[n])
+            and not _same_storage_kind(actual[n], expected[n], family)
         ]
     return ", ".join(drift) or None
 

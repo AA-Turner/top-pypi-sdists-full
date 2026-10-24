@@ -51,7 +51,7 @@ def chunk_transform_qk_bwd_kernel_prepare(
     USE_GATE: tl.constexpr,
     RETURN_H: tl.constexpr,
 ):
-    i_t, i_nh = tl.program_id(0).to(tl.int64), tl.program_id(1)
+    i_t, i_nh = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
     i_n, i_hq = i_nh // HQ, i_nh % HQ
     i_h = i_hq // G
 
@@ -59,11 +59,11 @@ def chunk_transform_qk_bwd_kernel_prepare(
         i_n, i_t = tl.load(indices + i_t * 2).to(tl.int32), tl.load(indices + i_t * 2 + 1).to(tl.int64)
         bos, eos = tl.load(offsets + i_n).to(tl.int64), tl.load(offsets + i_n + 1).to(tl.int64)
         T = (eos - bos).to(tl.int32)
-        boh = tl.load(chunk_offsets + i_n).to(tl.int32)
+        boh = tl.load(chunk_offsets + i_n).to(tl.int64)
     else:
         bos, eos = (i_n * T).to(tl.int64), (i_n * T + T).to(tl.int64)
         NT = tl.cdiv(T, BT)
-        boh = i_n * NT
+        boh = (i_n * NT).to(tl.int64)
 
     sm_scale = scale * 1.44269504
     # offset calculations

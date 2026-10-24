@@ -5,7 +5,6 @@ import { initialize_fullscreen_render } from "./panel_fullscreen_renwin_sync";
 import { vtkns } from "./util";
 const CONTEXT_NAME = "panel";
 export class VTKSynchronizedPlotView extends AbstractVTKView {
-    static __name__ = "VTKSynchronizedPlotView";
     _synchronizer_context;
     _arrays;
     registerArray;
@@ -80,7 +79,6 @@ export class VTKSynchronizedPlotView extends AbstractVTKView {
     }
 }
 export class VTKSynchronizedPlot extends AbstractVTKPlot {
-    static __name__ = "VTKSynchronizedPlot";
     outline;
     outline_actor;
     static __module__ = "panel.models.vtk";

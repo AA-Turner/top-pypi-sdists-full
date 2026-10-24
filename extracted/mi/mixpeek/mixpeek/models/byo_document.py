@@ -18,8 +18,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.byo_document_acl import BYODocumentACL
+from mixpeek.models.vectors_value import VectorsValue
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,9 +30,10 @@ class BYODocument(BaseModel):
     A single document with user-provided vectors and payload.
     """ # noqa: E501
     document_id: StrictStr = Field(description="Unique document identifier. Upserting with an existing ID replaces the document.")
-    vectors: Dict[str, List[Union[StrictFloat, StrictInt]]] = Field(description="Named vectors as a map of vector_name -> embedding values. Example: {\"text-embedding\": [0.1, 0.2, ...], \"image-embedding\": [0.3, ...]}")
+    vectors: Dict[str, VectorsValue] = Field(description="Named vectors as a map of vector_name -> value. The value's shape sets its type: a list of floats is dense, a list of float lists is a multi-vector (one row per token), and an object with indices and values is sparse. A document reads back every type it was written with when vectors are requested. Example: {\"text-embedding\": [0.1, 0.2, ...], \"splade\": {\"indices\": [3, 17], \"values\": [0.5, 1.2]}, \"colbert\": [[0.1, 0.2], [0.3, 0.4]]}")
     payload: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary JSON payload stored alongside the vectors.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Document metadata stored in _internal.metadata. Filterable via attribute queries.")
+    acl: Optional[BYODocumentACL] = Field(default=None, description="Document ACL stored with the document (``_internal._acl``): the same read, write and public fields as the ACL update route, set in this call. Organization-scoped API keys only; a user-scoped key or end-user token is refused with 403. Omit it to store the document with no ACL, as before.")
     source_type: Optional[StrictStr] = Field(default=None, description="Immediate-parent type. Defaults to 'direct_upsert' when omitted. Set 'bucket'/'collection' to import a document carrying real lineage.")
     root_object_id: Optional[StrictStr] = Field(default=None, description="Root object id (decomposition-tree root). All documents derived from the same source object share it.")
     root_bucket_id: Optional[StrictStr] = Field(default=None, description="Bucket id holding the root object.")
@@ -40,7 +43,7 @@ class BYODocument(BaseModel):
     lineage_path: Optional[StrictStr] = Field(default=None, description="Materialized lineage path (e.g. 'bkt_123/col_456/col_789').")
     lineage_chain: Optional[List[Dict[str, Any]]] = Field(default=None, description="Ordered processing steps from root object to this document; each step carries collection_id, feature_extractor_id, document_id, timestamp.")
     content_hash: Optional[StrictStr] = Field(default=None, description="SHA256 content hash of the source object. Supplying it lets a later heal/reprocess recognise the cached derivation potency and skip recompute. Stored at _internal.content_hash.")
-    __properties: ClassVar[List[str]] = ["document_id", "vectors", "payload", "metadata", "source_type", "root_object_id", "root_bucket_id", "source_object_id", "source_document_id", "source_collection_id", "lineage_path", "lineage_chain", "content_hash"]
+    __properties: ClassVar[List[str]] = ["document_id", "vectors", "payload", "metadata", "acl", "source_type", "root_object_id", "root_bucket_id", "source_object_id", "source_document_id", "source_collection_id", "lineage_path", "lineage_chain", "content_hash"]
 
     @field_validator('source_type')
     def source_type_validate_enum(cls, value):
@@ -91,6 +94,16 @@ class BYODocument(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each value in vectors (dict)
+        _field_dict = {}
+        if self.vectors:
+            for _key_vectors in self.vectors:
+                if self.vectors[_key_vectors]:
+                    _field_dict[_key_vectors] = self.vectors[_key_vectors].to_dict()
+            _dict['vectors'] = _field_dict
+        # override the default output from pydantic by calling `to_dict()` of acl
+        if self.acl:
+            _dict['acl'] = self.acl.to_dict()
         return _dict
 
     @classmethod
@@ -104,9 +117,15 @@ class BYODocument(BaseModel):
 
         _obj = cls.model_validate({
             "document_id": obj.get("document_id"),
-            "vectors": obj.get("vectors"),
+            "vectors": dict(
+                (_k, VectorsValue.from_dict(_v))
+                for _k, _v in obj["vectors"].items()
+            )
+            if obj.get("vectors") is not None
+            else None,
             "payload": obj.get("payload"),
             "metadata": obj.get("metadata"),
+            "acl": BYODocumentACL.from_dict(obj["acl"]) if obj.get("acl") is not None else None,
             "source_type": obj.get("source_type"),
             "root_object_id": obj.get("root_object_id"),
             "root_bucket_id": obj.get("root_bucket_id"),

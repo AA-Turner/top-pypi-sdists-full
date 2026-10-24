@@ -33,7 +33,8 @@ by pass, the last agent's report overwrote the rest: a machine whose Claude Code
 tap was current read "tap: not installed" because Kimi Code ran last with no
 Probe plugins. So the wizard runs its passes inside `merged_run`, which holds
 them and sends one report when the run ends: per component, the pass with the
-most informative result (`RESULT_PRIORITY`), with the agent it came from.
+most informative result (`RESULT_PRIORITY`), with the agent it came from -- a
+failed pass's own failure first, so a failed run always names what failed.
 
 Offline, signed out, an old server (404) or a refused body: dropped or kept for
 later, silently. A report is telemetry; nothing waits on it.
@@ -41,7 +42,6 @@ later, silently. A report is telemetry; nothing waits on it.
 
 from __future__ import annotations
 
-import getpass
 import json
 import os
 import re
@@ -50,18 +50,17 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from pathlib import Path
 
 import httpx
 
 from probe import version_policy
 from probe._compat import StrEnum
+from probe._shared import scrub
 from probe.cli import autoupdate, updater, versions
 from probe.cli.capabilities import tracking_plugin_name
 from probe.client_headers import client_version_headers, device_headers
 from probe.sdk.config import resolve
 from probe.sdk.device_identity import device_instance_id
-from probe.sdk.redaction import scrub_text
 from probe.sdk.surface import SURFACE_HEADER, Surface
 from probe.sdk.tls import ssl_context
 
@@ -144,9 +143,18 @@ _SKIP_CODES = {
     autoupdate.SKIP_LIVENESS_UNPROVABLE: "liveness_unprovable",
 }
 _OK_RESULTS = (Result.UPDATED, Result.CURRENT)
+#: The results that say a component did not end where the update meant it to.
+#: A FAILED attempt always carries one of these, with its detail, on the
+#: component that failed it -- the report's whole point is to name it. Not every
+#: one of them fails an attempt: an agent not on PATH (`not_found_on_path`), a
+#: CLI the updater refuses to touch or a pi package another update holds
+#: (`behind`) are each a skip, not a failure.
+FAILING_RESULTS = frozenset(
+    (Result.ERROR, Result.REFRESH_FAILED, Result.NOT_FOUND_ON_PATH, Result.BEHIND)
+)
 
-#: Which result a merged run reports for a component when its agents disagree,
-#: most informative first: a failure beats a cause beats "behind" beats a
+#: Which result a merged run reports for a component when its agents disagree
+#: (after a failed pass's own failure, `merge_passes`), most informative first: a failure beats a cause beats "behind" beats a
 #: success, and "not installed" -- which says only that THIS agent lacks it --
 #: loses to everything. So a Kimi Code pass with no Probe plugins can no longer
 #: hide a Claude Code tap that is current, and a Codex tap left behind is not
@@ -188,59 +196,15 @@ def _version(value: str | None) -> str | None:
     return value if _VERSION.match(value) else None
 
 
-#: Windows home folders in every spelling a child's output carries them: plain,
-#: as Python's escaped repr (`'C:\\Users\\alice'` in an OSError), with forward
-#: slashes, in any letter case. `scrub_text` knows only the plain one.
-_WINDOWS_HOME = re.compile(
-    r"[A-Za-z]:(?:\\{1,2}|/)(?:users|documents and settings)(?:\\{1,2}|/)[^\\/\s'\"]+",
-    re.IGNORECASE,
-)
-
-
-def _home_and_user() -> tuple[str, str]:
-    """This machine's home folder and login name ("" when unreadable)."""
-    try:
-        home = str(Path.home())
-    except Exception:  # noqa: BLE001 - no HOME: nothing to remove
-        home = ""
-    try:
-        user = getpass.getuser()
-    except Exception:  # noqa: BLE001
-        user = ""
-    return home, user
-
-
-def _strip_own_identity(text: str) -> str:
-    """This machine's home folder -> `~` and login name -> `<user>`, BEFORE any
-    pattern runs. A pattern only knows the usual places (`/home/x`,
-    `/Users/x`); a home at `/fsx/dave` or `/data/users/carol` is caught only by
-    knowing it. The home is matched plain, with doubled backslashes (Python's
-    repr of a Windows path) and with forward slashes, in any letter case."""
-    home, user = _home_and_user()
-    if len(home) > 1:
-        spellings = {home, home.replace("\\", "\\\\"), home.replace("\\", "/")}
-        for spelling in sorted(spellings, key=len, reverse=True):
-            text = re.sub(re.escape(spelling), "~", text, flags=re.IGNORECASE)
-    # Whole words only and 3+ characters: a two-letter login would otherwise
-    # eat every `uv` in the text.
-    if len(user) >= 3:
-        text = re.sub(
-            rf"(?<![A-Za-z0-9_.-]){re.escape(user)}(?![A-Za-z0-9_])", "<user>", text,
-            flags=re.IGNORECASE,
-        )
-    return text
-
-
 def _detail(text: str | None) -> str:
     """One scrubbed line, clipped. This machine's own home and login name go
-    first, then every home-shaped path and credential (`scrub_text`, plus the
-    Windows spellings it misses). The server strips home directories again: it
-    does not trust this."""
+    first, then every home-shaped path and credential (`probe._shared.scrub`,
+    shared with the diagnostic reports). The server strips home directories
+    again: it does not trust this."""
     if not text:
         return ""
     try:
-        text = _WINDOWS_HOME.sub("~", _strip_own_identity(text))
-        flat = " ".join(scrub_text(text).split())
+        flat = " ".join(scrub.scrub(text).split())
     except Exception:  # noqa: BLE001 - withhold, never fail the report
         return "detail withheld: it could not be scrubbed"
     if len(flat) > DETAIL_MAX_CHARS:
@@ -300,20 +264,6 @@ def cli_component(
     return _component(res.before, res.after, target, result, res.message)
 
 
-def _named_version(listing: str | None, name: str) -> str | None:
-    """`name`'s version out of Codex/Kimi's `a=1.0, b=2.0` listing; a bare
-    version (Claude's) passes through."""
-    if not listing:
-        return None
-    if "=" not in listing:
-        return listing
-    for part in listing.split(","):
-        key, _, value = part.strip().partition("=")
-        if key == name:
-            return value or None
-    return None
-
-
 def plugin_component(
     pres: updater.PluginResult | None, *, target: str | None, source: str
 ) -> dict | None:
@@ -321,18 +271,19 @@ def plugin_component(
     if pres is None:
         return None
     name = tracking_plugin_name(source)
-    before = _named_version(pres.before, name)
-    after = _named_version(pres.after, name)
+    before = updater.listed_version(pres.before, name)
+    after = updater.listed_version(pres.after, name)
     if not pres.attempted:
         result = Result.NOT_FOUND_ON_PATH if pres.missing_binary else Result.NOT_INSTALLED
     elif pres.confirmed:
         result = Result.UPDATED if pres.changed else Result.CURRENT
+    elif updater.nothing_installed(pres, source):
+        # None of Probe's plugins in the agent's own list, before or after: the
+        # update had nothing to move (its command failing then is the
+        # consequence). The outcome reads the same rule, so this is no failure.
+        result = Result.NOT_INSTALLED
     elif pres.refresh_failed:
         result = Result.REFRESH_FAILED
-    elif before is None and after is None:
-        # Nothing in the agent's own list, before or after: the update had
-        # nothing to move (its command failing then is the consequence).
-        result = Result.NOT_INSTALLED
     elif pres.command_failed:
         result = Result.ERROR
     elif after and target and updater.is_newer(target, after):
@@ -355,7 +306,13 @@ def tap_component(pres: updater.PluginResult | None, *, target: str | None) -> d
         detail = pres.message
     elif not after:
         if before:
-            result = Result.ERROR  # it was there before the update and is not now
+            # It was there before the update and is not now: a failed update
+            # (`tap_verdict`). Its own failure if a command said one, else what
+            # happened -- the no-op sentences ("did not advance") are not it.
+            result = Result.ERROR
+            if not detail or detail in (updater.TAP_NOOP, updater.CODEX_TAP_NOOP):
+                seen = "could not be confirmed" if pres.list_unreadable else "is not there"
+                detail = f"tap {before} was installed before the update and {seen} after it"
         elif legacy:
             result = Result.LEGACY_INSTALLED
             detail = f"installed only as {', '.join(legacy)}, which this update does not move"
@@ -376,16 +333,38 @@ def tap_component(pres: updater.PluginResult | None, *, target: str | None) -> d
         result = Result.ERROR  # its own update command failed
     else:
         result = Result.BEHIND
+        # It moved, but not far enough: no command failed and no no-op is
+        # named, so say what the local line says rather than nothing.
+        detail = detail or f"still {after} after the update, behind the latest {target}"
     return _component(before, after, target, result, detail)
 
 
-def pi_component(step, *, target: str | None) -> dict | None:
-    """pi's package, which is the plugin half on pi (`upgrading._PiUpdate`)."""
+def pi_component(step, *, target: str | None, harness: str | None = None) -> dict | None:
+    """pi's package, which is the plugin half on pi (`upgrading._PiUpdate`).
+    `harness` names pi on a pass run for another agent (`plugin_half`); the
+    report's own harness is used otherwise."""
     if step is None:
         return None
     result = _PI_RESULTS.get(step.code, Result.BEHIND)
     detail = step.detail or (step.lines[-1].strip() if step.lines else "")
-    return _component(step.before, step.after, target, result, detail)
+    component = _component(step.before, step.after, target, result, detail)
+    if _harness(harness):
+        component["harness"] = harness
+    return component
+
+
+def plugin_half(plugin: dict | None, package: dict | None) -> dict | None:
+    """The plugin slot of a pass for a marketplace agent (Claude Code, Codex,
+    Kimi Code), which also moves pi's package (`upgrading._update_pi_package`).
+
+    `package` is pi's package component when its step FAILED (the caller passes
+    None otherwise), and that failure fails the pass. Its plugin slot used to carry
+    the marketplace plugin alone, which had moved: a report that read updated
+    across the board and failed. The more informative of the two by
+    `RESULT_PRIORITY`, the plugin's own on a tie -- so a failed pi package is
+    named unless the plugin failed too."""
+    candidates = [c for c in (plugin, package) if c is not None]
+    return min(candidates, key=_rank) if candidates else None
 
 
 def _harness(source: str | None) -> str | None:
@@ -428,7 +407,9 @@ def attempt_report(
 
 
 def _from_harness(component: dict | None, harness: str | None) -> dict | None:
-    return None if component is None else {**component, "harness": harness}
+    """`component` tagged with the pass's agent, unless it names its own (pi's
+    package on another agent's pass, `plugin_half`)."""
+    return None if component is None else {"harness": harness, **component}
 
 
 def _rank(component: dict) -> int:
@@ -438,15 +419,30 @@ def _rank(component: dict) -> int:
         return len(RESULT_PRIORITY)
 
 
+def _named_failure(report: dict, component: dict) -> bool:
+    """`component` is what failed `report`'s pass: a failing result on a
+    failed pass."""
+    try:
+        failing = Result(component.get("result")) in FAILING_RESULTS
+    except ValueError:
+        failing = False
+    return failing and report.get("outcome") == Outcome.FAILED
+
+
 def merge_passes(reports: list[dict]) -> dict:
     """One report for a run made of several agents' passes.
 
     Per component, the pass with the most informative result
     (`RESULT_PRIORITY`; on a tie, the earlier pass) -- its versions, detail and
-    agent travel with it, never mixed with another pass's. The run failed if any
-    pass failed; it is dated by its first pass; the plugin ids found under a
-    retired id are the union. The top-level `harness` is the first pass's (the
-    one that ran the CLI upgrade); each component carries its own."""
+    agent travel with it, never mixed with another pass's. EXCEPT that a failed
+    pass's failing result comes first: the run failed because of it, and an
+    agent missing from PATH (`not_found_on_path`) or a tap under a retired id
+    (`legacy_installed`) on a pass that did NOT fail outranked a tap left
+    `behind` by the pass that did, so the merged report failed naming nothing
+    that failed. The run failed if any pass failed; it is dated by its first
+    pass; the plugin ids found under a retired id are the union. The top-level
+    `harness` is the first pass's (the one that ran the CLI upgrade); each
+    component carries its own."""
     if len(reports) == 1:
         return reports[0]
     merged = dict(reports[0])
@@ -457,8 +453,12 @@ def merge_passes(reports: list[dict]) -> dict:
     if times:
         merged["attempted_at"] = min(times)
     for name in ("cli", "plugin", "tap"):
-        candidates = [r[name] for r in reports if r.get(name)]
-        merged[name] = min(candidates, key=_rank) if candidates else None
+        candidates = [(r, r[name]) for r in reports if r.get(name)]
+        merged[name] = (
+            min(candidates, key=lambda c: (not _named_failure(*c), _rank(c[1])))[1]
+            if candidates
+            else None
+        )
     for flag in ("claude_found", "codex_found"):
         merged[flag] = any(r.get(flag) for r in reports)
     merged["legacy_plugin_ids"] = list(
@@ -483,10 +483,15 @@ def merged_run() -> Iterator[None]:
         yield
         return
     _run_passes = []
+    started = time.time()
     try:
         # The local record (`probe doctor`) merges the same passes.
         with autoupdate.merged_attempts():
-            yield
+            try:
+                yield
+            except SystemExit as exc:
+                _stopped_pass(exc, started)
+                raise
     finally:
         passes, _run_passes = _run_passes, None
         if passes:
@@ -494,6 +499,49 @@ def merged_run() -> Iterator[None]:
                 _send(merge_passes([report for report, _base in passes]), passes[-1][1])
             except Exception:  # noqa: BLE001 - telemetry must never break its caller
                 pass
+
+
+#: `probe.core.events._stop`'s exit statuses (128 + the signal): SIGTERM or
+#: SIGHUP ended the run wherever it was.
+_STOP_SIGNALS = ("SIGTERM", "SIGHUP")
+
+
+def _stopped_pass(exc: SystemExit, started: float) -> None:
+    """A run SIGTERM or SIGHUP ended (the Probe service stops an update past
+    its time limit, `probe.service.updater.UPDATE_TIMEOUT_S`) fails, and its
+    report and local record say so: one more failed pass, its CLI half the
+    stop. The passes it finished keep their own results; without this a run
+    stopped in its first pass sent nothing, and one stopped later sent what
+    the finished passes said, success included. Never raises."""
+    try:
+        import signal
+
+        name = next(
+            (n for n in _STOP_SIGNALS if hasattr(signal, n) and exc.code == 128 + int(getattr(signal, n))), None
+        )
+        if name is None or _run_passes is None:
+            return
+        from probe import __version__
+
+        ran = time.time() - started
+        took = f"{ran / 60:.0f} min" if ran >= 120 else f"{ran:.0f} s"
+        detail = f"stopped by {name} after {took}, before the update finished"
+        now = int(time.time())
+        autoupdate.record_attempt(
+            autoupdate.Attempt(at=now, ok=False, detail=detail, from_version=__version__)
+        )
+        report = attempt_report(
+            trigger=trigger_from_env(Trigger.MANUAL),
+            ok=False,
+            at=now,
+            source=None,
+            cli=_component(__version__, versions.cli_version(), None, Result.ERROR, detail),
+            plugin=None,
+            tap=None,
+        )
+        _run_passes.append((report, _run_passes[-1][1] if _run_passes else None))
+    except Exception:  # noqa: BLE001 - telemetry must never break its caller
+        pass
 
 
 def skip_report(skip: autoupdate.Skip) -> dict:

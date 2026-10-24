@@ -78,25 +78,10 @@ class _Cleaner(NamedAgent):
         raw_text: str
 
 
-def test_named_mandate_run_gets_its_own_request_record() -> None:
+def test_named_mandate_run_is_stamped_with_its_mandate() -> None:
+    # Its own request record needs no flag: every child agent run owns its turn.
     kwargs: dict[str, Any] = {"source_feature": "rag", "request_metadata": {"rag_job": "p"}}
     stamp_mandate_attribution(kwargs, "rag.pdf_page_cleaner", _Cleaner)
-    assert kwargs["independent_request"] is True
-    assert kwargs["source_feature"] == "mandate:rag.pdf_page_cleaner"
-    assert kwargs["request_metadata"]["mandate_key"] == "rag.pdf_page_cleaner"
-
-
-def test_caller_choice_of_request_record_is_kept() -> None:
-    kwargs: dict[str, Any] = {"independent_request": False}
-    stamp_mandate_attribution(kwargs, "rag.pdf_page_cleaner", _Cleaner)
-    assert kwargs["independent_request"] is False
-
-
-def test_runner_that_cannot_take_the_flag_is_never_handed_it() -> None:
-    async def runner(*, inputs: Any, source_feature: str, request_metadata: dict, label: str) -> Any:
-        return None
-
-    kwargs: dict[str, Any] = {}
-    stamp_mandate_attribution(kwargs, "rag.pdf_page_cleaner", _Cleaner, runner)
     assert "independent_request" not in kwargs
+    assert kwargs["source_feature"] == "mandate:rag.pdf_page_cleaner"
     assert kwargs["request_metadata"]["mandate_key"] == "rag.pdf_page_cleaner"

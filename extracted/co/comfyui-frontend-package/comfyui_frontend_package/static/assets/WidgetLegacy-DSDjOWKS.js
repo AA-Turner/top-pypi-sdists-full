@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetLegacy-C_vtAliU.js";export{e as default};

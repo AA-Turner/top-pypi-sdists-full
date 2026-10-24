@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: importlib_metadata
-Version: 9.1.0
+Version: 10.1.0
 Summary: Read metadata from Python packages
 Author-email: "Jason R. Coombs" <jaraco@jaraco.com>
 License-Expression: Apache-2.0

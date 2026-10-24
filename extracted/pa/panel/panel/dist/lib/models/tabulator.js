@@ -5,27 +5,29 @@ import { isArray, isBoolean, isFunction, isString, isNumber } from "@bokehjs/cor
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { Enum } from "@bokehjs/core/kinds";
+import { Model } from "@bokehjs/model";
 import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
-import { TableColumn } from "@bokehjs/models/widgets/tables";
 import { debounce } from "debounce";
+import { cell_formatter } from "./cell_formatters";
 import { comm_settings } from "./comm_manager";
 import { transform_cds_to_records } from "./data";
 import { HTMLBox, HTMLBoxView } from "./layout";
 import { schedule_when, transformJsPlaceholders } from "./util";
-import tabulator_css from "../styles/models/tabulator.css";
+import tabulator_css from "styles/models/tabulator.css";
 export class TableEditEvent extends ModelEvent {
     column;
     row;
-    pre;
-    static __name__ = "TableEditEvent";
-    constructor(column, row, pre) {
+    value;
+    old;
+    constructor(column, row, value, old) {
         super();
         this.column = column;
         this.row = row;
-        this.pre = pre;
+        this.value = value;
+        this.old = old;
     }
     get event_values() {
-        return { model: this.origin, column: this.column, row: this.row, pre: this.pre };
+        return { model: this.origin, column: this.column, row: this.row, value: this.value, old: this.old };
     }
     static {
         this.prototype.event_name = "table-edit";
@@ -34,7 +36,6 @@ export class TableEditEvent extends ModelEvent {
 export class CellClickEvent extends ModelEvent {
     column;
     row;
-    static __name__ = "CellClickEvent";
     constructor(column, row) {
         super();
         this.column = column;
@@ -51,7 +52,6 @@ export class SelectionEvent extends ModelEvent {
     indices;
     selected;
     flush;
-    static __name__ = "SelectionEvent";
     constructor(indices, selected, flush = false) {
         super();
         this.indices = indices;
@@ -309,6 +309,44 @@ const datetimeEditor = function (cell, onRendered, success, cancel) {
     });
     return input;
 };
+function is_spec(obj) {
+    return !(obj instanceof Model);
+}
+// Maps Bokeh CellEditor specs onto native Tabulator editors
+function apply_editor_spec(tab_column, editor) {
+    switch (editor.type) {
+        case "StringEditor":
+            if (editor.completions.length > 0) {
+                tab_column.editor = "list";
+                tab_column.editorParams = { values: editor.completions, autocomplete: true, listOnEmpty: true };
+            }
+            else {
+                tab_column.editor = "input";
+            }
+            break;
+        case "TextEditor":
+            tab_column.editor = "textarea";
+            break;
+        case "IntEditor":
+        case "NumberEditor":
+            tab_column.editor = "number";
+            tab_column.editorParams = { step: editor.step };
+            tab_column.validator = editor.type === "IntEditor" ? "integer" : "numeric";
+            break;
+        case "CheckboxEditor":
+            tab_column.editor = "tickCross";
+            break;
+        case "DateEditor":
+            tab_column.editor = dateEditor;
+            break;
+        case "SelectEditor":
+            tab_column.editor = "list";
+            tab_column.editorParams = { values: editor.options };
+            break;
+        default:
+            tab_column.editor = "input";
+    }
+}
 const nestedEditor = function (cell, editorParams) {
     //cell - the cell component for the editable cell
     const row = cell.getRow().getData();
@@ -346,12 +384,18 @@ function clone_column(group) {
 }
 /** Ignore Tabulator redraw after `after_resize` when `this.el` client size changes by at most this many pixels per axis. */
 const EL_CLIENT_RESIZE_EPSILON_PX = 3;
+/**
+ * Upper bound on waiting for `root.ready`. A view removed before its pending work
+ * settles, e.g. a figure replaced before its scheduled paint, leaves the root's
+ * ready chain pending forever, which would otherwise block every later redraw.
+ */
+const ROOT_READY_TIMEOUT_MS = 250;
 export class DataTabulatorView extends HTMLBoxView {
-    static __name__ = "DataTabulatorView";
     tabulator;
     columns = new Map();
     container = null;
     _tabulator_cell_updating = false;
+    _pending_old_values = new Map();
     _updating_page = false;
     _updating_expanded = false;
     _updating_sort = false;
@@ -364,27 +408,26 @@ export class DataTabulatorView extends HTMLBoxView {
     _lastHorizontalScrollbarLeftPosition = 0;
     _applied_styles = false;
     _building = false;
+    _pending_data = false;
     _redrawing = false;
     /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
     _resize_pending = false;
     _resize_flush = null;
     _restore_scroll = false;
     _updating_scroll = false;
+    _pending_scroll_restores = 0;
+    _restored_scroll = { top: NaN, left: NaN };
     _is_scrolling = false;
     _automatic_page_size = false;
     _last_after_resize_el_width = null;
     _last_after_resize_el_height = null;
+    _fonts_loaded = null;
     connect_signals() {
         super.connect_signals();
         const { configuration, layout, columns, groupby, visible, download, children, expanded, cell_styles, hidden_columns, page_size, page, max_page, frozen_rows, movable_columns, sorters, theme_classes, } = this.model.properties;
         this.on_change([configuration, layout, groupby, movable_columns], debounce(() => {
             this.invalidate_render();
         }, 20, false));
-        this.on_change(visible, () => {
-            if (this.model.visible) {
-                this.tabulator.element.style.visibility = "visible";
-            }
-        });
         this.on_change(columns, () => {
             this.tabulator.setColumns(this.getColumns());
             this.setHidden();
@@ -426,6 +469,7 @@ export class DataTabulatorView extends HTMLBoxView {
         });
         this.on_change(cell_styles, () => {
             if (this._applied_styles) {
+                this.record_scroll();
                 this._updating_scroll = true;
                 this.tabulator.redraw(true);
                 this._updating_scroll = false;
@@ -454,6 +498,8 @@ export class DataTabulatorView extends HTMLBoxView {
             }
             this._restore_scroll = "horizontal";
             this._selection_updating = true;
+            // The scroll event of a scroll just before may not have been handled yet.
+            this.record_scroll();
             this._updating_scroll = true;
             void this.setData().then(() => {
                 this._selection_updating = false;
@@ -464,6 +510,7 @@ export class DataTabulatorView extends HTMLBoxView {
         this.connect(this.model.source.streaming, () => this.addData());
         this.connect(this.model.source.patching, () => {
             const inds = this.model.source.selected.indices;
+            this.record_scroll();
             this._updating_scroll = true;
             this.updateOrAddData();
             this._updating_scroll = false;
@@ -571,7 +618,10 @@ export class DataTabulatorView extends HTMLBoxView {
             if (!this._resize_pending) {
                 return;
             }
-            await this.root.ready;
+            await Promise.race([
+                this.root.ready,
+                new Promise((resolve) => setTimeout(resolve, ROOT_READY_TIMEOUT_MS)),
+            ]);
             // `remove()` can clear `_resize_pending` while awaiting `root.ready`.
             /* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleared asynchronously in `remove()` */
             if (!this._resize_pending) {
@@ -582,7 +632,7 @@ export class DataTabulatorView extends HTMLBoxView {
                 this.container === null ||
                 this.is_drawing ||
                 this._has_active_editor() ||
-                ![...this._initialized_stylesheets.values()].every(v => v)) {
+                !this.stylesheets_settled) {
                 await defer();
                 continue;
             }
@@ -617,7 +667,11 @@ export class DataTabulatorView extends HTMLBoxView {
             return false;
         }
         // Tabulator marks the edited cell with `tabulator-editing` while an editor is active.
-        return this.container.querySelector(".tabulator-editing") !== null;
+        // A header filter list is a popup outside the cell, which a redraw would close.
+        // A popup left behind hidden must not hold the redraw back forever.
+        const filter_lists = [...this.shadow_el.querySelectorAll(".tabulator-edit-list")];
+        return (this.container.querySelector(".tabulator-editing") !== null ||
+            filter_lists.some((el) => el instanceof HTMLElement && el.offsetParent !== null));
     }
     stylesheets() {
         return [...super.stylesheets(), tabulator_css];
@@ -629,6 +683,7 @@ export class DataTabulatorView extends HTMLBoxView {
         }
     }
     remove() {
+        this.unwatch_fonts();
         this._resize_pending = false;
         this._last_after_resize_el_width = null;
         this._last_after_resize_el_height = null;
@@ -651,15 +706,43 @@ export class DataTabulatorView extends HTMLBoxView {
         const configuration = this.getConfiguration();
         this.tabulator = new Tabulator(el, configuration);
         this.watch_stylesheets();
+        this.watch_fonts();
         this.init_callbacks();
     }
+    /**
+     * Column widths are measured from the rendered text, so a web font that
+     * finishes loading after the table was built leaves them too narrow.
+     */
+    watch_fonts() {
+        this.unwatch_fonts();
+        this._fonts_loaded = () => this._request_resize_redraw();
+        document.fonts.addEventListener("loadingdone", this._fonts_loaded);
+    }
+    unwatch_fonts() {
+        if (this._fonts_loaded !== null) {
+            document.fonts.removeEventListener("loadingdone", this._fonts_loaded);
+            this._fonts_loaded = null;
+        }
+    }
     style_redraw() {
-        if (this.model.visible) {
-            this.tabulator.element.style.visibility = "visible";
+        if (this.tabulator == null) {
+            return;
         }
         if (!this._initializing && !this._building) {
             this.redraw();
         }
+        this.setVisibility();
+    }
+    /**
+     * The table stays hidden until it is built and its stylesheets have settled,
+     * otherwise its unstyled, unmeasured layout flashes before the final one.
+     */
+    setVisibility() {
+        if (this.tabulator == null) {
+            return;
+        }
+        const ready = !this._building && this.stylesheets_settled;
+        this.tabulator.element.style.visibility = this.model.visible && ready ? "visible" : "hidden";
     }
     tableInit() {
         this._building = true;
@@ -755,16 +838,28 @@ export class DataTabulatorView extends HTMLBoxView {
             this.tabulator.setPage(this.model.page);
         }
         this._initializing = this._building = false;
+        this.setVisibility();
+        if (this._pending_data) {
+            void this.setData().then(() => this.postUpdate());
+        }
         this._request_resize_redraw();
     }
     recompute_page_size() {
         if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size) || this._initializing || !this.tabulator) {
             return;
         }
-        this._automatic_page_size = true;
-        const responsive = this.model.sizing_mode && (this.model.sizing_mode.includes("height") || this.model.sizing_mode.includes("both"));
         const holder = this.shadow_el.querySelector(".tabulator-tableholder");
         const table = this.shadow_el.querySelector(".tabulator-table");
+        if (this.model.page_size != null &&
+            this.model.page >= this.model.max_page &&
+            table != null &&
+            table.children.length < this.model.page_size) {
+            // Partial page: holder has shrunk to fit it, so its height doesn't
+            // reflect full-page capacity. See https://github.com/holoviz/panel/issues/8737
+            return;
+        }
+        this._automatic_page_size = true;
+        const responsive = this.model.sizing_mode && (this.model.sizing_mode.includes("height") || this.model.sizing_mode.includes("both"));
         if (table != null && holder != null) {
             const table_height = holder.clientHeight;
             let height = 0;
@@ -1079,27 +1174,7 @@ export class DataTabulatorView extends HTMLBoxView {
                 tab_column.width = column.width;
             }
             if (tab_column.formatter == null && column.formatter != null) {
-                const formatter = column.formatter;
-                const ftype = formatter.type;
-                if (ftype === "BooleanFormatter") {
-                    tab_column.formatter = "tickCross";
-                }
-                else {
-                    tab_column.formatter = (cell) => {
-                        const row = cell.getRow();
-                        const formatted = column.formatter.doFormat(cell.getRow(), cell, cell.getValue(), null, row.getData());
-                        if (column.formatter.type === "HTMLTemplateFormatter") {
-                            return formatted;
-                        }
-                        const node = div();
-                        node.innerHTML = formatted;
-                        const child = node.children[0];
-                        if (child.innerHTML === "function(){return c.convert(arguments)}") { // If the formatter fails
-                            return "";
-                        }
-                        return child;
-                    };
-                }
+                tab_column.formatter = this._get_formatter(column.formatter);
             }
             if (tab_column.sorter == "timestamp") {
                 tab_column.sorter = timestampSorter;
@@ -1108,7 +1183,7 @@ export class DataTabulatorView extends HTMLBoxView {
                 tab_column.sorter = "string";
             }
             const editor = column.editor;
-            const ctype = editor.type;
+            const has_editor = editor != null && (is_spec(editor) ? editor.type !== "CellEditor" : editor.default_view != null);
             if (tab_column.editor != null) {
                 if (tab_column.editor === "date") {
                     tab_column.editor = dateEditor;
@@ -1123,53 +1198,24 @@ export class DataTabulatorView extends HTMLBoxView {
                     tab_column.editor = "list";
                 }
             }
-            else if (ctype === "StringEditor") {
-                if (editor.completions.length > 0) {
-                    tab_column.editor = "list";
-                    tab_column.editorParams = { values: editor.completions, autocomplete: true, listOnEmpty: true };
-                }
-                else {
-                    tab_column.editor = "input";
-                }
-            }
-            else if (ctype === "TextEditor") {
-                tab_column.editor = "textarea";
-            }
-            else if (ctype === "IntEditor" || ctype === "NumberEditor") {
-                tab_column.editor = "number";
-                tab_column.editorParams = { step: editor.step };
-                if (ctype === "IntEditor") {
-                    tab_column.validator = "integer";
-                }
-                else {
-                    tab_column.validator = "numeric";
-                }
-            }
-            else if (ctype === "CheckboxEditor") {
-                tab_column.editor = "tickCross";
-            }
-            else if (ctype === "DateEditor") {
-                tab_column.editor = dateEditor;
-            }
-            else if (ctype === "SelectEditor") {
-                tab_column.editor = "list";
-                tab_column.editorParams = { values: editor.options };
-            }
-            else if (editor != null && editor.default_view != null) {
+            else if (has_editor && !is_spec(editor)) {
                 tab_column.editor = (cell, onRendered, success, cancel) => {
                     this.renderEditor(column, cell, onRendered, success, cancel);
                 };
             }
+            else if (has_editor) {
+                apply_editor_spec(tab_column, editor);
+            }
             tab_column.visible = (tab_column.visible != false && !this.model.hidden_columns.includes(column.field));
             const originalEditable = tab_column.editable;
             if (isFunction(originalEditable)) {
-                tab_column.editable = (cell) => (this.model.editable && (editor.default_view != null) && originalEditable(cell));
+                tab_column.editable = (cell) => (this.model.editable && has_editor && originalEditable(cell));
             }
             else if (isBoolean(originalEditable)) {
-                tab_column.editable = () => (this.model.editable && (editor.default_view != null) && originalEditable);
+                tab_column.editable = () => (this.model.editable && has_editor && originalEditable);
             }
             else {
-                tab_column.editable = () => (this.model.editable && (editor.default_view != null));
+                tab_column.editable = () => (this.model.editable && has_editor);
             }
             if (tab_column.headerFilter) {
                 if (isBoolean(tab_column.headerFilter) && isString(tab_column.editor)) {
@@ -1209,9 +1255,28 @@ export class DataTabulatorView extends HTMLBoxView {
         if (this.model.container_popup && (this.model.layout !== "fit_data_stretch")) {
             // We insert an empty last column to ensure select editor is rendered in correct position
             // see: https://github.com/holoviz/panel/issues/7295
-            columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });
+            columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", headerSort: false });
         }
         return columns;
+    }
+    _get_formatter(formatter) {
+        if (!is_spec(formatter)) {
+            // Custom Bokeh CellFormatter model compiled as an extension
+            return (cell) => {
+                const row = cell.getRow();
+                const node = div();
+                node.innerHTML = formatter.doFormat(row, cell, cell.getValue(), null, row.getData());
+                return node.children[0];
+            };
+        }
+        else if (formatter.type === "BooleanFormatter") {
+            return "tickCross";
+        }
+        const format = cell_formatter(formatter);
+        if (format == null) {
+            return undefined;
+        }
+        return (cell) => format(cell.getValue(), cell.getRow().getData());
     }
     renderEditor(column, cell, onRendered, success, cancel) {
         const editor = column.editor;
@@ -1240,8 +1305,11 @@ export class DataTabulatorView extends HTMLBoxView {
     // Update table
     setData() {
         if (this._initializing || this._building || !this.tabulator.initialized) {
+            // The table keeps the data it was built with, so apply this once it is
+            this._pending_data = true;
             return Promise.resolve(undefined);
         }
+        this._pending_data = false;
         const data = this.getData();
         if (this.model.pagination != null) {
             return this.tabulator.rowManager.setData(data, true, false);
@@ -1270,12 +1338,10 @@ export class DataTabulatorView extends HTMLBoxView {
     postUpdate() {
         this.setSelection();
         this.setStyles();
-        if (this._restore_scroll) {
-            const vertical = this._restore_scroll === "horizontal" ? false : true;
-            const horizontal = this._restore_scroll === "vertical" ? false : true;
-            this.restore_scroll(horizontal, vertical);
-            this._restore_scroll = false;
-        }
+        // Tabulator also redraws by itself, e.g. when resized, resetting the scroll.
+        const restore = this._restore_scroll || "horizontal";
+        this.restore_scroll(restore !== "vertical", restore !== "horizontal");
+        this._restore_scroll = false;
     }
     updateOrAddData() {
         // To avoid double updating the tabulator data
@@ -1296,12 +1362,6 @@ export class DataTabulatorView extends HTMLBoxView {
         for (const row of this.model.frozen_rows) {
             this.tabulator.getRow(row).freeze();
         }
-    }
-    setVisibility() {
-        if (this.tabulator == null) {
-            return;
-        }
-        this.tabulator.element.style.visibility = this.model.visible ? "visible" : "hidden";
     }
     updatePage(pageno) {
         if (this.model.pagination === "local" && this.model.page !== pageno && !this._updating_page) {
@@ -1418,26 +1478,59 @@ export class DataTabulatorView extends HTMLBoxView {
         if (!(horizontal || vertical)) {
             return;
         }
-        const opts = { behavior: "instant" };
-        if (vertical) {
-            opts.top = this._lastVerticalScrollbarTopPosition;
-        }
-        if (horizontal) {
-            opts.left = this._lastHorizontalScrollbarLeftPosition;
-        }
-        requestAnimationFrame(() => {
-            this._updating_scroll = true;
-            this.tabulator.rowManager.element.scrollTo(opts);
-            this._updating_scroll = false;
-        });
+        this._pending_scroll_restores += 1;
+        const apply = (attempts) => {
+            requestAnimationFrame(() => {
+                const el = this.tabulator?.rowManager?.element;
+                if (el == null) {
+                    this._pending_scroll_restores -= 1;
+                    return;
+                }
+                // Read when applied, so a scroll the user made meanwhile is kept.
+                const opts = { behavior: "instant" };
+                if (vertical) {
+                    opts.top = this._lastVerticalScrollbarTopPosition;
+                }
+                if (horizontal) {
+                    opts.left = this._lastHorizontalScrollbarLeftPosition;
+                }
+                this._updating_scroll = true;
+                el.scrollTo(opts);
+                this._updating_scroll = false;
+                if (vertical) {
+                    this._restored_scroll.top = el.scrollTop;
+                }
+                if (horizontal) {
+                    this._restored_scroll.left = el.scrollLeft;
+                }
+                // Rows still rendering clamp the position; offsets are fractional when zoomed.
+                const restored = ((opts.top == null || Math.abs(el.scrollTop - opts.top) < 1) &&
+                    (opts.left == null || Math.abs(el.scrollLeft - opts.left) < 1));
+                if (!restored && attempts > 0) {
+                    apply(attempts - 1);
+                    return;
+                }
+                this._pending_scroll_restores -= 1;
+            });
+        };
+        apply(10);
     }
     // Update model
     record_scroll() {
         if (this._updating_scroll) {
             return;
         }
-        this._lastVerticalScrollbarTopPosition = this.tabulator.rowManager.element.scrollTop;
-        this._lastHorizontalScrollbarLeftPosition = this.tabulator.rowManager.element.scrollLeft;
+        const { scrollTop, scrollLeft } = this.tabulator.rowManager.element;
+        // Scroll events arrive after _updating_scroll is cleared, so while restoring
+        // ignore the reset to the start and the clamped position.
+        const pending = this._pending_scroll_restores > 0;
+        const restored = this._restored_scroll;
+        if (!pending || (scrollTop !== 0 && scrollTop !== restored.top)) {
+            this._lastVerticalScrollbarTopPosition = scrollTop;
+        }
+        if (!pending || (scrollLeft !== 0 && scrollLeft !== restored.left)) {
+            this._lastHorizontalScrollbarLeftPosition = scrollLeft;
+        }
     }
     rowClicked(e, row) {
         if (this._selection_updating ||
@@ -1540,13 +1633,24 @@ export class DataTabulatorView extends HTMLBoxView {
         const column_def = this.columns.get(field);
         const index = cell.getData()._index;
         const value = cell._cell.value;
+        const key = `${field}:${index}`;
         if (column_def.validator === "numeric" && value === "") {
+            // setValue below re-triggers cellEdited recursively for the actual
+            // (NaN) edit. By then cell._cell.oldValue has already been overwritten
+            // with this now-discarded "" attempt, so the true pre-edit value is
+            // stashed here and picked back up on that recursive call.
+            this._pending_old_values.set(key, cell._cell.oldValue);
             cell.setValue(NaN, true);
             return;
         }
+        let old_value = cell._cell.oldValue;
+        if (this._pending_old_values.has(key)) {
+            old_value = this._pending_old_values.get(key);
+            this._pending_old_values.delete(key);
+        }
+        this.model.trigger_event(new TableEditEvent(field, index, value, old_value));
         this._tabulator_cell_updating = true;
         comm_settings.debounce = false;
-        this.model.trigger_event(new TableEditEvent(field, index, true));
         try {
             this.model.source.patch({ [field]: [[index, value]] });
         }
@@ -1554,14 +1658,27 @@ export class DataTabulatorView extends HTMLBoxView {
             comm_settings.debounce = true;
             this._tabulator_cell_updating = false;
         }
-        this.model.trigger_event(new TableEditEvent(field, index, false));
         this.tabulator.scrollToRow(index, "top", false);
     }
 }
 export const TableLayout = Enum("fit_data", "fit_data_fill", "fit_data_stretch", "fit_data_table", "fit_columns");
+export class TabulatorColumn extends Model {
+    constructor(attrs) {
+        super(attrs);
+    }
+    static __module__ = "panel.models.tabulator";
+    static {
+        this.define(({ Any, Float, Nullable, Str }) => ({
+            field: [Str],
+            title: [Nullable(Str), null],
+            width: [Float, 300],
+            formatter: [Nullable(Any), null],
+            editor: [Nullable(Any), null],
+        }));
+    }
+}
 // The Bokeh .ts model corresponding to the Bokeh .py model
 export class DataTabulator extends HTMLBox {
-    static __name__ = "DataTabulator";
     constructor(attrs) {
         super(attrs);
     }
@@ -1573,7 +1690,7 @@ export class DataTabulator extends HTMLBox {
             buttons: [Any, {}],
             children: [Any, new Map()],
             configuration: [Any, {}],
-            columns: [List(Ref(TableColumn)), []],
+            columns: [List(Ref(TabulatorColumn)), []],
             download: [Bool, false],
             editable: [Bool, true],
             embed_content: [Bool, false],

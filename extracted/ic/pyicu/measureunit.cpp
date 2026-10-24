@@ -308,8 +308,56 @@ static PyObject *t_measureunit_getConstantDenominator(t_measureunit *self);
 #endif
 
 #if U_ICU_VERSION_HEX >= VERSION_HEX(78, 0, 0)
+static PyObject *t_measureunit_createBecquerel(PyTypeObject *type);
+static PyObject *t_measureunit_createBritishThermalUnitIt(PyTypeObject *type);
+static PyObject *t_measureunit_createBuJp(PyTypeObject *type);
+static PyObject *t_measureunit_createCalorieIt(PyTypeObject *type);
+static PyObject *t_measureunit_createChain(PyTypeObject *type);
+static PyObject *t_measureunit_createCho(PyTypeObject *type);
+static PyObject *t_measureunit_createCoulomb(PyTypeObject *type);
+static PyObject *t_measureunit_createCupImperial(PyTypeObject *type);
+static PyObject *t_measureunit_createCupJp(PyTypeObject *type);
+static PyObject *t_measureunit_createFarad(PyTypeObject *type);
+static PyObject *t_measureunit_createFluidOunceMetric(PyTypeObject *type);
+static PyObject *t_measureunit_createFortnight(PyTypeObject *type);
+static PyObject *t_measureunit_createFun(PyTypeObject *type);
+static PyObject *t_measureunit_createGray(PyTypeObject *type);
+static PyObject *t_measureunit_createHenry(PyTypeObject *type);
+static PyObject *t_measureunit_createJoJp(PyTypeObject *type);
+static PyObject *t_measureunit_createKatal(PyTypeObject *type);
+static PyObject *t_measureunit_createKen(PyTypeObject *type);
+static PyObject *t_measureunit_createKilogramForce(PyTypeObject *type);
+static PyObject *t_measureunit_createKoku(PyTypeObject *type);
+static PyObject *t_measureunit_createKosaji(PyTypeObject *type);
+static PyObject *t_measureunit_createOfglucose(PyTypeObject *type);
+static PyObject *t_measureunit_createOfhg(PyTypeObject *type);
+static PyObject *t_measureunit_createOsaji(PyTypeObject *type);
 static PyObject *t_measureunit_createPartPer1E6(PyTypeObject *type);
 static PyObject *t_measureunit_createPartPer1E9(PyTypeObject *type);
+static PyObject *t_measureunit_createPintImperial(PyTypeObject *type);
+static PyObject *t_measureunit_createRankine(PyTypeObject *type);
+static PyObject *t_measureunit_createRiJp(PyTypeObject *type);
+static PyObject *t_measureunit_createRin(PyTypeObject *type);
+static PyObject *t_measureunit_createRod(PyTypeObject *type);
+static PyObject *t_measureunit_createSai(PyTypeObject *type);
+static PyObject *t_measureunit_createSeJp(PyTypeObject *type);
+static PyObject *t_measureunit_createShaku(PyTypeObject *type);
+static PyObject *t_measureunit_createShakuCloth(PyTypeObject *type);
+static PyObject *t_measureunit_createShakuLength(PyTypeObject *type);
+static PyObject *t_measureunit_createSiemens(PyTypeObject *type);
+static PyObject *t_measureunit_createSievert(PyTypeObject *type);
+static PyObject *t_measureunit_createSlug(PyTypeObject *type);
+static PyObject *t_measureunit_createSteradian(PyTypeObject *type);
+static PyObject *t_measureunit_createSun(PyTypeObject *type);
+static PyObject *t_measureunit_createTesla(PyTypeObject *type);
+static PyObject *t_measureunit_createToJp(PyTypeObject *type);
+static PyObject *t_measureunit_createWeber(PyTypeObject *type);
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(79, 0, 0)
+static PyObject *t_measureunit_createDyne(PyTypeObject *type);
+static PyObject *t_measureunit_createMilliinch(PyTypeObject *type);
+static PyObject *t_measureunit_createPoundal(PyTypeObject *type);
 #endif
 
 static PyMethodDef t_measureunit_methods[] = {
@@ -562,7 +610,55 @@ static PyMethodDef t_measureunit_methods[] = {
 #endif
 #if U_ICU_VERSION_HEX >= VERSION_HEX(78, 0, 0)
     DECLARE_METHOD(t_measureunit, createPartPer1E6, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createBecquerel, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createBritishThermalUnitIt, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createBuJp, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createCalorieIt, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createChain, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createCho, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createCoulomb, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createCupImperial, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createCupJp, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createFarad, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createFluidOunceMetric, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createFortnight, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createFun, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createGray, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createHenry, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createJoJp, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createKatal, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createKen, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createKilogramForce, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createKoku, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createKosaji, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createOfglucose, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createOfhg, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createOsaji, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createPartPer1E6, METH_NOARGS | METH_CLASS),
     DECLARE_METHOD(t_measureunit, createPartPer1E9, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createPintImperial, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createRankine, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createRiJp, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createRin, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createRod, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSai, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSeJp, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createShaku, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createShakuCloth, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createShakuLength, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSiemens, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSievert, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSlug, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSteradian, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createSun, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createTesla, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createToJp, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createWeber, METH_NOARGS | METH_CLASS),
+#endif
+#if U_ICU_VERSION_HEX >= VERSION_HEX(79, 0, 0)
+    DECLARE_METHOD(t_measureunit, createDyne, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createMilliinch, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createPoundal, METH_NOARGS | METH_CLASS),
 #endif
     { NULL, NULL, 0, NULL }
 };
@@ -1196,8 +1292,56 @@ createMU(Night)
 #endif
 
 #if U_ICU_VERSION_HEX >= VERSION_HEX(78, 0, 0)
+createMU(Becquerel)
+createMU(BritishThermalUnitIt)
+createMU(BuJp)
+createMU(CalorieIt)
+createMU(Chain)
+createMU(Cho)
+createMU(Coulomb)
+createMU(CupImperial)
+createMU(CupJp)
+createMU(Farad)
+createMU(FluidOunceMetric)
+createMU(Fortnight)
+createMU(Fun)
+createMU(Gray)
+createMU(Henry)
+createMU(JoJp)
+createMU(Katal)
+createMU(Ken)
+createMU(KilogramForce)
+createMU(Koku)
+createMU(Kosaji)
+createMU(Ofglucose)
+createMU(Ofhg)
+createMU(Osaji)
 createMU(PartPer1E6)
 createMU(PartPer1E9)
+createMU(PintImperial)
+createMU(Rankine)
+createMU(RiJp)
+createMU(Rin)
+createMU(Rod)
+createMU(Sai)
+createMU(SeJp)
+createMU(Shaku)
+createMU(ShakuCloth)
+createMU(ShakuLength)
+createMU(Siemens)
+createMU(Sievert)
+createMU(Slug)
+createMU(Steradian)
+createMU(Sun)
+createMU(Tesla)
+createMU(ToJp)
+createMU(Weber)
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(79, 0, 0)
+createMU(Dyne)
+createMU(Milliinch)
+createMU(Poundal)
 #endif
 
 /* Measure */

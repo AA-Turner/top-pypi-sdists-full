@@ -1,7 +1,6 @@
 import { Markup } from "@bokehjs/models/widgets/markup";
 import { PanelMarkupView } from "./layout";
 export class MathJaxView extends PanelMarkupView {
-    static __name__ = "MathJaxView";
     connect_signals() {
         super.connect_signals();
         const { text } = this.model.properties;
@@ -25,7 +24,6 @@ export class MathJaxView extends PanelMarkupView {
     }
 }
 export class MathJax extends Markup {
-    static __name__ = "MathJax";
     constructor(attrs) {
         super(attrs);
     }

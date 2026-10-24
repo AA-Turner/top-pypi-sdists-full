@@ -34,7 +34,7 @@ class HTTPAPIConfig(BaseModel):
     http_method: Optional[StrictStr] = Field(default='GET', description="HTTP method to use when calling the API.")
     request_body: Optional[Dict[str, Any]] = Field(default=None, description="Optional JSON body for POST requests.")
     items_path: Optional[StrictStr] = Field(default='', description="Dot-notation path to the array of items in the JSON response. Examples: 'hits' for {hits: [...]}, 'data.items' for {data: {items: [...]}}. Leave empty if the response is a top-level array.")
-    item_id_field: StrictStr = Field(description="REQUIRED. Field name in each item used as a unique ID for deduplication. Examples: 'id', 'objectID', 'uuid'.")
+    item_id_field: Optional[StrictStr] = Field(default='id', description="Defaults to 'id', as the sync does. Field name in each item used as a unique ID for deduplication. Examples: 'id', 'objectID', 'uuid'.")
     item_modified_field: Optional[StrictStr] = Field(default=None, description="Optional field name for a timestamp used for incremental sync. Supports ISO 8601 strings and Unix timestamps. Examples: 'updated_at', 'created_at', 'modified'.")
     response_content_type: Optional[StrictStr] = Field(default='json', description="Response format: 'json' (default) or 'jsonl' (newline-delimited JSON).")
     user_agent: Optional[StrictStr] = Field(default='Mixpeek HTTP API Sync/1.0', description="User-Agent header for API requests.")
@@ -130,7 +130,7 @@ class HTTPAPIConfig(BaseModel):
             "http_method": obj.get("http_method") if obj.get("http_method") is not None else 'GET',
             "request_body": obj.get("request_body"),
             "items_path": obj.get("items_path") if obj.get("items_path") is not None else '',
-            "item_id_field": obj.get("item_id_field"),
+            "item_id_field": obj.get("item_id_field") if obj.get("item_id_field") is not None else 'id',
             "item_modified_field": obj.get("item_modified_field"),
             "response_content_type": obj.get("response_content_type") if obj.get("response_content_type") is not None else 'json',
             "user_agent": obj.get("user_agent") if obj.get("user_agent") is not None else 'Mixpeek HTTP API Sync/1.0',

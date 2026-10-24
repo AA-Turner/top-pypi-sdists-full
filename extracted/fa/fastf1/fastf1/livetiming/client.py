@@ -9,7 +9,8 @@ from signalrcore.hub_connection_builder import HubConnectionBuilder
 from signalrcore.messages.completion_message import CompletionMessage
 
 import fastf1
-from fastf1.internals.f1auth import get_auth_token
+from fastf1.exceptions import F1AuthError
+from fastf1.internals.f1account import get_token
 
 
 def messages_from_raw(r: Iterable):
@@ -21,24 +22,24 @@ def messages_from_raw(r: Iterable):
     Args:
         r: Iterable containing raw SignalR responses.
     """
-    ret = list()
+    ret = []
     errorcount = 0
     for data in r:
         # fix F1's not json compliant data
         data = data.replace("'", '"') \
-            .replace('True', 'true') \
-            .replace('False', 'false')
+            .replace("True", "true") \
+            .replace("False", "false")
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
             errorcount += 1
             continue
-        messages = data['M'] if 'M' in data and len(data['M']) > 0 else {}
+        messages = data["M"] if "M" in data and len(data["M"]) > 0 else {}
         for inner_data in messages:
-            hub = inner_data['H'] if 'H' in inner_data else ''
-            if hub.lower() == 'streaming':
+            hub = inner_data.get("H", "")
+            if hub.lower() == "streaming":
                 # method = inner_data['M']
-                message = inner_data['A']
+                message = inner_data["A"]
                 ret.append(message)
 
     return ret, errorcount
@@ -77,13 +78,12 @@ class SignalRClient:
             authentication. This may only work for some sessions or may only
             return empty or partial data.
     """
-    _connection_url = 'wss://livetiming.formula1.com/signalrcore'
-    _negotiate_url = 'https://livetiming.formula1.com/signalrcore/negotiate'
-
+    _connection_url = "wss://livetiming.formula1.com/signalrcore"
+    _negotiate_url = "https://livetiming.formula1.com/signalrcore/negotiate"
 
     def __init__(self,
                  filename: str,
-                 filemode: str = 'w',
+                 filemode: str = "w",
                  debug: bool = False,
                  timeout: int = 60,
                  logger: Optional = None,
@@ -115,7 +115,7 @@ class SignalRClient:
             logging.basicConfig(
                 format="%(asctime)s - %(levelname)s: %(message)s"
             )
-            self.logger = logging.getLogger('SignalR')
+            self.logger = logging.getLogger("SignalR")
             self.logger.setLevel(logging.INFO)
         else:
             self.logger = logger
@@ -127,10 +127,12 @@ class SignalRClient:
         self._t_last_message = time.time()
 
         if isinstance(msg, CompletionMessage):
-            data = []
-            for key in msg.result.keys():
-                data.append([key, json.dumps(msg.result[key]), ''])
-            formatted = '\n'.join(map(str, data))
+            data = [
+                [
+                    key, json.dumps(msg.result[key]), ""
+                ] for key in msg.result.keys()  # noqa: SIM118
+            ]
+            formatted = "\n".join(map(str, data))
 
         elif isinstance(msg, list):
             formatted = str(msg)
@@ -140,7 +142,7 @@ class SignalRClient:
             return
 
         try:
-            self._output_file.write(formatted + '\n')
+            self._output_file.write(formatted + "\n")
             self._output_file.flush()
         except Exception:
             self.logger.exception("Exception while writing message to file")
@@ -154,7 +156,7 @@ class SignalRClient:
         self.logger.info("Connection closed")
 
     def _run(self):
-        self._output_file = open(self.filename, self.filemode)
+        self._output_file = open(self.filename, self.filemode)  # noqa: SIM115
 
         # Pre-negotiate to the get a valid AWSALBCORS header token
         r = requests.options(self._negotiate_url, headers=self.headers)
@@ -165,7 +167,7 @@ class SignalRClient:
         # Configure and create connection
         options = {
             "verify_ssl": True,
-            "access_token_factory": None if self._no_auth else get_auth_token,
+            "access_token_factory": self._access_token_factory(),
             "headers": self.headers
         }
 
@@ -177,7 +179,7 @@ class SignalRClient:
 
         self._connection.on_open(self._on_connect)
         self._connection.on_close(self._on_close)
-        self._connection.on('feed', self._on_message)
+        self._connection.on("feed", self._on_message)
 
         self._connection.start()
 
@@ -188,6 +190,20 @@ class SignalRClient:
         self._connection.send(
             "Subscribe", [self.topics], on_invocation=self._on_message
         )
+
+    def _access_token_factory(self):
+        if self._no_auth:
+            return None
+        # sign in before connecting, so that a failure is reported early
+        try:
+            get_token()
+        except F1AuthError as exc:
+            self.logger.warning(f"Failed to authenticate with Formula 1 "
+                                f"account, continuing without "
+                                f"authentication: {exc}")
+            return None
+        # renews the token if necessary when reconnecting
+        return lambda: get_token().value
 
     def _supervise(self):
         # check if data is still being received and exit if not

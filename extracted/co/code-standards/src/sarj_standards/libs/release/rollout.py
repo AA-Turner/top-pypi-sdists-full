@@ -133,6 +133,7 @@ MANAGED_ROLLOUT_NAMES = frozenset(
         "eslint.config.mts",
         "eslint.config.cts",
         "eslint.strict.mjs",
+        "eslint.strict.ts",
         "package-lock.json",
         "package.json",
         "pnpm-lock.yaml",
@@ -2870,6 +2871,52 @@ def allowed_rollout_workflows(repo: Path) -> frozenset[str]:
         if (relative := update.path.relative_to(repo).as_posix()).startswith(".github/workflows/")
         and relative != COMMIT_POLICY_WORKFLOW_PATH
     )
+
+
+class TargetCommitPolicyWorkflow(NamedTuple):
+    root: Path
+    contents: bytes
+
+
+def commit_policy_workflow_bytes(repo: Path) -> bytes | None:
+    workflow = repo / COMMIT_POLICY_WORKFLOW_PATH
+    if workflow.is_symlink() or not workflow.is_file():
+        return None
+    try:
+        contents = workflow.read_bytes()
+        contents.decode("utf-8")
+    except OSError, UnicodeError:
+        return None
+    return contents if b"\r" not in contents else None
+
+
+def attest_commit_policy_workflow(
+    repo: Path, doctor: subprocess.CompletedProcess[str], before: bytes | None
+) -> TargetCommitPolicyWorkflow | None:
+    if before is None or commit_policy_workflow_bytes(repo) != before:
+        return None
+    try:
+        report = json_result(doctor)
+    except RolloutError:
+        return None
+    if not is_object(report) or report.get("root") != str(repo.resolve()):
+        return None
+    schema = report.get("schema")
+    findings = report.get("findings")
+    if not isinstance(schema, int) or isinstance(schema, bool) or schema != 1 or not is_array(findings):
+        return None
+    matching: list[dict[str, object]] = []
+    for finding in findings:
+        if not is_object(finding) or not all(isinstance(finding.get(key), str) for key in ("id", "level", "where")):
+            return None
+        if finding["id"] == "doctor.ci.commit-policy":
+            matching.append(finding)
+    if len(matching) != 1:
+        return None
+    finding = matching[0]
+    if finding["level"] != "ok" or finding["where"] != COMMIT_POLICY_WORKFLOW_PATH:
+        return None
+    return TargetCommitPolicyWorkflow(repo.resolve(), before)
 
 
 def canonical_commit_policy_workflow_paths(repo: Path, paths: Sequence[str]) -> frozenset[str]:

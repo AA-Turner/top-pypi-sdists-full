@@ -10,21 +10,35 @@ on:
     paths-ignore:
       - "docs/**"
 
+permissions: {}
+
 jobs:
   test-sqlalchemy-history:
-    name: test-python${{ matrix.python-version }}-${{ matrix.DB }}
+    permissions:
+      contents: read
+    name: test-python${{ matrix.python-version }}-sqlalchemy${{ matrix.sqlalchemy-version }}-${{ matrix.DB }}
     strategy:
       fail-fast: false # This prevents other jobs from being canceled when one fails
       matrix:
         python-version:
-          - "3.9"
-          - "3.12"
+          - "3.10"
+          - "3.14"
+        sqlalchemy-version:
+          - "<2.1"
+          - ">=2.1"
         DB:
           - "sqlite"
           - "mssql"
           - "mysql"
           - "oracle"
           - "postgres"
+        exclude:
+          - python-version: "3.10"
+            sqlalchemy-version: ">=2.1"
+        include:
+          - python-version: "3.11"
+            sqlalchemy-version: ">=2.1"
+            DB: "sqlite"
     services:
       mysql:
         # Only start service for MySQL tests
@@ -86,7 +100,7 @@ jobs:
         if: matrix.DB == 'mssql'
         run: |
           # See: https://github.com/MicrosoftDocs/sql-docs/blob/live/docs/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server.md
-          if ! [[ "14.04 16.04 18.04 20.04 22.04 24.04 25.10" == *"$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2)"* ]];
+          if ! [[ "18.04 20.04 22.04 24.04 26.04" == *"$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2)"* ]];
           then
               echo "Ubuntu $(grep VERSION_ID /etc/os-release | cut -d '"' -f 2) is not currently supported.";
               exit;
@@ -100,26 +114,24 @@ jobs:
           rm packages-microsoft-prod.deb
 
           sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
-          echo '/opt/mssql-tools/bin' >> $GITHUB_PATH
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+          echo '/opt/mssql-tools18/bin' >> $GITHUB_PATH
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-dependency-glob: |
-            pyproject.toml
-            uv.lock
 
       - name: Install the project
         run: uv sync --locked --no-dev --group test
 
+      - name: Select SQLAlchemy series
+        run: uv pip install "SQLAlchemy[asyncio]${{ matrix.sqlalchemy-version }}"
+
       - name: Run tests
         run: |
-          uv run --no-sync pytest -v --maxfail=100 --cov --cov-report=lcov
-        env:
-          DB: ${{ matrix.DB }}
+          uv run --no-sync pytest --db=${{ matrix.DB }} -v --maxfail=100 --cov --cov-report=lcov
 
       - name: send coverage data to Coveralls
         env:
@@ -131,20 +143,19 @@ jobs:
           parallel: true
 
   lint:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
-          cache-dependency-glob: |
-            pyproject.toml
-            uv.lock
 
       - name: Install the project
-        run: uv sync --locked --dev
+        run: uv sync --locked --no-dev --group lint
 
       - run: uv run --no-sync ruff check
       - run: uv run --no-sync ruff format --check

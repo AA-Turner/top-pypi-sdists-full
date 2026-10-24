@@ -18,7 +18,7 @@
             ],
             [
                 "Py_LIMITED_API",
-                "0x030A0000"
+                "0x030B0000"
             ],
             [
                 "HAVE_MMAP",

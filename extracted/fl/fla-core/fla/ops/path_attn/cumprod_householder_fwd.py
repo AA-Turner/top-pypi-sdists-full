@@ -16,7 +16,7 @@ from fla.utils import check_shared_mem
 @triton.heuristics({
     'IS_VARLEN': lambda args: args['cu_seqlens'] is not None,
 })
-@triton.jit
+@triton.jit(do_not_specialize=['T'])
 def chunk_cumprod_householder_fwd_kernel(
     k,
     k_new,
@@ -32,11 +32,11 @@ def chunk_cumprod_householder_fwd_kernel(
     K: tl.constexpr,
     H: tl.constexpr,
     BK: tl.constexpr,
-    T: tl.constexpr,
+    T,
     S: tl.constexpr,  # split size, aka large chunk size
     IS_VARLEN: tl.constexpr,
 ):
-    i_ss, i_h = tl.program_id(0), tl.program_id(1)
+    i_ss, i_h = tl.program_id(0).to(tl.int64), tl.program_id(1).to(tl.int64)
 
     if IS_VARLEN:
         i_n, i_s = tl.load(split_indices + i_ss * 2).to(tl.int32), tl.load(split_indices + i_ss * 2 + 1).to(tl.int32)
@@ -44,15 +44,15 @@ def chunk_cumprod_householder_fwd_kernel(
         T = (eos - bos).to(tl.int32)
         NS = tl.cdiv(T, S)
 
-        boh = tl.load(chunk_offsets + i_n).to(tl.int32)
-        boh_large = tl.load(split_offsets + i_n).to(tl.int32)
+        boh = tl.load(chunk_offsets + i_n).to(tl.int64)
+        boh_large = tl.load(split_offsets + i_n).to(tl.int64)
     else:
         NS = tl.cdiv(T, S)
         i_n, i_s = i_ss // NS, i_ss % NS
         bos, eos = (i_n * T).to(tl.int64), (i_n * T + T).to(tl.int64)
 
-        boh = i_n * tl.cdiv(T, BT)
-        boh_large = i_n * tl.cdiv(T, S)
+        boh = (i_n * tl.cdiv(T, BT)).to(tl.int64)
+        boh_large = (i_n * tl.cdiv(T, S)).to(tl.int64)
 
     NT_small = tl.cdiv(min(S, T-i_s*S), BT)
     stride_h = H*K*K
@@ -82,7 +82,7 @@ def chunk_cumprod_householder_fwd_kernel(
         b_w1 = tl.load(p_w1, mask=m_d[:, None] & m_k[None, :], other=0.0)
         b_w2 = tl.load(p_w2, mask=m_k[:, None] & m_d[None, :], other=0.0)
         b_v_new = (b_w1 - tl.dot(b_h.to(b_w1.dtype), b_w1)).to(b_w2.dtype)
-        b_h += tl.dot(b_v_new, b_w2)
+        b_h = tl.dot(b_v_new, b_w2, b_h)
         p_k_new = k_new + o_k[:, None] * (H*K) + o_d[None, :]
         tl.store(p_k_new, b_k.to(k_new.dtype.element_ty), mask=m_k[:, None] & m_d[None, :])
 

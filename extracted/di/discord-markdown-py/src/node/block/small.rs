@@ -12,8 +12,8 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	grammar::Grammar,
 	node::{Element, Inlines, Sequence, block::inline_block},
+	scope::Scope,
 	span::Span,
 	unparse::Unparse,
 };
@@ -63,7 +63,7 @@ where
 	map(
 		preceded(
 			pair(tag(PREFIX), space1),
-			inline_block(context.with_grammar(Grammar::Block)),
+			inline_block(context.with_scope(Scope::Block)),
 		),
 		|content| Small { content },
 	)

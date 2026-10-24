@@ -9,17 +9,21 @@ import torch
 import triton
 import triton.language as tl
 
-from fla.ops.backends import dispatch
+from fla.backends import dispatch
 from fla.ops.utils import prepare_chunk_indices
 from fla.ops.utils.cache import fla_cache_autotune
 from fla.ops.utils.op import exp2
-from fla.utils import IS_NVIDIA_BLACKWELL, autotune_cache_kwargs, check_shared_mem
+from fla.utils import IS_INTEL, IS_NVIDIA_BLACKWELL, autotune_cache_kwargs, check_shared_mem
 
 # Blackwell can select unstable Triton configs for prepare_wy_repr_bwd_kernel
 # during autotuning (see #913). Restrict it to the config that has been
 # validated on B200 until the wider config space is re-validated.
 PREPARE_WY_REPR_BWD_NUM_WARPS = [2] if IS_NVIDIA_BLACKWELL else [2, 4]
 PREPARE_WY_REPR_BWD_NUM_STAGES = [4] if IS_NVIDIA_BLACKWELL else [2, 3, 4]
+
+# Intel keeps scaling past the warp counts NVIDIA prefers: 16 warps is ~1.3x faster
+# than 8 for recompute_w_u.
+RECOMPUTE_W_U_NUM_WARPS = [2, 4, 8, 16] if IS_INTEL else [2, 4, 8]
 
 
 @triton.heuristics({
@@ -29,7 +33,7 @@ PREPARE_WY_REPR_BWD_NUM_STAGES = [4] if IS_NVIDIA_BLACKWELL else [2, 3, 4]
 @fla_cache_autotune(
     configs=[
         triton.Config({}, num_warps=num_warps, num_stages=num_stages)
-        for num_warps in [2, 4, 8]
+        for num_warps in RECOMPUTE_W_U_NUM_WARPS
         for num_stages in [2, 3, 4]
     ],
     key=['H', 'HV', 'K', 'V', 'BT', 'BK', 'BV', 'IS_VARLEN'],
@@ -61,7 +65,7 @@ def recompute_w_u_fwd_kernel(
     i_b, i_h = i_bh // HV, i_bh % HV
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -145,7 +149,7 @@ def prepare_wy_repr_bwd_kernel(
     i_b, i_h = i_bh // HV, i_bh % HV
     if IS_VARLEN:
         i_n, i_t = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(chunk_indices + i_t * 2 + 1).to(tl.int64)
-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)
+        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int64), tl.load(cu_seqlens + i_n + 1).to(tl.int64)
         T = eos - bos
     else:
         bos, eos = i_b * T, i_b * T + T
@@ -183,7 +187,7 @@ def prepare_wy_repr_bwd_kernel(
             b_kbg = b_k * b_b[:, None]
         b_dw = tl.load(p_dw, mask=m_k, other=0.0)
 
-        b_dA += tl.dot(b_dw, tl.trans(b_kbg).to(b_dw.dtype))
+        b_dA = tl.dot(b_dw, tl.trans(b_kbg).to(b_dw.dtype), b_dA)
         b_dkbg = tl.dot(b_A, b_dw)
         if USE_G:
             b_dk = b_dkbg * (b_g_exp * b_b)[:, None]
@@ -203,7 +207,7 @@ def prepare_wy_repr_bwd_kernel(
         b_v = tl.load(p_v, mask=m_v, other=0.0)
         b_vb = (b_v * b_b[:, None]).to(b_v.dtype)
         b_du = tl.load(p_du, mask=m_v, other=0.0)
-        b_dA += tl.dot(b_du, tl.trans(b_vb))
+        b_dA = tl.dot(b_du, tl.trans(b_vb), b_dA)
         b_dvb = tl.dot(b_A, b_du)
         b_dv = b_dvb * b_b[:, None]
         b_db += tl.sum(b_dvb * b_v, 1)
@@ -230,7 +234,7 @@ def prepare_wy_repr_bwd_kernel(
         b_kt = tl.trans(b_k)
         b_kb = b_k * b_b[:, None]
 
-        b_A += tl.dot(b_k, b_kt)
+        b_A = tl.dot(b_k, b_kt, b_A)
         b_dkb = tl.dot(b_dA, b_k)
         b_db += tl.sum(b_dkb * b_k, 1)
         b_dk = b_dkb * b_b[:, None] + tl.trans(tl.dot(tl.trans(b_kb).to(b_dA.dtype), b_dA))

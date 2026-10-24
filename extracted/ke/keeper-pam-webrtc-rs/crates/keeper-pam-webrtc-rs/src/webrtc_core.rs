@@ -113,9 +113,27 @@ use webrtc::rtp_transceiver::RTCPFeedback;
 use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 use webrtc::track::track_local::TrackLocal;
 
-// Constants for SCTP max message size negotiation
-const DEFAULT_MAX_MESSAGE_SIZE: u32 = 262144; // 256KB - Common default for WebRTC
-const OUR_MAX_MESSAGE_SIZE: u32 = 262144; // 256KB - matches vault offer; required for binary IMAGE frames
+// webrtc 0.14's receive buffer is 65,535 bytes; SCTP sends default to 65,536.
+pub(crate) const NATIVE_MAX_MESSAGE_SIZE: usize = 65_535;
+
+pub(crate) fn remote_message_size(sdp: &str) -> usize {
+    let mut application = false;
+    for line in sdp.lines() {
+        if line.starts_with("m=") {
+            application = line.starts_with("m=application ");
+        } else if application {
+            if let Some(value) = line.strip_prefix("a=max-message-size:") {
+                return match value.trim().parse::<usize>() {
+                    Ok(0) => NATIVE_MAX_MESSAGE_SIZE,
+                    Ok(size) => size.min(NATIVE_MAX_MESSAGE_SIZE),
+                    Err(_) => NATIVE_MAX_MESSAGE_SIZE,
+                };
+            }
+        }
+    }
+    // RFC 8841's absent-attribute default is 65,536, capped by our receive limit.
+    NATIVE_MAX_MESSAGE_SIZE
+}
 
 // Constants for ICE restart management
 /// Maximum number of ICE restart attempts before giving up.
@@ -523,6 +541,7 @@ pub struct WebRTCPeerConnection {
     pub peer_connection: Arc<RTCPeerConnection>,
     pub(crate) trickle_ice: bool,
     pub(crate) is_closing: Arc<AtomicBool>,
+    pub(crate) data_channel_send_limit: Arc<AtomicUsize>,
     // Separate from is_closing: Tube::close() sets is_closing early, which must not short-circuit close().
     close_started: Arc<AtomicBool>,
     pending_incoming_ice_candidates: Arc<Mutex<Vec<String>>>, // Buffer incoming candidates until ready
@@ -792,6 +811,7 @@ impl WebRTCPeerConnection {
             peer_connection: pc_arc,
             trickle_ice,
             is_closing,
+            data_channel_send_limit: Arc::new(AtomicUsize::new(NATIVE_MAX_MESSAGE_SIZE)),
             close_started: Arc::new(AtomicBool::new(false)),
             pending_incoming_ice_candidates,
             signal_sender,
@@ -1492,33 +1512,9 @@ impl WebRTCPeerConnection {
         self.generate_sdp_and_maybe_gather_ice(is_offer).await
     }
 
-    /// Patch `a=max-message-size:` in an SDP string to our negotiated value.
-    /// Replaces the existing value if present, inserts after `a=sctp-port:` if not.
-    async fn patch_sdp_max_message_size(&self, sdp: String) -> String {
-        // Read the remote's advertised max from the offer
-        let remote_max = if let Some(remote_desc) = self.peer_connection.remote_description().await
-        {
-            let offer_sdp = &remote_desc.sdp;
-            if let Some(pos) = offer_sdp.find("a=max-message-size:") {
-                let start = pos + "a=max-message-size:".len();
-                let end = offer_sdp[start..]
-                    .find('\r')
-                    .or_else(|| offer_sdp[start..].find('\n'))
-                    .map(|e| start + e)
-                    .unwrap_or(offer_sdp.len());
-                offer_sdp[start..end]
-                    .trim()
-                    .parse::<u32>()
-                    .unwrap_or(DEFAULT_MAX_MESSAGE_SIZE)
-            } else {
-                DEFAULT_MAX_MESSAGE_SIZE
-            }
-        } else {
-            DEFAULT_MAX_MESSAGE_SIZE
-        };
-
-        let negotiated = remote_max.min(OUR_MAX_MESSAGE_SIZE);
-        debug!("Patching SDP max-message-size: remote={remote_max}, ours={OUR_MAX_MESSAGE_SIZE}, negotiated={negotiated} (tube_id: {}, conversation_id: {})", self.tube_id, self.conversation_id.as_deref().unwrap_or("-"));
+    /// Advertise our actual receive capacity, independently of the peer's receive limit.
+    fn patch_sdp_max_message_size(&self, sdp: String) -> String {
+        let negotiated = NATIVE_MAX_MESSAGE_SIZE;
 
         let prefix = "a=max-message-size:";
         if let Some(pos) = sdp.find(prefix) {
@@ -1627,10 +1623,8 @@ impl WebRTCPeerConnection {
                     if let Some(final_desc) = self.peer_connection.local_description().await {
                         let mut sdp_str = final_desc.sdp;
 
-                        // Patch max-message-size for non-trickle ICE (both offer and answer).
-                        if !is_offer {
-                            sdp_str = self.patch_sdp_max_message_size(sdp_str).await;
-                        }
+                        // Both offers and answers must advertise the actual receive limit.
+                        sdp_str = self.patch_sdp_max_message_size(sdp_str);
 
                         Ok(sdp_str)
                     } else {
@@ -1676,7 +1670,7 @@ impl WebRTCPeerConnection {
             // Now patch max-message-size on the already-set SDP for the version we return
             // to the caller (Python / tube registry).  The local description inside
             // webrtc-rs stays as the original; we're only changing the string we hand out.
-            let patched = self.patch_sdp_max_message_size(original_sdp).await;
+            let patched = self.patch_sdp_max_message_size(original_sdp);
             Ok(patched)
         }
     }
@@ -1739,6 +1733,7 @@ impl WebRTCPeerConnection {
         let current_state = self.peer_connection.signaling_state();
         // Validate the signaling state transition
         Self::validate_signaling_state_transition(current_state, is_answer, false)?;
+        let send_limit = remote_message_size(&desc.sdp);
 
         // Set the remote description
         let result = self
@@ -1752,6 +1747,8 @@ impl WebRTCPeerConnection {
 
         // If successful, update activity and flush buffered incoming candidates
         if result.is_ok() {
+            self.data_channel_send_limit
+                .store(send_limit, Ordering::Release);
             // Update activity timestamp - SDP exchange is significant activity
             self.update_activity();
 

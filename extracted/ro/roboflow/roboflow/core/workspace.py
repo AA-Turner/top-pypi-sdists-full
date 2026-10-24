@@ -10,13 +10,13 @@ import time
 import zipfile
 from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Union
 
-import requests
 from requests.exceptions import HTTPError
 from tqdm import tqdm
 
 from roboflow.adapters import rfapi, vision_events_api
 from roboflow.adapters.rfapi import AnnotationSaveError, ImageUploadError, RoboflowError
 from roboflow.config import API_URL, APP_URL, DEMO_KEYS
+from roboflow.util import http
 
 if TYPE_CHECKING:
     from roboflow.core.device import Device
@@ -124,7 +124,7 @@ class Workspace:
             "annotation": annotation,
         }
 
-        r = requests.post(API_URL + "/" + self.url + "/projects?api_key=" + self.__api_key, json=data)
+        r = http.post(API_URL + "/" + self.url + "/projects?api_key=" + self.__api_key, json=data)
 
         r.raise_for_status()
 
@@ -540,7 +540,7 @@ class Workspace:
             num_retries (int, optional): number of times to retry uploading an image if the upload fails. Defaults to 0.
             is_prediction (bool, optional): whether the annotations provided in the dataset are predictions and not ground truth. Defaults to False.
             use_zip_upload (bool, optional): opt-in to the zip flow for a directory input (the SDK zips it client-side). Ignored when dataset_path is already a `.zip`.
-            annotation_overwrite (bool, optional): zip flow only — overwrite existing annotations on duplicate images. Defaults to False, except classification projects where it defaults to True (the API requires it).
+            annotation_overwrite (bool, optional): overwrite existing annotations on duplicate images. Defaults to False, except classification projects where it defaults to True (the API requires it).
             tags (list[str], optional): zip flow only — tags to apply to the uploaded batch.
             split (str, optional): dataset split for the uploaded batch. In per-image directory
                 uploads, this overrides inferred splits for every image.
@@ -569,6 +569,9 @@ class Workspace:
                 "Call upload_dataset without use_zip_upload for prediction uploads."
             )
 
+        if annotation_overwrite is None:
+            annotation_overwrite = project.type == "classification"
+
         if use_zip_flow:
             project_slug = project.id.rsplit("/")[1]
             temp_zip = None
@@ -578,9 +581,6 @@ class Workspace:
                 else:
                     zip_path = temp_zip = _zip_directory(dataset_path)
                     print(f"Zipped {dataset_path} -> {zip_path}")
-
-                if annotation_overwrite is None:
-                    annotation_overwrite = project.type == "classification"
 
                 init = rfapi.init_zip_upload(
                     self.__api_key,
@@ -635,6 +635,11 @@ class Workspace:
             if annotation:
                 if annotation.get("success"):
                     msg += f" / annotations = OK {annotation_time_str}"
+                elif annotation.get("warn") == "already annotated":
+                    msg += (
+                        " / annotations = kept existing (pass --annotation-overwrite / annotation_overwrite=True"
+                        f" to replace) {annotation_time_str}"
+                    )
                 elif annotation.get("warn"):
                     msg += f" / annotations = WARN: {annotation['warn']} {annotation_time_str}"
                 else:
@@ -687,6 +692,7 @@ class Workspace:
                 job_name=batch_name,
                 num_retry_uploads=num_retries,
                 is_prediction=is_prediction,
+                annotation_overwrite=annotation_overwrite,
             )
 
             return annotation, upload_time
@@ -940,7 +946,7 @@ class Workspace:
         model_file_name: str,
     ):
         # This endpoint returns a signed URL to upload the model
-        res = requests.post(
+        res = http.post(
             f"{API_URL}/{self.url}/models/prepareUpload?api_key={self.__api_key}&modelType={model_type}&modelName={model_name}&projectIds={','.join(project_ids)}&nocache=true"
         )
         try:
@@ -956,7 +962,7 @@ class Workspace:
             return
 
         # Upload the model to the signed URL
-        res = requests.put(
+        res = http.put(
             res.json()["url"],
             data=open(os.path.join(model_path, model_file_name), "rb"),
         )
@@ -1156,7 +1162,7 @@ class Workspace:
         location = os.path.abspath(location)
 
         # 1. Start the export
-        session = requests.Session()
+        session = http.Session()
         export_id = rfapi.start_search_export(
             api_key=self.__api_key,
             workspace_url=self.url,
@@ -1750,7 +1756,7 @@ class Workspace:
         List the foundation models available for hosted auto-labeling in this workspace.
 
         Returns ``{models: [...]}``. Each entry's ``id`` (e.g.
-        ``gpt-6-astra-boxes``, ``sam3-rle``, ``gemini-boxes``) is a valid
+        ``gpt-6-astra-boxes``, ``sam3-rle``, ``gemini-3-8-flash-boxes``) is a valid
         ``model`` for ``Project.autolabel`` and ``Project.autolabel_preview``.
         Entries carry ``guidance`` on when to prefer each model, the
         ``projectTypes`` they support, ``ontologyFormat``, ``creditsPerImage``,

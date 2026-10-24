@@ -402,24 +402,33 @@ def test_console_glyph_kept_on_utf8(monkeypatch):
 
 
 @pytestmark_posix
-def test_binary_version_windows_probe_does_not_hang(tmp_path, monkeypatch):
-    """Real Windows Chrome ignores --version and starts a browser instead of
-    printing, so the stub here hangs unless --no-startup-window is passed —
-    mirroring the binary rather than a stub that prints and exits."""
-    stub = tmp_path / "winchrome"
-    stub.write_text(
-        "#!/bin/sh\n"
-        'case "$*" in\n'
-        "  *--no-startup-window*) exit 0 ;;\n"
-        "  *) sleep 30 ;;\n"  # stands in for the browser that never returns
-        "esac\n"
-    )
+def test_info_never_launches_binary_on_windows(tmp_path, monkeypatch, capsys):
+    """Windows Chrome ignores --version and starts a real browser, which takes a
+    license seat it never releases. info must read the version manifest instead."""
+    marker = tmp_path / "ran"
+    stub = tmp_path / "chrome.exe"
+    stub.write_text(f"#!/bin/sh\ntouch '{marker}'\n")
     stub.chmod(0o755)
+    (tmp_path / "1.2.3.4.manifest").write_text("")
+    fake_binary = {
+        "version": "1.2.3.4.1",
+        "tier": "pro",
+        "bundled_version": "x",
+        "path": str(stub),
+        "installed": True,
+        "cache_dir": str(tmp_path),
+        "override": None,
+    }
     monkeypatch.setattr(cloakbrowser.__main__.platform, "system", lambda: "Windows")
-    ok, version, err = _binary_version(str(stub))
-    assert ok, f"probe hung on a healthy Windows binary: {err}"
-    assert version == ""  # Windows prints no version
-    assert err == ""
+    with (
+        patch("cloakbrowser.license.resolve_license_key", return_value=None),
+        patch("cloakbrowser.__main__._effective_binary", return_value=fake_binary),
+    ):
+        cmd_info(Namespace(quick=False, json=True))
+    data = json.loads(capsys.readouterr().out)
+    assert data["launch"]["tested"] is False
+    assert "1.2.3.4" in data["launch"]["reason"]
+    assert not marker.exists(), "info launched the binary on Windows"
 
 
 @pytestmark_posix

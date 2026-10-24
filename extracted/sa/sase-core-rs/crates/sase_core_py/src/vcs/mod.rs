@@ -421,6 +421,66 @@ fn py_select_publication_retries<'py>(
     serialize_to_py(py, &result)
 }
 
+/// Classify one publication error message into the stable doctor/timing class.
+#[pyfunction]
+#[pyo3(name = "classify_publication_error")]
+fn py_classify_publication_error<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: PublicationErrorClassifyRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid PublicationErrorClassifyRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_classify_publication_error(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
+/// Decide whether a publication failure may charge attempted request rows.
+#[pyfunction]
+#[pyo3(name = "decide_publication_failure_accounting")]
+fn py_decide_publication_failure_accounting<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: PublicationFailureAccountingRequestWire =
+        serde_json::from_value(py_to_json_value(request.as_any())?).map_err(
+            |error| {
+                PyValueError::new_err(format!(
+                    "request is not a valid PublicationFailureAccountingRequestWire dict: {error}"
+                ))
+            },
+        )?;
+    let result = core_decide_publication_failure_accounting(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
+/// Select a bounded drain set of active and reviveable publication rows.
+#[pyfunction]
+#[pyo3(name = "select_publication_drain")]
+fn py_select_publication_drain<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: PublicationDrainSelectionRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid PublicationDrainSelectionRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_select_publication_drain(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
 /// Decide whether a publication request's canonical page and revision exist.
 #[pyfunction]
 #[pyo3(name = "decide_publication_request_completion")]
@@ -461,6 +521,86 @@ fn py_classify_deferred_prompt_obligation<'py>(
     serialize_to_py(py, &result)
 }
 
+/// Classify sidecar paths as browsing, owner content, archive objects, or unknown.
+#[pyfunction]
+#[pyo3(name = "classify_replay_paths")]
+fn py_classify_replay_paths<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ReplayPathClassifyRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ReplayPathClassifyRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_classify_replay_paths(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
+/// Decide whether same-run byte versions are a lossless prefix or must refuse.
+#[pyfunction]
+#[pyo3(name = "decide_replay_byte_divergence")]
+fn py_decide_replay_byte_divergence<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ReplayByteDivergenceRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ReplayByteDivergenceRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_decide_replay_byte_divergence(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
+/// Decide whether a same-owner hood may merge through snapshot preservation.
+#[pyfunction]
+#[pyo3(name = "decide_replay_hood_merge")]
+fn py_decide_replay_hood_merge<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ReplayHoodMergeRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ReplayHoodMergeRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_decide_replay_hood_merge(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
+/// Admit, refuse, or report a stale-replay apply against backup and HEAD facts.
+#[pyfunction]
+#[pyo3(name = "decide_replay_apply")]
+fn py_decide_replay_apply<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ReplayApplyDecisionRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ReplayApplyDecisionRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_decide_replay_apply(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
 /// Derive the canonical file sets and classify one explicit manifest list.
 ///
 /// Mirrors the Python `SessionManifestSnapshotWire` dict shape. The response
@@ -482,6 +622,26 @@ fn py_classify_session_manifest_files<'py>(
         ))
     })?;
     let result = core_classify_session_manifest_files(&request)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    serialize_to_py(py, &result)
+}
+
+/// Decide whether a verified owner-manifest candidate can become a slim entry.
+#[pyfunction]
+#[pyo3(name = "repair_session_manifest_entry")]
+fn py_repair_session_manifest_entry<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: SessionManifestClassifyRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid SessionManifestClassifyRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_repair_session_manifest_entry(&request)
         .map_err(|error| PyValueError::new_err(error.to_string()))?;
     serialize_to_py(py, &result)
 }
@@ -700,11 +860,18 @@ pub(crate) fn register_vcs(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_classify_session_manifest_files, m)?)?;
+    m.add_function(wrap_pyfunction!(py_repair_session_manifest_entry, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_publication_recovery_wire_schema_version,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_select_publication_retries, m)?)?;
+    m.add_function(wrap_pyfunction!(py_classify_publication_error, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_decide_publication_failure_accounting,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_select_publication_drain, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_decide_publication_request_completion,
         m
@@ -713,6 +880,10 @@ pub(crate) fn register_vcs(m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_classify_deferred_prompt_obligation,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(py_classify_replay_paths, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decide_replay_byte_divergence, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decide_replay_hood_merge, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decide_replay_apply, m)?)?;
     m.add_function(wrap_pyfunction!(py_vcs_log_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_log, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_commit_presence, m)?)?;

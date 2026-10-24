@@ -325,20 +325,22 @@ SUBJECT_CONVERSATION_KEY = "subject_conversation_id"
 def place_system_process_subject(
     kwargs: dict[str, Any], conversation_type: str | None, *, add_metadata: bool = True
 ) -> None:
-    """A system process is never a CHILD of the person's conversation (PB-08, 2026-10-19).
+    """A system process KEEPS its parent link; ``conversation_type`` is the flag (owner, 2026-10-23).
 
     The labeler, a condenser, a RAG judge: platform work about a conversation, run as the
-    platform in its own organization. Stored as ``parent_conversation_id`` it hung a foreign
-    organization's row under the person's tree and surfaced in every helper / lineage query.
-    The link moves to ``metadata.subject_conversation_id``; only a delegated helper
-    (``subagent``) keeps a parent. ``add_metadata=False`` is for an UPDATE that carries no
-    metadata of its own (inventing one would replace the INSERT's, which has the subject).
+    platform in its own organization (PB-08: the row's organization stays the platform's). Every
+    run is recorded like a chat with only its flags differing, so ``parent_conversation_id`` stays
+    on the row — readers that list a person's helpers already exclude ``system_process``
+    (``HIDDEN_CONVERSATION_TYPES``, ``chat.conversation_lane`` → hidden). The same link is also
+    written as ``metadata.subject_conversation_id`` (the name the 2026-10-19 rows carry), so both
+    spellings answer. ``add_metadata=False`` is for an UPDATE that carries no metadata of its own
+    (inventing one would replace the INSERT's, which has the subject).
     """
     from matrx_ai.agents.conversation_type import ConversationType
 
     if conversation_type != ConversationType.SYSTEM_PROCESS.value:
         return
-    subject = kwargs.pop("parent_conversation_id", None)
+    subject = kwargs.get("parent_conversation_id")
     if not subject or ("metadata" not in kwargs and not add_metadata):
         return
     metadata = dict(kwargs.get("metadata") or {})
@@ -580,9 +582,9 @@ def has_auto_title_prefix(title: str | None) -> bool:
 
 
 CONVERSATION_STEP_LABEL_KEY = "conversation_step_label"
-#: Context-metadata key naming the request an INDEPENDENT child run ran under
-#: (``run_agent(independent_request=True)``). The child's own user_request row
-#: carries it as ``metadata.parent_request_id`` — its lineage link.
+#: Retired metadata key: lineage is the ``chat.user_request.parent_request_id`` /
+#: ``root_request_id`` COLUMNS, written from ``AppContext`` by the one writer
+#: (``_lineage_columns``). Kept only so readers of old rows can name it.
 PARENT_REQUEST_ID_KEY = "parent_request_id"
 
 
@@ -956,6 +958,34 @@ def _start_claim_is_live(existing: Any) -> bool:
     return age < timedelta(seconds=CONVERSATION_START_CLAIM_STALE_SECONDS)
 
 
+#: Birth-metadata key a server door writes when it publishes a conversation before
+#: its turn runs: the request id that turn will run under. Birth metadata is
+#: server-only (never a request body), so a client cannot forge it.
+DOOR_PUBLISHED_FOR_REQUEST_KEY = "published_for_request"
+
+
+def _claim_is_this_requests(existing: Any, create_kwargs: dict[str, Any]) -> bool:
+    """Was the standing claim published by a server door FOR this request?
+
+    A server door that hands a new conversation's id to a client before the turn
+    starts (a repair run, a session offer) publishes the row first, claimed with
+    the request id the turn will run under — otherwise the client opens the id
+    and finds nothing. When that turn reaches the gate, the claim is its own:
+    adopting it is the start proceeding, not a double-submit.
+
+    A matching ``last_request_id`` alone is NOT enough: a client may send its own
+    ``X-Request-Id``, so a double-submit can repeat one. Only a row whose
+    server-written birth metadata names this request qualifies.
+    """
+    if str(getattr(existing, "last_request_status", "") or "") != CONVERSATION_START_CLAIM_STATUS:
+        return False
+    incoming = str(create_kwargs.get("last_request_id") or "")
+    if not incoming or str(getattr(existing, "last_request_id", "") or "") != incoming:
+        return False
+    metadata = getattr(existing, "metadata", None)
+    return isinstance(metadata, dict) and str(metadata.get(DOOR_PUBLISHED_FOR_REQUEST_KEY) or "") == incoming
+
+
 #: What a re-attempted start may re-stamp on the shell it adopts. These are all
 #: start-state: what the caller declared when opening the conversation, none of
 #: it derived from a turn that never ran.
@@ -1045,7 +1075,8 @@ async def _adopt_unstarted_conversation(
             f"a conversation with this id already exists and has already started"
         )
 
-    if _start_claim_is_live(existing):
+    own_claim = _claim_is_this_requests(existing, create_kwargs)
+    if _start_claim_is_live(existing) and not own_claim:
         # A run already owns this id and is still alive. This is the
         # double-submit case; the caller maps it to the RETRYABLE run_in_flight
         # 409, which the client backs off on rather than showing as an error.
@@ -1057,6 +1088,12 @@ async def _adopt_unstarted_conversation(
         column
         for column in _ADOPTION_BLOCKING_COLUMNS
         if getattr(existing, column, None) is not None
+        # Lineage blocks only an UNRELATED parent: a shell published (by this start, or by an
+        # earlier attempt at the same child) under the parent this start declares is the same child.
+        and not (
+            column == "parent_conversation_id"
+            and str(getattr(existing, column)) == str(create_kwargs.get(column) or "")
+        )
     ]
     if blocking:
         # Cannot be made equivalent to a fresh create — refuse rather than
@@ -1871,7 +1908,7 @@ async def create_pending_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": {**_lineage_metadata(ctx), **_run_identity_metadata(ctx)},
+        "metadata": _run_identity_metadata(ctx),
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }
@@ -1886,6 +1923,7 @@ async def create_pending_user_request(
     _stamp_launch_binding(create_kwargs, ctx)
     stamp_row_owner(create_kwargs, safe_user_id)
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
+    await _stamp_lineage(create_kwargs, ctx)
 
     try:
         await _cxm().user_request.create_user_request(**create_kwargs)
@@ -2064,11 +2102,22 @@ async def _get_user_request_lock(request_id: str) -> asyncio.Lock:
 _CONVERSATION_ATTRIBUTION_KEYS = ("mandate_key", "mandate_attribution", "direct_door")
 
 
+#: A run whose decision answers are filed by its OWN lane (Search Decide's ``record_decision_items``,
+#: a decision-review reference run) says so on its conversation row; the ``chat.message``
+#: decision-capture trigger (``platform.capture_message_decision_items``) skips such a
+#: conversation, so an answer is never filed twice or under the wrong judge — whatever mandate
+#: key held the run.
+DECISION_ITEMS_OWNER_KEY = "decision_items_owner"
+
+
 def _with_mandate_attribution(metadata: dict[str, Any], ctx: Any) -> dict[str, Any]:
-    """``metadata`` plus the run's ``mandate_key`` (and how it was attributed) from the
-    context. Never raises: attribution never blocks the row it labels."""
+    """``metadata`` plus the run's ``mandate_key`` (and how it was attributed) and its
+    :data:`DECISION_ITEMS_OWNER_KEY` from the context. Never raises."""
     try:
         source = getattr(ctx, "metadata", None) if ctx is not None else None
+        owner = source.get(DECISION_ITEMS_OWNER_KEY) if isinstance(source, dict) else None
+        if isinstance(owner, str) and owner.strip() and not metadata.get(DECISION_ITEMS_OWNER_KEY):
+            metadata = {**metadata, DECISION_ITEMS_OWNER_KEY: owner.strip()}
         key = source.get("mandate_key") if isinstance(source, dict) else None
         if not isinstance(key, str) or not key.strip():
             # No mandate: a ``direct`` (person / fixture started an agent by id) or
@@ -2139,12 +2188,119 @@ def _stamp_launch_binding(create_kwargs: dict[str, Any], ctx: Any) -> None:
         )
 
 
-def _lineage_metadata(ctx: Any) -> dict[str, Any]:
-    """The request this one ran under, when it is an independent child run."""
-    parent = (getattr(ctx, "metadata", None) or {}).get(PARENT_REQUEST_ID_KEY) if ctx is not None else None
-    if parent and str(parent) != str(getattr(ctx, "request_id", "") or ""):
-        return {PARENT_REQUEST_ID_KEY: str(parent)}
-    return {}
+#: The organization each request row ensured in this process was filed in — the
+#: lineage writer reads it before naming that row as a parent (a queued row is not
+#: yet readable from the database).
+_request_org_memo: OrderedDict[str, str] = OrderedDict()
+
+
+def _remember_request_org(request_id: str, organization_id: Any) -> None:
+    if not request_id or not organization_id:
+        return
+    rid = canonical_request_id(request_id)
+    _request_org_memo[rid] = str(organization_id)
+    _request_org_memo.move_to_end(rid)
+    while len(_request_org_memo) > _ENSURED_MEMO_MAX:
+        _request_org_memo.popitem(last=False)
+
+
+async def lineage_columns(
+    *,
+    own_request_id: str,
+    parent_request_id: Any,
+    root_request_id: Any,
+    organization_id: Any,
+) -> dict[str, Any]:
+    """THE lineage rule for a ``chat.user_request`` row: its ``parent_request_id`` /
+    ``root_request_id`` COLUMNS (the source of truth — never metadata).
+
+    * ``root_request_id`` — the tree's root, written as given (canonical uuid form, no FK:
+      the root may be a boundary request with no turn row); omitted for a top-level turn.
+    * ``parent_request_id`` — a self-FK, so it names a REAL row of the SAME organization
+      or nothing: a synthetic parent (an MCP / machine request no row carries) and a
+      parent filed in another organization both leave it NULL, loudly; the root stays.
+    """
+    own = canonical_request_id(own_request_id)
+    out: dict[str, Any] = {}
+    root = str(root_request_id or "")
+    if root and _is_valid_uuid(root) and canonical_request_id(root) != own:
+        out["root_request_id"] = canonical_request_id(root)
+    parent = str(parent_request_id or "")
+    if not parent or not _is_valid_uuid(parent):
+        return out
+    parent = canonical_request_id(parent)
+    if parent == own:
+        return out
+    parent_org = _request_org_memo.get(parent)
+    if parent_org is None:
+        try:
+            rows = await _cxm().user_request.filter_user_requests(id=parent)
+        except Exception as exc:  # noqa: BLE001 — a lineage read never blocks the row
+            vcprint(
+                f"[ConversationGate] could not read parent request {parent} ({type(exc).__name__}: "
+                f"{exc}) — request {own} is written without its parent link (root kept)",
+                color="red",
+            )
+            return out
+        if not rows:
+            vcprint(
+                f"[ConversationGate] request {own} ran under {parent}, which has no request row — "
+                "no parent link written (the root link and the tree cap still hold)",
+                color="yellow",
+            )
+            return out
+        parent_org = str(getattr(rows[0], "organization_id", "") or "")
+    mine = str(organization_id or "")
+    if parent_org and mine and parent_org != mine:
+        vcprint(
+            f"[ConversationGate] request {own} (organization {mine}) ran under {parent} filed in "
+            f"organization {parent_org} — a parent link never crosses organizations; written "
+            "without it (root kept)",
+            color="red",
+        )
+        return out
+    out["parent_request_id"] = parent
+    return out
+
+
+async def request_lineage(request_id: str | None) -> dict[str, str | None]:
+    """A stored turn's lineage, read from its columns, as ``AppContext`` overrides.
+
+    Every hop that rebuilds a run's context from its row (a client-tool resume, a crash
+    re-run, another worker) carries the tree it ran in: ``with_overrides(**lineage)``.
+    Unreadable or missing → both None (the run is its own root), loudly."""
+    out: dict[str, str | None] = {"parent_request_id": None, "root_request_id": None}
+    if not request_id or not _is_valid_uuid(str(request_id)):
+        return out
+    try:
+        rows = await _cxm().user_request.filter_user_requests(id=str(request_id))
+    except Exception as exc:  # noqa: BLE001 — a lineage read never blocks a resume
+        vcprint(
+            f"[ConversationGate] could not read the lineage of request {request_id} "
+            f"({type(exc).__name__}: {exc}) — it resumes as its own tree root",
+            color="red",
+        )
+        return out
+    if rows:
+        for key in out:
+            value = getattr(rows[0], key, None)
+            out[key] = str(value) if value else None
+    return out
+
+
+async def _stamp_lineage(create_kwargs: dict[str, Any], ctx: Any) -> None:
+    """Lineage columns from the context onto a new request row (after the org stamp)."""
+    if ctx is None:
+        return
+    create_kwargs.update(
+        await lineage_columns(
+            own_request_id=str(create_kwargs["id"]),
+            parent_request_id=getattr(ctx, "parent_request_id", None),
+            root_request_id=getattr(ctx, "root_request_id", None),
+            organization_id=create_kwargs.get("organization_id"),
+        )
+    )
+    _remember_request_org(str(create_kwargs["id"]), create_kwargs.get("organization_id"))
 
 
 class PlatformTenantRequestRefused(PermissionError):
@@ -2222,7 +2378,7 @@ async def _create_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": {**_lineage_metadata(ctx), **_run_identity_metadata(ctx)},
+        "metadata": _run_identity_metadata(ctx),
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }
@@ -2237,6 +2393,7 @@ async def _create_user_request(
     _stamp_launch_binding(create_kwargs, ctx)
     create_kwargs["created_by"] = user_id
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
+    await _stamp_lineage(create_kwargs, ctx)
     _refuse_person_request_in_platform_tenant(ctx, user_id, create_kwargs.get("organization_id"))
 
     # Route through the WriteCoordinator when in a request scope.

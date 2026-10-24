@@ -31,7 +31,7 @@ CONFIGS1_ANY_OF_SCHEMAS = ["SharedNotificationsVendorsEmailModelsEmailConfig", "
 
 class Configs1(BaseModel):
     """
-    REQUIRED. Channel-specific configuration for notification delivery. Type depends on the channel field: - EmailConfig for EMAIL channel (recipients, subject template, etc.) - SlackConfig for SLACK channel (workspace, channel, bot token) - WebhookConfig for WEBHOOK channel (URL, headers, auth). See respective config models for detailed field requirements.
+    REQUIRED. Channel-specific configuration for notification delivery. Type depends on the channel field: - EmailConfig for EMAIL channel (recipients, subject template, etc.) - SlackConfig for SLACK channel (incoming webhook URL, optional channel and username) - WebhookConfig for WEBHOOK channel (URL, headers, auth). See respective config models for detailed field requirements.
     """
 
     # data type: SharedNotificationsVendorsEmailModelsEmailConfig

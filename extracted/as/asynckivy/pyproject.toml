@@ -1,22 +1,26 @@
 [project]
 name = "asynckivy"
-version = "0.12.0"
+version = "0.12.1"
 description = "Async library for Kivy"
-authors = [{ name = "Nattōsai Mitō", email = "flow4re2c@gmail.com" }]
 license = "MIT"
-readme = 'README.md'
+readme = "README.md"
 requires-python = ">=3.11,<4.0"
-keywords = ['async', 'kivy']
-classifiers=[
-    'Development Status :: 5 - Production/Stable',
-    'Intended Audience :: Developers',
-    'Programming Language :: Python',
-    'Topic :: Software Development :: Libraries',
-    'Operating System :: OS Independent',
+keywords = [
+    "async",
+    "kivy",
 ]
-dependencies = [
-    "asyncgui>=0.11.1,<0.12",
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",
 ]
+dependencies = ["asyncgui>=0.11.1,<2"]
+
+[[project.authors]]
+name = "Nattōsai Mitō"
+email = "flow4re2c@gmail.com"
 
 [project.urls]
 Documentation = "https://asyncgui.github.io/asynckivy/"
@@ -35,14 +39,11 @@ doc = [
 ]
 
 [tool.uv]
-default-groups = ["dev", ]
+default-groups = ["dev"]
 
-[tool.uv.sources]
-kivy = { git = "https://github.com/kivy/kivy", rev = "be90b9f4bdb28c734e1cc01d6e7a7e1440e5216e" }
-
-[build-system]
-requires = ["uv_build>=0.9.2,<0.12.0"]
-build-backend = "uv_build"
+[tool.uv.sources.kivy]
+git = "https://github.com/kivy/kivy"
+rev = "c8e1f5f25802924e92f4f7f41851c9669778359e"
 
 [tool.pytest.ini_options]
 xfail_strict = true
@@ -53,18 +54,27 @@ line-length = 119
 
 [tool.ruff.lint]
 ignore = [
-    "B006", "B008",
-    "E401", "E402", "I001",
-    # "PLW0211",
+    "B006",
+    "B008",
+    "E401",
+    "E402",
+    "I001",
     "PYI061",
-    "RUF010", "RUF013", "RUF022",
+    "RUF010",
+    "RUF013",
+    "RUF022",
     "SIM117",
-    "UP007",  # Unionを用いないとsphinxでエラーが起きる
+    "UP007",
 ]
 extend-select = [
-    "E501", "Q000",
+    "E501",
+    "Q000",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/conftest.py" = ["F401"]
 "tests/test_*.py" = ["E501"]
+
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14.0"]
+build-backend = "uv_build"

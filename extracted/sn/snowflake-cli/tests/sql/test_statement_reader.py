@@ -626,7 +626,10 @@ def test_source_file_receives_pre_render(tmp_path_factory: pytest.TempPathFactor
     assert any("{% if flag %}" in c for c in rendered_calls)
 
 
-@pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT", "rehash"])
+@pytest.mark.parametrize(
+    "command",
+    ["queries", "abort", "result", "AbOrT", "rehash", "set", "SET", "spool", "SPOOL"],
+)
 def test_parse_command(command):
     query = f"!{command} args k1=v1 k2=v2;"
     parsed_statement = parse_statement(query, [])
@@ -747,7 +750,7 @@ def test_from_file_utf8_content(tmp_path_factory, monkeypatch):
     encoding must be explicitly configured to correctly read files with non-ASCII characters.
     """
     # Simulate Windows cp1252 environment where platform default would fail for UTF-8
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp1252")
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
 

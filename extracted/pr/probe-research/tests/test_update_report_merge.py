@@ -183,6 +183,48 @@ def test_a_failed_merge_costs_the_report_never_the_run(monkeypatch, sent):
     assert outcome.ok and sent == []
 
 
+def test_a_run_a_stop_signal_ends_fails_and_names_the_stop(monkeypatch, sent):
+    """SIGTERM or SIGHUP ends the run wherever it is (`probe.core.events._stop`
+    raises SystemExit(128 + the signal)); the Probe service sends SIGTERM to an
+    update past its time limit. The report and the local record say the run
+    was stopped, beside the pass it finished: they used to send only what the
+    finished passes said, which here was a success."""
+    import signal
+
+    _stub_updater(monkeypatch, {"claude_code": _plugin("0.9.14", "0.9.14")})
+    with pytest.raises(SystemExit), update_report.merged_run():
+        _pass(monkeypatch, "claude_code")
+        raise SystemExit(128 + signal.SIGTERM)
+
+    [report] = sent
+    assert report["outcome"] == "failed"
+    assert report["cli"]["result"] == Result.ERROR
+    assert report["cli"]["detail"].startswith("stopped by SIGTERM after ")
+    assert report["cli"]["detail"].endswith(", before the update finished")
+    assert report["tap"]["result"] == Result.CURRENT and report["tap"]["harness"] == "claude_code"
+    attempt = autoupdate.load().last_attempt
+    assert attempt.ok is False and attempt.detail == report["cli"]["detail"]
+
+
+def test_a_run_stopped_in_its_first_pass_still_reports(sent):
+    import signal
+
+    with pytest.raises(SystemExit), update_report.merged_run():
+        raise SystemExit(128 + signal.SIGHUP)
+    [report] = sent
+    assert report["outcome"] == "failed" and report["cli"]["detail"].startswith("stopped by SIGHUP after ")
+
+
+@pytest.mark.parametrize("code", [0, 1, 75, None])
+def test_an_ordinary_exit_is_no_stop(monkeypatch, sent, code):
+    _stub_updater(monkeypatch, {"claude_code": _plugin("0.9.14", "0.9.14")})
+    with pytest.raises(SystemExit), update_report.merged_run():
+        _pass(monkeypatch, "claude_code")
+        raise SystemExit(code)
+    [report] = sent
+    assert report["outcome"] == "ok" and report["cli"]["result"] == Result.CURRENT
+
+
 def test_nested_runs_send_once():
     passes = []
     with update_report.merged_run():

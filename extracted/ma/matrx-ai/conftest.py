@@ -70,6 +70,30 @@ def _pristine_matrx_ai_host_seams():
         reset_tool_declarations_for_tests()
 
 
+@pytest.fixture(autouse=True)
+def _a_declared_system_job_context():
+    """A package test that runs code with no request context runs it as a DECLARED system job.
+
+    ``carried_principal()`` refuses a run with no identity (review 46 F7: never a silent system run); production
+    code runs inside a request or a ``system_app_context``. These tests call package code bare, so the suite declares
+    the system job explicitly — the test runner's ``SYSTEM`` principal as the ambient context. A test about identity
+    sets its own context (or patches ``try_get_app_context``) and wins."""
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context, try_get_app_context
+    from matrx_connect.emitters import SilentEmitter
+
+    from matrx_ai.testing.holders import HolderBackedRunner
+
+    if try_get_app_context() is not None:
+        yield
+        return
+    system = HolderBackedRunner.system
+    token = set_app_context(AppContext(user_id=system.user_id or "", organization_id=system.org_id, emitter=SilentEmitter()))
+    try:
+        yield
+    finally:
+        clear_app_context(token)
+
+
 # Manual dev/demo scripts that live in the tests tree but are NOT automated
 # unit tests: they make live provider API calls, take non-fixture positional
 # args on their ``test_*`` functions, and/or run code at module import. pytest

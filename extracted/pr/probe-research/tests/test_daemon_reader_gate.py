@@ -169,6 +169,27 @@ def test_the_server_sets_the_mode_and_the_environment_wins(monkeypatch):
     assert model_mod.reader_gate_mode() == model_mod.GateMode.OFF
 
 
+def test_prompt_wakes_stay_on_unless_the_server_or_the_environment_turns_them_off(monkeypatch):
+    """Plan probe-hints T5: `x-probe-reader-prompt-wake` (on | off) per team; an
+    older server sends none, which is ON. The environment wins over the server."""
+    monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
+    monkeypatch.setattr(model_mod, "_PUSHED", {})
+    assert model_mod.reader_prompt_wake() is True
+    model_mod.remember_pushed_settings({})
+    assert model_mod.reader_prompt_wake() is True, "no header: on"
+    model_mod.remember_pushed_settings({"x-probe-reader-prompt-wake": "OFF "})
+    assert model_mod.reader_prompt_wake() is False
+    model_mod.remember_pushed_settings({"x-probe-reader-prompt-wake": "sometimes"})
+    assert model_mod.reader_prompt_wake() is False, "a malformed value keeps the last good one"
+    monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "on")
+    assert model_mod.reader_prompt_wake() is True
+    monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "maybe")
+    assert model_mod.reader_prompt_wake() is False, "a malformed override is no override"
+    monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE)
+    model_mod.remember_pushed_settings({"x-probe-reader-prompt-wake": "on"})
+    assert model_mod.reader_prompt_wake() is True
+
+
 def test_the_gate_lane_sends_its_header_and_the_servers_alias(monkeypatch):
     """The server keys the gate's own slots, its no-fallback rule and its 422 on
     exactly these strings (`DaemonLane.GATE`, `chat_router.GATE_MODEL_ALIAS`)."""

@@ -447,6 +447,14 @@ _DEPLOY_DOCS = CommandDocs(
             ".",
         ),
         plain_text(
+            "Set ",
+            code("include_project_definition: true"),
+            " on the Streamlit entity to also upload the project-root ",
+            code("snowflake.yml"),
+            ". When this file is uploaded, deploy warns that users with USAGE on the "
+            "app or read access to its backing stage can retrieve it.",
+        ),
+        plain_text(
             "If you don't specify a stage name, the ",
             code("streamlit"),
             " stage is used. If the specified stage does not exist, the command "
@@ -468,6 +476,24 @@ _DEPLOY_DOCS = CommandDocs(
             code("--prune"),
             " option, the command removes files that exist in the stage, but not files "
             "in the local filesystem.",
+        ),
+        plain_text(
+            "For an existing versioned app, ",
+            code("--replace"),
+            " applies changes to ",
+            code("main_file"),
+            " in place. Files are uploaded before the "
+            "entrypoint changes, and pruning runs after a successful change. If the "
+            "account does not support the update, deploy reports an error and keeps "
+            "the existing app.",
+        ),
+        plain_text(
+            "If the app has no live version stage, restore its live version before "
+            "redeploying. When ",
+            code("main_file"),
+            " is unset, ",
+            code("--prune"),
+            " requires the app's current entrypoint to be included in the bundle.",
         ),
     ),
     examples=(
@@ -504,6 +530,8 @@ def streamlit_deploy(
     field (default: streamlit); the command creates that stage if needed. If the
     app already exists, re-run with --replace to update it. If multiple Streamlits
     are defined and no entity_id is provided, the command raises an error.
+    Set `include_project_definition: true` on the Streamlit entity to also upload
+    the project-root snowflake.yml itself.
     """
 
     cli_context = get_cli_context()

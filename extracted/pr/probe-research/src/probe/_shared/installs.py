@@ -91,6 +91,58 @@ def version_env(version: str, tools: Path | None = None) -> Path:
     return versions_root(tools) / version / DIST
 
 
+def is_link(path: Path) -> bool:
+    """A symlink, or on Windows a junction (how the tool path is switched there:
+    a directory symlink needs Developer Mode or an administrator)."""
+    if path.is_symlink():
+        return True
+    if os.name == "nt":
+        is_junction = getattr(path, "is_junction", None)  # Python 3.12
+        if is_junction is not None:
+            return is_junction()
+        try:
+            os.readlink(path)
+            return True
+        except (OSError, ValueError):
+            return False
+    return False
+
+
+def _make_link(target: Path, link: Path) -> None:
+    if os.name == "nt":
+        import _winapi
+
+        _winapi.CreateJunction(str(target), str(link))
+    else:
+        os.symlink(target, link, target_is_directory=True)
+
+
+def _drop_link(link: Path) -> None:
+    """Remove the link itself, never what it names (rmdir on a junction)."""
+    if os.name == "nt" and not link.is_symlink():
+        os.rmdir(link)
+    else:
+        link.unlink()
+
+
+def _swap_link(link: Path, env: Path) -> None:
+    """Put `link` at `env`: one rename on POSIX. Windows cannot rename onto a
+    folder (a junction is one), so the old link moves aside first, for the
+    moment between two renames."""
+    if os.name != "nt" or not (env.exists() or is_link(env)):
+        os.replace(link, env)
+        return
+    aside = env.with_name(f".{env.name}.old-{os.getpid()}")
+    os.rename(env, aside)
+    try:
+        os.rename(link, env)
+    except OSError:
+        os.rename(aside, env)
+        raise
+    with contextlib.suppress(OSError):
+        _drop_link(aside)
+
+
 def env_python(env: Path) -> Path:
     if os.name == "nt":
         return env / "Scripts" / "python.exe"
@@ -131,9 +183,14 @@ def same_filesystem(tools: Path | None = None) -> bool:
 def usable(tools: Path | None = None) -> bool:
     """Is the side-by-side layout usable here: a uv tool env (a folder or our
     symlink) at the tool path, and the versions folder on its filesystem?"""
+    if os.name == "nt":
+        # Not yet: the first switch moves the folder the running CLI (and the
+        # service) run from, which Windows refuses while they run. Windows
+        # updates in place, through the CLI's own updater, as before.
+        return False
     tools = tools or tool_dir()
     env = tool_env(tools)
-    return (env.is_symlink() or env.is_dir()) and same_filesystem(tools)
+    return (is_link(env) or env.is_dir()) and same_filesystem(tools)
 
 
 # -- the record ------------------------------------------------------------------
@@ -168,7 +225,7 @@ def active(tools: Path | None = None) -> Path | None:
     """The version env the tool path names now, resolved; None when it is a
     plain folder (no switch yet) or missing."""
     env = tool_env(tools)
-    if not env.is_symlink():
+    if not is_link(env):
         return None
     try:
         return env.resolve(strict=True)
@@ -290,7 +347,7 @@ def needs_migration(tools: Path | None = None) -> bool:
     files through that path, so it is made only on a quiet machine (the
     in-place update's own checks); every later switch is a link."""
     env = tool_env(tools)
-    return env.is_dir() and not env.is_symlink()
+    return env.is_dir() and not is_link(env)
 
 
 def _migrate(tools: Path) -> Path | None:
@@ -299,7 +356,7 @@ def _migrate(tools: Path) -> Path | None:
     Returns where it went, or None when there was nothing to move. Recorded
     first (`migrating`), so a switch cut short is put back (`recover`)."""
     env = tool_env(tools)
-    if env.is_symlink() or not env.is_dir():
+    if is_link(env) or not env.is_dir():
         return None
     version = env_version(env) or f"unknown-{int(time.time())}"
     dest = version_env(version, tools) if _VERSION.match(version) else versions_root(tools) / version / DIST
@@ -378,7 +435,7 @@ def recover(tools: Path | None = None) -> bool:
             return False
         env, dest = Path(str(moving.get("from"))), Path(str(moving.get("to")))
         done = False
-        if not env.exists() and not env.is_symlink() and dest.is_dir():
+        if not env.exists() and not is_link(env) and dest.is_dir():
             os.rename(dest, env)
             done = True
         data.pop("migrating", None)
@@ -403,22 +460,22 @@ def activate(target: Path, *, tools: Path | None = None) -> dict:
     before = active(tools)
     # The link first: nothing has moved if it cannot be made.
     link = tools / f".{DIST}.switch-{os.getpid()}"
-    with contextlib.suppress(FileNotFoundError):
-        link.unlink()
-    os.symlink(target, link, target_is_directory=True)
+    with contextlib.suppress(FileNotFoundError, OSError):
+        _drop_link(link)
+    _make_link(target, link)
     try:
         migrated = _migrate(tools)
     except OSError:
         with contextlib.suppress(OSError):
-            link.unlink()
+            _drop_link(link)
         recover(tools)
         raise
     previous = before or migrated
     try:
-        os.replace(link, env)
+        _swap_link(link, env)
     except OSError:
         with contextlib.suppress(OSError):
-            link.unlink()
+            _drop_link(link)
         recover(tools)
         raise
     data = record(tools)

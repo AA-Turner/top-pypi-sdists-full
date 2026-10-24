@@ -23,7 +23,7 @@
 
 [package]
 name = "zensical"
-version = "0.0.71"
+version = "0.0.72"
 description = "Zensical"
 edition.workspace = true
 rust-version.workspace = true
@@ -80,6 +80,7 @@ saphyr.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json.workspace = true
 sha2.workspace = true
+sha1_smol.workspace = true
 svgtypes.workspace = true
 swc_common.workspace = true
 swc_css.workspace = true

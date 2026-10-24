@@ -20,8 +20,11 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.bucket_destination import BucketDestination
 from mixpeek.models.bucket_schema_input import BucketSchemaInput
+from mixpeek.models.ingest_filter import IngestFilter
 from mixpeek.models.source_adapter_config import SourceAdapterConfig
+from mixpeek.models.unique_key_config import UniqueKeyConfig
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +37,10 @@ class BucketPatchRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the bucket")
     bucket_schema: Optional[BucketSchemaInput] = Field(default=None, description="Schema definition for objects in this bucket")
     source_adapter: Optional[SourceAdapterConfig] = Field(default=None, description="Source adapter configuration for inbound webhook-driven ingestion")
-    __properties: ClassVar[List[str]] = ["bucket_name", "description", "metadata", "bucket_schema", "source_adapter"]
+    unique_key: Optional[UniqueKeyConfig] = Field(default=None, description="Change the bucket's unique key default_policy. `fields` must repeat the bucket's existing unique key fields: the key itself is fixed at creation, because every stored object is registered under it. Send `default_policy: null` to clear the default so each upload or object create must pass ?policy=. Rejected with 422 on a bucket created without a unique_key, or when `fields` differ from the stored key.")
+    destination: Optional[BucketDestination] = Field(default=None, description="Write this bucket's extraction outputs to your own storage instead of Mixpeek's: a storage connection with write access and a prefix. Send null to unbind; later outputs go to Mixpeek's storage.")
+    ingest_filter: Optional[IngestFilter] = Field(default=None, description="Set, replace or remove (null) the bucket's ingest filter: a pinned saved retriever every candidate object a sync brings in runs through before it is committed. The version is pinned on write; omit retriever_version to pin the retriever's current version.")
+    __properties: ClassVar[List[str]] = ["bucket_name", "description", "metadata", "bucket_schema", "source_adapter", "unique_key", "destination", "ingest_filter"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,6 +87,15 @@ class BucketPatchRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of source_adapter
         if self.source_adapter:
             _dict['source_adapter'] = self.source_adapter.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of unique_key
+        if self.unique_key:
+            _dict['unique_key'] = self.unique_key.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of destination
+        if self.destination:
+            _dict['destination'] = self.destination.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of ingest_filter
+        if self.ingest_filter:
+            _dict['ingest_filter'] = self.ingest_filter.to_dict()
         return _dict
 
     @classmethod
@@ -97,7 +112,10 @@ class BucketPatchRequest(BaseModel):
             "description": obj.get("description"),
             "metadata": obj.get("metadata"),
             "bucket_schema": BucketSchemaInput.from_dict(obj["bucket_schema"]) if obj.get("bucket_schema") is not None else None,
-            "source_adapter": SourceAdapterConfig.from_dict(obj["source_adapter"]) if obj.get("source_adapter") is not None else None
+            "source_adapter": SourceAdapterConfig.from_dict(obj["source_adapter"]) if obj.get("source_adapter") is not None else None,
+            "unique_key": UniqueKeyConfig.from_dict(obj["unique_key"]) if obj.get("unique_key") is not None else None,
+            "destination": BucketDestination.from_dict(obj["destination"]) if obj.get("destination") is not None else None,
+            "ingest_filter": IngestFilter.from_dict(obj["ingest_filter"]) if obj.get("ingest_filter") is not None else None
         })
         return _obj
 

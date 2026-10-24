@@ -39,9 +39,11 @@ class Field:
         description="",
         id=None,
         default=None,
+        invalid_value_message=None,
         widget=None,
         render_kw=None,
         name=None,
+        datalist=None,
         _form=None,
         _prefix="",
         _translations=None,
@@ -57,9 +59,10 @@ class Field:
         :param filters:
             A sequence of callable which are run by :meth:`~Field.process`
             to filter or transform the input data. For example
-            ``StringForm(filters=[str.strip, str.upper])``.
+            ``StringForm(filters=[lambda x: x.strip() if x is not None else x])``.
             Note that filters are applied after processing the default and
-            incoming data, but before validation.
+            incoming data, but before validation. Filters should handle
+            empty values such as `None`.
         :param description:
             A description for the field, typically used for help text.
         :param id:
@@ -68,6 +71,9 @@ class Field:
         :param default:
             The default value to assign to the field, if no form or object
             input is provided. May be a callable.
+        :param invalid_value_message:
+            Optional custom message used when processing submitted or Python
+            data fails because the value is invalid for this field.
         :param widget:
             If provided, overrides the widget used to render the field.
         :param dict render_kw:
@@ -104,9 +110,12 @@ class Field:
         else:
             raise TypeError("Must provide one of _form or _meta")
 
+        self._form = _form
+
         self.default = default
         self.description = description
-        self.render_kw = render_kw
+        self.invalid_value_message = invalid_value_message
+        self.render_kw = dict(render_kw) if render_kw is not None else None
         self.filters = filters
         self.flags = Flags()
         self.name = _prefix + name
@@ -126,6 +135,13 @@ class Field:
 
         if widget is not None:
             self.widget = widget
+
+        self._datalist = None
+        if datalist is not None:
+            if isinstance(datalist, str):
+                self._datalist = datalist
+            else:
+                self._datalist = datalist._clone(id=f"{self.id}-datalist")
 
         for v in itertools.chain(self.validators, [self.widget]):
             flags = getattr(v, "field_flags", {})
@@ -162,6 +178,13 @@ class Field:
         even do anything related to HTML.
         """
         return self.meta.render_field(self, kwargs)
+
+    def datalist(self, **kwargs):
+        """Render the inline ``<datalist>`` bound to this field, or
+        empty markup when there is none."""
+        if self._datalist is None or isinstance(self._datalist, str):
+            return Markup("")
+        return self._datalist(self, **kwargs)
 
     @classmethod
     def check_validators(cls, validators):
@@ -327,6 +350,23 @@ class Field:
         except ValueError as e:
             self.process_errors.append(e.args[0])
 
+    def post_process(self, formdata=None):
+        """Hook called after every field in the enclosing form has been processed.
+
+        Override this when a field needs to read other fields' processed data,
+        for example to resolve dynamic choices that depend on the form state.
+        The base implementation refreshes any inline :class:`~wtforms.DataList`
+        attached to the field.
+
+        It may run again after the form data changed. See
+        :meth:`~wtforms.form.BaseForm.post_process`.
+
+        :param formdata: The resolved formdata the enclosing form was bound
+            with, or ``None`` for non-formdata cycles.
+        """
+        if self._datalist is not None and not isinstance(self._datalist, str):
+            self._datalist._invalidate(self)
+
     def process_data(self, value):
         """
         Process the Python data applied to this field and store the result.
@@ -421,7 +461,7 @@ class Flags:
 
 class Label:
     """
-    An HTML form label.
+    An HTML :mdn-tag:`label`.
     """
 
     def __init__(self, field_id, text):
@@ -441,8 +481,9 @@ class Label:
             kwargs.setdefault("for", self.field_id)
 
         attributes = widgets.html_params(**kwargs)
+        attributes = f" {attributes}" if attributes else ""
         text = escape(text or self.text)
-        return Markup(f"<label {attributes}>{text}</label>")
+        return Markup(f"<label{attributes}>{text}</label>")
 
     def __repr__(self):
         return f"Label({self.field_id!r}, {self.text!r})"

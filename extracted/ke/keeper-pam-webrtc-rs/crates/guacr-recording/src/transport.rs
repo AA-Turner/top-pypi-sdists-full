@@ -153,9 +153,17 @@ impl RecordingTransport for MultiTransportRecorder {
     }
 
     async fn finalize(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut first_failure = None;
         for transport in &mut self.transports {
-            transport.finalize().await?;
+            if let Err(error) = transport.finalize().await {
+                if first_failure.is_none() {
+                    first_failure = Some(error);
+                }
+            }
         }
-        Ok(())
+        match first_failure {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 }

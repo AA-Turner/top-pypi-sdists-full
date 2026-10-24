@@ -11,6 +11,18 @@
 Codex's reasoning is usually encrypted; only a plain `summary` is read. Helper
 agents are separate rollouts that carry `parent_thread_id` (E9, to confirm).
 
+A message another agent sent this thread (multi-agent v2, checked against real
+rollouts 2026-10-23) is META marked as one (`events.PEER_TOOL`, its sender in
+`command`, its text the payload alone):
+
+    {"type":"response_item","payload":{"type":"agent_message","author":"/root/review_api",
+        "recipient":"/root","content":[{"type":"input_text","text":"Message Type: FINAL_ANSWER\\n
+        Task name: /root\\nSender: /root/review_api\\nPayload:\\n<the message>"}]}}
+
+Every one in a rollout is addressed to its own agent. Most carry their payload
+as `encrypted_content` (a task the parent handed a helper): with no readable
+payload, nothing is read.
+
 BYPASS is `approval_policy: never` AND a `danger-full-access` sandbox. "never"
 alone only means Codex asks nothing: inside a read-only or workspace sandbox the
 harness still stops what it would ask about, so the daemon asks too.
@@ -30,11 +42,31 @@ from probe.daemon.adapters.base import (
     block_texts,
     event,
     existing,
+    peer_message,
 )
 from probe.daemon.events import Event, Kind
 
 _STARTUP_PREFIXES = ("<environment_context>", "<user_instructions>", "# AGENTS.md", "<permissions", "<turn_aborted>")
 FULL_ACCESS = "danger-full-access"
+#: Where an `agent_message`'s readable text starts its payload, after its header lines.
+_PAYLOAD = "Payload:\n"
+
+
+def _agent_message(payload: dict, *, stream: str, offset: int, ts: str | None) -> list[Event]:
+    """Another agent's message to this thread, when its payload is readable."""
+    texts = [b["text"] for b in payload.get("content") or []
+             if isinstance(b, dict) and b.get("type") in ("input_text", "text") and isinstance(b.get("text"), str)]
+    text = "\n".join(texts)
+    head, found, body = text.partition(_PAYLOAD)
+    if not found:
+        body = text
+    if not body.strip():
+        return []  # encrypted: only the header is plain text
+    author = payload.get("author") if isinstance(payload.get("author"), str) else None
+    if author is None:
+        sender = [line[len("Sender: "):] for line in head.splitlines() if line.startswith("Sender: ")]
+        author = sender[0] if sender else None
+    return [peer_message(stream, offset, ts=ts, text=body.strip("\n"), sender_from=author)]
 
 
 def _sandbox(policy: object) -> str | None:
@@ -86,6 +118,8 @@ class Codex(Adapter):
         if obj.get("type") != "response_item":
             return []
         inner = payload.get("type")
+        if inner == "agent_message":
+            return _agent_message(payload, stream=stream, offset=offset, ts=ts)
         if inner == "message":
             role = payload.get("role")
             if role not in ("user", "assistant"):

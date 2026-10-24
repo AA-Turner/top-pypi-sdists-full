@@ -107,6 +107,9 @@ class ToolAdaptation:
     detail: dict[str, Any] = field(default_factory=dict)
     #: Tools added in place of what was removed (a translation), e.g. ``["web"]``.
     added: list[str] = field(default_factory=list)
+    #: Recorded on the turn's snapshot but never said to the person: every tool removed was
+    #: one the automatic layer added, so nothing the agent or request listed went missing.
+    silent: bool = False
 
     def as_record(self) -> dict[str, Any]:
         return {
@@ -117,6 +120,7 @@ class ToolAdaptation:
             "reason": self.reason,
             **({"added": list(self.added)} if self.added else {}),
             **({"detail": self.detail} if self.detail else {}),
+            **({"silent": True} if self.silent else {}),
         }
 
 
@@ -189,6 +193,53 @@ def tool_surface_names(config: Any) -> list[str]:
         label = server.get("name") or server.get("url") if isinstance(server, dict) else server
         names.append(f"mcp:{label}")
     return names
+
+
+#: ``AppContext.metadata`` key: the tool names the REQUEST itself listed (``tools`` /
+#: ``tools_replace``), stamped by the host's tool funnel. The merge labels those ``request``
+#: beside the automatic capability defaults; this tells the two apart.
+REQUEST_LISTED_TOOLS_KEY = "request_listed_tools"
+
+
+def automatic_tool_names(config: Any) -> set[str]:
+    """The tools on ``config`` that only the AUTOMATIC layer put there.
+
+    Automatic = a tool whose recorded source is one the "automatic tools" switch governs
+    (``merge.AUTOMATIC_STICKY_SOURCES``: surface, request defaults, context) or a compute
+    target's — never something the agent declared (its own tools or skills), the person
+    picked, or a bundle the agent lists. A tool with no recorded source is NOT automatic:
+    an unexplained tool is always named, never hidden.
+    """
+    from matrx_connect.context.app_context import try_get_app_context
+
+    from matrx_ai.tools.merge import (
+        AUTOMATIC_STICKY_SOURCES,
+        STICKY_SOURCE_COMPUTE_TARGET,
+        TOOL_SOURCES_KEY,
+    )
+
+    declared = {
+        str(t)
+        for t in [
+            *(getattr(config, "authored_tools", None) or []),
+            *(getattr(config, "skill_injected_tool_ids", None) or []),
+        ]
+        if isinstance(t, str)
+    }
+    sticky = dict(getattr(config, "dynamic_tool_sources", None) or {})
+    ctx = try_get_app_context()
+    metadata = getattr(ctx, "metadata", None) if ctx is not None else None
+    recorded = dict((metadata or {}).get(TOOL_SOURCES_KEY) or {}) if isinstance(metadata, dict) else {}
+    if isinstance(metadata, dict):
+        declared |= {str(t) for t in metadata.get(REQUEST_LISTED_TOOLS_KEY) or ()}
+    out: set[str] = set()
+    for tool in getattr(config, "tools", None) or []:
+        if not isinstance(tool, str) or tool in declared:
+            continue
+        source = str(sticky.get(tool) or recorded.get(tool) or "")
+        if source in AUTOMATIC_STICKY_SOURCES or source.startswith(STICKY_SOURCE_COMPUTE_TARGET):
+            out.add(tool)
+    return out
 
 
 def _stage_on_snapshot(record: dict[str, Any]) -> None:
@@ -278,6 +329,8 @@ async def announce_tool_adaptations(
             _stage_on_snapshot(record)
         except Exception as exc:  # noqa: BLE001
             vcprint(f"[tool_adaptation] snapshot record not staged: {exc!r}", color="yellow")
+        if adaptation.silent:
+            continue  # recorded above; nothing the agent or request listed was removed
         try:
             from matrx_connect.context.app_context import try_get_app_context
             from matrx_connect.context.events import WarningPayload

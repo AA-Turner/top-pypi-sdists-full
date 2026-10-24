@@ -26,6 +26,7 @@ __all__ = (
     "CentralizationFailureReasonType",
     "CloudWatchObservabilityAdminServiceServiceName",
     "ContextGraphStatusType",
+    "DeletionProtectionType",
     "DestinationTypeType",
     "EncryptedLogGroupStrategyType",
     "EncryptionConflictResolutionStrategyType",
@@ -70,6 +71,7 @@ CentralizationFailureReasonType = Literal[
     "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION", "INTERNAL_SERVER_ERROR", "TRUSTED_ACCESS_NOT_ENABLED"
 ]
 ContextGraphStatusType = Literal["Healthy", "Provisioning", "Unhealthy"]
+DeletionProtectionType = Literal["ENABLED"]
 DestinationTypeType = Literal["cloud-watch-logs"]
 EncryptedLogGroupStrategyType = Literal["ALLOW", "SKIP"]
 EncryptionConflictResolutionStrategyType = Literal["ALLOW", "SKIP"]
@@ -129,6 +131,7 @@ ResourceTypeType = Literal[
     "AWS::SecurityHub::Hub",
     "AWS::SecurityHub::HubV2",
     "AWS::WAFv2::WebACL",
+    "AWS::XRay::TransactionSearchConfig",
 ]
 RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
@@ -153,7 +156,7 @@ TelemetrySourceTypeType = Literal[
     "VPC_FLOW_LOGS",
 ]
 TelemetryStateType = Literal["Disabled", "Enabled", "NotApplicable"]
-TelemetryTypeType = Literal["Logs", "Metrics", "Traces"]
+TelemetryTypeType = Literal["Insights", "Logs", "Metrics", "Traces"]
 WAFLogTypeType = Literal["WAF_LOGS"]
 CloudWatchObservabilityAdminServiceServiceName = Literal["observabilityadmin"]
 ServiceName = Literal[
@@ -309,13 +312,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -383,6 +385,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -517,6 +520,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -567,7 +571,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

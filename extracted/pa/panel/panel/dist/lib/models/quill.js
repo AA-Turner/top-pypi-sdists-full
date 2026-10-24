@@ -1,7 +1,6 @@
 import { div } from "@bokehjs/core/dom";
 import { HTMLBox, HTMLBoxView } from "./layout";
 export class QuillInputView extends HTMLBoxView {
-    static __name__ = "QuillInputView";
     container;
     _editor;
     _editing;
@@ -223,7 +222,6 @@ export class QuillInputView extends HTMLBoxView {
     }
 }
 export class QuillInput extends HTMLBox {
-    static __name__ = "QuillInput";
     constructor(attrs) {
         super(attrs);
     }

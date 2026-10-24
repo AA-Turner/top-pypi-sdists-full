@@ -22,6 +22,11 @@ pub(crate) const ERROR_PREFIX: &str = "error[C900]:";
 pub(crate) const ERROR_STRONG_STYLE: &str = "\u{1b}[38;5;167m\u{1b}[1m";
 pub(crate) const STYLE_RESET: &str = "\u{1b}[0m";
 pub(crate) const PARSER_ERROR_EXIT: i64 = 2;
+/// The parser `prog` of `sqb review`, and the option that makes it print a JSON document.
+pub(crate) const REVIEW_PROG: &str = "sqb review";
+pub(crate) const JSON_OPTION: &str = "--json";
+/// Commands whose usage errors exit with their own status, where 2 means something else.
+pub(crate) const USAGE_ERROR_EXITS: [(&str, i64); 1] = [(REVIEW_PROG, 3)];
 pub(crate) const HELP_EXIT: i64 = 0;
 pub(crate) const INDENT_INCREMENT: i64 = 2;
 pub(crate) const MAX_HELP_POSITION: i64 = 24;
@@ -51,6 +56,7 @@ pub(crate) const POSITIONAL_SELECT_COMMANDS: [&str; 8] = [
 ];
 pub(crate) const CONCURRENCY_COMMANDS: [&str; 5] = ["audit", "build", "load", "seed", "test"];
 pub(crate) const CURSOR_COMMANDS: [&str; 3] = ["build", "load", "plan"];
+pub(crate) const RENAME_COMMAND: &str = "rename";
 pub(crate) const SCOPE_COMMAND: &str = "scope";
 pub(crate) const TEST_COMMAND: &str = "test";
 pub(crate) const JANITOR_COMMAND: &str = "janitor";
@@ -63,7 +69,7 @@ pub(crate) const INT_CONVERTER: &str = "int";
 pub(crate) const PATH_CONVERTER: &str = "Path";
 
 /// Every `CliNamespace` attribute with a default, in declaration order.
-pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 179] = [
+pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 184] = [
     ("command", NamespaceDefault::None),
     ("project_dir", NamespaceDefault::None),
     ("dbt_project_dir", NamespaceDefault::None),
@@ -85,6 +91,10 @@ pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 179] = [
     ("inspect", NamespaceDefault::Bool(false)),
     ("since", NamespaceDefault::None),
     ("explain", NamespaceDefault::Bool(false)),
+    ("review_against", NamespaceDefault::None),
+    ("review_downstream", NamespaceDefault::None),
+    ("review_no_clone", NamespaceDefault::Bool(false)),
+    ("review_markdown", NamespaceDefault::None),
     ("target_range", NamespaceDefault::None),
     ("from_target", NamespaceDefault::None),
     ("to_target", NamespaceDefault::None),
@@ -138,6 +148,7 @@ pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 179] = [
     ("retention_days", NamespaceDefault::None),
     ("direct_state_history_versions", NamespaceDefault::None),
     ("drop_old_name_views", NamespaceDefault::EmptyList),
+    ("keep_in_use", NamespaceDefault::Bool(false)),
     ("bounded", NamespaceDefault::None),
     ("max_column_examples", NamespaceDefault::None),
     ("max_row_only_examples", NamespaceDefault::None),

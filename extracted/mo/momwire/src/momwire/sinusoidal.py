@@ -38,6 +38,7 @@ Scope (deliberately narrow):
 import cmath
 import contextlib
 import math
+import warnings
 from collections import namedtuple
 from dataclasses import dataclass
 
@@ -284,6 +285,32 @@ _CROSSING_OBLIQUE_REFUSAL = (
     "leaving an impedance error that grows with the lean and does not refine "
     "away. Solve it with SinusoidalGalerkinSolver or BSplineSolver, whose node "
     "slope emerges from the solution"
+)
+# momwire#1630: the TWO-RADIUS crossing node (one radius above the interface,
+# another below) is served by SG and bspline on the U5 rule, and refused here
+# by measurement, not by omission. On a 1-radial buried hub at 14 MHz, soil
+# 13/0.005, every response to a radius change is measured against NEC-5 (the
+# node's own gap cancels in the difference): thickening the vertical 1 -> 19 mm
+# moves NEC-5 by -6.8+7.9j ohm, SG by -7.2+8.3j and this lane by -54.7+34.4j;
+# thinning the buried wires 1 -> 0.25 mm moves NEC-5 by +19.9-6.7j, SG by
+# +20.1-7.0j and this lane by -2.4+1.2j. No placement of the cross rows' radius
+# puts it right (`scratch/1630-two-radius/`). The cause sits below the
+# crossing: this lane's ordinary radius-STEP junction misses NEC in free space
+# too (a 0.5/1 mm step dipole: -8.9j / -1.2j ohm at 20 / 40 segments a half,
+# against NEC-4.2's -28.1j / -26.6j and NEC-5's -34.7j; momwire#1632), and
+# the crossing's two-k recipe is built on it. NEC-4.2 cannot adjudicate the node either: its
+# crossing junction is discontinuous in the radius ratio (1.1 mm on 1 mm moves
+# its X by -340 ohm where NEC-5 moves 0.5).
+_CROSSING_TWO_RADIUS_REFUSAL = (
+    "SinusoidalSolver does not serve a TWO-RADIUS crossing node (one wire "
+    "radius above the interface and another below, momwire#1630): measured "
+    "against NEC-5, this lane's impedance responds to the node's radii with "
+    "the physics swapped -- the buried wires' radius barely moves it and the "
+    "above wire's moves it several times too far -- because its radius-step "
+    "junction misses NEC even in free space (momwire#1632). Solve it with "
+    "SinusoidalGalerkinSolver or BSplineSolver, which serve the two-radius "
+    "node and track NEC-5's radius response to under 0.5 ohm, or give every "
+    "wire one radius"
 )
 # No pair-count cap on the point-matched crossing block (momwire#1224 perf
 # item 5). Stage 2 refused past 4 M observer x source-node pairs per
@@ -879,6 +906,90 @@ _POINT_FEED_MODEL_REFUSAL = (
 )
 
 
+class RadiusStepJunction(UserWarning):
+    """Wires of different radius meet at a junction, on the point-matched
+    `SinusoidalSolver` (momwire#1632). Raised once per solver, at
+    construction. Advisory only: nothing is remeshed, refused or changed.
+
+    This lane follows NEC-2 at a radius step, and that includes NEC-2's
+    known weakness there (the tapered-element problem): it mostly ignores
+    the step, and more so as the mesh is refined. Measured on #1632's
+    stepped dipole (a 6 m dipole at 14 MHz, a 0.5 mm half joined to a 1 mm
+    half), the step's effect on Z, Z(step) - Z(both 1 mm), in ohms:
+
+        ======================  ==============  ==============
+        engine                  20 seg/half     40 seg/half
+        ======================  ==============  ==============
+        NEC-2 (PyNEC)           -0.59 - 8.90j   -0.77 - 1.21j
+        SinusoidalSolver        -0.59 - 8.86j   -0.76 - 1.16j
+        SinusoidalGalerkin      -0.02 - 33.42j  -0.00 - 34.02j
+        NEC-5                   +0.03 - 34.69j  +0.03 - 34.80j
+        ======================  ==============  ==============
+
+    So the lane is NEC-2-faithful here, by decision (Steve, 10-22): the
+    NEC-2 slot and momwire-nec2c are meant to match nec2c. A NEC-4.2-style
+    step for the NEC-4 dialect is momwire#1644. `SinusoidalGalerkinSolver`
+    and `BSplineSolver` give the converged answer and do not raise this.
+
+    The test is the one `SinusoidalGalerkinSolver`'s extended-kernel step
+    refusal uses: two members of one junction whose per-wire radii differ,
+    compared exactly (radii only disagree when the caller gave them per wire).
+    """
+
+
+_RADIUS_STEP_NAMED = 4
+
+
+def radius_step_junctions(junctions, radius_per_wire):
+    """``[(junction index, sorted member wires, smallest radius, largest
+    radius)]`` for every junction whose members do not share one radius."""
+    found = []
+    for j, members in enumerate(junctions):
+        wires = sorted({int(w) for w, _end in members})
+        radii = [float(radius_per_wire[w]) for w in wires]
+        if len(set(radii)) > 1:
+            found.append((j, wires, min(radii), max(radii)))
+    return found
+
+
+def radius_step_message(family, found):
+    """The advisory sentence for `radius_step_junctions`' result."""
+    named = []
+    for _j, wires, a_lo, a_hi in found[:_RADIUS_STEP_NAMED]:
+        who = (
+            " and ".join(str(w) for w in wires)
+            if len(wires) <= 2
+            else ", ".join(str(w) for w in wires)
+        )
+        named.append(f"wires {who} ({a_lo * 1e3:.3g} mm to {a_hi * 1e3:.3g} mm)")
+    more = len(found) - _RADIUS_STEP_NAMED
+    if more > 0:
+        named.append(f"and {more} more")
+    where = (
+        f"wires of different radius meet at a junction: {named[0]}"
+        if len(found) == 1
+        else f"wires of different radius meet at {len(found)} junctions: "
+        + "; ".join(named)
+    )
+    return (
+        f"{family}: {where}. At a change of wire radius this basis follows "
+        "NEC-2, including NEC-2's known weakness there: it underestimates the "
+        "effect of the step, and more so as the mesh is refined. Basis "
+        "sinusoidal-galerkin or bspline gives the converged answer "
+        "(momwire#1632, momwire#1644)."
+    )
+
+
+def advise_radius_step(family, junctions, radius_per_wire):
+    """Warn `RadiusStepJunction` once when any junction joins two radii.
+    Called from the point-matched constructor once the junctions are final."""
+    found = radius_step_junctions(junctions, radius_per_wire)
+    if found:
+        warnings.warn(
+            radius_step_message(family, found), RadiusStepJunction, stacklevel=3
+        )
+
+
 class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
     """NEC2's three-term (const + sin + cos) basis on each segment, with
     end-condition coefficients closed-form per Eqs 25-64.
@@ -970,6 +1081,14 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             "buried+crossing_multi_node": _CROSSING_MULTI_NODE_REFUSAL,
             "buried+crossing_hub": _CROSSING_HUB_REFUSAL,
             "buried+crossing_oblique": _CROSSING_OBLIQUE_REFUSAL,
+            "buried+crossing_two_radius": _CROSSING_TWO_RADIUS_REFUSAL,
+            # Still a refusal on this point-matched lane, deferred to
+            # momwire#1636: its subclass SinusoidalGalerkinSolver serves the
+            # combination in part since momwire#1626, but here the crossing
+            # node's source end would take NEC's gating code 2, which this
+            # lane's extended kernel handles as it handles a bend -- measured
+            # to drift from bs2's partial kernel below Delta/a ~ 1 (2.4 ohm at
+            # 1.1, 20 ohm at 0.55 on a 19 mm vertical into a buried rod).
             "buried+extended_kernel": _below_interface.BURIED_EXTENDED_KERNEL_REFUSAL,
             "junction_ports": _JUNCTION_PORTS_REFUSAL,
             "node_gaps": _NODE_GAPS_REFUSAL,
@@ -1337,6 +1456,12 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 _wire_spec.solver_gaps(self, junctions_are_gaps=self.extended_kernel),
                 gap_model="segment",
             )
+            # momwire#1632: wires of different radius meeting at a junction.
+            # The point-matched lane only (Sin-Galerkin never reaches this
+            # block), because it is this lane that follows NEC-2 there.
+            advise_radius_step(
+                type(self).__name__, self.junctions, self._radius_per_wire
+            )
 
     def _reject_junction_ports(self):
         """Refuse `junction_ports=` on the point-matched solver.
@@ -1528,7 +1653,13 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         basis object; each wing's own coefficients already carry its medium,
         because `seg_view` is D2's per-segment stitch and no basis spans the
         interface once the node is C0.
+
+        A TWO-RADIUS node (momwire#1630, SG only: `_refuse_crossing_scope`)
+        carries `a_above` / `a_below`, with `a_wire` their minimum, as
+        bspline's context does: the axes are graded at the finer radius and
+        the two-radius blocks pick the radius the U5 rule names.
         """
+        two = self._two_radius_crossing()
         return _crossing_fill.CrossingContext(
             basis=SinusoidalBasisSampler(
                 seg_view,
@@ -1545,20 +1676,37 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             ),
             medium=medium,
             ground_z=float(self.ground_z),
-            a_wire=float(self._radius_per_wire[0]),
+            a_wire=float(self._radius_per_wire[0]) if two is None else min(two),
             omega=self.omega,
             mu=self.mu,
             eps=self.eps,
+            a_above=None if two is None else two[0],
+            a_below=None if two is None else two[1],
             cancel=self._cancel,
+        )
+
+    def _two_radius_crossing(self):
+        """`(a_above, a_below)` for a served TWO-RADIUS crossing deck, else
+        None (momwire#1630) — `_below_interface.two_radius_crossing` over this
+        deck's validated crossing junctions, bspline's reading of the rule."""
+        radii = np.asarray(self._radius_per_wire, dtype=float)
+        if float(radii.max()) - float(radii.min()) <= 0.0:
+            return None
+        crossing = self._crossing_junction_indices()
+        if not crossing:
+            return None
+        return _below_interface.two_radius_crossing(
+            self._wire_media(), radii, crossing, self.junctions
         )
 
     def _crossing_junction_indices(self):
         """Junctions that CROSS the interface (momwire#980 D3), by index.
 
         Answered through `_below_interface`, so this trunk's scope check and
-        its refusals are bspline's — one wire radius, the buried hub, crossing
-        nodes at least `MIN_CROSSING_NODE_SEPARATION_M` apart — rather than a
-        second reading of the same rules. Empty whenever the deck has no lower medium, which keeps every
+        its refusals are bspline's — one radius per side of the interface (the
+        two-radius node, momwire#1630), the buried hub, crossing nodes at least
+        `MIN_CROSSING_NODE_SEPARATION_M` apart — rather than a second reading
+        of the same rules. Empty whenever the deck has no lower medium, which keeps every
         shipped path on the base's empty answer.
 
         A crossing junction's members must NOT take the grounded-junction
@@ -1584,6 +1732,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             self.wires_polylines,
             self.ground_z,
             self._radius_per_wire,
+            two_radius=True,
         )
         self._refuse_coincident_crossing_members(crossing)
         self._refuse_crossing_scope(crossing)
@@ -1596,8 +1745,15 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
     def _refuse_crossing_scope(self, crossing):
         """Stage 2's coverage on the point-matched lane (momwire#1223,
-        decision 6): one crossing node per deck, joining exactly two members.
+        decision 6): one crossing node per deck, joining exactly two members,
+        at one wire radius (momwire#1630, `_CROSSING_TWO_RADIUS_REFUSAL`).
         SG serves every crossing geometry and overrides this away."""
+        radii = np.asarray(self._radius_per_wire, dtype=float)
+        if crossing and float(radii.max()) - float(radii.min()) > 0.0:
+            raise NotImplementedError(
+                f"crossing junction {crossing[0]} joins wires of different "
+                f"radii: {_CROSSING_TWO_RADIUS_REFUSAL}"
+            )
         if len(crossing) > 1:
             raise NotImplementedError(
                 f"{len(crossing)} crossing junctions: {_CROSSING_MULTI_NODE_REFUSAL}"
@@ -1648,13 +1804,19 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         """
         if not crossing:
             return
-        a = float(np.max(self._radius_per_wire))
+        radii = np.asarray(self._radius_per_wire, dtype=float)
         for j in crossing:
             members = list(self.junctions[j])
             edges = [self._node_adjacent_edge(w, e) for w, e in members]
             for i in range(len(edges)):
                 for jj in range(i + 1, len(edges)):
                     (n0, f0), (n1, f1) = edges[i], edges[jj]
+                    # The PAIR's own radius (momwire#1630): at a two-radius
+                    # node the deck's largest radius is the above wire's, and
+                    # judging two thin buried legs by it calls legs 10 mm
+                    # apart under a 19 mm mast "coincident". One radius per
+                    # deck reads exactly as before.
+                    a = max(radii[members[i][0]], radii[members[jj][0]])
                     if norm3(n0 - n1) <= a and norm3(f0 - f1) <= a:
                         raise NotImplementedError(
                             _COINCIDENT_CROSSING_MEMBERS_REFUSAL.format(
@@ -5127,9 +5289,16 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         if medium is None:
             yield None
             return
+        # A family that serves the extended kernel in part on a buried deck
+        # (SinusoidalGalerkinSolver since momwire#1626) fills a wholly buried
+        # one reduced -- every pair is two buried segments -- and says so
+        # once; this point-matched lane still refuses it (momwire#1636).
+        partial = "buried+extended_kernel" in type(self).capabilities.partials
+        if partial:
+            self._advise_ek_above()
         _below_interface.refuse_out_of_scope(
             use_singular_enrichment=getattr(self, "use_singular_enrichment", False),
-            extended_kernel=self.extended_kernel,
+            extended_kernel=self.extended_kernel and not partial,
             n=int(geom["seg_l"].shape[0]),
             degree=1,
             dense_fits=True,
@@ -5169,17 +5338,25 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             crossing=False,
             pair_extents=_bspline._pair_extents_below,
         )
-        saved = (self.k, self._active_medium, self._active_r1_below)
+        saved = (
+            self.k,
+            self._active_medium,
+            self._active_r1_below,
+            self.extended_kernel,
+        )
         try:
             self.k = medium.k_m
             self._active_medium = medium
             self._active_r1_below = plan["r1_below"]
+            if partial:
+                self.extended_kernel = False
             yield medium
         finally:
             (
                 self.k,
                 self._active_medium,
                 self._active_r1_below,
+                self.extended_kernel,
             ) = saved
 
     def _is_mixed(self, geom):

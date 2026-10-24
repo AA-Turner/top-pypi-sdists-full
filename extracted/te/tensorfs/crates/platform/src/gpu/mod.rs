@@ -1,16 +1,20 @@
 //! The NVIDIA GPUs a machine reports in `StatusFrame.gpus[]`, read through NVML, which is opened
 //! at run time (`libnvidia-ml.so.1`, `nvml.dll`). No driver is "no NVIDIA GPU", never an error.
+#[cfg(windows)]
+mod budget;
 mod cuda;
 
+#[cfg(windows)]
+pub use budget::{Adapter, Budget, adapters};
 pub use cuda::memory_classes;
 
 use crate::{Error, Result};
 use nvml_wrapper::{
     Nvml,
-    enum_wrappers::device::Sampling,
+    enum_wrappers::device::{ComputeMode, Sampling},
     enums::device::{SampleValue, UsedGpuMemory},
     error::NvmlError,
-    struct_wrappers::device::MemoryInfo,
+    struct_wrappers::device::{MemoryInfo, ProcessInfo},
 };
 use std::collections::BTreeMap;
 
@@ -120,8 +124,9 @@ pub struct Reading {
     pub free: u64,
     /// A desktop is initialized on it.
     pub display: bool,
-    /// Device bytes the driver charges each process (pid -> bytes); `None` where it cannot
-    /// account every one (a container whose pids are not the driver's, WDDM).
+    /// Device bytes the driver charges each process (pid -> bytes), compute and graphics (a
+    /// desktop, a game) alike; `None` where it cannot account every one (a container whose pids
+    /// are not the driver's, WDDM).
     pub processes: Option<BTreeMap<u32, u64>>,
 }
 
@@ -155,14 +160,33 @@ impl Device {
             .device_by_index(self.index)
             .map_err(failed("open device"))?;
         let (total, free) = memory(device.memory_info())?;
-        let processes = device.running_compute_processes().ok().and_then(|rows| {
+        let charged = |rows: Vec<ProcessInfo>| -> Option<Vec<(u32, u64)>> {
             rows.into_iter()
                 .map(|row| match row.used_gpu_memory {
                     UsedGpuMemory::Used(bytes) => Some((row.pid, bytes)),
                     UsedGpuMemory::Unavailable => None,
                 })
                 .collect()
-        });
+        };
+        // A process in both lists (a CUDA program that also draws) is charged once: its larger.
+        let graphics = device
+            .running_graphics_processes()
+            .map_or(Some(vec![]), charged);
+        let processes = device
+            .running_compute_processes()
+            .ok()
+            .and_then(charged)
+            .zip(graphics)
+            .map(|(compute, graphics)| {
+                compute
+                    .into_iter()
+                    .chain(graphics)
+                    .fold(BTreeMap::new(), |mut by, (pid, bytes)| {
+                        let held: &mut u64 = by.entry(pid).or_default();
+                        *held = (*held).max(bytes);
+                        by
+                    })
+            });
         Ok(Reading {
             total,
             free,
@@ -171,24 +195,42 @@ impl Device {
         })
     }
 
-    /// Whether kernels ran, and whether device memory moved (kernels' traffic, copies, peer
-    /// writes), in NVML's samples after `seen` (its timestamp, µs), which it advances.
-    pub fn worked_since(&self, seen: &mut u64) -> Result<(bool, bool)> {
+    /// Its free bytes now (an integrated GPU's: the host's available memory), read alone.
+    pub fn free(&self) -> Result<u64> {
         let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
-        let from = *seen;
-        let mut busy = |sampling| -> Result<bool> {
-            let samples = device.samples(sampling, from).map_err(failed("utilization samples"))?;
-            Ok(samples.iter().fold(false, |busy, sample| {
-                *seen = (*seen).max(sample.timestamp);
-                busy || match sample.value {
-                    SampleValue::U32(value) => value > 0,
-                    SampleValue::U64(value) => value > 0,
-                    SampleValue::I64(value) => value > 0,
-                    SampleValue::F64(value) => value > 0.0,
-                }
-            }))
+        memory(device.memory_info()).map(|(_, free)| free)
+    }
+
+    /// Whether device memory moved (kernels' traffic, copies, peer writes) in NVML's samples
+    /// after `seen` (its timestamp, µs), which it advances.
+    pub fn moved_since(&self, seen: &mut u64) -> Result<bool> {
+        let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
+        // No sample newer than `seen` is no work seen: NVML answers NotFound while the GPU is idle,
+        // which is a reading, not an unreadable GPU: a call stuck there was never judged.
+        let samples = match device.samples(Sampling::MemoryUtilization, *seen) {
+            Err(NvmlError::NotFound) => return Ok(false),
+            samples => samples.map_err(failed("utilization samples"))?,
         };
-        Ok((busy(Sampling::GpuUtilization)?, busy(Sampling::MemoryUtilization)?))
+        Ok(samples.iter().fold(false, |moved, sample| {
+            *seen = (*seen).max(sample.timestamp);
+            moved || match sample.value {
+                SampleValue::U32(value) => value > 0,
+                SampleValue::U64(value) => value > 0,
+                SampleValue::I64(value) => value > 0,
+                SampleValue::F64(value) => value > 0.0,
+            }
+        }))
+    }
+
+    /// Whether its compute mode admits one context at a time (exclusive-process) or none
+    /// (prohibited): a second process holding a context locks every other out. A driver that
+    /// does not say shares it.
+    pub fn exclusive(&self) -> Result<bool> {
+        match self.nvml.device_by_index(self.index).and_then(|device| device.compute_mode()) {
+            Ok(mode) => Ok(mode != ComputeMode::Default),
+            Err(NvmlError::NotSupported) => Ok(false),
+            Err(error) => Err(failed("compute mode")(error)),
+        }
     }
 
     pub fn display_active(&self) -> Result<bool> {
@@ -221,38 +263,5 @@ fn failed(op: &'static str) -> impl FnOnce(NvmlError) -> Error {
     move |error| Error::Gpu {
         op,
         detail: error.to_string(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_driver_below_the_floor_is_named_with_the_driver_it_needs() {
-        let message = below_floor("570.133.20").expect("570 is below CUDA 13.0's floor");
-        assert!(
-            message.contains("570.133.20") && message.contains(DRIVER_FLOOR),
-            "{message}"
-        );
-        assert!(below_floor("580.0").is_some());
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn an_integrated_gpus_memory_is_the_hosts() {
-        let (total, free) = memory(Err(NvmlError::NotSupported)).unwrap();
-        assert_eq!(total as i64, crate::contain::host_memory::total());
-        assert!(free > 0 && free <= total, "{free} of {total}");
-        assert!(memory(Err(NvmlError::Unknown)).is_err());
-    }
-
-    #[test]
-    fn the_floor_and_newer_drivers_serve_and_an_unreadable_version_is_not_judged() {
-        for driver in [DRIVER_FLOOR, "580.95.05", "581.57", "590.10", " 600.1 "] {
-            assert_eq!(below_floor(driver), None, "{driver}");
-        }
-        assert_eq!(below_floor("N/A"), None);
-        assert_eq!(below_floor(""), None);
     }
 }

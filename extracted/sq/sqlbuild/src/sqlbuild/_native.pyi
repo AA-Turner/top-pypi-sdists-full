@@ -3087,6 +3087,10 @@ class CliNamespace:
     warehouse: str | None
     case: str | None
     inspect: bool
+    review_against: str | None
+    review_downstream: str | None
+    review_no_clone: bool
+    review_markdown: Path | None
     target_range: str | None
     from_target: str | None
     to_target: str | None
@@ -3130,6 +3134,7 @@ class CliNamespace:
     retention_days: int | None
     direct_state_history_versions: int | None
     drop_old_name_views: list[str]
+    keep_in_use: bool
     bounded: str | None
     max_column_examples: int | None
     max_row_only_examples: int | None
@@ -4307,6 +4312,9 @@ def load_sqlbuild_dag(
     dag: Mapping[str, Any] | str | Path, *, error_class: type[Exception]
 ) -> Mapping[str, Any]: ...
 def build_python_node_graph(*, discovered_inputs: DiscoveredProjectInputs) -> PythonNodeGraph: ...
+def inventory_sql_macros(
+    sources: list[tuple[str, str, str]], /
+) -> list[tuple[str, list[str], list[str]]]: ...
 def macro_module_load_plan(
     modules: Sequence[tuple[str, str, str, Sequence[str]]],
 ) -> tuple[str, list[str], list[str]]: ...
@@ -4775,6 +4783,7 @@ def write_check_results(
 def format_check_json(*, results: tuple[PythonCheckExecutionResult, ...]) -> str: ...
 def run_test_command(*, request: TestCommandRequest) -> int: ...
 def run_build_command(*, request: BuildCommandRequest) -> int: ...
+def run_review_command(*, request: ReviewCommandRequest) -> int: ...
 def enforce_plan_safety_policies(
     *,
     plan: PlanOutput,
@@ -5155,6 +5164,7 @@ def build_janitor_archive_name(
 ) -> str: ...
 def build_query_diff_artifact_name(*, run_id: str, side: str) -> str: ...
 def parse_query_diff_artifact_name(name: str, /) -> tuple[str, str] | None: ...
+def parse_review_schema_name(name: str, /) -> datetime | None: ...
 def render_janitor_completion(
     *,
     result: JanitorExecutionResult,
@@ -5797,7 +5807,7 @@ def run_planned_sql_rules(
 class EarlySqlLint:
     """Own speculative SQL checks for one compilation invocation."""
 
-    def __init__(self, *, enabled: bool) -> None: ...
+    def __init__(self, *, enabled: bool, no_cache: bool = False) -> None: ...
     @property
     def enabled(self) -> bool: ...
     def __enter__(self) -> EarlySqlLint: ...
@@ -6403,6 +6413,7 @@ class BuildCommandRequest(NativeRecord):
     selection_diagnostics: bool
     selector_files: tuple[SelectorFileSummary, ...]
     test_timeout: str | None
+    discovered_inputs: DiscoveredProjectInputs | None
     def __init__(
         self,
         project_dir: Path | None = None,
@@ -6440,6 +6451,7 @@ class BuildCommandRequest(NativeRecord):
         selection_diagnostics: bool = False,
         selector_files: tuple[SelectorFileSummary, ...] = (),
         test_timeout: str | None = None,
+        discovered_inputs: DiscoveredProjectInputs | None = None,
     ) -> None: ...
 
 class CloneCommandRequest(NativeRecord):
@@ -6457,6 +6469,7 @@ class CloneCommandRequest(NativeRecord):
     cli_vars: dict[str, object] | None
     json_output_path: Path | None
     event_output_path: Path | None
+    discovered_inputs: DiscoveredProjectInputs | None
     def __init__(
         self,
         project_dir: Path | None,
@@ -6471,6 +6484,7 @@ class CloneCommandRequest(NativeRecord):
         cli_vars: dict[str, object] | None = None,
         json_output_path: Path | None = None,
         event_output_path: Path | None = None,
+        discovered_inputs: DiscoveredProjectInputs | None = None,
     ) -> None: ...
 
 class PlanSafetyGates(NativeRecord):
@@ -6600,6 +6614,47 @@ class DiffCommandRequest(NativeRecord):
         full_example_values: bool = False,
     ) -> None: ...
 
+class ReviewCommandRequest(NativeRecord):
+    """CLI inputs for one `sqb review` invocation."""
+
+    project_dir: Path | None
+    no_color: bool
+    no_sql_validation: bool
+    selected_target: str | None
+    select: tuple[str, ...]
+    cli_vars: dict[str, object] | None
+    json_output: bool
+    since: str | None
+    against: str | None
+    downstream: str | None
+    dry_run: bool
+    no_clone: bool
+    bounded: str | None
+    markdown_path: Path | None
+    concurrency: int | None
+    verbose: bool
+    debug: bool
+    def __init__(
+        self,
+        project_dir: Path | None = None,
+        no_color: bool = False,
+        no_sql_validation: bool = False,
+        selected_target: str | None = None,
+        select: tuple[str, ...] = (),
+        cli_vars: dict[str, object] | None = None,
+        json_output: bool = False,
+        since: str | None = None,
+        against: str | None = None,
+        downstream: str | None = None,
+        dry_run: bool = False,
+        no_clone: bool = False,
+        bounded: str | None = None,
+        markdown_path: Path | None = None,
+        concurrency: int | None = None,
+        verbose: bool = False,
+        debug: bool = False,
+    ) -> None: ...
+
 class QueryDiffPreparation(NativeRecord):
     """Resolved raw-query diff adapter, connection, SQL, and limits."""
 
@@ -6673,6 +6728,7 @@ class JanitorCommandRequest(NativeRecord):
     retention_days: int | None
     direct_state_history_versions: int | None
     drop_old_name_views: tuple[str, ...]
+    keep_in_use: bool
     selected_target: str | None
     as_target: str | None
     verbose: bool
@@ -6685,6 +6741,7 @@ class JanitorCommandRequest(NativeRecord):
         retention_days: int | None = None,
         direct_state_history_versions: int | None = None,
         drop_old_name_views: tuple[str, ...] = (),
+        keep_in_use: bool = False,
         selected_target: str | None = None,
         as_target: str | None = None,
         verbose: bool = False,
@@ -7210,6 +7267,7 @@ class CliEntrypointHandlers(NativeRecord):
     run_contract: Callable[..., int] | None
     run_refactor: Callable[..., int] | None
     run_recall: Callable[..., int] | None
+    run_review: Callable[..., int] | None
     def __init__(
         self,
         run_compile: Callable[[CompileCommandRequest], int],
@@ -7245,6 +7303,7 @@ class CliEntrypointHandlers(NativeRecord):
         run_contract: Callable[..., int] | None = None,
         run_refactor: Callable[..., int] | None = None,
         run_recall: Callable[..., int] | None = None,
+        run_review: Callable[..., int] | None = None,
     ) -> None: ...
 
 class CommandWarehouseScope(NativeRecord):
@@ -7954,6 +8013,7 @@ class CliCommand(StrEnum):
     SEED = "seed"
     CLONE = "clone"
     DIFF = "diff"
+    REVIEW = "review"
     DEBUG = "debug"
     LINEAGE = "lineage"
     QUERY = "query"
@@ -10701,6 +10761,7 @@ class RulesRunResult(NativeRecord):
     cache_hits: int
     cache_misses: int
     skipped_type_proof_rules: tuple[str, ...]
+    custom_rule_timings: tuple[tuple[str, int], ...]
     def __init__(
         self,
         findings: tuple[Finding, ...],
@@ -10712,6 +10773,7 @@ class RulesRunResult(NativeRecord):
         cache_hits: int = ...,
         cache_misses: int = ...,
         skipped_type_proof_rules: tuple[str, ...] = ...,
+        custom_rule_timings: tuple[tuple[str, int], ...] = ...,
     ) -> None: ...
 
 class CustomRulesOutcome(NativeRecord):
@@ -10722,6 +10784,7 @@ class CustomRulesOutcome(NativeRecord):
     cache_misses: int
     custom_ms: int
     custom_cpu_ms: int
+    custom_rule_timings: tuple[tuple[str, int], ...]
     def __init__(
         self,
         findings: tuple[Finding, ...],
@@ -10729,6 +10792,7 @@ class CustomRulesOutcome(NativeRecord):
         cache_misses: int,
         custom_ms: int,
         custom_cpu_ms: int = ...,
+        custom_rule_timings: tuple[tuple[str, int], ...] = ...,
     ) -> None: ...
 
 class ResourceKind(StrEnum):
@@ -11979,6 +12043,8 @@ class JanitorConfig(NativeRecord):
     direct_state_history_versions: int
     delete_tracked_only: bool
     exclude_patterns: tuple[str, ...]
+    in_use_window: str
+    keep_in_use: bool
     def __init__(
         self,
         enabled: bool = ...,
@@ -11987,6 +12053,8 @@ class JanitorConfig(NativeRecord):
         direct_state_history_versions: int = ...,
         delete_tracked_only: bool = ...,
         exclude_patterns: tuple[str, ...] = ...,
+        in_use_window: str = ...,
+        keep_in_use: bool = ...,
     ) -> None: ...
 
 class MigrationsConfig(NativeRecord):
@@ -15005,6 +15073,7 @@ class LoadedMacro(NativeRecord):
     raw_source: str
     function: Callable[..., object]
     dependencies: tuple[DeclarationIdentity, ...]
+    language: str
     def __init__(
         self,
         name: str,
@@ -15013,6 +15082,7 @@ class LoadedMacro(NativeRecord):
         raw_source: str,
         function: Callable[..., object],
         dependencies: tuple[DeclarationIdentity, ...] = ...,
+        language: str = ...,
     ) -> None: ...
     @property
     def injects_context(self) -> bool: ...
@@ -15830,6 +15900,7 @@ class RulesResult(NativeRecord):
     built_in_ms: int
     custom_ms: int
     custom_cpu_ms: int
+    custom_rule_timings: tuple[tuple[str, int], ...]
     def __init__(
         self,
         findings: tuple[Finding, ...],
@@ -15840,6 +15911,7 @@ class RulesResult(NativeRecord):
         built_in_ms: int = ...,
         custom_ms: int = ...,
         custom_cpu_ms: int = ...,
+        custom_rule_timings: tuple[tuple[str, int], ...] = ...,
     ) -> None: ...
 
 class RuleFile(NativeRecord):
@@ -15924,6 +15996,8 @@ class CustomRuleRun(NativeRecord):
     uncacheable_codes: frozenset[str]
     observed: tuple[tuple[tuple[str, ...], str | None], ...]
     stateful_codes: frozenset[str]
+    rule_timings: dict[str, tuple[int, int]]
+    monitor_ns: int
     def __init__(
         self,
         evaluations: tuple[CustomRuleEvaluation, ...],
@@ -15931,6 +16005,8 @@ class CustomRuleRun(NativeRecord):
         uncacheable_codes: frozenset[str] = ...,
         observed: tuple[tuple[tuple[str, ...], str | None], ...] = ...,
         stateful_codes: frozenset[str] = ...,
+        rule_timings: dict[str, tuple[int, int]] = ...,
+        monitor_ns: int = ...,
     ) -> None: ...
 
 class CustomHostPartition(NativeRecord):

@@ -205,6 +205,9 @@ class VMRuntime(Runtime):
             raise RuntimeError(f"Unknown runtime_id: {runtime_id}")
         return env
 
+    async def remove_job(self, job_id: str) -> bool:
+        return await self._session.remove_job(job_id)
+
     async def stop(self, runtime_id: str) -> None:
         env = self._envs.pop(runtime_id, None)
         if env is None:

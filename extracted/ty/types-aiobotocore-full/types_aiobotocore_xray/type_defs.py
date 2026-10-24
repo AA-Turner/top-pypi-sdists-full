@@ -49,6 +49,7 @@ __all__ = (
     "BatchGetTracesRequestTypeDef",
     "BatchGetTracesResultTypeDef",
     "CancelTraceRetrievalRequestTypeDef",
+    "CloudWatchLogsConfigurationTypeDef",
     "CreateGroupRequestTypeDef",
     "CreateGroupResultTypeDef",
     "CreateSamplingRuleRequestTypeDef",
@@ -253,6 +254,10 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class CancelTraceRetrievalRequestTypeDef(TypedDict):
     RetrievalToken: str
+
+
+class CloudWatchLogsConfigurationTypeDef(TypedDict):
+    SpansLogGroupKmsKeyId: NotRequired[str]
 
 
 class InsightsConfigurationTypeDef(TypedDict):
@@ -499,10 +504,6 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
-class UpdateTraceSegmentDestinationRequestTypeDef(TypedDict):
-    Destination: NotRequired[TraceSegmentDestinationType]
-
-
 class AnomalousServiceTypeDef(TypedDict):
     ServiceId: NotRequired[ServiceIdTypeDef]
 
@@ -563,6 +564,11 @@ class UpdateTraceSegmentDestinationResultTypeDef(TypedDict):
     Destination: TraceSegmentDestinationType
     Status: TraceSegmentDestinationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateTraceSegmentDestinationRequestTypeDef(TypedDict):
+    Destination: NotRequired[TraceSegmentDestinationType]
+    CloudWatchLogsConfiguration: NotRequired[CloudWatchLogsConfigurationTypeDef]
 
 
 class GroupSummaryTypeDef(TypedDict):

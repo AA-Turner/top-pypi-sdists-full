@@ -17,7 +17,7 @@ macro_rules! num_cmp {
 
                 // Check BigInt/BigFraction BEFORE f64 to avoid precision loss
                 if let Some(right_bigint) = bignum::try_parse_bigint($right) {
-                    let right_frac = BigFraction::from(right_bigint);
+                    let right_frac = bignum::whole(right_bigint);
                     left_frac == right_frac
                 } else if let Some(right_frac) = bignum::try_parse_bigfraction($right) {
                     left_frac == right_frac
@@ -31,11 +31,9 @@ macro_rules! num_cmp {
             }
             #[cfg(not(feature = "arbitrary-precision"))]
             {
-                if let Some(b) = $right.as_f64() {
-                    NumCmp::num_eq($left, b)
-                } else {
-                    unreachable!("Numbers always fit in u64/i64/f64 without arbitrary-precision")
-                }
+                // Past `f64`, so unequal to any finite `$left`. Reachable once another crate in the
+                // build enables `serde_json/arbitrary_precision`.
+                $right.as_f64().is_some_and(|b| NumCmp::num_eq($left, b))
             }
         }
     };
@@ -51,6 +49,10 @@ pub fn equal_numbers<L: crate::JsonNumber>(left: &L, right: &serde_json::Number)
         use crate::numeric::bignum;
         use fraction::BigFraction;
 
+        let (left_text, right_text) = (left.as_str(), right.as_str());
+        if bignum::exceeds_digit_budget(&left_text) || bignum::exceeds_digit_budget(right_text) {
+            return bignum::Decimal::parse(&left_text) == bignum::Decimal::parse(right_text);
+        }
         // Check BigInt/BigFraction first to avoid precision loss from f64 conversion
         if let Some(left_bigint) = bignum::try_parse_bigint(&left.to_number()) {
             if let Some(right_bigint) = bignum::try_parse_bigint(right) {
@@ -60,9 +62,9 @@ pub fn equal_numbers<L: crate::JsonNumber>(left: &L, right: &serde_json::Number)
             } else if let Some(b) = right.as_i64() {
                 left_bigint == num_bigint::BigInt::from(b)
             } else if let Some(right_frac) = bignum::try_parse_bigfraction(right) {
-                BigFraction::from(left_bigint) == right_frac
+                bignum::whole(left_bigint) == right_frac
             } else if let Some(b) = right.as_f64() {
-                BigFraction::from(left_bigint) == BigFraction::from(b)
+                bignum::whole(left_bigint) == BigFraction::from(b)
             } else {
                 unreachable!("Right is not parseable as any numeric type - should not happen for valid JSON numbers")
             }
@@ -70,7 +72,7 @@ pub fn equal_numbers<L: crate::JsonNumber>(left: &L, right: &serde_json::Number)
             if let Some(right_frac) = bignum::try_parse_bigfraction(right) {
                 left_frac == right_frac
             } else if let Some(right_bigint) = bignum::try_parse_bigint(right) {
-                left_frac == BigFraction::from(right_bigint)
+                left_frac == bignum::whole(right_bigint)
             } else if let Some(b) = right.as_u64() {
                 left_frac == BigFraction::from(b)
             } else if let Some(b) = right.as_i64() {
@@ -142,11 +144,22 @@ pub fn equal_arrays(left: &[Value], right: &[Value]) -> bool {
 #[inline]
 #[must_use]
 pub fn equal_objects(left: &Map<String, Value>, right: &Map<String, Value>) -> bool {
-    left.len() == right.len()
-        && left
-            .iter()
-            .zip(right)
-            .all(|((ka, va), (kb, vb))| ka == kb && equal(va, vb))
+    if left.len() != right.len() {
+        return false;
+    }
+    for ((left_key, left_value), (right_key, right_value)) in left.iter().zip(right) {
+        if left_key != right_key {
+            // With `serde_json/preserve_order` the maps keep insertion order, so the same keys
+            // may come in a different order.
+            return left
+                .iter()
+                .all(|(key, value)| right.get(key).is_some_and(|other| equal(value, other)));
+        }
+        if !equal(left_value, right_value) {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(test)]
@@ -167,6 +180,7 @@ mod tests {
     #[test_case(&json!([]), &json!(["foo"]))]
     #[test_case(&json!([-3]), &json!([-4.0]))]
     #[test_case(&json!({"a": 1}), &json!({"a": 1.0, "b": 2}))]
+    #[test_case(&json!({"a": 1, "b": 2}), &json!({"a": 1, "c": 2}))]
     fn are_not_equal(left: &Value, right: &Value) {
         assert!(!equal(left, right));
     }

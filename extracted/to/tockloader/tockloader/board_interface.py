@@ -208,6 +208,9 @@ class BoardInterface:
             "openocd": {
                 "cfg": "st_nucleo_f4.cfg",
             },
+            "flash_file": {
+                "flash_address": 0x08000000,
+            },
         },
         "hifive1": {
             "description": "SiFive HiFive1 development board",
@@ -229,6 +232,9 @@ class BoardInterface:
             },
             "openocd": {
                 "cfg": "sifive-hifive1-revb.cfg",
+            },
+            "flash_file": {
+                "flash_address": 0x20000000,
             },
         },
         "edu-ciaa": {
@@ -266,6 +272,57 @@ class BoardInterface:
             "openocd": {
                 "prefix": "source [find interface/raspberrypi-swd.cfg]; \
                            source [find target/rp2040.cfg];",
+            },
+            "flash_file": {
+                "flash_address": 0x10000000,
+                "max_size": 0x200000,
+            },
+        },
+        "raspberry_pi_pico_2": {
+            "description": "Raspberry Pi Pico 2",
+            # Tock currently treats the `cortex-m33` as a `cortex-m4`.
+            "arch": "cortex-m4",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/cmsis-dap.cfg]; \
+                           source [find target/rp2350.cfg];",
+            },
+            "flash_file": {
+                "flash_address": 0x10000000,
+                "max_size": 0x400000,
+            },
+        },
+        "esp32-c3-devkitm-1": {
+            "description": "Espressif ESP32-C3-DevKitM-1",
+            "arch": "rv32imc",
+            # Size of a sector of the external SPI flash.
+            "page_size": 4096,
+            "no_attribute_table": True,
+            # The mask ROM maps the external SPI flash at this address.
+            "flash_address": 0x42000000,
+            "esptool": {
+                "chip": "ESP32-C3",
+            },
+            "flash_file": {
+                "flash_address": 0x42000000,
+                "max_size": 0x400000,
+            },
+        },
+        "esp32-c3-devkit-rust-2": {
+            "description": "Espressif ESP32-C3-DevKit-RUST-2",
+            "arch": "rv32imc",
+            # Size of a sector of the external SPI flash.
+            "page_size": 4096,
+            "no_attribute_table": True,
+            # The mask ROM maps the external SPI flash at this address.
+            "flash_address": 0x42000000,
+            "esptool": {
+                "chip": "ESP32-C3",
+            },
+            "flash_file": {
+                "flash_address": 0x42000000,
+                "max_size": 0x400000,
             },
         },
         "sma_q3": {
@@ -344,6 +401,13 @@ class BoardInterface:
             "arch": "cortex-m4",
             "page_size": 8192,
             "no_attribute_table": True,
+            # Unlike the other STM32 boards here, the STM32U5 does not map
+            # flash at address 0, so reading a flash offset as if it were an
+            # absolute address faults the debug port. Flash is aliased at
+            # 0x08000000 (non-secure) and 0x0c000000 (secure); we use the
+            # secure alias because that is what the board's `layout.ld` links
+            # the kernel and the apps at.
+            "flash_address": 0x0C000000,
             "openocd": {
                 "prefix": "source [find interface/stlink.cfg]; source [find target/stm32u5x.cfg];",
             },
@@ -578,6 +642,16 @@ class BoardInterface:
         """
         Return the address where flash starts.
         """
+        # Most boards map flash at address 0, so an offset into flash is also
+        # a valid absolute address and we do not need to know where flash
+        # starts. Boards where that is not true declare `flash_address` in
+        # `KNOWN_BOARDS`. We look this up on each call rather than caching it in
+        # `_configure_from_known_boards()` because the board name may only
+        # become known after we have already connected to the board.
+        board = getattr(self, "board", None)
+        if board and board in self.KNOWN_BOARDS:
+            return self.KNOWN_BOARDS[board].get("flash_address", None)
+
         return None
 
     def _decode_attribute(self, raw):

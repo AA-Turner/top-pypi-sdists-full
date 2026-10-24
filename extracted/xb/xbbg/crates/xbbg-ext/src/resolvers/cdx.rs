@@ -189,16 +189,16 @@ pub fn parse_cdx_ticker(ticker: &str) -> Result<ParsedCdxInfo> {
             is_generic = true;
             break;
         }
-        if let Some(num_part) = part.strip_prefix('S') {
-            if let Ok(n) = num_part.parse::<u32>() {
-                if n == 0 {
-                    return Err(ExtError::InvalidTicker(ticker.to_string()));
-                }
-                series_idx = Some(i);
-                series = part.to_string();
-                series_num = Some(n);
-                break;
+        if let Some(num_part) = part.strip_prefix('S')
+            && let Ok(n) = num_part.parse::<u32>()
+        {
+            if n == 0 {
+                return Err(ExtError::InvalidTicker(ticker.to_string()));
             }
+            series_idx = Some(i);
+            series = part.to_string();
+            series_num = Some(n);
+            break;
         }
     }
 
@@ -233,21 +233,6 @@ pub fn parse_cdx_ticker(ticker: &str) -> Result<ParsedCdxInfo> {
         is_generic,
         series_num,
     })
-}
-
-/// Build a ticker from the source-compatible CDX series view.
-pub fn build_cdx_ticker(info: &CdxInfo) -> String {
-    format!(
-        "{} {} {} {}",
-        info.index, info.series, info.tenor, info.asset
-    )
-}
-
-/// Build the canonical ticker for a fully resolved CDX contract.
-///
-/// The canonical form always contains an explicit version, including V1.
-pub fn build_resolved_cdx_ticker(info: &ResolvedCdxInfo) -> String {
-    build_resolved_cdx_ticker_with_options(info, false)
 }
 
 /// Format a resolved CDX contract, optionally omitting its version token.
@@ -551,25 +536,12 @@ mod tests {
     }
 
     #[test]
-    fn test_legacy_info_shape_and_formatter_remain_supported() {
-        let info = CdxInfo {
-            index: "CDX IG CDSI".to_string(),
-            series: "S45".to_string(),
-            tenor: "5Y".to_string(),
-            asset: "Corp".to_string(),
-            is_generic: false,
-            series_num: Some(45),
-        };
-        assert_eq!(build_cdx_ticker(&info), "CDX IG CDSI S45 5Y Corp");
-    }
-
-    #[test]
-    fn test_resolved_ticker_is_explicit_by_default() {
+    fn test_resolved_ticker_version_presentation() {
         let parsed = parse_cdx_ticker("CDX IG CDSI GEN 5Y Corp").unwrap();
         let resolved = ResolvedCdxInfo::resolve(parsed, 46, 1).unwrap();
 
         assert_eq!(
-            build_resolved_cdx_ticker(&resolved),
+            build_resolved_cdx_ticker_with_options(&resolved, false),
             "CDX IG CDSI S46 V1 5Y Corp"
         );
         assert_eq!(
@@ -587,12 +559,16 @@ mod tests {
             .unwrap();
         assert_eq!(prev, "CDX HY CDSI S45 5Y Corp");
 
-        assert!(previous_series_ticker("CDX IG CDSI S1 V1 5Y Corp")
-            .unwrap()
-            .is_none());
-        assert!(previous_series_ticker("CDX IG CDSI GEN 5Y Corp")
-            .unwrap()
-            .is_none());
+        assert!(
+            previous_series_ticker("CDX IG CDSI S1 V1 5Y Corp")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            previous_series_ticker("CDX IG CDSI GEN 5Y Corp")
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]

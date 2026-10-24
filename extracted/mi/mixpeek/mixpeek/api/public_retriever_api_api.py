@@ -51,7 +51,7 @@ class PublicRetrieverAPIApi:
     def execute_retriever_name(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        retriever_execution_request: RetrieverExecutionRequest,
+        retriever_execution_request: Annotated[RetrieverExecutionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage. Default: True for public retrievers to enable media rendering. Set to False if you only need metadata without URLs.")] = None,
         x_public_api_key: Optional[StrictStr] = None,
         x_retriever_password: Optional[StrictStr] = None,
@@ -74,7 +74,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param retriever_execution_request: (required)
+        :param retriever_execution_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retriever_execution_request: RetrieverExecutionRequest
         :param return_presigned_urls: Generate fresh presigned download URLs for all blobs with S3 storage. Default: True for public retrievers to enable media rendering. Set to False if you only need metadata without URLs.
         :type return_presigned_urls: bool
@@ -122,8 +122,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -140,7 +142,7 @@ class PublicRetrieverAPIApi:
     def execute_retriever_name_with_http_info(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        retriever_execution_request: RetrieverExecutionRequest,
+        retriever_execution_request: Annotated[RetrieverExecutionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage. Default: True for public retrievers to enable media rendering. Set to False if you only need metadata without URLs.")] = None,
         x_public_api_key: Optional[StrictStr] = None,
         x_retriever_password: Optional[StrictStr] = None,
@@ -163,7 +165,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param retriever_execution_request: (required)
+        :param retriever_execution_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retriever_execution_request: RetrieverExecutionRequest
         :param return_presigned_urls: Generate fresh presigned download URLs for all blobs with S3 storage. Default: True for public retrievers to enable media rendering. Set to False if you only need metadata without URLs.
         :type return_presigned_urls: bool
@@ -211,8 +213,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -229,7 +233,7 @@ class PublicRetrieverAPIApi:
     def execute_retriever_name_without_preload_content(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        retriever_execution_request: RetrieverExecutionRequest,
+        retriever_execution_request: Annotated[RetrieverExecutionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage. Default: True for public retrievers to enable media rendering. Set to False if you only need metadata without URLs.")] = None,
         x_public_api_key: Optional[StrictStr] = None,
         x_retriever_password: Optional[StrictStr] = None,
@@ -252,7 +256,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param retriever_execution_request: (required)
+        :param retriever_execution_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type retriever_execution_request: RetrieverExecutionRequest
         :param return_presigned_urls: Generate fresh presigned download URLs for all blobs with S3 storage. Default: True for public retrievers to enable media rendering. Set to False if you only need metadata without URLs.
         :type return_presigned_urls: bool
@@ -300,8 +304,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -459,8 +465,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -532,8 +540,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -605,8 +615,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -737,8 +749,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -810,8 +824,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -883,8 +899,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1027,8 +1045,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1112,8 +1132,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1197,8 +1219,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1291,7 +1315,7 @@ class PublicRetrieverAPIApi:
     def track_interaction_batch_retrievers_name(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        public_interaction_batch_request: PublicInteractionBatchRequest,
+        public_interaction_batch_request: Annotated[PublicInteractionBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         x_session_id: Optional[StrictStr] = None,
         x_public_api_key: Optional[StrictStr] = None,
         _request_timeout: Union[
@@ -1313,7 +1337,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param public_interaction_batch_request: (required)
+        :param public_interaction_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_interaction_batch_request: PublicInteractionBatchRequest
         :param x_session_id:
         :type x_session_id: str
@@ -1358,8 +1382,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1376,7 +1402,7 @@ class PublicRetrieverAPIApi:
     def track_interaction_batch_retrievers_name_with_http_info(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        public_interaction_batch_request: PublicInteractionBatchRequest,
+        public_interaction_batch_request: Annotated[PublicInteractionBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         x_session_id: Optional[StrictStr] = None,
         x_public_api_key: Optional[StrictStr] = None,
         _request_timeout: Union[
@@ -1398,7 +1424,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param public_interaction_batch_request: (required)
+        :param public_interaction_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_interaction_batch_request: PublicInteractionBatchRequest
         :param x_session_id:
         :type x_session_id: str
@@ -1443,8 +1469,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1461,7 +1489,7 @@ class PublicRetrieverAPIApi:
     def track_interaction_batch_retrievers_name_without_preload_content(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        public_interaction_batch_request: PublicInteractionBatchRequest,
+        public_interaction_batch_request: Annotated[PublicInteractionBatchRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         x_session_id: Optional[StrictStr] = None,
         x_public_api_key: Optional[StrictStr] = None,
         _request_timeout: Union[
@@ -1483,7 +1511,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param public_interaction_batch_request: (required)
+        :param public_interaction_batch_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_interaction_batch_request: PublicInteractionBatchRequest
         :param x_session_id:
         :type x_session_id: str
@@ -1528,8 +1556,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1627,7 +1657,7 @@ class PublicRetrieverAPIApi:
     def track_interaction_retrievers_name(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        public_interaction_request: PublicInteractionRequest,
+        public_interaction_request: Annotated[PublicInteractionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         x_session_id: Optional[StrictStr] = None,
         x_public_api_key: Optional[StrictStr] = None,
         _request_timeout: Union[
@@ -1649,7 +1679,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param public_interaction_request: (required)
+        :param public_interaction_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_interaction_request: PublicInteractionRequest
         :param x_session_id:
         :type x_session_id: str
@@ -1694,8 +1724,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1712,7 +1744,7 @@ class PublicRetrieverAPIApi:
     def track_interaction_retrievers_name_with_http_info(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        public_interaction_request: PublicInteractionRequest,
+        public_interaction_request: Annotated[PublicInteractionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         x_session_id: Optional[StrictStr] = None,
         x_public_api_key: Optional[StrictStr] = None,
         _request_timeout: Union[
@@ -1734,7 +1766,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param public_interaction_request: (required)
+        :param public_interaction_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_interaction_request: PublicInteractionRequest
         :param x_session_id:
         :type x_session_id: str
@@ -1779,8 +1811,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1797,7 +1831,7 @@ class PublicRetrieverAPIApi:
     def track_interaction_retrievers_name_without_preload_content(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        public_interaction_request: PublicInteractionRequest,
+        public_interaction_request: Annotated[PublicInteractionRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         x_session_id: Optional[StrictStr] = None,
         x_public_api_key: Optional[StrictStr] = None,
         _request_timeout: Union[
@@ -1819,7 +1853,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param public_interaction_request: (required)
+        :param public_interaction_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type public_interaction_request: PublicInteractionRequest
         :param x_session_id:
         :type x_session_id: str
@@ -1864,8 +1898,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1963,7 +1999,7 @@ class PublicRetrieverAPIApi:
     def verify_password_retrievers_name(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        verify_password_request: VerifyPasswordRequest,
+        verify_password_request: Annotated[VerifyPasswordRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1983,7 +2019,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param verify_password_request: (required)
+        :param verify_password_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type verify_password_request: VerifyPasswordRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2022,8 +2058,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2040,7 +2078,7 @@ class PublicRetrieverAPIApi:
     def verify_password_retrievers_name_with_http_info(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        verify_password_request: VerifyPasswordRequest,
+        verify_password_request: Annotated[VerifyPasswordRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2060,7 +2098,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param verify_password_request: (required)
+        :param verify_password_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type verify_password_request: VerifyPasswordRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2099,8 +2137,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2117,7 +2157,7 @@ class PublicRetrieverAPIApi:
     def verify_password_retrievers_name_without_preload_content(
         self,
         public_name: Annotated[StrictStr, Field(description="Public name of the published retriever")],
-        verify_password_request: VerifyPasswordRequest,
+        verify_password_request: Annotated[VerifyPasswordRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2137,7 +2177,7 @@ class PublicRetrieverAPIApi:
 
         :param public_name: Public name of the published retriever (required)
         :type public_name: str
-        :param verify_password_request: (required)
+        :param verify_password_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type verify_password_request: VerifyPasswordRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2176,8 +2216,10 @@ class PublicRetrieverAPIApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -19,18 +19,18 @@ import os
 
 import torch
 
-from fla.ops.backends import BaseBackend
+from fla.backends import BaseBackend, register
 
-# Maximum number of sub-sequences per original sequence
-# Limits merge chain depth to control precision loss
+# limit merge-chain depth to control precision loss
 MAX_SUBSEQS = int(os.environ.get('FLA_INTRACARD_MAX_SPLITS', 32))
 
 
+@register('common')
 class IntraCardCPBackend(BaseBackend):
     """Intra-card context parallel backend for chunk_gated_delta_rule_fwd_h."""
 
     backend_type = "intracard_cp"
-    package_name = None  # No external package needed
+    package_name = None
     env_var = "FLA_INTRACARD_CP"
     default_enable = False
 
@@ -53,15 +53,19 @@ class IntraCardCPBackend(BaseBackend):
         cu_seqlens: torch.LongTensor | None = None,
         cu_seqlens_cpu: torch.LongTensor | None = None,
         chunk_indices: torch.LongTensor | None = None,
+        chunk_offsets: torch.LongTensor | None = None,
     ) -> tuple[bool, str | None]:
         """Check if intracard CP should handle this call."""
-        # Only in inference mode
         if not torch.is_inference_mode_enabled():
             return False, "Not in inference mode"
 
-        # Only for varlen
         if cu_seqlens is None:
             return False, "cu_seqlens is None"
+
+        # graph-mode callers pass chunk_offsets; splitting reads cu_seqlens on the host,
+        # which CUDA Graph capture cannot record
+        if chunk_offsets is not None:
+            return False, "chunk_offsets is given (CUDA Graph mode)"
 
         return True, None
 
@@ -80,19 +84,24 @@ class IntraCardCPBackend(BaseBackend):
         cu_seqlens: torch.LongTensor | None = None,
         cu_seqlens_cpu: torch.LongTensor | None = None,
         chunk_indices: torch.LongTensor | None = None,
+        chunk_offsets: torch.LongTensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
         """Intra-card CP implementation of chunk_gated_delta_rule_fwd_h."""
         from fla.ops.common.intracard_cp import intracard_fwd_h
 
         return intracard_fwd_h(
-            k=k, w=w, u=u, g=g, gk=gk,
+            k=k,
+            w=w,
+            u=u,
+            g=g,
+            gk=gk,
             initial_state=initial_state,
             output_final_state=output_final_state,
             chunk_size=chunk_size,
             save_new_value=save_new_value,
+            state_v_first=state_v_first,
             cu_seqlens=cu_seqlens,
             cu_seqlens_cpu=cu_seqlens_cpu,
             chunk_indices=chunk_indices,
             max_splits=MAX_SUBSEQS,
-            state_v_first=state_v_first,
         )

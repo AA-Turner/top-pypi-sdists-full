@@ -1,6 +1,7 @@
 import type * as p from "@bokehjs/core/properties";
 import { LayoutDOM, LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
+import type { ResourceSpec } from "./resources";
 export declare class DeckGLPlotView extends LayoutDOMView {
     model: DeckGLPlot;
     jsonConverter: any;
@@ -10,11 +11,13 @@ export declare class DeckGLPlotView extends LayoutDOMView {
     _layer_map: any;
     _view_cb: any;
     _initialized: boolean;
+    lazy_initialize(): Promise<void>;
     connect_signals(): void;
     remove(): void;
     _update_layers(): void;
     _connect_sources(render?: boolean): void;
     initialize(): void;
+    _init_converter(): void;
     _update_data(render?: boolean): void;
     _on_click_event(event: any): void;
     _on_hover_event(event: any): void;
@@ -44,6 +47,7 @@ export declare namespace DeckGLPlot {
         hoverState: p.Property<any>;
         throttle: p.Property<any>;
         viewState: p.Property<any>;
+        external_resources: p.Property<ResourceSpec | null>;
     };
 }
 export interface DeckGLPlot extends DeckGLPlot.Attrs {
@@ -52,5 +56,6 @@ export declare class DeckGLPlot extends LayoutDOM {
     properties: DeckGLPlot.Props;
     constructor(attrs?: Partial<DeckGLPlot.Attrs>);
     static __module__: string;
+    initialize(): void;
 }
 //# sourceMappingURL=deckgl.d.ts.map

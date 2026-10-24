@@ -819,7 +819,8 @@ async def test_verbalized_answer_records_the_resolved_model_name_not_the_uuid(
         metadata={},
     )
 
-    async def _dispatch(_self, _request):
+    async def _dispatch(_self, _request, *, transient_retries: int = 0):
+        _ = transient_retries
         return reply
 
     monkeypatch.setattr(UnifiedAIClient, "_execute_dispatch", _dispatch)

@@ -30,7 +30,8 @@ class StageDefsTextQueryInput(BaseModel):
     input_mode: Optional[StrictStr] = Field(default='text', description="Discriminator field. Always 'text' for text-based queries.")
     value: Optional[StrictStr] = Field(default=None, description="Plain text query string (RECOMMENDED). Always treated as literal text for embedding, even if it looks like a URL. Supports template variables: {{INPUT.field_name}}. Empty strings are allowed (creates zero vector for optional inputs).")
     text: Optional[StrictStr] = Field(default=None, description="Legacy text field (DEPRECATED - use 'value' instead). Supports template variables: {{INPUT.field_name}}.")
-    __properties: ClassVar[List[str]] = ["input_mode", "value", "text"]
+    embedding_task: Optional[StrictStr] = Field(default=None, description="Instruction the embedding model applies to the query text. Default: retrieval_query, which instruction-aware models (Gemini Embedding 2, E5) turn into their query prefix. Use 'none' to embed the text exactly as given, for vectors you imported that were produced with a different query format, or when the value already carries the model's query format (for Gemini Embedding 2: 'task: search result | query: ...').")
+    __properties: ClassVar[List[str]] = ["input_mode", "value", "text", "embedding_task"]
 
     @field_validator('input_mode')
     def input_mode_validate_enum(cls, value):
@@ -40,6 +41,16 @@ class StageDefsTextQueryInput(BaseModel):
 
         if value not in set(['text']):
             raise ValueError("must be one of enum values ('text')")
+        return value
+
+    @field_validator('embedding_task')
+    def embedding_task_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['retrieval_query', 'retrieval_document', 'semantic_similarity', 'classification', 'none']):
+            raise ValueError("must be one of enum values ('retrieval_query', 'retrieval_document', 'semantic_similarity', 'classification', 'none')")
         return value
 
     model_config = ConfigDict(
@@ -95,7 +106,8 @@ class StageDefsTextQueryInput(BaseModel):
         _obj = cls.model_validate({
             "input_mode": obj.get("input_mode") if obj.get("input_mode") is not None else 'text',
             "value": obj.get("value"),
-            "text": obj.get("text")
+            "text": obj.get("text"),
+            "embedding_task": obj.get("embedding_task")
         })
         return _obj
 

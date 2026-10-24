@@ -12,20 +12,21 @@ use crate::project::_helpers::targets::seconds_value;
 use crate::project::_helpers::values::{int_below, python_equal};
 use crate::project::constants::{
     AUDIT_SEVERITIES, COLLECTION_RENDERINGS, COLUMN_CONTRACT_MODES, CONCURRENCY_KEY,
-    DBT_DEFER_CLONE_KEY, DBT_KEYS, DBT_REMOVED_KEYS, DBT_REUSE_KEYS, DEFAULT_QUERY_ARTIFACT_TTL,
-    FUTURE_CURSOR_ACTIONS, LEGACY_CONCURRENCY_KEY, LEGACY_SQL_VALIDATION_KEY, LOCAL_DBT_KEYS,
-    MAX_BATCHES_KEY, MICROBATCH_LIMIT_ACTIONS, OLD_NAME_VIEWS_KEY, QUERY_CHANGE_TRACKING_KEY,
-    REQUIRE_SQL_ANALYSIS_KEY, RUN_NAMESPACE_KEY, RUN_NAMESPACE_MAX_LENGTH, SCENARIO_KEYS,
-    SETTINGS_KEYS, SNAPSHOT_FULL_REFRESH_POLICIES, SNAPSHOT_KEYS, SNAPSHOT_LIMIT_KEYS,
-    SNAPSHOT_SCHEMA_CHANGE_POLICIES, SQL_ANALYSIS_KEY, UNACCOUNTED_PARTITION_POLICIES,
-    USD_PER_CREDIT_KEY, ZERO_FIXED_DURATION, ZERO_FLOAT,
+    DBT_DEFER_CLONE_KEY, DBT_KEYS, DBT_REMOVED_KEYS, DBT_REUSE_KEYS, DEFAULT_IN_USE_WINDOW,
+    DEFAULT_QUERY_ARTIFACT_TTL, FUTURE_CURSOR_ACTIONS, LEGACY_CONCURRENCY_KEY,
+    LEGACY_SQL_VALIDATION_KEY, LOCAL_DBT_KEYS, MAX_BATCHES_KEY, MICROBATCH_LIMIT_ACTIONS,
+    OLD_NAME_VIEWS_KEY, QUERY_CHANGE_TRACKING_KEY, REQUIRE_SQL_ANALYSIS_KEY,
+    REVIEW_DOWNSTREAM_POLICIES, REVIEW_KEYS, RUN_NAMESPACE_KEY, RUN_NAMESPACE_MAX_LENGTH,
+    SCENARIO_KEYS, SETTINGS_KEYS, SNAPSHOT_FULL_REFRESH_POLICIES, SNAPSHOT_KEYS,
+    SNAPSHOT_LIMIT_KEYS, SNAPSHOT_SCHEMA_CHANGE_POLICIES, SQL_ANALYSIS_KEY,
+    UNACCOUNTED_PARTITION_POLICIES, USD_PER_CREDIT_KEY, ZERO_FIXED_DURATION, ZERO_FLOAT,
 };
 use crate::project::constants::{
     DEFAULT_TEST_TIMEOUT, DEFAULT_UNIT_TEST_MAX_REAL_MODELS, DELTA_COMPILE_KEY, DISABLED_VALUE,
     SCENARIO_TIMEOUT_KEY, TEST_TIMEOUT_KEY, UNIT_TEST_MAX_REAL_MODELS_KEY,
 };
 use crate::project::errors::ConfigFailure;
-use crate::project::models::{Built, ConfigFile};
+use crate::project::models::{Built, ConfigFile, ReviewConfig};
 use crate::project::types::{Entries, Fields, Loaded};
 use sqlbuild_core::constants::ZERO_DAY_DURATION;
 
@@ -548,6 +549,62 @@ pub(crate) fn load_git(payload: Option<&ConfigValue>, file: ConfigFile) -> Loade
     })
 }
 
+/// `[review]`: the defaults of `sqb review`, validated so a typo fails like any other section.
+pub(crate) fn load_review(payload: Option<&ConfigValue>, file: ConfigFile) -> Loaded<ReviewConfig> {
+    let mapping = coerce_mapping(payload, place(file, "review"))?;
+    validate_allowed_keys(mapping, &REVIEW_KEYS, place(file, "review"))?;
+    let against = optional_str(mapping, "against")
+        .map_err(|_| ConfigFailure::at(file, "review.against must be a non-empty target name"))?;
+    let downstream = match get(mapping, "downstream") {
+        None => None,
+        Some(ConfigValue::String(text)) if REVIEW_DOWNSTREAM_POLICIES.contains(&text.as_str()) => {
+            Some(text.clone())
+        }
+        Some(_) => {
+            return Err(ConfigFailure::at(
+                file,
+                format!(
+                    "review.downstream must be one of: {}",
+                    REVIEW_DOWNSTREAM_POLICIES.join(", ")
+                ),
+            ));
+        }
+    };
+    let valid_prefix = |prefix: &str| {
+        prefix
+            .chars()
+            .next()
+            .is_some_and(|first| first.is_ascii_alphabetic())
+            && prefix
+                .chars()
+                .all(|item| item.is_ascii_alphanumeric() || item == '_')
+    };
+    let schema_prefix: Option<String> = match get(mapping, "schema_prefix") {
+        None => None,
+        Some(ConfigValue::String(text)) if valid_prefix(text) => Some(text.clone()),
+        Some(_) => {
+            return Err(ConfigFailure::at(
+                file,
+                "review.schema_prefix must start with a letter and contain only letters, digits \
+                 and underscores",
+            ));
+        }
+    };
+    let critical_tags = match get(mapping, "critical_tags") {
+        None => None,
+        payload => Some(string_sequence(
+            payload,
+            place(file, "review.critical_tags"),
+        )?),
+    };
+    Ok(ReviewConfig {
+        against,
+        downstream,
+        schema_prefix,
+        critical_tags,
+    })
+}
+
 fn janitor_count(mapping: &Entries, key: &str, default: i64) -> Loaded<ConfigValue> {
     optional_int(mapping, key, default)
 }
@@ -565,6 +622,19 @@ pub(crate) fn load_janitor(payload: Option<&ConfigValue>, file: ConfigFile) -> L
         get(mapping, "exclude_patterns"),
         place(file, "janitor.exclude_patterns"),
     )?;
+    let keep_in_use = optional_bool(mapping, "keep_in_use", false)?;
+    let in_use_window = match get(mapping, "in_use_window") {
+        None => DEFAULT_IN_USE_WINDOW.to_owned(),
+        Some(ConfigValue::String(window)) if fixed_duration_seconds(window, false)?.is_some() => {
+            window.clone()
+        }
+        Some(_) => {
+            return Err(ConfigFailure::at(
+                file,
+                "janitor.in_use_window must be a positive fixed duration such as '7d'",
+            ));
+        }
+    };
     let checks = [
         (retention_days.as_ref(), "retention_days"),
         (Some(&archive), "archive_retention_days"),
@@ -591,6 +661,11 @@ pub(crate) fn load_janitor(payload: Option<&ConfigValue>, file: ConfigFile) -> L
                 Built::Value(ConfigValue::Bool(delete_tracked_only)),
             ),
             ("exclude_patterns", Built::Tuple(exclude)),
+            (
+                "in_use_window",
+                Built::Value(ConfigValue::String(in_use_window)),
+            ),
+            ("keep_in_use", Built::Value(ConfigValue::Bool(keep_in_use))),
         ],
     ))
 }

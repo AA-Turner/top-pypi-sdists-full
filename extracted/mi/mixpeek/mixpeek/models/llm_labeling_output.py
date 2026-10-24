@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
+from mixpeek.models.candidate_labels import CandidateLabels
 from mixpeek.models.llm_labeling_input_output import LLMLabelingInputOutput
 from mixpeek.models.llm_provider import LLMProvider
 from mixpeek.models.model_name import ModelName
@@ -34,7 +35,7 @@ class LLMLabelingOutput(BaseModel):
     """ # noqa: E501
     enabled: Optional[StrictBool] = Field(default=False, description="Whether to generate labels for clusters using LLM. When enabled, clusters will have semantic labels like 'High-Performance Laptops' instead of generic labels like 'Cluster 0'.")
     labeling_inputs: Optional[LLMLabelingInputOutput] = Field(default=None, description="Input configuration for LLM labeling. Supports flexible input mappings for multimodal inputs (text, images, videos, audio). Use input_mappings for advanced multimodal labeling with providers like Gemini. If not provided (null/undefined), the full document payload is serialized as JSON and sent to the LLM — WARNING: in practice this produces schema-metadata labels (e.g. 'Mid-Timeline Video Events' with keywords like ['start_time', 'end_time']) because the LLM describes whatever field names it sees. For meaningful labels, set input_mappings that point at semantic fields (title, description, thumbnail_url, document_blobs[].url for image/video content) rather than relying on the default.")
-    provider: Optional[LLMProvider] = Field(default=None, description="LLM provider to use for labeling. Supported providers: - openai: GPT models (GPT-4o, GPT-4o-mini, GPT-4.1, O3-mini) - google: Gemini models (Gemini 2.5 Flash, Gemini 1.5 Flash) - anthropic: Claude models (Claude 3.5 Sonnet, Claude 3.5 Haiku)  If not specified, automatically inferred from model_name.")
+    provider: Optional[LLMProvider] = Field(default=None, description="LLM provider to use for labeling. Supported providers: - openai: GPT models (GPT-4o, GPT-4o-mini, GPT-4.1, O3-mini) - google: Gemini models (Gemini 2.5 Flash, Gemini 1.5 Flash) - anthropic: Claude models (Claude 3.5 Sonnet, Claude 3.5 Haiku) - typesafe: Jev (jev-latest). Picks each cluster's label from candidate_labels with a calibrated probability instead of writing one. Text only: it reads the representative documents' text fields.  If not specified, automatically inferred from model_name.")
     model_name: Optional[ModelName] = None
     include_summary: Optional[StrictBool] = Field(default=True, description="Whether to generate cluster summaries")
     include_keywords: Optional[StrictBool] = Field(default=True, description="Whether to extract keywords for clusters")
@@ -48,7 +49,8 @@ class LLMLabelingOutput(BaseModel):
     custom_prompt: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Custom prompt template for LLM labeling. NOT REQUIRED - uses default discriminative prompt if not provided. When provided, completely replaces the default prompt. Your custom prompt receives cluster information but you must format it yourself. Use when:   - Need domain-specific labeling (e.g., medical, legal, technical)   - Want different label format (e.g., emoji labels, code names)   - Require specific output structure   - Have custom business logic for categorization Default prompt includes: cluster document samples, forbidden labels for uniqueness, and JSON response format. See engine/clusters/labeling/prompts.py for reference. Example: 'Analyze these product clusters and generate SHORT category names (2-3 words max) focusing on product type and price range. Return JSON: [{\"cluster_id\": \"cl_0\", \"label\": \"...\"}]'")
     response_shape: Optional[ResponseShape] = None
     parameters: Optional[Dict[str, Any]] = Field(default=None, description="Provider-specific parameters forwarded to the LLM service. For OpenAI: temperature, max_tokens, top_p, json_output, etc. For Google: temperature, top_k, max_output_tokens, json_output, etc.")
-    __properties: ClassVar[List[str]] = ["enabled", "labeling_inputs", "provider", "model_name", "include_summary", "include_keywords", "max_samples_per_cluster", "sample_text_max_length", "sample_selection_strategy", "use_embedding_dedup", "embedding_similarity_threshold", "cache_ttl_seconds", "labeling_context", "custom_prompt", "response_shape", "parameters"]
+    candidate_labels: Optional[CandidateLabels] = None
+    __properties: ClassVar[List[str]] = ["enabled", "labeling_inputs", "provider", "model_name", "include_summary", "include_keywords", "max_samples_per_cluster", "sample_text_max_length", "sample_selection_strategy", "use_embedding_dedup", "embedding_similarity_threshold", "cache_ttl_seconds", "labeling_context", "custom_prompt", "response_shape", "parameters", "candidate_labels"]
 
     @field_validator('sample_selection_strategy')
     def sample_selection_strategy_validate_enum(cls, value):
@@ -108,6 +110,9 @@ class LLMLabelingOutput(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of response_shape
         if self.response_shape:
             _dict['response_shape'] = self.response_shape.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of candidate_labels
+        if self.candidate_labels:
+            _dict['candidate_labels'] = self.candidate_labels.to_dict()
         return _dict
 
     @classmethod
@@ -135,7 +140,8 @@ class LLMLabelingOutput(BaseModel):
             "labeling_context": obj.get("labeling_context"),
             "custom_prompt": obj.get("custom_prompt"),
             "response_shape": ResponseShape.from_dict(obj["response_shape"]) if obj.get("response_shape") is not None else None,
-            "parameters": obj.get("parameters")
+            "parameters": obj.get("parameters"),
+            "candidate_labels": CandidateLabels.from_dict(obj["candidate_labels"]) if obj.get("candidate_labels") is not None else None
         })
         return _obj
 

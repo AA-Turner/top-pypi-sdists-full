@@ -173,6 +173,65 @@ def test_finish_announces_a_non_compliant_convert() -> None:
     assert "did not begin its reply" in announce.await_args.args[0][0]
 
 
+@pytest.mark.parametrize("caller", ["awaited_prepare", "detached_finish"])
+def test_flag_notice_failure_is_captured_without_failing_the_call(caller: str) -> None:
+    import asyncio
+    from types import SimpleNamespace
+
+    from matrx_connect.context import AppContext, clear_app_context, set_app_context
+    from matrx_utils import configure_error_capture
+    import matrx_utils.error_capture as error_capture_module
+    from matrx_ai.providers import unified_client as uc
+
+    class _FailingEmitter:
+        async def send_info(self, _payload) -> None:
+            raise RuntimeError("notice transport unavailable")
+
+    captured: list[tuple[BaseException, dict]] = []
+    old_sink = error_capture_module._sink
+    old_allow = error_capture_module._allow_in_tests
+
+    async def _sink(exc: BaseException, **kwargs) -> None:
+        captured.append((exc, kwargs))
+
+    async def _run() -> None:
+        app_context_token = set_app_context(AppContext(emitter=_FailingEmitter()))
+        configure_error_capture(_sink, allow_in_tests=True)
+        try:
+            if caller == "awaited_prepare":
+                messages = MessageList(_drafter())
+                config = SimpleNamespace(messages=messages, metadata={}, stream=False)
+                wire_config = SimpleNamespace(messages=MessageList(_drafter()))
+                plan = await uc._apply_message_flags(
+                    wire_config,
+                    config,
+                    make_profile(model_name="claude-haiku-5-5"),
+                    "anthropic_chat",
+                )
+                assert plan is not None
+            else:
+                plan = plan_message_flags(
+                    _drafter(), supports_prefill=False, model_label="claude-haiku-5-5"
+                )
+                response = SimpleNamespace(messages=[_msg("assistant", "Hi Priya, sorry.")])
+                uc._finish_message_flags(response, plan)
+                await asyncio.sleep(0.02)
+        finally:
+            configure_error_capture(old_sink, allow_in_tests=old_allow)
+            clear_app_context(app_context_token)
+
+    asyncio.run(_run())
+    assert len(captured) == 1
+    exc, fields = captured[0]
+    assert str(exc) == "notice transport unavailable"
+    assert fields["kind"] == "provider_flag_note_emit_failed"
+    assert fields["context"] == {
+        "source_app": "matrx-ai",
+        "source_feature": "providers.unified_client",
+        "code": "message_flag_adjusted",
+    }
+
+
 def test_convert_asks_for_the_start_and_says_so() -> None:
     plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="gpt-5", mode="convert")
     assert plan.prefill_mode == "convert"

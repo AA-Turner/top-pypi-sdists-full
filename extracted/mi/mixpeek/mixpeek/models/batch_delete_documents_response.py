@@ -33,8 +33,9 @@ class BatchDeleteDocumentsResponse(BaseModel):
     deleted_count: Optional[StrictInt] = Field(default=None, description="Total number of documents successfully deleted. Null on the async filter-mode enqueue response; populated on the task record when it completes, and returned synchronously in explicit-IDs mode.")
     failed_count: Optional[StrictInt] = Field(default=0, description="Total number of documents that failed to delete")
     results: Optional[List[BatchDocumentDeleteResult]] = Field(default=None, description="Detailed per-document results. Each entry shows document_id, success status, and error message (if failed). Empty list when using filter mode (only counts returned).")
+    limits: Optional[Dict[str, StrictInt]] = Field(default=None, description="Filter mode only: the caps this request ran against. max_rows_inline is the row cap under which a delete by filter runs in the request; matched is how many documents the filter matched when the request arrived. Over the cap the delete runs as a task (task_id).")
     message: Optional[StrictStr] = Field(default='Batch delete completed', description="Summary message of the operation")
-    __properties: ClassVar[List[str]] = ["task_id", "status", "deleted_count", "failed_count", "results", "message"]
+    __properties: ClassVar[List[str]] = ["task_id", "status", "deleted_count", "failed_count", "results", "limits", "message"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -99,6 +100,7 @@ class BatchDeleteDocumentsResponse(BaseModel):
             "deleted_count": obj.get("deleted_count"),
             "failed_count": obj.get("failed_count") if obj.get("failed_count") is not None else 0,
             "results": [BatchDocumentDeleteResult.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None,
+            "limits": obj.get("limits"),
             "message": obj.get("message") if obj.get("message") is not None else 'Batch delete completed'
         })
         return _obj

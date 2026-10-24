@@ -2282,6 +2282,171 @@ def openai_embed(
     )
 
 
+def ai_classify(
+    text: Underscore | str,
+    question: str,
+    labels: Sequence[str],
+    *,
+    url: str,
+    model: str | None = None,
+    api_key: str | None = None,
+    api: Literal["chat", "completions"] | None = None,
+    max_tokens: int | None = None,
+    chat_template_kwargs: str | Mapping[str, Any] | None = None,
+    extra_body: str | Mapping[str, Any] | None = None,
+    timeout_seconds: float | None = None,
+    max_concurrency: int | None = None,
+    prompts_per_request: int | None = None,
+    descriptions: Sequence[str] | None = None,
+    prompt: str | None = None,
+    choice_constraint: Literal["structured_outputs", "guided_choice", "none"] | None = None,
+):
+    """
+    Classifies ``text`` into one of ``labels`` with a model, the feature-expression form of
+    ChalkSQL's ``ai_classify``: the same arguments give the same label, null and error behavior.
+
+    This is a blocking expression that calls the model during feature computation. Every
+    argument but ``text`` must be a constant.
+
+    Parameters
+    ----------
+    text
+        The text to classify.
+    question
+        What to classify the text by, e.g. ``"Is this email phishing, spam or benign?"``.
+        A ``chalk-encoder`` classifier ignores it.
+    labels
+        The distinct labels to choose from. For a ``chalk-encoder`` url, these are names from
+        the model's ``id2label``.
+    url
+        Where the model runs:
+
+        - an OpenAI-compatible server such as vLLM, e.g. ``http://vllm:8000/v1``;
+        - ``chalk-llm://...`` or ``chalk-llm+grpc://...`` for a Chalk LLM engine;
+        - ``chalk-encoder://local?model_dir=...`` for a fine-tuned encoder classifier run in
+          process, or ``chalk-encoder+grpc[s]://host:port?model=<name>[&auth=chalk]`` for one
+          served by a ``cl_encoder_server`` scaling group.
+    model
+        The model name an OpenAI-compatible server expects. Unused by ``chalk-encoder`` urls.
+    api_key
+        The server's API key.
+    api
+        ``"chat"`` (the default) for ``/chat/completions`` or ``"completions"`` for a raw prompt.
+    max_tokens
+        The most tokens a label may take; defaults to 32.
+    chat_template_kwargs
+        A JSON object (or a dict, serialized for you) sent as the request's ``chat_template_kwargs``,
+        e.g. ``{"enable_thinking": False}``.
+    extra_body
+        A JSON object (or a dict) of further request-body fields.
+    timeout_seconds
+        The per-request timeout.
+    max_concurrency
+        The most requests in flight to this url and model.
+    prompts_per_request
+        With ``max_concurrency`` and ``api="completions"``, how many rows one request may carry.
+    descriptions
+        One description per label, listed with the labels in the prompt.
+    prompt
+        The prompt template: ``{text}``, ``{question}`` and ``{categories}`` are substituted.
+    choice_constraint
+        How decoding is constrained to the labels: ``"structured_outputs"`` (the default),
+        ``"guided_choice"`` or ``"none"``.
+
+    Returns
+    -------
+    The chosen label, or null where ``text`` is null or the model answers none of the labels.
+    A failed model call fails the query.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Email:
+    ...    id: str
+    ...    body: str
+    ...    verdict: str = F.ai_classify(
+    ...        _.body,
+    ...        "Is this email benign, phishing or spam?",
+    ...        ["benign", "phishing", "spam"],
+    ...        url="chalk-encoder+grpcs://email-sec.internal:443?model=email-sec&auth=chalk",
+    ...    )
+    """
+    if isinstance(chat_template_kwargs, Mapping):
+        chat_template_kwargs = json.dumps(chat_template_kwargs)
+    if isinstance(extra_body, Mapping):
+        extra_body = json.dumps(extra_body)
+    return UnderscoreFunction(
+        "ai_classify",
+        text,
+        question,
+        json.dumps(list(labels)),
+        url=url,
+        model=model,
+        api_key=api_key,
+        api=api,
+        max_tokens=max_tokens,
+        chat_template_kwargs=chat_template_kwargs,
+        extra_body=extra_body,
+        timeout_seconds=timeout_seconds,
+        max_concurrency=max_concurrency,
+        prompts_per_request=prompts_per_request,
+        descriptions=None if descriptions is None else json.dumps(list(descriptions)),
+        prompt=prompt,
+        choice_constraint=choice_constraint,
+    )
+
+
+def chalk_encoder(
+    text: Underscore | str,
+    *,
+    url: str,
+    labels: Sequence[str],
+):
+    """
+    Classifies ``text`` with a fine-tuned encoder classifier and returns the most probable of
+    ``labels`` with its probability. Use :func:`ai_classify` for just the label.
+
+    This is a blocking expression that calls the classifier during feature computation.
+
+    Parameters
+    ----------
+    text
+        The text to classify.
+    url
+        A ``chalk-encoder://local?model_dir=...`` url, for a model run in process, or a
+        ``chalk-encoder+grpc[s]://host:port?model=<name>[&auth=chalk]`` url, for one served by a
+        ``cl_encoder_server`` scaling group. Must be a constant.
+    labels
+        Names from the model's ``id2label``. Must be a constant.
+
+    Returns
+    -------
+    A struct containing:
+        - label_index: The index into ``labels`` of the most probable label
+        - probability: That label's probability, renormalized over ``labels``
+        - error: The failure message when the call failed, else null
+
+    The struct is null where ``text`` is null.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Email:
+    ...    id: str
+    ...    body: str
+    ...    verdict_probability: float = F.chalk_encoder(
+    ...        _.body,
+    ...        url="chalk-encoder+grpcs://email-sec.internal:443?model=email-sec&auth=chalk",
+    ...        labels=["benign", "phishing", "spam"],
+    ...    ).probability
+    """
+    return UnderscoreFunction("chalk_encoder", url, json.dumps(list(labels)), text)
+
+
 def prompt_jev(
     state: Underscore | str,
     questions: Underscore | str | Mapping[str, Any],
@@ -9071,6 +9236,8 @@ __all__ = (
     "onnx_run",
     "openai_complete",
     "openai_embed",
+    "ai_classify",
+    "chalk_encoder",
     "over",
     "parse_datetime",
     "partial_ratio",

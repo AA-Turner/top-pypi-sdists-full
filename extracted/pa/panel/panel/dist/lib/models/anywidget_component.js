@@ -1,6 +1,5 @@
 import { ReactiveESM, ReactiveESMView } from "./reactive_esm";
 class AnyWidgetModelAdapter {
-    static __name__ = "AnyWidgetModelAdapter";
     constructor(model) {
         this.view = null;
         this.model = model;
@@ -89,7 +88,6 @@ class AnyWidgetModelAdapter {
     }
 }
 class AnyWidgetAdapter extends AnyWidgetModelAdapter {
-    static __name__ = "AnyWidgetAdapter";
     constructor(view) {
         super(view.model);
         this.view = view;
@@ -111,8 +109,18 @@ class AnyWidgetAdapter extends AnyWidgetModelAdapter {
         }
     }
 }
+function render_anywidget(view) {
+    if (view.is_destroyed) {
+        return;
+    }
+    const out = Promise.resolve(view.render_fn({
+        view, model: view.adapter, data: view.model.data, el: view.container,
+    }) || null);
+    view.destroyer = out;
+    out.then(() => view.after_rendered());
+}
+const ANYWIDGET_RENDER_MODULE = Promise.resolve({ default: { render: render_anywidget } });
 export class AnyWidgetComponentView extends ReactiveESMView {
-    static __name__ = "AnyWidgetComponentView";
     adapter;
     destroyer;
     initialize() {
@@ -131,25 +139,12 @@ export class AnyWidgetComponentView extends ReactiveESMView {
     }
 }
 export class AnyWidgetComponent extends ReactiveESM {
-    static __name__ = "AnyWidgetComponent";
     sucrase_transforms = ["typescript", "jsx"];
     constructor(attrs) {
         super(attrs);
     }
-    _render_code() {
-        return `
-function render(id) {
-  const view = Bokeh.index.find_one_by_id(id)
-  if (!view) { return }
-
-  const out = Promise.resolve(view.render_fn({
-    view, model: view.adapter, data: view.model.data, el: view.container
-  }) || null)
-  view.destroyer = out
-  out.then(() => view.after_rendered())
-}
-
-export default {render}`;
+    _render_module() {
+        return ANYWIDGET_RENDER_MODULE;
     }
     _run_initializer(initialize) {
         const props = { model: new AnyWidgetModelAdapter(this) };

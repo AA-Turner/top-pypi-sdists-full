@@ -2,6 +2,7 @@
 // Zero-copy integration with keeper-pam-webrtc-rs
 
 use bytes::Bytes;
+use std::future::Future;
 use std::sync::Arc;
 
 use crate::video::VideoOutput;
@@ -153,6 +154,9 @@ impl InstructionSender {
 /// * `from_client` - Channel receiver for client messages
 /// * `channel_capacity` - Capacity for the internal forwarding channel (typically 128 or 4096)
 ///
+/// Completion joins the forwarding task: admitted instructions are forwarded
+/// before returning. A failed forwarder seals output and gives the producer a
+/// bounded interval to finalize before its task is cancelled.
 /// # Example
 /// ```no_run
 /// # use guacr_handlers::{connect_with_event_adapter, EventCallback, HandlerEvent, Result, SessionHooks, VideoOutput};
@@ -198,23 +202,70 @@ where
         Option<Arc<dyn VideoOutput>>,
         crate::hooks::SessionHooks,
     ) -> Fut,
-    Fut: std::future::Future<Output = Result<(), crate::error::HandlerError>>,
+    Fut: Future<Output = Result<(), crate::error::HandlerError>>,
 {
+    let finalization_deadline = hooks.handler_finalization_timeout;
     // Create channel for handler → callback forwarding
     let (to_client, mut handler_rx) = tokio::sync::mpsc::channel::<Bytes>(channel_capacity);
+    let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
 
-    // Spawn forwarding task with proper backpressure
-    tokio::spawn(async move {
-        while let Some(msg) = handler_rx.recv().await {
-            // Await send to propagate backpressure (prevents dropping frames)
-            // If send fails (e.g., channel closed), log error and stop forwarding
-            if let Err(e) = callback.send_instruction(msg).await {
-                log::error!("Failed to forward instruction to client: {}", e);
-                break;
-            }
+    let mut forwarder = tokio::task::JoinSet::new();
+    forwarder.spawn(async move {
+        tokio::pin!(finished_rx);
+        let mut finished = false;
+        loop {
+            let msg = tokio::select! {
+                biased;
+                _ = &mut finished_rx, if !finished => {
+                    finished = true;
+                    handler_rx.close();
+                    continue;
+                }
+                msg = handler_rx.recv() => match msg {
+                    Some(msg) => msg,
+                    None => break,
+                },
+            };
+            callback.send_instruction(msg).await?;
         }
+        Ok(())
     });
 
-    // Call the channel-based connect function, forwarding the video output handle
-    connect_fn(params, to_client, from_client, video_tx, hooks).await
+    let producer = connect_fn(params, to_client, from_client, video_tx, hooks);
+    tokio::pin!(producer);
+    tokio::select! {
+        biased;
+        producer_result = &mut producer => {
+            let _ = finished_tx.send(());
+            let forwarding_result = forwarding_result(forwarder.join_next().await);
+            producer_result.and(forwarding_result)
+        }
+        result = forwarder.join_next() => {
+            let forwarding_result = forwarding_result(result);
+            if forwarding_result.is_err() {
+                // Reject new output and discard queued frames. The producer observes
+                // the closed sender and retains the configured deadline for async
+                // finalization. Dropping it after expiry is the cancellation backstop.
+                match tokio::time::timeout(finalization_deadline, &mut producer).await {
+                    Ok(producer_result) => return producer_result.and(forwarding_result),
+                    Err(_) => {
+                        tracing::error!(target: "guacr_handlers::events", operation = "finalize", outcome = "timed_out", "Handler finalization exceeded deadline");
+                        return forwarding_result;
+                    }
+                }
+            }
+            producer.await
+        }
+    }
+}
+
+fn forwarding_result(
+    result: Option<Result<Result<(), crate::error::HandlerError>, tokio::task::JoinError>>,
+) -> Result<(), crate::error::HandlerError> {
+    match result {
+        Some(Ok(result)) => result,
+        Some(Err(_)) | None => Err(crate::error::HandlerError::ChannelError(
+            "Instruction forwarding task failed".to_string(),
+        )),
+    }
 }

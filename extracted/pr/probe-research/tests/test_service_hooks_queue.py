@@ -383,10 +383,19 @@ def test_an_event_its_dispatcher_wrote_beside_an_unanswered_request_runs_at_once
     """The dispatcher gave up on `hooks.queue`'s answer and wrote the event
     itself; the late store finds that file: it runs now, not at the next rescan."""
     root = _plugin(tmp_path)
-    q = queue()
-    assert wait_for(lambda: q.pending() == 0, 5)
+    # Idle means its first pass is over: `pending()` is 0 from `start()` on, so
+    # waiting on it let the file below land in the middle of that first pass,
+    # and a half-written file was read empty and dropped as unreadable
+    # (service-macos, 2 of 4 runs). The dispatcher writes it whole (a
+    # temporary file renamed into place), so that drop is the test's alone.
+    q = queue(start=False)
+    idle = threading.Event()
+    q.changed = idle.set  # called by a pass that finds nothing waiting
+    q.start()
+    assert idle.wait(5), q.logs
     item = _item(root, tmp_path)
-    (q.folder / f"{item['id']}.json").write_text(json.dumps(item))  # beside, as the dispatcher writes it
+    # Beside, as the dispatcher writes it.
+    assert _dispatch().write_queued(str(q.folder), item, json.dumps(item).encode())
     started = time.monotonic()
     assert q.store(item) == {"queued": True, "duplicate": True}
     assert q.pending() == 1, "it holds the service until it ran"
@@ -400,7 +409,8 @@ def test_a_dispatcher_s_file_written_while_the_service_started_is_found(tmp_path
     q = queue()
     assert wait_for(lambda: q.pending() == 0, 5)
     item = _item(root, tmp_path)
-    (q.folder / f"{item['id']}.json").write_text(json.dumps(item))  # no store, no wake
+    # No store, no wake.
+    assert _dispatch().write_queued(str(q.folder), item, json.dumps(item).encode())
     assert wait_for(lambda: _marks(tmp_path), 20), q.logs
 
 

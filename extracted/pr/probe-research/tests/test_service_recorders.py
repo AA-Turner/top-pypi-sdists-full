@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -219,6 +220,99 @@ def test_a_stopped_service_pauses_and_the_next_one_resumes(service_home, agent, 
     assert _saw(service_home.home, "s1", "started", count=2), service_home.log()
     assert service_home.call(Method.SESSION_RECORDING, {"sid": "s1"}) == {"recording": True}
     assert [s["sid"] for s in service_home.call(Method.SESSION_LIST)["sessions"]] == ["s1"]
+
+
+def _restart_without(service_home, first: dict, folder: Path) -> None:
+    """Stop the service, then remove `folder` as Codex does to the old
+    version's when it installs a new one (an update cycle, then its restart)."""
+    service_home.call(Method.STOP)
+    assert service_home.wait_exit(first["pid"], 8)
+    shutil.rmtree(folder)
+
+
+def test_a_session_whose_tap_folder_went_resumes_on_the_tap_another_loaded(service_home, agent, tmp_path):
+    """The session first in line named a removed folder: it was dropped, never
+    said, and erased from recorders.json while the next session's tap loaded
+    (Bucket, 2026-10-24: an update replaced the Codex tap). One tap records
+    every session, so the one another session loads records it too, said
+    when it is older than the session's own."""
+    proc, owner = agent
+    gone = _tap(tmp_path / "codex" / "probe-research-tap" / "0.10.1", "0.10.1")
+    kept = _tap(tmp_path / "claude" / "tap", "0.10.0")
+    first = service_home.start()
+    service_home.call(Method.SESSION_RECORD, _params("s1", owner, gone, "0.10.1", tmp_path))
+    service_home.call(Method.SESSION_RECORD, _params("s2", owner, kept, "0.10.0", tmp_path))
+    assert _saw(service_home.home, "s1", "started") and _saw(service_home.home, "s2", "started")
+    _restart_without(service_home, first, gone)
+    service_home.start()
+    assert _saw(service_home.home, "s1", "started", count=2), service_home.log()
+    assert _events(service_home.home, "s1")[-1]["version"] == "0.10.0"
+    assert "recorder: session s1 resumed on tap 0.10.0 (its own 0.10.1 did not load)" in service_home.log()
+    # s2 starts within RESUME_SPREAD_S; its thread is up now.
+    for sid in ("s1", "s2"):
+        assert service_home.call(Method.SESSION_RECORDING, {"sid": sid}) == {"recording": True}, sid
+    assert "recorder: 2 session(s) resumed" in service_home.log()
+    saved = json.loads((paths.service_dir() / recorders.RECORDERS_NAME).read_text())
+    assert sorted(s["sid"] for s in saved["sessions"]) == ["s1", "s2"]
+
+
+def test_a_session_whose_tap_folder_was_replaced_resumes_from_the_new_one(service_home, agent, tmp_path):
+    """Codex's cache keeps one version folder per plugin: the removed one's
+    newest version-shaped sibling that carries a tap is where it moved."""
+    proc, owner = agent
+    old = _tap(tmp_path / "codex" / "probe-research-tap" / "0.10.0", "0.10.0")
+    first = service_home.start()
+    service_home.call(Method.SESSION_RECORD, _params("s1", owner, old, "0.10.0", tmp_path, PLUGIN_ROOT=str(old)))
+    assert _saw(service_home.home, "s1", "started")
+    _restart_without(service_home, first, old)
+    _tap(old.parent / "0.9.9", "0.9.9")
+    new = _tap(old.parent / "0.10.1", "0.10.1")
+    _tap(old.parent / "latest", "0.11.0")  # not version-shaped: never a candidate
+    service_home.start()
+    assert _saw(service_home.home, "s1", "started", count=2), service_home.log()
+    assert _events(service_home.home, "s1")[-1]["version"] == "0.10.1"
+    assert f"tap folder {old} is gone; resuming from {new}" in service_home.log()
+    (saved,) = json.loads((paths.service_dir() / recorders.RECORDERS_NAME).read_text())["sessions"]
+    assert (saved["tap_root"], saved["tap_version"]) == (str(new), "0.10.1")
+    assert saved["env"]["PLUGIN_ROOT"] == str(new), "as the hook's own fallback exports it"
+
+
+def test_a_session_no_tap_can_resume_is_said_and_asked_again(service_home, agent, tmp_path):
+    """Nothing to load: the service runs on, says which session it could not
+    resume and why, and records it when its agent's next prompt asks again."""
+    proc, owner = agent
+    gone = _tap(tmp_path / "codex" / "probe-research-tap" / "0.10.0", "0.10.0")
+    first = service_home.start()
+    service_home.call(Method.SESSION_RECORD, _params("s1", owner, gone, "0.10.0", tmp_path))
+    assert _saw(service_home.home, "s1", "started")
+    _restart_without(service_home, first, gone)
+    second = service_home.start()
+    assert wait_for(lambda: "recorder: session s1 not resumed: no tap loads" in service_home.log(), 5), \
+        service_home.log()
+    assert service_home.status()["pid"] == second["pid"]
+    assert service_home.call(Method.SESSION_RECORDING, {"sid": "s1"}) == {"recording": False}
+    assert json.loads((paths.service_dir() / recorders.RECORDERS_NAME).read_text())["sessions"] == []
+    new = _tap(tmp_path / "codex" / "probe-research-tap" / "0.10.1", "0.10.1")
+    assert service_home.call(Method.SESSION_RECORD, _params("s1", owner, new, "0.10.1", tmp_path))["recording"]
+    assert _saw(service_home.home, "s1", "started", count=2), service_home.log()
+
+
+def test_the_replacement_of_a_removed_tap_folder(tmp_path):
+    cache = tmp_path / "probe-research-tap"
+    gone = cache / "0.10.0"
+    assert recorders._replacement(str(gone)) is None, "no sibling carries a tap"
+    _tap(cache / "0.9.9", "0.9.9")
+    _tap(cache / "0.10.2", "0.10.2")
+    (cache / "0.10.10").mkdir()  # no tap inside
+    _tap(cache / "next", "0.11.0")
+    assert recorders._replacement(str(gone)) == (str(cache / "0.10.2"), "0.10.2")
+    assert recorders._replacement(str(cache / "0.10.2")) is None, "a folder that carries a tap stays"
+    # A folder that is not a version folder (a checkout, beside other plugins) is never re-resolved.
+    assert recorders._replacement(str(tmp_path / "plugins" / "probe-research-tap")) is None
+    # A saved path no filesystem call accepts is no tap and no replacement, never an error
+    # that would stop every other session's resume.
+    assert recorders._has_tap(tmp_path / "bad\0dir") is False
+    assert recorders._replacement(str(tmp_path / "bad\0dir" / "0.10.0")) is None
 
 
 def test_a_failed_recorder_is_tried_again(service_home, agent, tmp_path, monkeypatch):

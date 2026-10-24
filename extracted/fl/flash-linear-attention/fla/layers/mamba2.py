@@ -34,7 +34,7 @@ with warnings.catch_warnings():
     is_fast_path_available = selective_state_update is not None
 
 if TYPE_CHECKING:
-    from fla.models.utils import Cache
+    from fla.models.cache_utils import Cache
 
 logger = logging.get_logger(__name__)
 
@@ -43,7 +43,7 @@ def apply_mask_to_padding_states(hidden_states, attention_mask):
     """
     Tunes out the hidden states for padding tokens, see https://github.com/state-spaces/mamba/issues/66
     """
-    if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1:
+    if attention_mask is not None and attention_mask.shape == hidden_states.shape[:2]:
         dtype = hidden_states.dtype
         hidden_states = (hidden_states * attention_mask[:, :, None]).to(dtype)
 
@@ -160,6 +160,11 @@ class Mamba2(nn.Module):
                 )
             self.num_heads = num_heads
 
+        if self.num_heads % n_groups != 0:
+            raise ValueError(
+                f"`num_heads` ({self.num_heads}) must be divisible by `n_groups` ({n_groups})."
+            )
+
         self.conv_kernel_size = conv_kernel
         self.conv_init = conv_init
         self.use_conv_bias = use_conv_bias
@@ -197,7 +202,7 @@ class Mamba2(nn.Module):
             projection_size,
             bias=use_bias,
         )
-        # selective projection used to make dt, B and C input dependant
+        # selective projection used to make dt, B and C input-dependent
 
         # time step projection (discretization)
         # instantiate once and copy inv_dt in init_weights of PretrainedModel
@@ -304,13 +309,22 @@ class Mamba2(nn.Module):
             )
 
             # 2. Convolution sequence transformation
-            hidden_states_B_C = self.causal_conv1d_update(
-                hidden_states_B_C.contiguous(),
-                conv_state,
-                self.conv1d.weight.squeeze(1),
-                self.conv1d.bias,
-                self.activation,
-            )
+            if self.backend == 'triton':
+                hidden_states_B_C, conv_state = self.causal_conv1d_update(
+                    x=hidden_states_B_C.contiguous(),
+                    cache=conv_state,
+                    weight=self.conv1d.weight.squeeze(1),
+                    bias=self.conv1d.bias,
+                    activation=self.activation,
+                )
+            else:
+                hidden_states_B_C = self.causal_conv1d_update(
+                    hidden_states_B_C.contiguous(),
+                    conv_state,
+                    self.conv1d.weight.squeeze(1),
+                    self.conv1d.bias,
+                    self.activation,
+                )
 
             hidden_states, B, C = torch.split(
                 hidden_states_B_C,
@@ -406,7 +420,7 @@ class Mamba2(nn.Module):
                     )
                 else:
                     _conv1d_output = self.causal_conv1d_fn(
-                        x=hidden_states_B_C.transpose(1, 2).contiguous(),
+                        x=hidden_states_B_C if self.backend == 'triton' else hidden_states_B_C.transpose(1, 2).contiguous(),
                         weight=self.conv1d.weight.squeeze(1),
                         bias=self.conv1d.bias,
                         activation=self.activation,
@@ -416,12 +430,11 @@ class Mamba2(nn.Module):
                         hidden_states_B_C = hidden_states_B_C.transpose(1, 2)
                     elif self.backend == 'triton':
                         hidden_states_B_C, _ = _conv1d_output
-                        hidden_states_B_C = hidden_states_B_C.transpose(1, 2).contiguous()
                     else:
                         raise ValueError(f"Unsupported backend: {self.backend}")
 
                 hidden_states_B_C = (hidden_states_B_C * attention_mask[:, :, None]).to(hidden_states_B_C.dtype) \
-                    if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1 \
+                    if attention_mask is not None and attention_mask.shape == hidden_states_B_C.shape[:2] \
                     else hidden_states_B_C
                 hidden_states, B, C = torch.split(
                     hidden_states_B_C,
@@ -509,7 +522,7 @@ class Mamba2(nn.Module):
 
         if last_state is None:
             hidden_states_B_C = (hidden_states_B_C * attention_mask[:, :, None]).to(hidden_states_B_C.dtype) \
-                if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1 \
+                if attention_mask is not None and attention_mask.shape == hidden_states_B_C.shape[:2] \
                 else hidden_states_B_C
         hidden_states, B, C = torch.split(
             hidden_states_B_C,
@@ -678,13 +691,16 @@ class Mamba2(nn.Module):
         output_attentions: bool | None = False,
         **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None, Cache | None]:
+        if hidden_states.shape[1] == 0:
+            return hidden_states, None, past_key_values
+
         last_state = get_layer_cache(self, past_key_values)
 
         if is_fast_path_available and "cuda" in self.in_proj.weight.device.type:
             output, conv_state, ssm_state = self.cuda_kernels_forward(hidden_states, last_state, use_cache, attention_mask)
         else:
             dtype = hidden_states.dtype
-            if last_state is None and attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1:
+            if last_state is None and attention_mask is not None and attention_mask.shape == hidden_states.shape[:2]:
                 hidden_states = (hidden_states * attention_mask[:, :, None]).to(dtype)
             output, conv_state, ssm_state = self.torch_forward(hidden_states, last_state, use_cache, attention_mask)
 

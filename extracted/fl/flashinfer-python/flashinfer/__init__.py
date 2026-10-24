@@ -151,12 +151,16 @@ from .fused_moe import (
 _PRIMS_TS_LAZY_EXPORTS = frozenset(
     {
         "prims_ts_bf16_moe",
+        "prims_ts_bf16_moe_partitioned",
         "prims_ts_bf16_routed_moe",
         "prims_ts_fp4_block_scale_moe",
+        "prims_ts_fp4_block_scale_moe_partitioned",
         "prims_ts_fp4_block_scale_routed_moe",
         "prims_ts_fp8_block_scale_moe",
+        "prims_ts_fp8_block_scale_moe_partitioned",
         "prims_ts_fp8_block_scale_routed_moe",
         "prims_ts_fp8_per_tensor_scale_moe",
+        "prims_ts_fp8_per_tensor_scale_moe_partitioned",
     }
 )
 
@@ -262,6 +266,18 @@ from .cake_rmsnorm_train import (
 from .cake_rmsnorm_train import (
     cake_rmsnorm_train_forward as cake_rmsnorm_train_forward,
 )
+from .norm import gated_residual_rmsnorm as gated_residual_rmsnorm
+from .norm import gated_residual_next_rmsnorm as gated_residual_next_rmsnorm
+from .norm import rmsnorm_sigmoid_gate as rmsnorm_sigmoid_gate
+from .norm import (
+    supports_gated_residual_next_rmsnorm as supports_gated_residual_next_rmsnorm,
+)
+from .norm import (
+    supports_gated_residual_rmsnorm as supports_gated_residual_rmsnorm,
+)
+from .norm import (
+    supports_rmsnorm_sigmoid_gate as supports_rmsnorm_sigmoid_gate,
+)
 from . import nvfp4_attention_sm120 as nvfp4_attention_sm120
 from .nvfp4_attention_sm120 import (
     nvfp4_attention_sm120_fwd as nvfp4_attention_sm120_fwd,
@@ -363,6 +379,7 @@ from .trtllm_low_latency_gemm import (
     prepare_low_latency_gemm_weights as prepare_low_latency_gemm_weights,
 )
 from .utils import next_positive_power_of_2 as next_positive_power_of_2
+from .mla_kv_pack import concat_mla_kv_quant_fp8 as concat_mla_kv_quant_fp8
 from .xqa import xqa as xqa
 from .xqa import xqa_mla as xqa_mla
 from . import mamba as mamba

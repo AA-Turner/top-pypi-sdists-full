@@ -9,11 +9,21 @@ turn may not have. So the system's own scheduler runs this every minute:
              `~/.config/systemd/user/`), when a user manager answers
     macOS    a launchd agent (`ai.prbe.probe-service-keeper`, StartInterval 60,
              `~/Library/LaunchAgents/`), when the GUI domain exists
+    Windows  a Task Scheduler task for this user (`Probe service keeper`,
+             every minute, `pythonw.exe`: no window)
 
 `python -I -m probe.service.keeper`: when `recorders.json` names a session
 whose agent still runs and no service answers, start one (`client.ensure`);
 it resumes every session it recorded. Otherwise nothing, and exit. Cheap: a
 file read and a socket connect, once a minute.
+
+"Answers" is a `service.hello` reply within HELLO_TIMEOUT_S, not a connect: a
+wedged loop still takes connections into its backlog (crash-report plan B3).
+A needed service that has not answered for DOWN_REPORT_S (none, `ensure`'s
+back-off, or wedged) is reported to the Probe team once (`service_down`, the
+same `probe.core.run report` the service runs, with the machine's consent:
+`watch.decide_machine`), at most every REPORT_EVERY_S; `keeper.json` keeps
+since when, and service.log gets one line per change.
 
 The service installs it when it starts (`install`, idempotent: rewritten only
 when its interpreter changed), never under a test's HOME (only the account's
@@ -31,6 +41,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from . import paths, procid
@@ -42,8 +53,36 @@ INTERVAL_S = 60
 TIMEOUT_S = 10
 
 
+def _windows_profile() -> str | None:
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        userenv = ctypes.WinDLL("userenv")
+        k32 = ctypes.WinDLL("kernel32")
+        adv = ctypes.WinDLL("advapi32")
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        k32.CloseHandle.argtypes = [wintypes.HANDLE]
+        adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+        userenv.GetUserProfileDirectoryW.argtypes = [wintypes.HANDLE, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+        token = wintypes.HANDLE()
+        if not adv.OpenProcessToken(k32.GetCurrentProcess(), 0x0008, ctypes.byref(token)):
+            return None
+        size = wintypes.DWORD(1024)
+        buf = ctypes.create_unicode_buffer(size.value)
+        ok = userenv.GetUserProfileDirectoryW(token, buf, ctypes.byref(size))
+        k32.CloseHandle(token)
+        return buf.value if ok else None
+    except (OSError, AttributeError):
+        return None
+
+
 def _own_home() -> bool:
     """HOME is this account's home folder (not a test's, not a sandbox's)."""
+    if os.name == "nt":
+        profile = _windows_profile()
+        return bool(profile) and os.path.normcase(os.path.realpath(profile)) == os.path.normcase(
+            os.path.realpath(str(Path.home())))
     try:
         import pwd
 
@@ -53,7 +92,7 @@ def _own_home() -> bool:
 
 
 def wanted() -> bool:
-    return os.name == "posix" and os.environ.get(ENV, "1") != "0" and _own_home()
+    return os.name in ("posix", "nt") and os.environ.get(ENV, "1") != "0" and _own_home()
 
 
 def _manager_env() -> dict:
@@ -210,6 +249,87 @@ def _remove_launchd() -> None:
         _plist_path().unlink()
 
 
+# -- Windows: a Task Scheduler task ----------------------------------------------------
+
+def _task_name() -> str:
+    """Task names are machine-wide: one per Windows user (by their SID)."""
+    import hashlib
+
+    try:
+        from . import winpipe
+
+        who = hashlib.sha256(winpipe.user_sid().encode("utf-8")).hexdigest()[:12]
+    except Exception:  # noqa: BLE001
+        who = hashlib.sha256(os.environ.get("USERNAME", "user").encode("utf-8")).hexdigest()[:12]
+    return f"Probe service keeper {who}"
+
+
+def _task_marker() -> Path:
+    return paths.root_dir() / "keeper-task.txt"
+
+
+def _task_xml(runner: str) -> str:
+    """The task: every minute, indefinitely, only while this user is logged
+    on, and on battery too (`schtasks /SC MINUTE` would take the AC-only
+    defaults, and a laptop on battery would never start the service again)."""
+    from xml.sax.saxutils import escape
+
+    return (
+        '<?xml version="1.0" encoding="UTF-16"?>\n'
+        '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n'
+        "  <RegistrationInfo><Description>Start the Probe service again when it stopped while recording"
+        "</Description></RegistrationInfo>\n"
+        "  <Triggers><TimeTrigger><Repetition><Interval>PT1M</Interval>"
+        "<StopAtDurationEnd>false</StopAtDurationEnd></Repetition>"
+        "<StartBoundary>2026-01-01T00:00:00</StartBoundary><Enabled>true</Enabled></TimeTrigger></Triggers>\n"
+        '  <Principals><Principal id="Author"><LogonType>InteractiveToken</LogonType>'
+        "<RunLevel>LeastPrivilege</RunLevel></Principal></Principals>\n"
+        "  <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>"
+        "<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>"
+        "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>"
+        "<StartWhenAvailable>true</StartWhenAvailable>"
+        "<RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>"
+        "<IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>"
+        "<AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>true</Hidden>"
+        "<RunOnlyIfIdle>false</RunOnlyIfIdle><ExecutionTimeLimit>PT5M</ExecutionTimeLimit>"
+        "<Priority>7</Priority></Settings>\n"
+        f'  <Actions Context="Author"><Exec><Command>{escape(runner)}</Command>'
+        "<Arguments>-I -m probe.service.keeper</Arguments></Exec></Actions>\n"
+        "</Task>\n"
+    )
+
+
+def _install_schtasks(python: str) -> str:
+    windowless = Path(python).with_name("pythonw.exe")
+    runner = str(windowless) if windowless.exists() else python
+    xml = _task_xml(runner)
+    try:
+        if _task_marker().read_text(encoding="utf-8") == xml:
+            listed = _run(["schtasks", "/Query", "/TN", _task_name()])
+            if listed is not None and listed.returncode == 0:
+                return "current"
+    except OSError:
+        pass
+    definition = paths.root_dir() / f".keeper-task.{os.getpid()}.xml"
+    try:
+        definition.write_text(xml, encoding="utf-16")  # what schtasks reads (with its BOM)
+        done = _run(["schtasks", "/Create", "/F", "/TN", _task_name(), "/XML", str(definition)])
+    finally:
+        with contextlib.suppress(OSError):
+            definition.unlink()
+    if done is None or done.returncode != 0:
+        return f"schtasks /Create failed: {((done.stderr or done.stdout) if done else '').strip()[:200]}"
+    with contextlib.suppress(OSError):
+        _write(_task_marker(), xml)
+    return "installed"
+
+
+def _remove_schtasks() -> None:
+    _run(["schtasks", "/Delete", "/F", "/TN", _task_name()])
+    with contextlib.suppress(OSError):
+        _task_marker().unlink()
+
+
 # -- the two ends ------------------------------------------------------------------
 
 
@@ -226,13 +346,22 @@ def allow() -> None:
         _off_path().unlink()
 
 
+#: Past this, a lock that never comes is a failure ("failed: ..."), not a hang.
+LOCK_WAIT_S = 30.0
+
+
 def _locked():
     """One install or removal at a time (the service's start races Uninstall)."""
-    import fcntl
+    import time
 
     paths.private_dir(paths.root_dir())
     handle = open(paths.root_dir() / "keeper.lock", "a")  # noqa: SIM115 -- closed by the caller
-    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+    deadline = time.monotonic() + LOCK_WAIT_S
+    while not paths.try_lock(handle.fileno()):  # fcntl, or msvcrt on Windows
+        if time.monotonic() >= deadline:
+            handle.close()
+            raise TimeoutError("keeper.lock")
+        time.sleep(0.05)
     return handle
 
 
@@ -260,6 +389,8 @@ def _install() -> str:
             return _install_launchd(python)
         if sys.platform.startswith("linux"):
             return _install_systemd(python)
+        if os.name == "nt":
+            return _install_schtasks(python)
         return "unsupported"
     except Exception as exc:  # noqa: BLE001 -- the hooks still start the service
         return f"failed: {exc!r}"[:300]
@@ -279,6 +410,8 @@ def remove() -> None:
                 _remove_launchd()
             elif sys.platform.startswith("linux"):
                 _remove_systemd()
+            elif os.name == "nt":
+                _remove_schtasks()
 
 
 def needed() -> bool:
@@ -298,16 +431,172 @@ def needed() -> bool:
     return False
 
 
+#: The keeper's record of a service that does not answer (crash-report plan B3).
+STATE_NAME = "keeper.json"
+#: A service answers when its `service.hello` reply comes within this: a
+#: connect alone passes a wedged loop, whose socket still queues connections.
+HELLO_TIMEOUT_S = 2.0
+#: Needed and not answering this long: one `service_down` report ...
+DOWN_REPORT_S = 300.0
+#: ... and at most one in this long (the report's own dedupe window).
+REPORT_EVERY_S = 6 * 3600.0
+
+
+class Down:
+    """Why no service answers (`service_down`'s `reason`)."""
+
+    NO_SERVICE = "no_service"  # nothing to connect to
+    WEDGED = "wedged"  # it takes the connection, never answers the hello
+    BACKOFF = "backoff"  # `ensure` started 3 in a minute already: it starts none
+
+
+def _answers() -> str | None:
+    """None when a service replies to `service.hello` within HELLO_TIMEOUT_S;
+    else why not (Down)."""
+    from . import client
+    from .protocol import Client
+
+    conn = client.connect(HELLO_TIMEOUT_S)
+    if conn is None:
+        return Down.NO_SERVICE
+    try:
+        conn.hello(Client.CLI, "keeper")
+        return None
+    except client.ServiceError:
+        return None  # it answered (another API, a refusal): it is up
+    except (OSError, ValueError):
+        return Down.WEDGED
+    finally:
+        conn.close()
+
+
+def _log(message: str) -> None:
+    """One line in service.log, with the keeper's own prefix (its stdout goes
+    nowhere under launchd). Never raises."""
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    with contextlib.suppress(OSError):
+        fd = os.open(paths.log_path(), os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            os.write(fd, f"[{stamp}] probe-service-keeper[{os.getpid()}]: {message}\n".encode("utf-8", "replace"))
+        finally:
+            os.close(fd)
+
+
+def _state() -> dict:
+    from .watch import read_json
+
+    data = read_json(paths.service_dir() / STATE_NAME)
+    return data if isinstance(data, dict) else {}
+
+
+def _save(state: dict) -> bool:
+    """False when it could not be written (a full disk): nothing that depends
+    on it being kept (the last report's time) may go on as if it were."""
+    from .watch import write_json
+
+    with contextlib.suppress(OSError):
+        paths.private_dir(paths.service_dir())
+    return write_json(paths.service_dir() / STATE_NAME, state)
+
+
+#: The keeper's runs this far apart in wall OR monotonic time (a sleep, which
+#: monotonic time does not count; a reboot, which restarts it; a timer that
+#: stopped) do not add up: the minutes down are counted again from there.
+GAP_S = 3 * INTERVAL_S
+#: Monotonic time (the system's, shared by every process of one boot), a seam for tests.
+_monotonic = time.monotonic
+
+
+def _settle(down: str | None, started: str | None = None, *, now: float | None = None) -> None:
+    """Keep `keeper.json`: since when a needed service has not answered, why,
+    and for how long while the machine was awake (`down_for`: consecutive runs
+    at most GAP_S apart in both clocks); one log line per change; past
+    DOWN_REPORT_S of that, the `service_down` report (at most every
+    REPORT_EVERY_S, and only once that is saved)."""
+    now = time.time() if now is None else now
+    mono = _monotonic()
+    state = _state()
+    since = state.get("down_since")
+    if down is None:
+        if isinstance(since, (int, float)):
+            _log(f"the service answers again (after {max(0.0, now - since) / 60:.0f} min)")
+            reported = state.get("reported_at")
+            _save({"reported_at": reported} if isinstance(reported, (int, float)) else {})
+        return
+    checked, checked_mono, down_for = state.get("checked_at"), state.get("checked_mono"), state.get("down_for")
+    numbers = all(isinstance(v, (int, float)) for v in (since, checked, checked_mono, down_for))
+    if numbers and 0 <= now - checked <= GAP_S and 0 <= mono - checked_mono <= GAP_S:
+        down_for = down_for + (mono - checked_mono)
+        if state.get("reason") != down:
+            _log(f"a session needs the service and none answers ({down}); ensure: {started}")
+    else:
+        if numbers:
+            _log(f"none answers ({down}) after a gap (a sleep, a reboot): the minutes are counted again")
+        else:
+            _log(f"a session needs the service and none answers ({down}); ensure: {started}")
+        since, down_for = now, 0.0
+    state.update(down_since=since, reason=down, checked_at=now, checked_mono=mono, down_for=down_for,
+                 ensure=started)
+    reported = state.get("reported_at")
+    due = down_for >= DOWN_REPORT_S and not (
+        isinstance(reported, (int, float)) and 0 <= now - reported < REPORT_EVERY_S
+    )
+    if due:
+        state["reported_at"] = now  # before the child: a keeper run next minute starts no second one
+    saved = _save(state)
+    if due and not saved:
+        _log(f"service_down ({down}) not reported: the keeper's state could not be saved")
+    elif due:
+        _report(down, down_for, started)
+
+
+def _report(down: str, seconds: float, started: str | None) -> None:
+    """`service_down` (crash-report plan B3), with the machine's consent: every
+    live session's (hosted ones by their environment, registered ones by their
+    `report_env`), else the login shell's variables and the CLI config's."""
+    from . import watch
+
+    if not watch.reports_enabled():
+        return
+    try:
+        live = watch.sessions_on_disk()
+        login = None
+        if not live:
+            import asyncio
+
+            login = asyncio.run(watch.login_env())
+        allowed, why = watch.decide_machine(live, watch.config_base_url(), login)
+    except Exception as exc:  # noqa: BLE001 -- unknown consent: no report
+        allowed, why = False, f"consent unknown ({exc!r})"
+    if not allowed:
+        _log(f"service_down ({down}) not reported: {why}")
+        return
+    params = {
+        "auto": True, "family": watch.Family.SERVICE_DOWN, "reason": down, "sid": None, "env": {},
+        "facts": watch.bounded_facts({"down_s": round(seconds), "ensure": started, "sessions": len(live)}),
+    }
+    try:
+        code, value = watch.report_blocking(params)
+        said = watch.outcome(code, value)
+    except OSError as exc:
+        said = f"could not start: {exc}"
+    _log(f"report service_down ({down}): {said}")
+
+
 def main() -> int:
-    if os.name != "posix" or not needed():
+    if not needed():
+        _settle(None)
         return 0
     from . import client
 
-    conn = client.connect(0.5)
-    if conn is not None:
-        conn.close()
+    down = _answers()
+    if down is None:
+        _settle(None)
         return 0
-    client.ensure()
+    started = client.ensure()
+    if started == client.Ensured.BACKOFF:
+        down = Down.BACKOFF
+    _settle(down, started)
     return 0
 
 

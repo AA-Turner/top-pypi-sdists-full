@@ -27,7 +27,7 @@ class DocumentListStats(BaseModel):
     """
     Aggregate statistics for a list of documents.
     """ # noqa: E501
-    total_documents: Optional[StrictInt] = Field(default=None, description="True total number of documents matching the collection/filter — populated only when `include_total=true` is requested (a COUNT query that adds ~50-200ms). `null` when not requested. This is NOT the page size; use `len(results)` for the number returned on this page.")
+    total_documents: Optional[StrictInt] = Field(default=None, description="Number of documents matching the collection and filters across all pages. Populated only when the request sets `include_total=true` (a COUNT query that adds about 50-200ms); `null` means the count was not requested. It is never the page size: use `len(results)` for the number returned on this page.")
     avg_blobs_per_document: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Average number of source blobs per document")
     total_groups: Optional[StrictInt] = Field(default=None, description="Total number of groups when group_by is used. None for non-grouped results.")
     avg_documents_per_group: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Average number of documents per group when group_by is used. None for non-grouped results.")

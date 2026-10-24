@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
 
-import { parse, unparse } from "./src/index.js";
+import { Syntax, parse, unparse } from "./src/index.js";
 
 test("simple parse", () => {
 	assert.deepStrictEqual(parse("foo"), [
@@ -17,8 +17,8 @@ test("simple parse", () => {
 	]);
 });
 
-test("parse with allowed_rules", () => {
-	assert.deepStrictEqual(parse("_foo_ **bar**", ["italic"]), [
+test("parse with flags", () => {
+	assert.deepStrictEqual(parse("_foo_ **bar**", Syntax.ITALIC), [
 		{
 			type: "paragraph",
 			value: [
@@ -51,6 +51,19 @@ test("parse with allowed_rules", () => {
 			],
 		},
 	]);
+});
+
+test("flags remove syntax with a mask", () => {
+	assert.deepStrictEqual(parse("@everyone", Syntax.ALL & ~Syntax.MENTIONS), [
+		{ type: "paragraph", value: [{ type: "text", value: "@everyone" }] },
+	]);
+});
+
+test("every bit set allows everything", () => {
+	assert.deepStrictEqual(parse("**foo**", ~0), parse("**foo**"));
+	// as does no bit set, since no syntax at all would be plain text
+	assert.deepStrictEqual(parse("**foo**", 0), parse("**foo**"));
+	assert.deepStrictEqual(parse("**foo**", null, 1000), parse("**foo**"));
 });
 
 test("parse mention as bigint", () => {

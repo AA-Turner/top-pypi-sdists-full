@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbus-python
-Version: 1.5.0
+Version: 1.5.1
 Summary: Python bindings for libdbus
 Keywords: dbus,D-Bus
 Maintainer-Email: The D-Bus maintainers <dbus@lists.freedesktop.org>

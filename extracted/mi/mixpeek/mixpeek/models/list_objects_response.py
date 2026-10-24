@@ -32,7 +32,7 @@ class ListObjectsResponse(BaseModel):
     """ # noqa: E501
     results: List[ObjectResponse] = Field(description="List of objects matching the query")
     pagination: PaginationResponse = Field(description="Pagination information")
-    stats: Optional[ObjectListStats] = Field(default=None, description="Aggregate statistics across all objects in the result")
+    stats: Optional[ObjectListStats] = Field(default=None, description="Aggregate statistics over the returned page of objects. For bucket-wide totals use ?include_total=true and read pagination.total instead.")
     __properties: ClassVar[List[str]] = ["results", "pagination", "stats"]
 
     model_config = ConfigDict(

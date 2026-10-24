@@ -35,7 +35,7 @@ from testmu._v3._helpers._page_ready import (
     page_not_ready_message,
     retry_on_page_not_ready,
 )
-from testmu._v3._helpers._credits import raise_if_insufficient_credits
+from testmu._v3._helpers._credits import KaneAICreditsExhausted, raise_if_insufficient_credits
 from testmu._v3._helpers._screenshot import take_screenshot
 
 _log = logging.getLogger("testmu")
@@ -48,6 +48,11 @@ _WAIT_RETRY_INTERVAL = 2  # seconds
 
 _COORD_MAX_RETRIES = 10
 _COORD_RETRY_INTERVAL = 1  # seconds
+
+# Selector-less textual_query server read: fresh snapshot per attempt
+# (parity with selenium-python _DIRECT_READ_ATTEMPTS / _DIRECT_READ_SETTLE_SECS).
+_TEXTUAL_SERVER_ATTEMPTS = 3
+_TEXTUAL_SERVER_SETTLE_SECS = 0.5
 
 _LINUX_RUNTIME_SNAPSHOT_ASSET_PATH = Path(
     "/home/ltuser/foreman/ltuser/aria_snapshot.js"
@@ -717,77 +722,32 @@ async def _capture_screenshot_versioned_b64(page) -> str:
 
 
 async def _textual_query_v3(page, description: str, return_type: str, selected_attribute_name: str = ""):
-    """Textual query heal — locate element locally then read attribute, with
-    server POST as last-resort fallback.
+    """Textual query heal — server snapshot read via /v1/heal/textual_query.
 
-    Route table:
-    1. ``automind_url`` unconfigured → return None (no CDP, no network).
-    2. ``selected_attribute_name`` empty or not in ``_LOCAL_READ_ATTRS`` →
-       short-circuit to ``_textual_query_v3_server`` (no locate, no scroll, no
-       full-page screenshot — preserves today's contract for the common no-attr
-       case).
-    3. Supported attr → locate via DESKTOP_LOCATE_FULL_PAGE (full-page screenshot
-       + server call to /v2/locate/desktop) → scroll into view →
-       ``resolve_coordinate_read`` (exact hit, no interactable up-walk) →
-       ``_textual_extract_value``. Returns the local result without any server POST.
-    4. Any locate/resolve/read failure → fall back to ``_textual_query_v3_server``
-       with the **raw** ``description`` (byte-identical to today's server contract).
+    Selector-less read, so it goes straight to the server (parity with
+    selenium-python textual_query). No locate-then-read: /v2/locate/desktop
+    refuses read intents, and when it does hit it can land on an empty
+    container (e.g. a shadow-DOM host) and return "" with no fallback.
 
     Reached from ``textual_query``.
 
     Args:
         page: Playwright page object.
-        description: Natural-language description (raw, before ``var()`` resolution).
+        description: Natural-language description of what to extract.
         return_type: Coercion hint for the extracted value.
-        selected_attribute_name: Attribute to extract locally, or "" for server.
+        selected_attribute_name: Attribute name hint forwarded to the server.
 
     Returns:
         Extracted value (coerced to return_type), or None when unconfigured.
 
     Raises:
         RuntimeError: Propagated from ``_textual_query_v3_server`` on transport
-            failure or error envelope (same contract as before this change).
+            failure or error envelope.
     """
     from testmu import _configure
-    base_url = _configure.get("automind_url", "")
-    if not base_url:
+    if not _configure.get("automind_url", ""):
         _log_v3.warning("[textual_query] no heal endpoint configured")
         return None
-
-    # Short-circuit (must-fix §4): empty/unsupported attr → server straight away.
-    # No locate, no full-page screenshot, no scrollTo — preserves today's contract.
-    if (not selected_attribute_name) or (selected_attribute_name not in _LOCAL_READ_ATTRS):
-        return await _textual_query_v3_server(page, description, return_type, selected_attribute_name)
-
-    # Locate-then-read path for supported attributes.
-    # ``var(description)`` resolves {{vars}}/${params} for the locate intent only
-    # (plaintext, no masking — parity with vision_query). The RAW description
-    # is passed to the server fallback to preserve byte-identical server behavior.
-    # var() itself is inside the try block so a resolution error degrades to server
-    # fallback rather than hard-failing the test step.
-    try:
-        from testmu._v3._vars import var
-        resolved_desc = var(description)
-
-        import testmu._v3._heal_cascade as _hc
-        import testmu._v3._helpers._coordinate_resolver_read as _crr
-        import testmu._v3._helpers._textual_read as _tr
-
-        coords = await _hc.get_v3_desktop_locate_full_page_target(page, resolved_desc)
-        if coords is not None:
-            vx, vy = await _scroll_into_view_and_viewport_coords(page, coords)
-            target = await _crr.resolve_coordinate_read(page, vx, vy)
-            if target is not None:
-                # _v3_textual_selector pins the xpath= engine for Playwright.
-                loc = page.locator(_v3_textual_selector(target.xpath))
-                return await _tr._extract_value(
-                    loc, selected_attribute_name, None, return_type
-                )
-    except Exception as exc:  # noqa: BLE001 — locate failures must never hard-fail
-        _log_v3.warning("[textual_query] locate-read failed (%s); server fallback", exc)
-
-    # Server fallback: receives the ORIGINAL raw description (byte-identical to
-    # today on every fallback path: locate miss, resolver null, any error).
     return await _textual_query_v3_server(page, description, return_type, selected_attribute_name)
 
 
@@ -906,85 +866,6 @@ def _v3_auth_headers() -> dict:
         "Content-Type": "application/json",
         "Authorization": f"Basic {auth_token}",
     }
-
-
-# ===========================================================================
-# V3 textual_query additive helpers (appended; never modify above this line)
-# ===========================================================================
-
-# Allow-list of attributes that can be read LOCALLY (all entries have a
-# corresponding branch in testmu._helpers._textual_read._populate_attribute).
-# Attributes NOT in this set (e.g. "location", "custom_attributes_dict", or any
-# unknown name) are short-circuited straight to the server so they preserve
-# today's contract exactly.
-_LOCAL_READ_ATTRS = frozenset({
-    # Computed CSS
-    "color", "background_color", "font_size", "font_weight",
-    "border_radius", "z_index", "opacity", "transform",
-    # HTML attributes
-    "id", "class", "href", "src",
-    "aria_label", "aria-label", "aria_expanded", "aria-expanded",
-    "placeholder", "title",
-    # Boolean states
-    "enabled", "checked", "selected", "displayed", "disabled",
-    # Tag name (explicit only; implicit ARIA role needs CDP → server)
-    "tag_name",
-    # Content
-    "text", "value",
-    # Element props
-    "size", "outerHTML", "attributes",
-})
-
-
-def _v3_textual_selector(xpath: str) -> str:
-    """Pin the xpath= Playwright engine for a read-resolver derived selector.
-
-    Read resolver always yields ``//…`` or ``/html[1]/…`` style xpaths. Playwright
-    auto-detects ``//`` but not absolute ``/html``, so always prefix. Already-pinned
-    selectors (``xpath=``, ``css=``) are returned unchanged.
-
-    This is a lightweight stand-in for ``_action_engine._engine_selector`` that
-    avoids the circular import (``_action_engine`` → ``_heal_cascade`` → ``vision``).
-    """
-    if xpath.startswith(("xpath=", "css=", "text=")):
-        return xpath
-    if xpath.startswith(("/", "(")):
-        return "xpath=" + xpath
-    return xpath
-
-
-async def _scroll_into_view_and_viewport_coords(page, coords) -> tuple:
-    """Scroll the target page-space coordinate into the viewport and return viewport coords.
-
-    Mirrors the tier scroll math in ``_heal_cascade._run_desktop_locate_full_page_tier``.
-    Duplicated here (~6 lines) to avoid a module-level import of
-    ``_heal_cascade`` (which already imports from this module, creating a cycle).
-
-    Args:
-        page: Playwright page object.
-        coords: ``(page_x, page_y)`` page-space CSS coordinates from the locate call.
-
-    Returns:
-        ``(viewport_x, viewport_y)`` clamped to ``[0, viewport_dim - 1]``.
-    """
-    px, py = int(coords[0]), int(coords[1])
-    dims = await page.evaluate(
-        "() => ({ w: window.innerWidth, h: window.innerHeight })"
-    )
-    vw = dims.get("w") or 1920
-    vh = dims.get("h") or 1080
-    sx_target = max(0, px - vw // 2)
-    sy_target = max(0, py - vh // 2)
-    await page.evaluate(f"() => window.scrollTo({sx_target}, {sy_target})")
-    await asyncio.sleep(0.15)
-    scroll = await page.evaluate(
-        "() => ({ x: window.scrollX, y: window.scrollY })"
-    )
-    sx = scroll.get("x") or 0
-    sy = scroll.get("y") or 0
-    vx = max(0, min(px - sx, vw - 1))
-    vy = max(0, min(py - sy, vh - 1))
-    return vx, vy
 
 
 def _runtime_snapshot_asset_path(platform_name=None) -> Path:
@@ -1218,13 +1099,43 @@ async def _textual_query_v3_server(
 
     Returns the extracted value coerced by return_type, or None when the heal
     endpoint is unconfigured. Raises RuntimeError on transport failure or an
-    error envelope.
+    error envelope, after ``_TEXTUAL_SERVER_ATTEMPTS`` fresh-snapshot attempts
+    (parity with selenium-python ``_direct_textual_read``). Credits exhaustion
+    is not retried.
     """
     from testmu import _configure
     base_url = _configure.get("automind_url", "")
     if not base_url:
         _log_v3.warning("[textual_query] no heal endpoint configured")
         return None
+
+    # found=false comes back as HTTP 500, often because the page was still
+    # settling (e.g. a loader). Each attempt re-captures the snapshots so a
+    # retry sees the current page, not the stale one.
+    last_error = None
+    for attempt in range(_TEXTUAL_SERVER_ATTEMPTS):
+        if attempt:
+            await asyncio.sleep(_TEXTUAL_SERVER_SETTLE_SECS)
+        try:
+            return await _textual_query_v3_server_once(
+                page, base_url, description, return_type, selected_attribute_name
+            )
+        except RuntimeError as e:
+            if isinstance(e.__cause__, KaneAICreditsExhausted):
+                raise
+            last_error = e
+            _log_v3.info(
+                "[textual_query] attempt %d/%d failed: %s",
+                attempt + 1, _TEXTUAL_SERVER_ATTEMPTS, e,
+            )
+    raise last_error
+
+
+async def _textual_query_v3_server_once(
+    page, base_url: str, description: str, return_type: str, selected_attribute_name: str
+):
+    """One snapshot + POST to the textual query heal endpoint."""
+    from testmu import _configure
 
     a11y_snapshot, dom_snapshot = await _capture_v3_server_snapshots(page)
 

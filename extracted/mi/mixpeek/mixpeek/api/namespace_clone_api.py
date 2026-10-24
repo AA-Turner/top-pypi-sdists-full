@@ -44,7 +44,7 @@ class NamespaceCloneApi:
     def clone_namespace(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Source namespace ID or name to clone from")],
-        clone_namespace_request: CloneNamespaceRequest,
+        clone_namespace_request: Annotated[CloneNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -60,11 +60,11 @@ class NamespaceCloneApi:
     ) -> CloneNamespaceResponse:
         """Clone Namespace
 
-        Clone a namespace with all its data.      **What gets cloned:**     - Namespace configuration (extractors, payload indexes)     - Buckets (metadata, references same S3 files)     - Collections (full copy of all vectors/embeddings)     - Retrievers (pipeline configuration)      **Use Cases:**     - Create staging environment from production     - Backup namespace with all data     - Fork namespace for experimentation      **For config-only copy (no data), use templates instead:**     - POST /templates/namespaces/from-namespace/{id}     - POST /templates/namespaces/{template_id}/instantiate
+        Clone a namespace with all its data.      **What gets cloned:**     - Namespace configuration (extractors, payload indexes)     - Buckets (metadata, references same S3 files)     - Collections (full copy of all vectors/embeddings)     - Retrievers (pipeline configuration)      **Use Cases:**     - Create staging environment from production     - Backup namespace with all data     - Fork namespace for experimentation      **For a config-only copy (no data):** export the namespace with     POST /v1/manifest/export and apply the manifest with POST /v1/manifest/apply.
 
         :param namespace_identifier: Source namespace ID or name to clone from (required)
         :type namespace_identifier: str
-        :param clone_namespace_request: (required)
+        :param clone_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_namespace_request: CloneNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -103,8 +103,10 @@ class NamespaceCloneApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -121,7 +123,7 @@ class NamespaceCloneApi:
     def clone_namespace_with_http_info(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Source namespace ID or name to clone from")],
-        clone_namespace_request: CloneNamespaceRequest,
+        clone_namespace_request: Annotated[CloneNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,11 +139,11 @@ class NamespaceCloneApi:
     ) -> ApiResponse[CloneNamespaceResponse]:
         """Clone Namespace
 
-        Clone a namespace with all its data.      **What gets cloned:**     - Namespace configuration (extractors, payload indexes)     - Buckets (metadata, references same S3 files)     - Collections (full copy of all vectors/embeddings)     - Retrievers (pipeline configuration)      **Use Cases:**     - Create staging environment from production     - Backup namespace with all data     - Fork namespace for experimentation      **For config-only copy (no data), use templates instead:**     - POST /templates/namespaces/from-namespace/{id}     - POST /templates/namespaces/{template_id}/instantiate
+        Clone a namespace with all its data.      **What gets cloned:**     - Namespace configuration (extractors, payload indexes)     - Buckets (metadata, references same S3 files)     - Collections (full copy of all vectors/embeddings)     - Retrievers (pipeline configuration)      **Use Cases:**     - Create staging environment from production     - Backup namespace with all data     - Fork namespace for experimentation      **For a config-only copy (no data):** export the namespace with     POST /v1/manifest/export and apply the manifest with POST /v1/manifest/apply.
 
         :param namespace_identifier: Source namespace ID or name to clone from (required)
         :type namespace_identifier: str
-        :param clone_namespace_request: (required)
+        :param clone_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_namespace_request: CloneNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -180,8 +182,10 @@ class NamespaceCloneApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -198,7 +202,7 @@ class NamespaceCloneApi:
     def clone_namespace_without_preload_content(
         self,
         namespace_identifier: Annotated[StrictStr, Field(description="Source namespace ID or name to clone from")],
-        clone_namespace_request: CloneNamespaceRequest,
+        clone_namespace_request: Annotated[CloneNamespaceRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -214,11 +218,11 @@ class NamespaceCloneApi:
     ) -> RESTResponseType:
         """Clone Namespace
 
-        Clone a namespace with all its data.      **What gets cloned:**     - Namespace configuration (extractors, payload indexes)     - Buckets (metadata, references same S3 files)     - Collections (full copy of all vectors/embeddings)     - Retrievers (pipeline configuration)      **Use Cases:**     - Create staging environment from production     - Backup namespace with all data     - Fork namespace for experimentation      **For config-only copy (no data), use templates instead:**     - POST /templates/namespaces/from-namespace/{id}     - POST /templates/namespaces/{template_id}/instantiate
+        Clone a namespace with all its data.      **What gets cloned:**     - Namespace configuration (extractors, payload indexes)     - Buckets (metadata, references same S3 files)     - Collections (full copy of all vectors/embeddings)     - Retrievers (pipeline configuration)      **Use Cases:**     - Create staging environment from production     - Backup namespace with all data     - Fork namespace for experimentation      **For a config-only copy (no data):** export the namespace with     POST /v1/manifest/export and apply the manifest with POST /v1/manifest/apply.
 
         :param namespace_identifier: Source namespace ID or name to clone from (required)
         :type namespace_identifier: str
-        :param clone_namespace_request: (required)
+        :param clone_namespace_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type clone_namespace_request: CloneNamespaceRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -257,8 +261,10 @@ class NamespaceCloneApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

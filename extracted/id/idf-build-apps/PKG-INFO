@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: idf-build-apps
-Version: 3.0.2
+Version: 3.1.0
 Summary: Tools for building ESP-IDF related apps.
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Requires-Python: >=3.10
@@ -37,6 +37,7 @@ Project-URL: homepage, https://github.com/espressif/idf-build-apps
 Project-URL: repository, https://github.com/espressif/idf-build-apps
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: idf_build_apps
 
 # idf-build-apps
 

@@ -376,7 +376,8 @@ class Heal:
             f"{self.automind_url}/v1/heal/textual_query",
             headers=headers,
             data=payload,
-            retry_on_server_error=True,  # no tier-level retry here
+            # No retry_on_server_error: found=false comes back as 500, and the caller
+            # (_direct_textual_read) already retries with a fresh snapshot.
         )
         _log.info(
             "[heal] textual_query_v2: request_id=%s status=%s",

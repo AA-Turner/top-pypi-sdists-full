@@ -366,6 +366,20 @@ class _ActualOutcomeUnset:
 _ACTUAL_OUTCOME_UNSET = _ActualOutcomeUnset()
 
 
+class ScenarioGeneration(TypedDict):
+    """What ``generate_scenario`` started.
+
+    ``status`` is ``"started"`` when Bitfab is building the scenario in the
+    background, and ``"already_generated"`` when the trace already has one, so
+    nothing was started and ``scenarioId`` names it. ``scenarioId`` is ``None``
+    while the trace has no scenario yet.
+    """
+
+    status: Literal["started", "already_generated"]
+    traceId: str
+    scenarioId: str | None
+
+
 class Scenario(TypedDict):
     id: str
     createdAt: str
@@ -546,7 +560,7 @@ def _scenario_payload(
     trigger: ScenarioTrigger | None,
     data: SaveScenarioData | None,
     append_data: ScenarioDataAppend | None,
-    actual_outcome: ScenarioActualOutcome | None | _ActualOutcomeUnset,
+    actual_outcome: ScenarioActualOutcome | _ActualOutcomeUnset | None,
     category_ids: list[str] | None = None,
     records: list[ScenarioRecordInput] | None = None,
     sources: ScenarioDataSources | None = None,
@@ -783,6 +797,21 @@ class TracesClient:
         result = self._http_client.get(_trace_scenario_path(trace_id))
         return result["scenario"]
 
+    def generate_scenario(self, trace_id: str) -> ScenarioGeneration:
+        """Start building the scenario for a trace and return at once.
+
+        Does not wait for the scenario: read it later with ``get_scenario``. A
+        trace that already has a scenario is left as it is. A replay, a trace
+        outside the organization, or a trace Bitfab cannot build a scenario for
+        (not ``noah-agent-turn`` and no scenario callback) raises
+        ``requests.HTTPError``. Adding a trace to a dataset starts the same
+        build only when the organization has a scenario callback.
+        """
+        result = self._http_client.request(
+            f"{_trace_scenario_path(trace_id)}/generate", {}
+        )
+        return result["generation"]
+
     def save_scenario(
         self,
         trace_id: str,
@@ -793,8 +822,8 @@ class TracesClient:
         data: SaveScenarioData | None = None,
         append_data: ScenarioDataAppend | None = None,
         actual_outcome: ScenarioActualOutcome
-        | None
-        | _ActualOutcomeUnset = _ACTUAL_OUTCOME_UNSET,
+        | _ActualOutcomeUnset
+        | None = _ACTUAL_OUTCOME_UNSET,
         category_ids: list[str] | None = None,
         records: list[ScenarioRecordInput] | None = None,
         sources: ScenarioDataSources | None = None,

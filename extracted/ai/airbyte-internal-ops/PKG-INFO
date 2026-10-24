@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: airbyte-internal-ops
-Version: 0.127.0
+Version: 0.130.1
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -28,6 +28,7 @@ Requires-Dist: fastmcp<5.0,>=4.0.9
 Requires-Dist: fsspec>=2024.0.0
 Requires-Dist: gcsfs>=2024.0.0
 Requires-Dist: gitpython<4.0,>=3.1.29
+Requires-Dist: google-cloud-bigquery<4.0,>=3.25.0
 Requires-Dist: google-cloud-logging<4.0,>=3.9.0
 Requires-Dist: google-cloud-secret-manager<3.0,>=2.18.0
 Requires-Dist: google-cloud-storage<3.0,>=2.8.0

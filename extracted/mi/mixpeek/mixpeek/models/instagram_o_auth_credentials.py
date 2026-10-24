@@ -30,7 +30,7 @@ class InstagramOAuthCredentials(BaseModel):
     """ # noqa: E501
     type: Optional[StrictStr] = 'oauth'
     client_id: StrictStr = Field(description="Instagram App ID from Meta Developer Console.")
-    client_secret: StrictStr = Field(description="SECURITY: Secret credential, redacted on read. Never log or expose. Instagram App Secret from Meta Developer Console.")
+    client_secret: Optional[StrictStr] = Field(default=None, description="SECURITY: Secret credential, redacted on read. Never log or expose. Instagram App Secret from Meta Developer Console. Optional: the token refresh sends an empty secret when it is absent.")
     access_token: StrictStr = Field(description="SECURITY: Encrypted at rest. Long-lived Instagram access token (60-day validity).")
     token_expires_at: Optional[datetime] = Field(default=None, description="Token expiration timestamp. Used to trigger proactive refresh.")
     instagram_user_id: StrictStr = Field(description="Instagram User ID of the account that authorized access.")

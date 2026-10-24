@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bitfab-py
-Version: 0.68.6
+Version: 0.68.9
 Summary: Bitfab client for provider-based API calls with local BAML execution
 Author: Harvest Team
 Requires-Python: >=3.10
@@ -24,7 +24,7 @@ Requires-Dist: jsonpickle (>=4.0.0,<5.0.0)
 Requires-Dist: langchain-core (>=0.3.0) ; (python_version >= "3.10" and python_version < "4.0") and (extra == "langgraph" or extra == "deepagents")
 Requires-Dist: langgraph (>=1.1.0,<2.0.0) ; (python_version >= "3.10" and python_version < "4.0") and (extra == "langgraph" or extra == "deepagents")
 Requires-Dist: openai-agents (>=0.6.3) ; extra == "openai-tracing"
-Requires-Dist: opentelemetry-sdk (>=1.44.0,<2.0.0)
+Requires-Dist: opentelemetry-sdk (>=1.45.1,<2.0.0)
 Requires-Dist: pydantic (>=2.0.0,<3.0.0)
 Requires-Dist: requests (>=2.32.3,<3.0.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0) ; python_version < "3.11"

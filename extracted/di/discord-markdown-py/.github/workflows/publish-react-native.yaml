@@ -25,7 +25,7 @@ jobs:
   # Cross-compiles the Rust parser for every Android ABI directly with cargo-ndk, mirroring
   # what lib/react-native/android/build.gradle's cargoBuildRust/copyRustLibs tasks do for an
   # in-repo app build. Building the example app itself isn't needed here: publishing only
-  # needs the resulting static libraries in android/prebuilt/, not an APK.
+  # needs the resulting shared libraries in android/prebuilt/, not an APK.
   build_android:
     runs-on: ubuntu-latest
     steps:
@@ -41,7 +41,7 @@ jobs:
         run: cargo install cargo-ndk --locked
 
       - name: Build Rust for all Android ABIs
-        run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 build -p discord-markdown-c --release
+        run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 build -p discord-markdown-jni --release
 
       # Matches the abi -> triple mapping in android/build.gradle.
       - name: Assemble prebuilt/
@@ -55,7 +55,7 @@ jobs:
           for abi in "${!triples[@]}"; do
             triple="${triples[$abi]}"
             mkdir -p "lib/react-native/android/prebuilt/$abi"
-            cp "target/$triple/release/libdiscord_markdown_c.a" "lib/react-native/android/prebuilt/$abi/"
+            cp "target/$triple/release/libdiscord_markdown_jni.so" "lib/react-native/android/prebuilt/$abi/"
           done
 
       - uses: actions/upload-artifact@v4

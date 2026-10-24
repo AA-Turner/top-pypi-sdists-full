@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from mixpeek.models.standalone_storage_config import StandaloneStorageConfig
 from mixpeek.models.vector_config_spec_model import VectorConfigSpecModel
 from typing import Optional, Set
@@ -29,12 +30,19 @@ class CreateStandaloneNamespaceRequestModel(BaseModel):
     """
     Request body for POST /v1/namespaces/standalone.
     """ # noqa: E501
-    namespace_id: StrictStr = Field(description="Unique namespace identifier")
+    namespace_id: Annotated[str, Field(strict=True)] = Field(description="Unique namespace identifier: 1 to 128 characters, letters, digits, '_' and '-', starting with a letter or digit.")
     vector_configs: Optional[List[VectorConfigSpecModel]] = Field(default=None, description="Vector index configurations. If omitted, indexes are inferred on first upsert.")
     storage: Optional[StandaloneStorageConfig] = Field(default=None, description="Optional BYO object storage connection")
     config: Optional[Dict[str, Any]] = Field(default=None, description="Optional configuration (retention, version_history, tiering)")
     auto_create_indexes: Optional[StrictBool] = Field(default=None, description="Adaptive payload indexing. Standalone namespaces default to on (indexes are inferred/created from filter usage). Set explicitly to false to opt out and manage payload indexes yourself.")
     __properties: ClassVar[List[str]] = ["namespace_id", "vector_configs", "storage", "config", "auto_create_indexes"]
+
+    @field_validator('namespace_id')
+    def namespace_id_validate_regular_expression(cls, value):
+        """Validates the regular expression"""
+        if not re.match(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$", value):
+            raise ValueError(r"must validate the regular expression /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,

@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class TriggerOn(str, Enum):
     """
-    For retriever-source alerts, which retriever outcome fires the alert.  Send the lowercase wire value (shown in quotes), NOT the member name.  \"results\":    fire when the retriever returns matches (the classic behavior). \"no_results\": fire when the retriever returns nothing — catches a retriever               that has silently gone dark (empty collection, broken pipeline).
+    For retriever-source alerts, which retriever outcome fires the alert.  Send the lowercase wire value (shown in quotes), NOT the member name.  \"results\":    fire when the retriever returns matches (the classic behavior). \"no_results\": fire when the retriever returns nothing — catches a retriever               that has silently gone dark (empty collection, broken pipeline).  \"results\" can be narrowed by two alert fields: ``min_count`` (at least that many rows) and ``threshold`` (a field of the FIRST result meets a comparison, for example ``score >= 0.9`` or an aggregate's ``count > 100``). They are fields rather than further values here so that a release which predates them still reads the alert, as a plain \"results\" alert.
     """
 
     """

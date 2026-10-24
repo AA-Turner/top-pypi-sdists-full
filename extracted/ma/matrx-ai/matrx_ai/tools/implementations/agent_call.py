@@ -869,8 +869,18 @@ async def agent_call(
     # nests the sub-agent's work under this card exactly as the live stream
     # did. Bound on the child's task-local context like the depth — the child's
     # own agent_call rebinds it for its child, which keeps every level honest.
-    from matrx_ai.tools.logger import PARENT_TOOL_CALL_ROW_KEY, ToolExecutionLogger
+    from matrx_ai.tools.logger import (
+        PARENT_TOOL_CALL_ID_KEY,
+        PARENT_TOOL_CALL_ROW_KEY,
+        ToolExecutionLogger,
+    )
 
+    # The call that started this child, by its provider id — rides onto the
+    # child's execution record so a crash recovery can find this helper again.
+    if ctx.call_id:
+        child_metadata[PARENT_TOOL_CALL_ID_KEY] = str(ctx.call_id)
+    else:
+        child_metadata.pop(PARENT_TOOL_CALL_ID_KEY, None)
     parent_row_id = ToolExecutionLogger().row_id_for_call(ctx)
     if parent_row_id:
         child_metadata[PARENT_TOOL_CALL_ROW_KEY] = parent_row_id

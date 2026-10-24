@@ -19,7 +19,7 @@ from pydantic_core import ErrorType
 from ._db_log import db_log_event as _db_log
 from ._debug_log import is_verbose as _debug_verbose
 from ._debug_log import log_event as _debug_log
-from .error_remedy import annotate_tool_error
+from .error_remedy import annotate_tool_error, known_outcome_notices
 from .guardrails import GuardrailEngine
 from .knobs import delegated_call_abandon_seconds, dispatch_timeout_ceiling
 from .lifecycle import ToolLifecycleManager
@@ -2443,6 +2443,14 @@ class ToolExecutor:
         # it) and persisted in execution_events, which is where a rebuilt turn
         # reads it back (``_conversation_rebuild_impl``) — cx_tool_call.output
         # stays the tool's own output.
+        # Known outcomes (a bot wall in a "successful" fetch, …) — every tool, one
+        # ladder: `error_remedy.known_outcome_notices`. A hint never masks the result.
+        try:
+            result.model_notices.extend(
+                known_outcome_notices(result, active_tools=allowed_tools)
+            )
+        except Exception as exc:  # noqa: BLE001
+            vcprint(f"[ToolExecutor] known-outcome scan failed: {exc}", color="yellow")
         for _notice in result.model_notices:
             await stream.step(MODEL_NOTICE_STEP, _notice)
 

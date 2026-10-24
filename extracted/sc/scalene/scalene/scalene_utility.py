@@ -1,15 +1,12 @@
+import contextlib
 import functools
 import os
 import pathlib
-import shutil
 import signal
-import socketserver
 import subprocess
 import sys
 import sysconfig
-import tempfile
 import threading
-import webbrowser
 from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
@@ -61,6 +58,35 @@ try:
 except ImportError:
     _scalene_unwind = None
     _native_unwind_available = False
+
+
+@functools.lru_cache(maxsize=1)
+def is_apple_silicon_sme() -> bool:
+    """True iff running on an Apple Silicon CPU that implements ARM SME.
+
+    SME (Scalable Matrix Extension) first appears in the Apple M4 family.
+    On these chips, Apple's Accelerate BLAS runs matrix kernels in SME
+    "streaming" mode, and the macOS kernel mis-saves/restores that state
+    when a signal handler is invoked while a thread is mid-kernel —
+    corrupting in-flight numerical results (scalene issue #1056). Even an
+    empty C signal handler triggers it, so the only correctness-preserving
+    mitigation is to avoid delivering profiling signals on these machines.
+
+    Detected via ``sysctl hw.optional.arm.FEAT_SME`` (== 1 when present).
+    Cached: the answer never changes during a run.
+    """
+    if sys.platform != "darwin":
+        return False
+    try:
+        out = subprocess.run(
+            ["sysctl", "-n", "hw.optional.arm.FEAT_SME"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return out.returncode == 0 and out.stdout.strip() == "1"
 
 
 # Per-process intern caches for stitched-stack frame keys.
@@ -836,20 +862,6 @@ def generate_html(
 
     scalene_dir = os.path.dirname(__file__)
 
-    # Read API keys from environment variables (if set)
-    api_keys = {
-        "openai_api_key": os.environ.get("OPENAI_API_KEY", ""),
-        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
-        "gemini_api_key": os.environ.get("GEMINI_API_KEY", "")
-        or os.environ.get("GOOGLE_API_KEY", ""),
-        "azure_api_key": os.environ.get("AZURE_OPENAI_API_KEY", ""),
-        "azure_api_url": os.environ.get("AZURE_OPENAI_ENDPOINT", ""),
-        "aws_access_key": os.environ.get("AWS_ACCESS_KEY_ID", ""),
-        "aws_secret_key": os.environ.get("AWS_SECRET_ACCESS_KEY", ""),
-        "aws_region": os.environ.get("AWS_DEFAULT_REGION", "")
-        or os.environ.get("AWS_REGION", ""),
-    }
-
     # For standalone mode, embed all assets
     embedded_assets: Dict[str, str] = {}
     if standalone:
@@ -886,7 +898,6 @@ def generate_html(
         profile=profile,
         scalene_version=scalene_version,
         scalene_date=scalene_date,
-        api_keys=api_keys,
         standalone=standalone,
         **embedded_assets,
     )
@@ -899,44 +910,12 @@ def generate_html(
         pass
 
 
-def start_server(port: int, directory: str) -> None:
-    import http.server
-
-    try:
-        handler = http.server.SimpleHTTPRequestHandler
-        with socketserver.TCPServer(("", port), handler) as httpd:
-            os.chdir(directory)
-            httpd.serve_forever()
-    except OSError:
-        # print(f"Port {port} is already in use. Please try a different port.")
-        pass
-
-
 def show_browser(file_path: str, port: int, orig_python: str = "python3") -> None:
-    temp_dir = tempfile.gettempdir()
-
-    # Copy file to the temporary directory
-    shutil.copy(file_path, os.path.join(temp_dir, "index.html"))
-
-    # Copy vendored assets for offline support (issue #982)
-    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
-    for asset in [
-        "favicon.ico",
-        "scalene-image.png",
-        "jquery-3.6.0.slim.min.js",
-        "bootstrap.min.css",
-        "bootstrap.bundle.min.js",
-        "prism.css",
-        "scalene-gui-bundle.js",
-    ]:
-        src = os.path.join(scalene_gui_dir, asset)
-        if os.path.exists(src):
-            shutil.copy(src, os.path.join(temp_dir, asset))
-
-    # Open web browser in a new subprocess
-    curr_dir = os.getcwd()
-    try:
-        os.chdir(temp_dir)
+    # launchbrowser.py stages the page in its own private directory and opens
+    # the browser itself, on whichever port it actually binds (it moves past
+    # `port` if that's taken). Opening a tab here too would duplicate it, and
+    # point at the wrong port whenever launchbrowser had to move.
+    with contextlib.suppress(OSError):
         subprocess.Popen(
             [
                 orig_python,
@@ -945,14 +924,6 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
                 f"{port}",
             ]
         )
-        # Open web browser to local server
-        webbrowser.open(f"http://localhost:{port}/")
-    except (FileNotFoundError, PermissionError, OSError):
-        pass
-    except webbrowser.Error:
-        pass
-    finally:
-        os.chdir(curr_dir)
 
 
 def patch_module_functions_with_signal_blocking(

@@ -56,6 +56,7 @@ from .core import (
     transaction,
 )
 from .fbapi import get_api, load_api
+from .provider import FirebirdProvider
 from .types import (
     BINARY,
     DATETIME,
@@ -130,7 +131,8 @@ from .types import (
     get_timezone,
     paramstyle,
     threadsafety,
+    TIMEOUT,
 )
 
-#: Current driver version, SEMVER string.
-__VERSION__ = '2.0.3'
+__VERSION__ = '2.1.0'
+"Current driver version, SEMVER string."

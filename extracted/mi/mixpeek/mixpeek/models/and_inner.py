@@ -20,27 +20,27 @@ import pprint
 import re  # noqa: F401
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Optional
-from mixpeek.models.stage_defs_filter_condition import StageDefsFilterCondition
+from mixpeek.models.filter_condition import FilterCondition
 from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-ANDINNER_ANY_OF_SCHEMAS = ["StageDefsFilterCondition", "StageDefsLogicalOperator"]
+ANDINNER_ANY_OF_SCHEMAS = ["FilterCondition", "LogicalOperatorInput"]
 
 class AndInner(BaseModel):
     """
     AndInner
     """
 
-    # data type: StageDefsLogicalOperator
-    anyof_schema_1_validator: Optional[StageDefsLogicalOperator] = None
-    # data type: StageDefsFilterCondition
-    anyof_schema_2_validator: Optional[StageDefsFilterCondition] = None
+    # data type: LogicalOperatorInput
+    anyof_schema_1_validator: Optional[LogicalOperatorInput] = None
+    # data type: FilterCondition
+    anyof_schema_2_validator: Optional[FilterCondition] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[StageDefsFilterCondition, StageDefsLogicalOperator]] = None
+        actual_instance: Optional[Union[FilterCondition, LogicalOperatorInput]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "StageDefsFilterCondition", "StageDefsLogicalOperator" }
+    any_of_schemas: Set[str] = { "FilterCondition", "LogicalOperatorInput" }
 
     model_config = {
         "validate_assignment": True,
@@ -61,21 +61,21 @@ class AndInner(BaseModel):
     def actual_instance_must_validate_anyof(cls, v):
         instance = AndInner.model_construct()
         error_messages = []
-        # validate data type: StageDefsLogicalOperator
-        if not isinstance(v, StageDefsLogicalOperator):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `StageDefsLogicalOperator`")
+        # validate data type: LogicalOperatorInput
+        if not isinstance(v, LogicalOperatorInput):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `LogicalOperatorInput`")
         else:
             return v
 
-        # validate data type: StageDefsFilterCondition
-        if not isinstance(v, StageDefsFilterCondition):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `StageDefsFilterCondition`")
+        # validate data type: FilterCondition
+        if not isinstance(v, FilterCondition):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `FilterCondition`")
         else:
             return v
 
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in AndInner with anyOf schemas: StageDefsFilterCondition, StageDefsLogicalOperator. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in AndInner with anyOf schemas: FilterCondition, LogicalOperatorInput. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -88,22 +88,22 @@ class AndInner(BaseModel):
         """Returns the object represented by the json string"""
         instance = cls.model_construct()
         error_messages = []
-        # anyof_schema_1_validator: Optional[StageDefsLogicalOperator] = None
+        # anyof_schema_1_validator: Optional[LogicalOperatorInput] = None
         try:
-            instance.actual_instance = StageDefsLogicalOperator.from_json(json_str)
+            instance.actual_instance = LogicalOperatorInput.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_2_validator: Optional[StageDefsFilterCondition] = None
+        # anyof_schema_2_validator: Optional[FilterCondition] = None
         try:
-            instance.actual_instance = StageDefsFilterCondition.from_json(json_str)
+            instance.actual_instance = FilterCondition.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into AndInner with anyOf schemas: StageDefsFilterCondition, StageDefsLogicalOperator. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into AndInner with anyOf schemas: FilterCondition, LogicalOperatorInput. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -117,7 +117,7 @@ class AndInner(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], StageDefsFilterCondition, StageDefsLogicalOperator]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], FilterCondition, LogicalOperatorInput]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None
@@ -131,7 +131,7 @@ class AndInner(BaseModel):
         """Returns the string representation of the actual instance"""
         return pprint.pformat(self.model_dump())
 
-from mixpeek.models.stage_defs_logical_operator import StageDefsLogicalOperator
+from mixpeek.models.logical_operator_input import LogicalOperatorInput
 # TODO: Rewrite to not use raise_errors
 AndInner.model_rebuild(raise_errors=False)
 

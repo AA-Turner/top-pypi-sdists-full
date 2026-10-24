@@ -22,6 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
@@ -54,16 +56,10 @@ packages = ["src/firebird"]
 dependencies = [
 ]
 
-[tool.hatch.envs.gdocs]
-dependencies = [
-  "great-docs",
-]
-
-[tool.hatch.envs.gdocs.scripts]
-init = "great-docs init"
-scan = "great-docs scan"
-build = "great-docs build"
-preview = "great-docs preview"
+[tool.hatch.envs.default.scripts]
+build-config-proto = "protoc -I../protobuf --python_out=src --pyi_out=src firebird/base/config.proto"
+build-test-proto = "protoc -Itests --python_out=./tests --pyi_out=./tests base_test.proto"
+build-skill = "python scripts/build_skill.py"
 
 [tool.hatch.envs.hatch-test]
 extra-args = ["-vv"]
@@ -73,22 +69,21 @@ dependencies = [
 ]
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
 [tool.hatch.envs.doc]
 detached = false
-platforms = ["linux"]
 dependencies = [
-  "Sphinx==7.2.6",
-  "sphinx-bootstrap-theme>=0.8.1",
-  "sphinx-autodoc-typehints>=1.24.0",
+  "zensical",
+  "mkdocstrings-python",
   "doc2dash>=3.0.0"
 ]
 [tool.hatch.envs.doc.scripts]
-build = "cd docs ; make html"
+build = "cd docs && zensical build {args}"
+serve = "cd docs && zensical serve {args}"
 docset = [
-  "cd docs ; doc2dash -u https://firebird-base.readthedocs.io/en/latest/ -f -i ./_static/fb-favicon.png -n firebird-base ./_build/html/",
-  "cd docs; VERSION=`hatch version` ; tar --exclude='.DS_Store' -cvzf ../dist/firebird-base-$VERSION-docset.tgz firebird-base.docset",
+  "cd docs ; doc2dash -u https://firebird-base.readthedocs.io/en/latest/ -f -i ./site/assets/fb-favicon.png -n firebird-base ./site/",
+  "cd docs; VERSION=$(python -c 'from firebird.base.__about__ import __version__; print(__version__)') && tar --exclude='.DS_Store' -cvzf ../dist/firebird-base-$VERSION-docset.tgz firebird-base.docset",
 ]
 
 [tool.ruff]

@@ -26,6 +26,7 @@ import pytest
 
 from probe.daemon import gate as gate_mod
 from probe.daemon import store as store_mod
+from probe.daemon.adapters.base import peer_message
 from probe.daemon.events import Event, Kind
 from probe.sdk import session_marker as sm
 
@@ -292,9 +293,9 @@ class Session:
         self.add(Kind.TURN_END)
 
 
-def _gate(session: Session, marker: FakeMarker, classify) -> tuple[gate_mod.Gate, Lines]:
+def _gate(session: Session, marker: FakeMarker, classify, *, clock=lambda: 100.0) -> tuple[gate_mod.Gate, Lines]:
     lines = Lines()
-    return gate_mod.Gate(session.store, marker, classify, trace=lines, clock=lambda: 100.0), lines
+    return gate_mod.Gate(session.store, marker, classify, trace=lines, clock=clock), lines
 
 
 def test_two_confident_answers_pause_and_the_events_stay(tmp_path):
@@ -537,6 +538,157 @@ def test_the_digest_keeps_the_first_prompt_and_the_newest_and_no_output(tmp_path
     assert "[wrote] src/main.rs" in text and "--step 399" in text and "--step 0\n" not in text
     assert "SECRET OUTPUT" not in text
     assert text.startswith("tools used: Bash x400, Edit x1")
+
+
+# ---------------------------------------------------------------------------
+# Another agent's messages (plan probe-hints T6): an agent-driven session's work
+# arrives as peer messages, which the gate read nothing of (Strand: p_ml median
+# 0.04 over 555 runs).
+# ---------------------------------------------------------------------------
+
+
+def _peer(s: Session, text: str, *, stream: str = "main", mid_turn: bool = False) -> None:
+    s.offset += 1
+    with s.store.tx():
+        s.store.add([peer_message(stream, s.offset, text=text, sender_from="uds:/tmp/cc-socks/11957.sock",
+                                  sender_name="Unconditional Generation", mid_turn=mid_turn)])
+
+
+def test_the_digest_reads_a_peer_agents_message_as_its_own_line(tmp_path):
+    s = Session(tmp_path)
+    s.add(Kind.PROMPT, "wait for the orchestrator's task")
+    _peer(s, "Benchmark NVIDIA   RFD4-Proteina\n\non the held-out\tset. " + "x" * 3000)
+    s.add(Kind.META, "<system-reminder>a reminder no agent sent</system-reminder>")
+    _peer(s, "a message to a helper agent", stream="subagent:agent-a1")
+    s.add(Kind.TOOL_CALL, tool="Bash", tool_input={"command": "python bench.py"})
+    rows = s.store.digest_rows()
+    assert [r["kind"] for r in rows] == ["prompt", "meta", "meta", "tool_call"], "peer messages only, no other META"
+    text = gate_mod.digest(rows)
+    peer = [line for line in text.splitlines() if line.startswith("[peer agent]")]
+    assert peer == [("[peer agent] Benchmark NVIDIA RFD4-Proteina on the held-out set. " + "x" * 3000)[
+        :len("[peer agent] ") + gate_mod.PROMPT_CHARS]], "whitespace collapsed, cut at PROMPT_CHARS, main stream only"
+    assert "Unconditional Generation" not in text and "uds:" not in text, "its sender is no command"
+    assert text.splitlines()[0] == "tools used: Bash x1", "a message is no tool"
+    assert text.splitlines()[1] == "[researcher] wait for the orchestrator's task"
+
+
+def test_with_no_researcher_prompt_the_first_peer_message_is_kept(tmp_path):
+    s = Session(tmp_path)
+    _peer(s, "THE TASK: train a protein diffusion model")
+    for i in range(200):
+        s.add(Kind.TOOL_CALL, tool="Bash", tool_input={"command": f"ls step {i}"})
+    text = gate_mod.digest(s.store.digest_rows(), limit=1000)
+    assert "[peer agent] THE TASK: train a protein diffusion model" in text and "step 199" in text
+
+
+def test_a_prompts_only_session_digests_as_before(tmp_path):
+    s = Session(tmp_path)
+    s.turn("fix the flaky dashboard test", "npm test")
+    s.add(Kind.META, "<task-notification>done</task-notification>")
+    assert gate_mod.digest(s.store.digest_rows()) == (
+        "tools used: Bash x1\n[researcher] fix the flaky dashboard test\n[command] npm test")
+
+
+def test_a_peer_message_starts_a_turn_the_gate_asks_about(tmp_path):
+    """A session no researcher typed in (an orchestrator drives it): its peer
+    messages are its prompts, so the gate asks at their turns' ends."""
+    s = Session(tmp_path)
+    classify, asked = _classifier([0.9])
+    g, _lines = _gate(s, FakeMarker(), classify)
+    _peer(s, "train the RFD4 baseline on 8xA100")
+    s.add(Kind.TOOL_CALL, tool="Bash", tool_input={"command": "ls"})
+    s.add(Kind.TURN_END)
+    assert asyncio.run(g.check()) is False
+    assert len(asked) == 1 and "[peer agent] train the RFD4 baseline on 8xA100" in asked[0]
+
+
+def test_a_peer_message_mid_turn_is_part_of_the_turn(tmp_path):
+    """A helper's report that reaches the agent between its steps (Claude Code's
+    queued_command) is read, but starts no turn: three of them inside the
+    researcher's first turn must not spend the gate's three asks there."""
+    s = Session(tmp_path)
+    classify, asked = _classifier([0.9, 0.9, 0.9])
+    g, _lines = _gate(s, FakeMarker(), classify)
+    s.add(Kind.PROMPT, "benchmark the diffusion model")
+    for i in range(3):
+        _peer(s, f"helper {i}: done", mid_turn=True)
+        s.add(Kind.TOOL_CALL, tool="Bash", tool_input={"command": f"ls {i}"})
+    assert asyncio.run(g.check()) is False and asked == [], "still the first turn: nothing ended"
+    s.add(Kind.TURN_END)
+    assert asyncio.run(g.check()) is False
+    assert len(asked) == 1 and "[peer agent] helper 2: done" in asked[0], "one turn ended, one ask, reports read"
+
+
+def test_a_helper_agents_peer_message_is_no_prompt(tmp_path):
+    s = Session(tmp_path)
+    classify, asked = _classifier([0.9])
+    g, _lines = _gate(s, FakeMarker(), classify)
+    _peer(s, "a message to a helper", stream="subagent:agent-a1")
+    s.add(Kind.TURN_END)
+    assert asyncio.run(g.check()) is False and asked == []
+
+
+def test_in_shadow_a_peer_message_asks_again_as_a_new_prompt_would(tmp_path):
+    s = Session(tmp_path)
+    marker = FakeMarker()
+    now = [100.0]
+    classify, asked = _classifier([0.03, 0.02, 0.8], act=False)
+    g, lines = _gate(s, marker, classify, clock=lambda: now[0])
+    for prompt in ("a", "b"):
+        s.turn(prompt)
+        asyncio.run(g.check())
+    assert [line["decision"] for line in lines.lines][-1] == "would_pause" and len(asked) == 2
+    s.add(Kind.TOOL_CALL, tool="Bash", tool_input={"command": "ls"})
+    assert asyncio.run(g.check()) is False and len(asked) == 2, "no new prompt: no new ask"
+    now[0] += gate_mod.PEER_ASK_GAP_S
+    _peer(s, "now benchmark the diffusion model's samples")
+    assert asyncio.run(g.check()) is False
+    assert len(asked) == 3 and "[peer agent] now benchmark the diffusion model's samples" in asked[2]
+    assert ("would_resume", 0.8) in [(line["decision"], line.get("p_ml")) for line in lines.lines]
+
+
+def test_while_paused_a_peer_message_that_reads_ml_resumes(tmp_path):
+    s = Session(tmp_path)
+    marker = FakeMarker()
+    now = [100.0]
+    classify, asked = _classifier([0.02, 0.03, 0.8])
+    g, _lines = _gate(s, marker, classify, clock=lambda: now[0])
+    for prompt in ("a", "b"):
+        s.turn(prompt)
+        asyncio.run(g.check())
+    assert marker.is_paused
+    now[0] += gate_mod.PEER_ASK_GAP_S
+    _peer(s, "the team's RFD4-Proteina run diverged: rerun it with lr 1e-4")
+    assert asyncio.run(g.check()) is False and not marker.is_paused and len(asked) == 3
+
+
+def test_while_paused_or_in_shadow_peer_messages_ask_at_most_every_peer_gap(tmp_path):
+    """Review 10-23: another agent writes at machine pace (a helper's report every
+    poll), and each ask sends Jev the whole digest. While paused or in shadow a
+    peer message asks again at most every PEER_ASK_GAP_S after the last ask; one
+    held asks once the gap has passed, with no new event; a researcher's prompt
+    still asks at once."""
+    s = Session(tmp_path)
+    now = [100.0]
+    classify, asked = _classifier([0.03, 0.02], act=False)  # then 0.01: the shadow stands
+    g, lines = _gate(s, FakeMarker(), classify, clock=lambda: now[0])
+    for prompt in ("a", "b"):
+        s.turn(prompt)
+        asyncio.run(g.check())
+    assert lines.lines[-1]["decision"] == "would_pause" and len(asked) == 2
+    for i in range(30):  # one helper report per 2 s poll
+        now[0] += 2.0
+        _peer(s, f"helper {i}: lint passes")
+        asyncio.run(g.check())
+    assert len(asked) == 2, "30 peer messages within the gap: no ask"
+    now[0] = 100.0 + gate_mod.PEER_ASK_GAP_S
+    asyncio.run(g.check())
+    assert len(asked) == 3 and "[peer agent] helper 29: lint passes" in asked[-1], "the held ones ask once"
+    asyncio.run(g.check())
+    assert len(asked) == 3, "and only once"
+    s.turn("c")
+    asyncio.run(g.check())
+    assert len(asked) == 4, "a researcher's prompt asks at once"
 
 
 # ---------------------------------------------------------------------------

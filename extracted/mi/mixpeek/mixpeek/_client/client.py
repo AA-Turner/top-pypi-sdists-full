@@ -9,6 +9,49 @@ from typing import Any
 
 import urllib3
 
+#: A retryable 429/503 is retried until the waits would pass this many
+#: seconds in total: long enough for a vector-store writer to finish booting
+#: (about 2 min) or a standby to take over.
+RETRY_BUDGET_S = 180.0
+#: One wait is never longer than this, whatever the server advises.
+MAX_RETRY_WAIT_S = 30.0
+#: The first wait when the server advises none; it doubles each retry.
+DEFAULT_RETRY_AFTER_S = 2.0
+
+
+def _error_details(payload: Any) -> list[dict]:
+    """The error body's ``details`` objects: ``error.details`` (the API's
+    shape) and ``detail.error.details`` (an older one)."""
+    if not isinstance(payload, dict):
+        return []
+    found = [(payload.get("error") or {}).get("details")]
+    if isinstance(payload.get("detail"), dict):
+        found.append((payload["detail"].get("error") or {}).get("details"))
+    return [d for d in found if isinstance(d, dict)]
+
+
+def _advised_wait(resp: Any, payload: Any) -> float | None:
+    """The server's advised wait in seconds: the Retry-After header, else the
+    error body's ``retry_after_seconds``, else None."""
+    headers = getattr(resp, "headers", None) or {}
+    value = headers.get("Retry-After") if hasattr(headers, "get") else None
+    candidates = [value] + [
+        d.get("retry_after_seconds") for d in _error_details(payload)
+    ]
+    for v in candidates:
+        if v is None:
+            continue
+        try:
+            return max(0.0, float(v))
+        except (TypeError, ValueError):
+            continue  # e.g. an HTTP-date Retry-After: try the body
+    return None
+
+
+def _marked_not_retryable(payload: Any) -> bool:
+    """A 429/503 whose body says ``retryable: false`` is not retried."""
+    return any(d.get("retryable") is False for d in _error_details(payload))
+
 
 class _AttrDict(dict):
     """A dict that also supports attribute access, so SDK responses work the way
@@ -92,6 +135,7 @@ class Mixpeek:
 
         # Resource managers (lazy-style but immediate for discoverability)
         from mixpeek._client.resources import (
+            Batches,
             Buckets,
             Collections,
             Documents,
@@ -108,6 +152,7 @@ class Mixpeek:
         self.documents = Documents(self)
         self.evaluations = Evaluations(self)
         self.tasks = Tasks(self)
+        self.batches = Batches(self)
 
     # ---- Convenience shortcuts ------------------------------------------------
 
@@ -290,6 +335,23 @@ class Mixpeek:
         body: Any | None = None,
         namespace: str | None = None,
     ) -> Any:
+        """Every ``Mixpeek`` call goes through here, including the retry
+        decision: a retryable 429 or 503 is retried until the waits would pass
+        ``RETRY_BUDGET_S`` (3 min) in total, long enough for a writer to boot
+        or a standby to take over. Each wait is the server's Retry-After
+        header, else its ``retry_after_seconds``, else a backoff from 2s that
+        doubles; none is longer than ``MAX_RETRY_WAIT_S``. A 429/503 marked
+        ``retryable: false`` and every other status are not retried. A write
+        the API refused with a 503 stored nothing, so retrying it is safe.
+        This is the one retry policy the SDK ships; callers using the
+        raw generated API classes (``mixpeek.AccountApi`` etc. via
+        ``ApiClient``) bypass this wrapper entirely and get none, since that
+        surface is generated code this package does not hand-edit. A caller
+        on the raw classes who wants the same behavior passes their own
+        ``Configuration(retries=urllib3.Retry(status_forcelist=[429, 503],
+        respect_retry_after_header=True))`` -- the generated client already
+        threads a ``retries`` value straight to urllib3's ``PoolManager``.
+        """
         url = f"{self.base_url}{path}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -302,31 +364,33 @@ class Mixpeek:
 
         encoded_body = json.dumps(body).encode("utf-8") if body is not None else None
 
-        max_retries = 3
-        for attempt in range(max_retries + 1):
+        import time
+
+        waited = 0.0
+        backoff = DEFAULT_RETRY_AFTER_S
+        while True:
             resp = self._http.request(
                 method,
                 url,
                 body=encoded_body,
                 headers=headers,
             )
-
-            if resp.status in (429, 503) and attempt < max_retries:
-                retry_after = 2.0
-                try:
-                    err_body = json.loads(resp.data.decode("utf-8"))
-                    details = (
-                        err_body.get("detail", {}).get("error", {}).get("details", {})
-                    )
-                    retry_after = float(details.get("retry_after_seconds", retry_after))
-                except Exception:
-                    pass
-                import time
-
-                time.sleep(min(retry_after, 30.0))
-                continue
-
-            break
+            if resp.status not in (429, 503):
+                break
+            try:
+                err_body = json.loads(resp.data.decode("utf-8"))
+            except Exception:
+                err_body = None
+            if _marked_not_retryable(err_body):
+                break
+            advised = _advised_wait(resp, err_body)
+            wait = min(advised if advised is not None else backoff, MAX_RETRY_WAIT_S)
+            if waited + wait > RETRY_BUDGET_S:
+                break
+            time.sleep(wait)
+            waited += wait
+            if advised is None:
+                backoff = min(backoff * 2, MAX_RETRY_WAIT_S)
 
         if resp.status >= 400:
             try:
@@ -344,16 +408,16 @@ class Mixpeek:
 
 
 class MixpeekAPIError(Exception):
-    """Raised when the Mixpeek API returns an error response."""
+    """Raised when the Mixpeek API returns an error response that ``Mixpeek._request``
+    did not retry away (a non-retryable status, or a 429/503 still failing when
+    the retry budget ran out). ``retryable`` and ``retry_after`` are
+    informational on the raised error; they do not trigger a further retry
+    here."""
 
     def __init__(self, status: int, detail: Any) -> None:
         self.status = status
         self.detail = detail
         self.retryable = status in (429, 503)
         self.retry_after: float | None = None
-        try:
-            details = detail.get("detail", {}).get("error", {}).get("details", {})
-            self.retry_after = float(details.get("retry_after_seconds"))
-        except Exception:
-            pass
+        self.retry_after = _advised_wait(None, detail)
         super().__init__(f"Mixpeek API error {status}: {detail}")

@@ -142,6 +142,7 @@ USAGE
 }
 
 SLOT=""
+ORIGINAL_ARGS=("$@")
 WORKTREE=""
 REASON="${ONEX_DEPLOY_REASON:-}"
 WITH_GATEWAY=1
@@ -334,6 +335,18 @@ PYPLAN
 fi
 
 # -----------------------------------------------------------------------------
+# Resource ownership covers the build AND the subsequent exercise. The pool
+# wraps every phase in the same helper. A standalone bring-up re-execs through
+# it and leaves an expiring lease when it exits; longer exercises must also run
+# through the helper with the same token. Plan-only never writes a lease.
+LEASE_PY="${SCRIPT_DIR}/prepr_teardown_slot.py"
+if [[ -z "${ONEX_PREPR_LEASE_TOKEN:-}" ]]; then
+    exec "${PY}" "${LEASE_PY}" run --slot "${SLOT}" \
+        --holder "standalone-${BASHPID}" --staging-root "${STAGING_ROOT}" \
+        -- bash "$0" "${ORIGINAL_ARGS[@]}"
+fi
+"${PY}" "${LEASE_PY}" check --slot "${SLOT}" || exit $?
+
 # 4. LOCKS. The slot lock covers the whole critical section; the pool-wide
 # build lock covers the BUILD only and is released the moment it finishes, so
 # two slots overlap freely in boot, probe and teardown -- which is where most
@@ -405,6 +418,11 @@ log "staging a slot-private snapshot into ${STAGING_ROOT} ..."
 rm -rf "${STAGING_ROOT}"
 mkdir -p "${STAGING_ROOT}" "${SLOT_ENV_DIR}" "${TENANT_STATE_DIR}"
 chmod 700 "${SLOT_ENV_DIR}"
+# OMN-19064: the slot gateway runs as a container user that is neither this
+# operator nor in its group, and writes its 0600 credential.env into this
+# bind mount. Others get write+search but no listing, and the sticky bit keeps
+# a credential from being removed by anyone but its writer or this operator.
+chmod 1733 "${TENANT_STATE_DIR}"
 
 # Each tree is extracted from the OBJECT STORE at a resolved sha, never copied
 # out of a working directory.

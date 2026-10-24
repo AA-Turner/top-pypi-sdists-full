@@ -149,6 +149,19 @@ def _fresh_log_stream_answer() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_recorded_cli_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A faked upgrade records its "installed" CLI for the PROCESS
+    (`versions.record_installed_cli`), and every later test in that worker
+    then graded this CLI as that version. tests/test_update_report_names_the_failure.py
+    recorded its manifest's 0.296.0, which matched `__version__` until the
+    0.296.1 release, and from then on `probe update --check` in
+    tests/test_updater.py answered "behind" whenever the two shared a worker."""
+    from probe.cli import versions
+
+    monkeypatch.setattr(versions, "_installed_cli", None)
+
+
+@pytest.fixture(autouse=True)
 def _telemetry_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin client telemetry OFF for the whole suite.
 
@@ -168,6 +181,9 @@ def _no_hosted_recording(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROBE_TAP_HOSTED", "0")
     # Nor may a service a test starts install the OS keeper (D35) for this account.
     monkeypatch.setenv("PROBE_SERVICE_KEEPER", "0")
+    # Nor send the Probe team an automatic diagnostic report (crash-report plan
+    # B2): the tests of the watch turn it back on, with a stand-in report.
+    monkeypatch.setenv("PROBE_SERVICE_REPORTS", "0")
 
 
 @pytest.fixture(autouse=True)
@@ -456,6 +472,32 @@ def _reset_diagnostics_state() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _reset_fluent_exit_record() -> None:
+    """fluent's record of how the PROCESS is ending, cleared around every test.
+
+    Suite-wide for the same reason as diagnostics above. Once any test has run
+    `probe.init()` its exit hooks stay installed for the rest of the worker, so
+    every later `sys.exit(1)` -- a CLI test's refusal, say -- records the process
+    as ending `failed` (a scan found ~1,100 tests running with it set). A test
+    that then closes a rank lease reads that record as its own ending:
+    test_launcher_run_leases.py's hand-off test closed its run `failed`, not
+    `completed`, in 8 of 29 CI runs and never alone.
+    """
+    from probe.sdk import fluent
+
+    def clear() -> None:
+        fluent._exit_status = "completed"
+        fluent._exit_recorded = False
+        fluent._exit_exception = None
+        fluent._exit_code = None
+        fluent._exit_via = None
+
+    clear()
+    yield
+    clear()
+
+
+@pytest.fixture(autouse=True)
 def _hw_collector_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin the hardware collector OFF regardless of the developer's shell.
 
@@ -555,6 +597,14 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     monkeypatch.setenv("XDG_CONFIG_HOME", str(root))
     monkeypatch.setenv("HOME", str(root))
     monkeypatch.setenv("USERPROFILE", str(root))  # Windows' Path.home() reads this, not HOME
+    if os.name == "nt":
+        # The service's folder on Windows is %LOCALAPPDATA%\probe\service, not
+        # under HOME (`probe.service.paths.root_dir`), and the CLI's uv install
+        # under %APPDATA%: unredirected, every test that touched the service's
+        # files wrote the runner's (or a developer's) real ones, and the next
+        # test read what the last one left there.
+        monkeypatch.setenv("LOCALAPPDATA", str(root / "AppData" / "Local"))
+        monkeypatch.setenv("APPDATA", str(root / "AppData" / "Roaming"))
     # CODEX_HOME is the same hole one directory over, and it now has a WRITER
     # behind it: the wizard registers the Codex MCP by editing
     # `$CODEX_HOME/config.toml`. Redirecting HOME alone leaves a developer who
@@ -600,6 +650,10 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # tree, and the failure blames the wizard rather than the shell.
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
     monkeypatch.delenv("CODEX_SANDBOX", raising=False)
+    # PROBE_READER_PROMPT_WAKE=off on the machine (plan probe-hints T5) stops the
+    # reader's prompt wakes, which every reader test that expects a "prompt" turn
+    # relies on.
+    monkeypatch.delenv("PROBE_READER_PROMPT_WAKE", raising=False)
     yield
     from probe.cli.codex_config import config_path as codex_config_path
     from probe.sdk.config import config_path
@@ -2678,6 +2732,9 @@ class FakeApp:
         bearer = request.headers.get("authorization", "").removeprefix("Bearer ")
         if bearer and bearer in self.rejected_tokens:
             return httpx.Response(401, json={"detail": "invalid or revoked token"})
+        if bearer and bearer in getattr(self, "scope_refused_tokens", ()) and method != "GET":
+            # A token that works but may not write: a 403 naming the scope.
+            return httpx.Response(403, json={"detail": "insufficient scope: write required"})
         # Per-path fault injection. Set `app.fail_paths = {"/v1/..."}` to make ONE
         # route 500 while the rest of the fake stays healthy -- the shape you need to
         # test that a degraded dependency is REPORTED rather than propagated.
@@ -6590,6 +6647,27 @@ def _fresh_secret_gate_caches():
     secret_gate.clear_caches()
     redaction.clear_caches()
     redaction._CACHE_ENABLED, redaction._CACHE_FORBIDDEN = switches
+
+
+@pytest.fixture(autouse=True)
+def _no_copied_logins_from_other_tests(monkeypatch):
+    """`outbox_worker._COPIED_LOGINS` is per process: a client of one test that
+    ran with a copy of its login must not decide another test's worker env."""
+    from probe.sdk import outbox_worker
+
+    monkeypatch.setattr(outbox_worker, "_COPIED_LOGINS", set())
+    monkeypatch.setattr(outbox_worker, "_ADOPTED_KICKED_AT", float("-inf"))
+
+
+@pytest.fixture(autouse=True)
+def _no_automatic_rescue(monkeypatch):
+    """The automatic rescue (`outbox_worker.maybe_rescue`) forks a process
+    from the CLI's every-command check (`cli.main._outbox_notice`) when writes
+    are held back. Off for the suite; the rescue tests turn it on
+    (test_outbox_credential_stamp.py)."""
+    from probe.sdk import outbox_worker
+
+    monkeypatch.setenv(outbox_worker.RESCUE_ENV, "off")
 
 
 @pytest.fixture(autouse=True)

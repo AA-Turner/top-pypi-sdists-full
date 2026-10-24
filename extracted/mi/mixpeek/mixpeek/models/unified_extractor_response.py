@@ -24,6 +24,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.costs_info import CostsInfo
 from mixpeek.models.extractor_source import ExtractorSource
 from mixpeek.models.payload_index_config_output import PayloadIndexConfigOutput
+from mixpeek.models.serve_app_status import ServeAppStatus
 from mixpeek.models.vector_index_definition import VectorIndexDefinition
 from typing import Optional, Set
 from typing_extensions import Self
@@ -54,12 +55,14 @@ class UnifiedExtractorResponse(BaseModel):
     feature_uri: Optional[StrictStr] = Field(default=None, description="Primary feature URI (e.g., mixpeek://text_extractor@v1/embedding)")
     capabilities: Optional[List[StrictStr]] = Field(default=None, description="What this extractor can do: 'batch' (feature extraction during ingestion), 'realtime' (query-time inference for retriever stages)")
     example_usage: Optional[Dict[str, Any]] = Field(default=None, description="Minimal working configuration for namespace + collection + input_mappings + parameters")
+    realtime_available: Optional[StrictBool] = Field(default=None, description="Whether every Ray Serve application this extractor needs for real-time inference is running on the deployment serving this request. True when all of them report RUNNING. False when one is absent, not running, or missing its model provider's credentials; see serve_apps for which. Null when the extractor needs none, or when the live list could not be read.")
+    serve_apps: Optional[List[ServeAppStatus]] = Field(default=None, description="The Ray Serve applications this extractor needs for real-time inference, each with its live status. Empty when it needs none.")
     plugin_id: Optional[StrictStr] = Field(default=None, description="Plugin ID (custom plugins only)")
     deployed: Optional[StrictBool] = Field(default=None, description="Whether the plugin is deployed (custom plugins only)")
     validation_status: Optional[StrictStr] = Field(default=None, description="Validation status (custom plugins only)")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp (custom plugins only)")
     updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp (custom plugins only)")
-    __properties: ClassVar[List[str]] = ["feature_extractor_name", "version", "feature_extractor_id", "source", "description", "icon", "input_schema", "output_schema", "parameter_schema", "type_mode", "expected_input_types", "inference_type", "supported_input_types", "max_inputs", "default_parameters", "costs", "required_vector_indexes", "required_payload_indexes", "position_fields", "feature_uri", "capabilities", "example_usage", "plugin_id", "deployed", "validation_status", "created_at", "updated_at"]
+    __properties: ClassVar[List[str]] = ["feature_extractor_name", "version", "feature_extractor_id", "source", "description", "icon", "input_schema", "output_schema", "parameter_schema", "type_mode", "expected_input_types", "inference_type", "supported_input_types", "max_inputs", "default_parameters", "costs", "required_vector_indexes", "required_payload_indexes", "position_fields", "feature_uri", "capabilities", "example_usage", "realtime_available", "serve_apps", "plugin_id", "deployed", "validation_status", "created_at", "updated_at"]
 
     @field_validator('validation_status')
     def validation_status_validate_enum(cls, value):
@@ -127,6 +130,13 @@ class UnifiedExtractorResponse(BaseModel):
                 if _item_required_payload_indexes:
                     _items.append(_item_required_payload_indexes.to_dict())
             _dict['required_payload_indexes'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in serve_apps (list)
+        _items = []
+        if self.serve_apps:
+            for _item_serve_apps in self.serve_apps:
+                if _item_serve_apps:
+                    _items.append(_item_serve_apps.to_dict())
+            _dict['serve_apps'] = _items
         return _dict
 
     @classmethod
@@ -161,6 +171,8 @@ class UnifiedExtractorResponse(BaseModel):
             "feature_uri": obj.get("feature_uri"),
             "capabilities": obj.get("capabilities"),
             "example_usage": obj.get("example_usage"),
+            "realtime_available": obj.get("realtime_available"),
+            "serve_apps": [ServeAppStatus.from_dict(_item) for _item in obj["serve_apps"]] if obj.get("serve_apps") is not None else None,
             "plugin_id": obj.get("plugin_id"),
             "deployed": obj.get("deployed"),
             "validation_status": obj.get("validation_status"),

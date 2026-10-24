@@ -44,6 +44,7 @@ from .literals import (
     DeploymentModeType,
     DeploymentStatusType,
     DeploymentTypeType,
+    DesignationTypeType,
     DomainStatusType,
     DomainVersionType,
     EdgeDirectionType,
@@ -226,6 +227,8 @@ __all__ = (
     "CreateDataProductRevisionOutputTypeDef",
     "CreateDataSourceInputTypeDef",
     "CreateDataSourceOutputTypeDef",
+    "CreateDesignationInputTypeDef",
+    "CreateDesignationOutputTypeDef",
     "CreateDomainInputTypeDef",
     "CreateDomainOutputTypeDef",
     "CreateDomainUnitInputTypeDef",
@@ -300,6 +303,7 @@ __all__ = (
     "DeleteDataProductInputTypeDef",
     "DeleteDataSourceInputTypeDef",
     "DeleteDataSourceOutputTypeDef",
+    "DeleteDesignationInputTypeDef",
     "DeleteDomainInputTypeDef",
     "DeleteDomainOutputTypeDef",
     "DeleteDomainUnitInputTypeDef",
@@ -327,6 +331,7 @@ __all__ = (
     "DeleteTimeSeriesDataPointsInputTypeDef",
     "DeploymentPropertiesTypeDef",
     "DeploymentTypeDef",
+    "DesignationSummaryTypeDef",
     "DetailedGlossaryTermTypeDef",
     "DisassociateEnvironmentRoleInputTypeDef",
     "DisassociateGovernedTermsInputTypeDef",
@@ -398,6 +403,8 @@ __all__ = (
     "GetDataSourceOutputTypeDef",
     "GetDataSourceRunInputTypeDef",
     "GetDataSourceRunOutputTypeDef",
+    "GetDesignationInputTypeDef",
+    "GetDesignationOutputTypeDef",
     "GetDomainInputTypeDef",
     "GetDomainOutputTypeDef",
     "GetDomainUnitInputTypeDef",
@@ -549,6 +556,9 @@ __all__ = (
     "ListDataSourcesInputPaginateTypeDef",
     "ListDataSourcesInputTypeDef",
     "ListDataSourcesOutputTypeDef",
+    "ListDesignationsInputPaginateTypeDef",
+    "ListDesignationsInputTypeDef",
+    "ListDesignationsOutputTypeDef",
     "ListDomainUnitsForParentInputPaginateTypeDef",
     "ListDomainUnitsForParentInputTypeDef",
     "ListDomainUnitsForParentOutputTypeDef",
@@ -774,6 +784,9 @@ __all__ = (
     "RuleTargetTypeDef",
     "RunStatisticsForAssetsTypeDef",
     "S3DestinationTypeDef",
+    "S3FileTypeDef",
+    "S3FilesLocationOutputTypeDef",
+    "S3FilesLocationTypeDef",
     "S3PropertiesInputTypeDef",
     "S3PropertiesOutputTypeDef",
     "S3PropertiesPatchTypeDef",
@@ -806,7 +819,9 @@ __all__ = (
     "SnowflakePropertiesInputTypeDef",
     "SnowflakePropertiesOutputTypeDef",
     "SnowflakePropertiesPatchTypeDef",
+    "SourceLocationOutputTypeDef",
     "SourceLocationTypeDef",
+    "SourceLocationUnionTypeDef",
     "SparkEmrPropertiesInputTypeDef",
     "SparkEmrPropertiesOutputTypeDef",
     "SparkEmrPropertiesPatchTypeDef",
@@ -871,6 +886,8 @@ __all__ = (
     "UpdateConnectionOutputTypeDef",
     "UpdateDataSourceInputTypeDef",
     "UpdateDataSourceOutputTypeDef",
+    "UpdateDesignationInputTypeDef",
+    "UpdateDesignationOutputTypeDef",
     "UpdateDomainInputTypeDef",
     "UpdateDomainOutputTypeDef",
     "UpdateDomainUnitInputTypeDef",
@@ -1327,6 +1344,13 @@ class DataSourceErrorMessageTypeDef(TypedDict):
     errorType: DataSourceErrorTypeType
     errorDetail: NotRequired[str]
 
+class CreateDesignationInputTypeDef(TypedDict):
+    domainIdentifier: str
+    name: str
+    policy: str
+    description: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+
 SingleSignOnTypeDef = TypedDict(
     "SingleSignOnTypeDef",
     {
@@ -1555,6 +1579,10 @@ class DeleteDataSourceInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     retainPermissionsOnRevokeFailure: NotRequired[bool]
 
+class DeleteDesignationInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
 class DeleteDomainInputTypeDef(TypedDict):
     identifier: str
     clientToken: NotRequired[str]
@@ -1649,6 +1677,21 @@ class DeleteTimeSeriesDataPointsInputTypeDef(TypedDict):
 class EnvironmentErrorTypeDef(TypedDict):
     message: str
     code: NotRequired[str]
+
+DesignationSummaryTypeDef = TypedDict(
+    "DesignationSummaryTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "deletionProtection": bool,
+        "createdBy": str,
+        "description": NotRequired[str],
+        "designationType": NotRequired[DesignationTypeType],
+        "createdAt": NotRequired[datetime],
+        "updatedAt": NotRequired[datetime],
+    },
+)
 
 class DisassociateEnvironmentRoleInputTypeDef(TypedDict):
     domainIdentifier: str
@@ -1843,6 +1886,10 @@ class GetDataSourceInputTypeDef(TypedDict):
     identifier: str
 
 class GetDataSourceRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class GetDesignationInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
 
@@ -2276,6 +2323,11 @@ ListDataSourcesInputTypeDef = TypedDict(
     },
 )
 
+class ListDesignationsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
 class ListDomainUnitsForParentInputTypeDef(TypedDict):
     domainIdentifier: str
     parentDomainUnitIdentifier: str
@@ -2675,6 +2727,9 @@ class RevokeSubscriptionInputTypeDef(TypedDict):
     identifier: str
     retainPermissions: NotRequired[bool]
 
+class S3FileTypeDef(TypedDict):
+    key: str
+
 class SearchGroupProfilesInputTypeDef(TypedDict):
     domainIdentifier: str
     groupType: GroupSearchTypeType
@@ -2695,9 +2750,6 @@ class SearchUserProfilesInputTypeDef(TypedDict):
     searchText: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-
-class SourceLocationTypeDef(TypedDict):
-    s3: NotRequired[str]
 
 class SparkGlueArgsTypeDef(TypedDict):
     connection: NotRequired[str]
@@ -2767,6 +2819,14 @@ class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
 
+class UpdateDesignationInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    policy: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+
 class UpdateDomainUnitInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
@@ -2825,6 +2885,23 @@ class AcceptPredictionsOutputTypeDef(TypedDict):
 class AddPolicyGrantOutputTypeDef(TypedDict):
     grantId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+CreateDesignationOutputTypeDef = TypedDict(
+    "CreateDesignationOutputTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "description": str,
+        "designationType": DesignationTypeType,
+        "policy": str,
+        "deletionProtection": bool,
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastUpdatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class CreateFormTypeOutputTypeDef(TypedDict):
     domainId: str
@@ -2888,6 +2965,23 @@ DeleteLineageEventOutputTypeDef = TypedDict(
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
+
+GetDesignationOutputTypeDef = TypedDict(
+    "GetDesignationOutputTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "description": str,
+        "designationType": DesignationTypeType,
+        "policy": str,
+        "deletionProtection": bool,
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastUpdatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class GetEnvironmentCredentialsOutputTypeDef(TypedDict):
     accessKeyId: str
@@ -2999,6 +3093,22 @@ StopNotebookRunOutputTypeDef = TypedDict(
         "domainId": str,
         "owningProjectId": str,
         "status": NotebookRunStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateDesignationOutputTypeDef = TypedDict(
+    "UpdateDesignationOutputTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "description": str,
+        "designationType": DesignationTypeType,
+        "policy": str,
+        "deletionProtection": bool,
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastUpdatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -3543,6 +3653,7 @@ class CreateProjectMembershipInputTypeDef(TypedDict):
     projectIdentifier: str
     member: MemberTypeDef
     designation: UserDesignationType
+    userCreatedDesignationId: NotRequired[str]
 
 class DeleteProjectMembershipInputTypeDef(TypedDict):
     domainIdentifier: str
@@ -3552,6 +3663,7 @@ class DeleteProjectMembershipInputTypeDef(TypedDict):
 class ProjectMembershipAssignmentTypeDef(TypedDict):
     member: MemberTypeDef
     designation: UserDesignationType
+    userCreatedDesignationId: NotRequired[str]
 
 ProjectSummaryTypeDef = TypedDict(
     "ProjectSummaryTypeDef",
@@ -3777,6 +3889,11 @@ class EnvironmentDeploymentDetailsOutputTypeDef(TypedDict):
 class EnvironmentDeploymentDetailsTypeDef(TypedDict):
     overallDeploymentStatus: NotRequired[OverallDeploymentStatusType]
     environmentFailureReasons: NotRequired[Mapping[str, Sequence[EnvironmentErrorTypeDef]]]
+
+class ListDesignationsOutputTypeDef(TypedDict):
+    items: list[DesignationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListDomainsOutputTypeDef(TypedDict):
     items: list[DomainSummaryTypeDef]
@@ -4236,6 +4353,10 @@ ListDataSourcesInputPaginateTypeDef = TypedDict(
     },
 )
 
+class ListDesignationsInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDomainUnitsForParentInputPaginateTypeDef(TypedDict):
     domainIdentifier: str
     parentDomainUnitIdentifier: str
@@ -4670,38 +4791,13 @@ class RejectPredictionsInputTypeDef(TypedDict):
     rejectChoices: NotRequired[Sequence[RejectChoiceTypeDef]]
     clientToken: NotRequired[str]
 
-class StartNotebookImportInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    sourceLocation: SourceLocationTypeDef
-    name: str
-    description: NotRequired[str]
-    clientToken: NotRequired[str]
+class S3FilesLocationOutputTypeDef(TypedDict):
+    bucket: str
+    fileList: list[S3FileTypeDef]
 
-class StartNotebookImportOutputTypeDef(TypedDict):
-    notebookId: str
-    status: NotebookStatusType
-    domainId: str
-    owningProjectId: str
-    name: str
-    description: str
-    sourceLocation: SourceLocationTypeDef
-    createdAt: datetime
-    createdBy: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartNotebookSyncOutputTypeDef(TypedDict):
-    notebookId: str
-    status: NotebookStatusType
-    domainId: str
-    owningProjectId: str
-    sourceLocation: SourceLocationTypeDef
-    gitMetadata: GitMetadataOutputTypeDef
-    name: str
-    description: str
-    createdAt: datetime
-    createdBy: str
-    ResponseMetadata: ResponseMetadataTypeDef
+class S3FilesLocationTypeDef(TypedDict):
+    bucket: str
+    fileList: Sequence[S3FileTypeDef]
 
 class SparkGluePropertiesInputTypeDef(TypedDict):
     additionalArgs: NotRequired[SparkGlueArgsTypeDef]
@@ -5186,6 +5282,7 @@ EnvironmentDeploymentDetailsUnionTypeDef = Union[
 
 class ProjectPolicyGrantPrincipalTypeDef(TypedDict):
     projectDesignation: ProjectDesignationType
+    userCreatedDesignationId: NotRequired[str]
     projectIdentifier: NotRequired[str]
     projectGrantFilter: NotRequired[ProjectGrantFilterTypeDef]
 
@@ -5666,6 +5763,7 @@ class MatchRationaleItemTypeDef(TypedDict):
 class ProjectMemberTypeDef(TypedDict):
     memberDetails: MemberDetailsTypeDef
     designation: UserDesignationType
+    userCreatedDesignationId: NotRequired[str]
 
 class RuleDetailOutputTypeDef(TypedDict):
     metadataFormEnforcementDetail: NotRequired[MetadataFormEnforcementDetailOutputTypeDef]
@@ -5918,6 +6016,14 @@ class RedshiftRunConfigurationOutputTypeDef(TypedDict):
     dataAccessRole: NotRequired[str]
     redshiftCredentialConfiguration: NotRequired[RedshiftCredentialConfigurationTypeDef]
 
+class SourceLocationOutputTypeDef(TypedDict):
+    s3: NotRequired[str]
+    s3Files: NotRequired[S3FilesLocationOutputTypeDef]
+
+class SourceLocationTypeDef(TypedDict):
+    s3: NotRequired[str]
+    s3Files: NotRequired[S3FilesLocationTypeDef]
+
 CreateUserProfileOutputTypeDef = TypedDict(
     "CreateUserProfileOutputTypeDef",
     {
@@ -6169,16 +6275,6 @@ class SearchTypesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class StartNotebookSyncInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    sourceLocation: SourceLocationTypeDef
-    gitMetadata: NotRequired[GitMetadataUnionTypeDef]
-    notebookId: NotRequired[str]
-    name: NotRequired[str]
-    description: NotRequired[str]
-    clientToken: NotRequired[str]
-
 class ListEnvironmentBlueprintConfigurationsOutputTypeDef(TypedDict):
     items: list[EnvironmentBlueprintConfigurationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6401,6 +6497,38 @@ class DataSourceConfigurationOutputTypeDef(TypedDict):
     glueRunConfiguration: NotRequired[GlueRunConfigurationOutputTypeDef]
     redshiftRunConfiguration: NotRequired[RedshiftRunConfigurationOutputTypeDef]
     sageMakerRunConfiguration: NotRequired[SageMakerRunConfigurationOutputTypeDef]
+
+StartNotebookImportOutputTypeDef = TypedDict(
+    "StartNotebookImportOutputTypeDef",
+    {
+        "notebookId": str,
+        "status": NotebookStatusType,
+        "domainId": str,
+        "owningProjectId": str,
+        "name": str,
+        "description": str,
+        "type": NotebookTypeType,
+        "sourceLocation": SourceLocationOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class StartNotebookSyncOutputTypeDef(TypedDict):
+    notebookId: str
+    status: NotebookStatusType
+    domainId: str
+    owningProjectId: str
+    sourceLocation: SourceLocationOutputTypeDef
+    gitMetadata: GitMetadataOutputTypeDef
+    name: str
+    description: str
+    createdAt: datetime
+    createdBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+SourceLocationUnionTypeDef = Union[SourceLocationTypeDef, SourceLocationOutputTypeDef]
 
 class SubscribedPrincipalTypeDef(TypedDict):
     project: NotRequired[SubscribedProjectTypeDef]
@@ -6774,6 +6902,29 @@ UpdateDataSourceOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+StartNotebookImportInputTypeDef = TypedDict(
+    "StartNotebookImportInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "sourceLocation": SourceLocationUnionTypeDef,
+        "name": str,
+        "description": NotRequired[str],
+        "type": NotRequired[NotebookTypeType],
+        "clientToken": NotRequired[str],
+    },
+)
+
+class StartNotebookSyncInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sourceLocation: SourceLocationUnionTypeDef
+    gitMetadata: NotRequired[GitMetadataUnionTypeDef]
+    notebookId: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+
 AcceptSubscriptionRequestOutputTypeDef = TypedDict(
     "AcceptSubscriptionRequestOutputTypeDef",
     {

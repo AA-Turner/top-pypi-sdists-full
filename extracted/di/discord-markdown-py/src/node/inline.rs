@@ -16,9 +16,8 @@ use crate::{
 	Input,
 	context::{Context, fuel::ApplyFuel},
 	error::ParseError,
-	grammar::Grammar,
 	range::delim,
-	rule::{Rule, RuleSet},
+	scope::Scope,
 	span::{Span, TraceOk, TraceParse, WithSpan},
 	unparse::Unparse,
 };
@@ -29,7 +28,7 @@ use self::{
 use super::{
 	Element, Elements, Id, Inlines, Iter, SpannedInline, merge_text,
 	modifier::{
-		ModifierKind, bold, italic,
+		ModifierKind, ModifierKinds, bold, italic,
 		spoiler::{self, Spoiler},
 		strikethrough, underline,
 	},
@@ -139,7 +138,7 @@ impl<'data, S: Span> Inline<'data, S> {
 
 	/// Returns an iterator over this node and all child nodes, at every depth.
 	///
-	/// Depth matters to [`Self::content`] and [`Self::rules`]: a modifier's own [`Self::text`] is
+	/// Depth matters to [`Self::content`]: a modifier's own [`Self::text`] is
 	/// [`None`], so stopping at the direct children made `**_text_**` look textless.
 	#[must_use]
 	pub fn iter<'node>(&'node self) -> Iter<'data, 'node, S> {
@@ -148,31 +147,6 @@ impl<'data, S: Span> Inline<'data, S> {
 			// TODO: it's a bit awkward to re-box after this technically returns a pre-boxed iterator
 			children: Some(Box::new(self.children().flat_map(Inline::iter))),
 		}
-	}
-
-	/// The [`Rule`] that this node corresponds to. Returns [`None`] if this is a base rule.
-	#[must_use]
-	pub fn rule(&self) -> Option<Rule> {
-		Some(match self {
-			Self::Text(_) => return None,
-			Self::Bold(_) => Rule::Bold,
-			Self::Italic(_) => Rule::Italic,
-			Self::Underline(_) => Rule::Underline,
-			Self::Strikethrough(_) => Rule::Strikethrough,
-			Self::Spoiler(_) => Rule::Spoiler,
-			Self::Code(_) => Rule::Code,
-			Self::CodeBlock(_) => Rule::CodeBlock,
-			Self::Emoji(_) => Rule::Emoji,
-			Self::Link(_) => Rule::Link,
-			Self::Mention(_) => Rule::Mention,
-			Self::Timestamp(_) => Rule::Timestamp,
-		})
-	}
-
-	/// All [`Rule`]s that this node contains, including itself.
-	#[must_use]
-	pub fn rules(&self) -> RuleSet {
-		self.iter().filter_map(Inline::rule).collect()
 	}
 
 	/// Text content of this node (does not include children). Returns [`None`] if this node has no
@@ -243,9 +217,9 @@ where
 	///
 	/// A link owns its own inline content, which its own [`flatten`] has already flattened, so
 	/// `active` stops there.
-	pub fn flatten_children(&mut self, mut active: RuleSet) {
+	pub fn flatten_children(&mut self, mut active: ModifierKinds) {
 		if let Some(kind) = self.modifier_kind() {
-			active.insert(kind.rule());
+			active.insert(kind);
 		}
 		if let Some(content) = self.modifier_content_mut() {
 			flatten_against(&mut content.value, active);
@@ -253,12 +227,16 @@ where
 	}
 
 	/// Whether an ancestor already applies this node's markup.
-	fn is_nested_in(&self, active: RuleSet) -> bool {
-		self.rule().is_some_and(|rule| active.contains(rule))
+	fn is_nested_in(&self, active: ModifierKinds) -> bool {
+		self.modifier_kind()
+			.is_some_and(|kind| active.contains(kind))
 	}
 
 	/// Takes the children of redundant markup, leaving it empty. [`None`] if it is not redundant.
-	fn take_nested_children(&mut self, active: RuleSet) -> Option<Vec<SpannedInline<'data, S>>> {
+	fn take_nested_children(
+		&mut self,
+		active: ModifierKinds,
+	) -> Option<Vec<SpannedInline<'data, S>>> {
 		if !self.is_nested_in(active) {
 			return None;
 		}
@@ -285,7 +263,7 @@ where
 	S: Span,
 {
 	for node in nodes.iter_mut() {
-		node.value.flatten_children(RuleSet::empty());
+		node.value.flatten_children(ModifierKinds::empty());
 	}
 
 	merge_siblings(nodes);
@@ -302,7 +280,7 @@ where
 }
 
 /// Flattens each of `nodes` against `active`, then collapses and merges them.
-fn flatten_against<S>(nodes: &mut Vec<SpannedInline<'_, S>>, active: RuleSet)
+fn flatten_against<S>(nodes: &mut Vec<SpannedInline<'_, S>>, active: ModifierKinds)
 where
 	S: Span,
 {
@@ -326,7 +304,7 @@ where
 ///
 /// Spans need no adjustment: a promoted child keeps its own, and `nodes` is still parsed from the
 /// same region of source it was before.
-fn collapse_nested<S>(nodes: &mut Vec<SpannedInline<'_, S>>, active: RuleSet)
+fn collapse_nested<S>(nodes: &mut Vec<SpannedInline<'_, S>>, active: ModifierKinds)
 where
 	S: Span,
 {
@@ -449,10 +427,10 @@ where
 				.span(),
 			ctx.guard_terminal_sequence(|| {
 				alt((
-					ctx.allowed_inline_rules(),
+					ctx.allowed_inline_syntax(),
 					// resolved into modifiers once the whole message is parsed; see `crate::range`
-					delim::delim(ctx.allowed_rules).map(Element::Delim),
-					preceded((line_ending, ctx.line_prefix()), ctx.allowed_block_rules()),
+					delim::delim(ctx.syntaxes).map(Element::Delim),
+					preceded((line_ending, ctx.line_prefix()), ctx.allowed_block_syntax()),
 					text::text(ctx.clone()).map(|content| Element::Text(Cow::Owned(content))),
 					// If we failed to capture the current character after stepping through all rules
 					// then we are likely dealing with an unpaired control character, so consume it
@@ -503,7 +481,7 @@ mod test {
 		bold, code, code_block, emoji, italic, link, spanned_vec, spoiler, strikethrough,
 		test_utils::{handle_nom_err, resolved_inlines},
 		text, underline,
-		{context::Context, node::Element, rule::Rule},
+		{context::Context, node::Element},
 	};
 
 	/// Wraps untracked nodes, which need no spans, so they can be flattened.
@@ -787,6 +765,14 @@ mod test {
 		assert_eq!(resolved_inlines(res), spanned_vec![italic!("(foo)")]);
 	}
 
+	/// Whether `block`, or any block or inline node at any depth inside it, is a bold.
+	fn has_bold(block: &crate::node::Block<'_, ()>) -> bool {
+		block
+			.inlines()
+			.any(|inline| inline.iter().any(|node| matches!(node, Inline::Bold(_))))
+			|| block.blocks().any(has_bold)
+	}
+
 	/// A bold nested in an asterisk italic survives in every container, because they all descend
 	/// through the same terminal guard.
 	#[test]
@@ -800,7 +786,7 @@ mod test {
 				.map_err(handle_nom_err(s))
 				.expect("unable to parse");
 			assert!(
-				res.iter().any(|block| block.rules().contains(Rule::Bold)),
+				res.iter().any(|block| has_bold(block)),
 				"expected a nested bold for {s:?}, got {res:?}"
 			);
 		}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.5.1.1
+Version: 0.5.2
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -146,6 +146,7 @@ Requires-Dist: socksio>=1.0.0; extra == "bot"
 Requires-Dist: python-socketio>=5.16.2; extra == "bot"
 Requires-Dist: python-engineio>=4.13.2; extra == "bot"
 Requires-Dist: msgpack>=1.0.8; extra == "bot"
+Requires-Dist: numpy>=1.26.0; extra == "bot"
 Requires-Dist: python-socks[asyncio]>=2.4.0; extra == "bot"
 Requires-Dist: prompt-toolkit>=3.0.0; extra == "bot"
 Requires-Dist: pygments>=2.16.0; extra == "bot"
@@ -583,6 +584,7 @@ The server supports [accounts and user isolation](https://docs.openviking.ai/en/
 - [NoKV](https://github.com/NoKV-Lab/NoKV) - AI native distributed file system
 - [loopx](https://github.com/huangruiteng/loopx) - Lightweight loop engineering state kernel
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) - The agent that grows with you
+- [NVIDIA cuVS](https://github.com/NVIDIA/cuvs) - GPU-accelerated vector search and clustering library
 
 To propose a partnership, [open an issue](https://github.com/volcengine/OpenViking/issues).
 

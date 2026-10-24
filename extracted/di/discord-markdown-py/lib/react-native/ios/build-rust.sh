@@ -3,9 +3,10 @@ set -euo pipefail
 
 # Cross-compiles the Rust parser (ffi/c) and assembles it into
 # ios/DiscordMarkdownC.xcframework, which the podspec vendors so CocoaPods links it into the
-# consuming app. Runs from the example app's Podfile when building inside the
-# discord/markdown repo; npm consumers receive the xcframework prebuilt, and this script only
-# checks that it exists.
+# consuming app. The xcframework carries the C header and a module map too, so Swift can
+# `import DiscordMarkdownC` (see ios/DiscordMarkdownParser.swift). Runs from the example app's
+# Podfile when building inside the discord/markdown repo; npm consumers receive the xcframework
+# prebuilt, and this script only checks that it exists.
 #
 # Set PLATFORM_NAME=iphoneos or =iphonesimulator to build a single platform (e.g. in CI);
 # by default both are built, which requires all three Rust iOS targets:
@@ -62,6 +63,19 @@ build() {
 	fi
 }
 
+# Nested in a directory named after the module, where clang looks for it by name, so the module
+# map cannot collide with another library's when headers land in a shared include directory.
+HEADERS_DIR="$PREBUILT_DIR/include"
+rm -rf "$HEADERS_DIR"
+mkdir -p "$HEADERS_DIR/DiscordMarkdownC"
+cp "$SCRIPT_DIR/../cpp/discord_markdown_c.h" "$HEADERS_DIR/DiscordMarkdownC/"
+cat >"$HEADERS_DIR/DiscordMarkdownC/module.modulemap" <<'MODULEMAP'
+module DiscordMarkdownC {
+	header "discord_markdown_c.h"
+	export *
+}
+MODULEMAP
+
 XCFRAMEWORK_ARGS=()
 for platform in "${PLATFORMS[@]}"; do
 	case "$platform" in
@@ -72,7 +86,7 @@ for platform in "${PLATFORMS[@]}"; do
 		build iphonesimulator aarch64-apple-ios-sim x86_64-apple-ios
 		;;
 	esac
-	XCFRAMEWORK_ARGS+=(-library "$PREBUILT_DIR/$platform/$LIB")
+	XCFRAMEWORK_ARGS+=(-library "$PREBUILT_DIR/$platform/$LIB" -headers "$HEADERS_DIR")
 done
 
 rm -rf "$XCFRAMEWORK"

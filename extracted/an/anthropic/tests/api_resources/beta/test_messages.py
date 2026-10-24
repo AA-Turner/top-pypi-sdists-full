@@ -29,6 +29,7 @@ class TestMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessage, message, path=["response"])
 
@@ -140,6 +141,7 @@ class TestMessages:
                 "block_binding": {"prefix_mismatch_behavior": "error"},
                 "display": "summarized",
             },
+            thread={"type": "create"},
             tool_choice={
                 "type": "auto",
                 "disable_parallel_tool_use": True,
@@ -171,6 +173,7 @@ class TestMessages:
             betas=["message-batches-2024-09-24"],
             user_profile_id="anthropic-user-profile-id",
             workspace_id="wrkspc_011CZkZaBF1tNoB5wlCeusgy",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessage, message, path=["response"])
 
@@ -185,6 +188,7 @@ class TestMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
 
         assert response.is_closed is True
@@ -203,6 +207,7 @@ class TestMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -224,6 +229,7 @@ class TestMessages:
             ],
             model="claude-opus-5-5",
             stream=True,
+            extra_query={"beta": "true"},
         )
         message_stream.response.close()
 
@@ -335,6 +341,7 @@ class TestMessages:
                 "block_binding": {"prefix_mismatch_behavior": "error"},
                 "display": "summarized",
             },
+            thread={"type": "create"},
             tool_choice={
                 "type": "auto",
                 "disable_parallel_tool_use": True,
@@ -366,6 +373,7 @@ class TestMessages:
             betas=["message-batches-2024-09-24"],
             user_profile_id="anthropic-user-profile-id",
             workspace_id="wrkspc_011CZkZaBF1tNoB5wlCeusgy",
+            extra_query={"beta": "true"},
         )
         message_stream.response.close()
 
@@ -381,6 +389,7 @@ class TestMessages:
             ],
             model="claude-opus-5-5",
             stream=True,
+            extra_query={"beta": "true"},
         )
 
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -399,6 +408,7 @@ class TestMessages:
             ],
             model="claude-opus-5-5",
             stream=True,
+            extra_query={"beta": "true"},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -418,6 +428,7 @@ class TestMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessageTokensCount, message, path=["response"])
 
@@ -540,6 +551,7 @@ class TestMessages:
             ],
             betas=["string"],
             workspace_id="wrkspc_011CZkZaBF1tNoB5wlCeusgy",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessageTokensCount, message, path=["response"])
 
@@ -553,6 +565,7 @@ class TestMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
 
         assert response.is_closed is True
@@ -570,6 +583,7 @@ class TestMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -596,6 +610,7 @@ class TestAsyncMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessage, message, path=["response"])
 
@@ -707,6 +722,7 @@ class TestAsyncMessages:
                 "block_binding": {"prefix_mismatch_behavior": "error"},
                 "display": "summarized",
             },
+            thread={"type": "create"},
             tool_choice={
                 "type": "auto",
                 "disable_parallel_tool_use": True,
@@ -738,6 +754,7 @@ class TestAsyncMessages:
             betas=["message-batches-2024-09-24"],
             user_profile_id="anthropic-user-profile-id",
             workspace_id="wrkspc_011CZkZaBF1tNoB5wlCeusgy",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessage, message, path=["response"])
 
@@ -752,6 +769,7 @@ class TestAsyncMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
 
         assert response.is_closed is True
@@ -770,6 +788,7 @@ class TestAsyncMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -791,6 +810,7 @@ class TestAsyncMessages:
             ],
             model="claude-opus-5-5",
             stream=True,
+            extra_query={"beta": "true"},
         )
         await message_stream.response.aclose()
 
@@ -902,6 +922,7 @@ class TestAsyncMessages:
                 "block_binding": {"prefix_mismatch_behavior": "error"},
                 "display": "summarized",
             },
+            thread={"type": "create"},
             tool_choice={
                 "type": "auto",
                 "disable_parallel_tool_use": True,
@@ -933,6 +954,7 @@ class TestAsyncMessages:
             betas=["message-batches-2024-09-24"],
             user_profile_id="anthropic-user-profile-id",
             workspace_id="wrkspc_011CZkZaBF1tNoB5wlCeusgy",
+            extra_query={"beta": "true"},
         )
         await message_stream.response.aclose()
 
@@ -948,6 +970,7 @@ class TestAsyncMessages:
             ],
             model="claude-opus-5-5",
             stream=True,
+            extra_query={"beta": "true"},
         )
 
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -966,6 +989,7 @@ class TestAsyncMessages:
             ],
             model="claude-opus-5-5",
             stream=True,
+            extra_query={"beta": "true"},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -985,6 +1009,7 @@ class TestAsyncMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessageTokensCount, message, path=["response"])
 
@@ -1108,6 +1133,7 @@ class TestAsyncMessages:
             betas=["string"],
             user_profile_id="anthropic-user-profile-id",
             workspace_id="wrkspc_011CZkZaBF1tNoB5wlCeusgy",
+            extra_query={"beta": "true"},
         )
         assert_matches_type(BetaMessageTokensCount, message, path=["response"])
 
@@ -1121,6 +1147,7 @@ class TestAsyncMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         )
 
         assert response.is_closed is True
@@ -1138,6 +1165,7 @@ class TestAsyncMessages:
                 }
             ],
             model="claude-opus-5-5",
+            extra_query={"beta": "true"},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

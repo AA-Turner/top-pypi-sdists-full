@@ -204,7 +204,7 @@ struct Geometry {
     bool has_symmetry = false;  // Symmetry(cell_wires, cell_segments) or None
     long long cell_wires = 0, cell_segments = 0;
 };
-// `build_geometry(cards)` over a deck's geometry cards (GW GM GS GX GR GE, in
+// `build_geometry(cards)` over a deck's geometry cards (GW GA GH GM GS GX GR GE, in
 // order); throws as Python raises, or Declined.
 Geometry geometry_of(const std::vector<nec5::Card> &geometry_cards);
 
@@ -222,6 +222,10 @@ std::string dump_model(const Model &model, const std::string &path);
 // 3.12), for the tests that pin them against Python.
 std::string py_repr(double x);
 double py_dist(const double a[3], const double b[3]);
+
+// `sum(math.dist(a, b) for a, b in zip(v, v[1:]))` over a GH card's
+// `helix_vertices`: the wire table's TOTAL LENGTH OF WIRE IN THE SPIRAL.
+double helix_wire_length(const nec5::Card &card);
 
 }  // namespace nec4
 }  // namespace mw

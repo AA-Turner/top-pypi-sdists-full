@@ -49,7 +49,7 @@ class AlertsApi:
     @validate_call
     def create_alert(
         self,
-        create_alert_request: CreateAlertRequest,
+        create_alert_request: Annotated[CreateAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class AlertsApi:
 
         Create a new alert that monitors document ingestion and sends notifications.      Alerts attach retrievers to collections. When new documents are ingested,     the alert runs the retriever and sends notifications if matches are found.      **Key Components:**     - `retriever_id`: References a retriever that defines query logic (filters, scoring, limits)     - `notification_config`: Defines where to send notifications (webhook, Slack, email)      **Note:** The retriever owns all query semantics. The alert's job is simply     to run the retriever and notify if results exist.
 
-        :param create_alert_request: (required)
+        :param create_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_alert_request: CreateAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -105,8 +105,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -122,7 +124,7 @@ class AlertsApi:
     @validate_call
     def create_alert_with_http_info(
         self,
-        create_alert_request: CreateAlertRequest,
+        create_alert_request: Annotated[CreateAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -140,7 +142,7 @@ class AlertsApi:
 
         Create a new alert that monitors document ingestion and sends notifications.      Alerts attach retrievers to collections. When new documents are ingested,     the alert runs the retriever and sends notifications if matches are found.      **Key Components:**     - `retriever_id`: References a retriever that defines query logic (filters, scoring, limits)     - `notification_config`: Defines where to send notifications (webhook, Slack, email)      **Note:** The retriever owns all query semantics. The alert's job is simply     to run the retriever and notify if results exist.
 
-        :param create_alert_request: (required)
+        :param create_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_alert_request: CreateAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -178,8 +180,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -195,7 +199,7 @@ class AlertsApi:
     @validate_call
     def create_alert_without_preload_content(
         self,
-        create_alert_request: CreateAlertRequest,
+        create_alert_request: Annotated[CreateAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -213,7 +217,7 @@ class AlertsApi:
 
         Create a new alert that monitors document ingestion and sends notifications.      Alerts attach retrievers to collections. When new documents are ingested,     the alert runs the retriever and sends notifications if matches are found.      **Key Components:**     - `retriever_id`: References a retriever that defines query logic (filters, scoring, limits)     - `notification_config`: Defines where to send notifications (webhook, Slack, email)      **Note:** The retriever owns all query semantics. The alert's job is simply     to run the retriever and notify if results exist.
 
-        :param create_alert_request: (required)
+        :param create_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_alert_request: CreateAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -251,8 +255,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -342,7 +348,7 @@ class AlertsApi:
     @validate_call
     def create_org_alert_organizations(
         self,
-        create_alert_request: CreateAlertRequest,
+        create_alert_request: Annotated[CreateAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -360,7 +366,7 @@ class AlertsApi:
 
         Create an organization-level alert that applies across namespaces via its `namespace_selector` (all or a selected set). Use this for system alerts (collection/batch/retriever health) that should cover the whole org rather than a single namespace.
 
-        :param create_alert_request: (required)
+        :param create_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_alert_request: CreateAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -398,8 +404,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -415,7 +423,7 @@ class AlertsApi:
     @validate_call
     def create_org_alert_organizations_with_http_info(
         self,
-        create_alert_request: CreateAlertRequest,
+        create_alert_request: Annotated[CreateAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -433,7 +441,7 @@ class AlertsApi:
 
         Create an organization-level alert that applies across namespaces via its `namespace_selector` (all or a selected set). Use this for system alerts (collection/batch/retriever health) that should cover the whole org rather than a single namespace.
 
-        :param create_alert_request: (required)
+        :param create_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_alert_request: CreateAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -471,8 +479,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -488,7 +498,7 @@ class AlertsApi:
     @validate_call
     def create_org_alert_organizations_without_preload_content(
         self,
-        create_alert_request: CreateAlertRequest,
+        create_alert_request: Annotated[CreateAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -506,7 +516,7 @@ class AlertsApi:
 
         Create an organization-level alert that applies across namespaces via its `namespace_selector` (all or a selected set). Use this for system alerts (collection/batch/retriever health) that should cover the whole org rather than a single namespace.
 
-        :param create_alert_request: (required)
+        :param create_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type create_alert_request: CreateAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -544,8 +554,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -690,8 +702,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -763,8 +777,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -836,8 +852,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -970,8 +988,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1043,8 +1063,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1116,8 +1138,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1249,8 +1273,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1322,8 +1348,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1395,8 +1423,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1529,8 +1559,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1602,8 +1634,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1675,8 +1709,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1809,8 +1845,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1882,8 +1920,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1955,8 +1995,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2089,8 +2131,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2162,8 +2206,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2235,8 +2281,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2400,8 +2448,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2505,8 +2555,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2610,8 +2662,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2736,7 +2790,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2770,7 +2824,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2816,8 +2870,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2841,7 +2897,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2875,7 +2931,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2921,8 +2977,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2946,7 +3004,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2980,7 +3038,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3026,8 +3084,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3165,7 +3225,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3199,7 +3259,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3245,8 +3305,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3270,7 +3332,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3304,7 +3366,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3350,8 +3412,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3375,7 +3439,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3409,7 +3473,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3455,8 +3519,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3670,8 +3736,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3771,8 +3839,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3872,8 +3942,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3995,7 +4067,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4029,7 +4101,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4075,8 +4147,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4100,7 +4174,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4134,7 +4208,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4180,8 +4254,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4205,7 +4281,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4239,7 +4315,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4285,8 +4361,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4423,7 +4501,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4457,7 +4535,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4503,8 +4581,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4528,7 +4608,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4562,7 +4642,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4608,8 +4688,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4633,7 +4715,7 @@ class AlertsApi:
         next_cursor: Optional[StrictStr] = None,
         after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
-        list_alerts_request: Optional[ListAlertsRequest] = None,
+        list_alerts_request: Annotated[Optional[ListAlertsRequest], Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4667,7 +4749,7 @@ class AlertsApi:
         :type after: str
         :param include_total:
         :type include_total: bool
-        :param list_alerts_request:
+        :param list_alerts_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.
         :type list_alerts_request: ListAlertsRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4713,8 +4795,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4844,7 +4928,7 @@ class AlertsApi:
     def patch_alert(
         self,
         alert_identifier: Annotated[StrictStr, Field(description="Alert ID (alt_...) or name")],
-        patch_alert_request: PatchAlertRequest,
+        patch_alert_request: Annotated[PatchAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4864,7 +4948,7 @@ class AlertsApi:
 
         :param alert_identifier: Alert ID (alt_...) or name (required)
         :type alert_identifier: str
-        :param patch_alert_request: (required)
+        :param patch_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_alert_request: PatchAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4903,8 +4987,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4921,7 +5007,7 @@ class AlertsApi:
     def patch_alert_with_http_info(
         self,
         alert_identifier: Annotated[StrictStr, Field(description="Alert ID (alt_...) or name")],
-        patch_alert_request: PatchAlertRequest,
+        patch_alert_request: Annotated[PatchAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4941,7 +5027,7 @@ class AlertsApi:
 
         :param alert_identifier: Alert ID (alt_...) or name (required)
         :type alert_identifier: str
-        :param patch_alert_request: (required)
+        :param patch_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_alert_request: PatchAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4980,8 +5066,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4998,7 +5086,7 @@ class AlertsApi:
     def patch_alert_without_preload_content(
         self,
         alert_identifier: Annotated[StrictStr, Field(description="Alert ID (alt_...) or name")],
-        patch_alert_request: PatchAlertRequest,
+        patch_alert_request: Annotated[PatchAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5018,7 +5106,7 @@ class AlertsApi:
 
         :param alert_identifier: Alert ID (alt_...) or name (required)
         :type alert_identifier: str
-        :param patch_alert_request: (required)
+        :param patch_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_alert_request: PatchAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5057,8 +5145,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5152,7 +5242,7 @@ class AlertsApi:
     def patch_org_alert_organizations(
         self,
         alert_identifier: Annotated[StrictStr, Field(description="Alert ID (alt_...) or name")],
-        patch_alert_request: PatchAlertRequest,
+        patch_alert_request: Annotated[PatchAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5172,7 +5262,7 @@ class AlertsApi:
 
         :param alert_identifier: Alert ID (alt_...) or name (required)
         :type alert_identifier: str
-        :param patch_alert_request: (required)
+        :param patch_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_alert_request: PatchAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5211,8 +5301,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5229,7 +5321,7 @@ class AlertsApi:
     def patch_org_alert_organizations_with_http_info(
         self,
         alert_identifier: Annotated[StrictStr, Field(description="Alert ID (alt_...) or name")],
-        patch_alert_request: PatchAlertRequest,
+        patch_alert_request: Annotated[PatchAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5249,7 +5341,7 @@ class AlertsApi:
 
         :param alert_identifier: Alert ID (alt_...) or name (required)
         :type alert_identifier: str
-        :param patch_alert_request: (required)
+        :param patch_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_alert_request: PatchAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5288,8 +5380,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5306,7 +5400,7 @@ class AlertsApi:
     def patch_org_alert_organizations_without_preload_content(
         self,
         alert_identifier: Annotated[StrictStr, Field(description="Alert ID (alt_...) or name")],
-        patch_alert_request: PatchAlertRequest,
+        patch_alert_request: Annotated[PatchAlertRequest, Field(description="Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys.")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5326,7 +5420,7 @@ class AlertsApi:
 
         :param alert_identifier: Alert ID (alt_...) or name (required)
         :type alert_identifier: str
-        :param patch_alert_request: (required)
+        :param patch_alert_request: Keys this body does not declare are ignored, and the response's warnings name them, until 2026-11-02; from 2026-11-02 they are refused with 422 extra_forbidden naming the accepted keys. (required)
         :type patch_alert_request: PatchAlertRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -5365,8 +5459,10 @@ class AlertsApi:
             '401': "ErrorResponse",
             '403': "ErrorResponse",
             '404': "ErrorResponse",
+            '422': "ErrorResponse",
+            '429': "ErrorResponse",
             '500': "ErrorResponse",
-            '422': "HTTPValidationError",
+            '503': "ErrorResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

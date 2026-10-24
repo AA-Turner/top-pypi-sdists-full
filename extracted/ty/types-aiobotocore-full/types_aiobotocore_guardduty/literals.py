@@ -190,7 +190,7 @@ DataSourceType = Literal[
 DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
 DetectionRuleConfigurationStatusType = Literal["ACTIVE", "FAILED", "PROCESSING"]
-DetectionRuleDataSourceType = Literal["CloudTrailManagementEvent"]
+DetectionRuleDataSourceType = Literal["CloudTrailManagementEvent", "RuntimeMonitoring"]
 DetectionRuleFilterConditionType = Literal["CONTAINS", "EQUALS"]
 DetectionRuleSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
@@ -224,7 +224,7 @@ EbsSnapshotPreservationType = Literal["NO_RETENTION", "RETENTION_WITH_FINDING"]
 EcsClusterStatusType = Literal["ACTIVE", "DEPROVISIONING", "FAILED", "INACTIVE", "PROVISIONING"]
 EcsLaunchTypeType = Literal["EC2", "FARGATE"]
 FeatureAdditionalConfigurationType = Literal[
-    "EC2_AGENT_MANAGEMENT", "ECS_FARGATE_AGENT_MANAGEMENT", "EKS_ADDON_MANAGEMENT"
+    "EC2_AGENT_MANAGEMENT", "ECS_FARGATE_AGENT_MANAGEMENT", "EKS_ADDON_MANAGEMENT", "RDS_DATA_RISK"
 ]
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 FeedbackType = Literal["NOT_USEFUL", "USEFUL"]
@@ -372,7 +372,7 @@ MfaStatusType = Literal["DISABLED", "ENABLED"]
 NetworkDirectionType = Literal["INBOUND", "OUTBOUND"]
 OrderByType = Literal["ASC", "DESC"]
 OrgFeatureAdditionalConfigurationType = Literal[
-    "EC2_AGENT_MANAGEMENT", "ECS_FARGATE_AGENT_MANAGEMENT", "EKS_ADDON_MANAGEMENT"
+    "EC2_AGENT_MANAGEMENT", "ECS_FARGATE_AGENT_MANAGEMENT", "EKS_ADDON_MANAGEMENT", "RDS_DATA_RISK"
 ]
 OrgFeatureStatusType = Literal["ALL", "NEW", "NONE"]
 OrgFeatureType = Literal[
@@ -461,6 +461,10 @@ UsageFeatureType = Literal[
     "FARGATE_RUNTIME_MONITORING",
     "FLOW_LOGS",
     "LAMBDA_NETWORK_LOGS",
+    "RDS_DATA_ACTIVITY_DBI_PROTECTION_LIMITLESS",
+    "RDS_DATA_ACTIVITY_DBI_PROTECTION_PROVISIONED",
+    "RDS_DATA_ACTIVITY_DBI_PROTECTION_SERVERLESS",
+    "RDS_DBI_PROTECTION_LIMITLESS",
     "RDS_DBI_PROTECTION_PROVISIONED",
     "RDS_DBI_PROTECTION_SERVERLESS",
     "RDS_LOGIN_EVENTS",
@@ -628,13 +632,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -702,6 +705,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -836,6 +840,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -886,7 +891,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

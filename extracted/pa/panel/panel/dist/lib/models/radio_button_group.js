@@ -2,7 +2,6 @@ import { Tooltip } from "@bokehjs/models/ui/tooltip";
 import { build_view } from "@bokehjs/core/build_views";
 import { RadioButtonGroup as bkRadioButtonGroup, RadioButtonGroupView as bkRadioButtonGroupView, } from "@bokehjs/models/widgets/radio_button_group";
 export class RadioButtonGroupView extends bkRadioButtonGroupView {
-    static __name__ = "RadioButtonGroupView";
     tooltip;
     *children() {
         yield* super.children();
@@ -53,7 +52,6 @@ export class RadioButtonGroupView extends bkRadioButtonGroupView {
     }
 }
 export class RadioButtonGroup extends bkRadioButtonGroup {
-    static __name__ = "RadioButtonGroup";
     static __module__ = "panel.models.widgets";
     constructor(attrs) {
         super(attrs);

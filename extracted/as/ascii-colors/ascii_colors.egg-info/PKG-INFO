@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ascii_colors
-Version: 0.12.3
+Version: 0.13.0
 Summary: A Python library for rich terminal output with advanced logging features.
 Author-email: ParisNeo <parisneo_ai@gmail.com>
 License-Expression: Apache-2.0
@@ -19,6 +19,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: System :: Logging
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
